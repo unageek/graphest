@@ -9,21 +9,29 @@ inari-graph can plot the graph of a relation like above in a reliable manner. Th
 
 ## Usage
 
-```bash
-git clone https://github.com/mizuno-gsinet/inari-graph.git
-cd inari-graph
-cargo build --release
-```
+1. Install Rust
 
-```bash
-./target/release/inari-graph graph.png "y == sin(x)"
-```
+   https://www.rust-lang.org/tools/install
 
-Use `-b <xmin> <xmax> <ymin> <ymax>` option to change the bounds. The default is `-10 10 -10 10`.
+1. Build
 
-Use `-s <width> <height>` option to change the size of the output image. The default is `1024 1024`.
+   ```bash
+   git clone https://github.com/mizuno-gsinet/inari-graph.git
+   cd inari-graph
+   cargo build --release
+   ```
 
-Try some [example relations](Examples.md) or your own one.
+1. Run
+
+   ```bash
+   ./target/release/inari-graph graph.png "y == sin(x)"
+   ```
+   
+   Use `-b <xmin> <xmax> <ymin> <ymax>` option to change the bounds. The default is `-10 10 -10 10`.
+   
+   Use `-s <width> <height>` option to change the size of the output image. The default is `1024 1024`.
+   
+   Try some [example relations](Examples.md) or your own one.
 
 ## Color Legend
 
