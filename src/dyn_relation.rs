@@ -15,7 +15,11 @@ impl DynRelation {
         self.ts[0] = x;
         self.ts[1] = y;
         for i in 0..self.exprs.len() {
-            self.ts[i + 2] = self.exprs[i].evaluate(&self.ts);
+            if let StaticExprKind::Constant(_) = &self.exprs[i].kind {
+                // noop
+            } else {
+                self.ts[i + 2] = self.exprs[i].evaluate(&self.ts);
+            }
         }
         for i in 0..self.rels.len() {
             self.es[i] = self.rels[i].evaluate(&self.ts, &self.es);
@@ -25,6 +29,14 @@ impl DynRelation {
 
     pub fn proposition(&self) -> &Proposition {
         &self.prop
+    }
+
+    fn initialize(&mut self) {
+        for i in 0..self.exprs.len() {
+            if let StaticExprKind::Constant(_) = &self.exprs[i].kind {
+                self.ts[i + 2] = self.exprs[i].evaluate(&self.ts);
+            }
+        }
     }
 }
 
@@ -44,12 +56,14 @@ impl FromStr for DynRelation {
         let (exprs, rels) = v.exprs_rels();
         let n_ts = exprs.len() + 2;
         let n_es = rels.len();
-        Ok(Self {
+        let mut slf = Self {
             prop: rel.get_proposition(),
             exprs,
             rels,
             ts: vec![TupperIntervalSet::empty(); n_ts],
             es: vec![EvalResult::default(); n_es],
-        })
+        };
+        slf.initialize();
+        Ok(slf)
     }
 }
