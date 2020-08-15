@@ -37,9 +37,11 @@ Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4
 
 ## Color Legend
 
-- ![Black](images/black.png) There is at least one point that satisfies the relation in the pixel.
-- ![Blue](images/blue.png) Uncertain.
-- ![White](images/white.png) There is no points that satisfy the relation in the pixel.
+- ![Black](images/black.png) There is at least one solution in the pixel.
+- ![Blue](images/blue.png) The program has not decided the existence or absence of solutions.
+- ![White](images/white.png) There are no solutions in the pixel.
+
+"Solution" here means any point that satisfies the relation.
 
 ## Syntax
 
