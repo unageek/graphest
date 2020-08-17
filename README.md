@@ -61,16 +61,16 @@ Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4
 | `sin(x)`                                | sin *x*                                                      |                                                              |
 | `cos(x)`                                | cos *x*                                                      |                                                              |
 | `tan(x)`                                | tan *x*                                                      | Undefined for *x* = (*n* + 1/2)π for all integer *n*.        |
-| `asin(x)`                               | sin<sup>-1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [-π/2, π/2]. |
-| `acox(x)`                               | cos<sup>-1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [0, π]. |
-| `atan(x)`                               | tan<sup>-1</sup> *x*                                         | The range is (-π/2, π/2).                                    |
-| `atan2(y, x)`                           | tan<sup>-1</sup>(*y* / *x*)                                  | [The two-argument arctangent.](https://en.wikipedia.org/wiki/Atan2)<br />Undefined for (*x*, *y*) = (0, 0).<br />The range is (-π, π]. |
+| `asin(x)`                               | sin<sup>−1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [−π/2, π/2]. |
+| `acox(x)`                               | cos<sup>−1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [0, π]. |
+| `atan(x)`                               | tan<sup>−1</sup> *x*                                         | The range is (−π/2, π/2).                                    |
+| `atan2(y, x)`                           | tan<sup>−1</sup>(*y* / *x*)                                  | [The two-argument arctangent.](https://en.wikipedia.org/wiki/Atan2)<br />Undefined for (*x*, *y*) = (0, 0).<br />The range is (−π, π]. |
 | `sinh(x)`                               | sinh *x*                                                     |                                                              |
 | `cosh(x)`                               | cosh *x*                                                     |                                                              |
 | `tanh(x)`                               | tanh *x*                                                     |                                                              |
-| `asinh(x)`                              | sinh<sup>-1</sup> *x*                                        |                                                              |
-| `acosh(x)`                              | cosh<sup>-1</sup> *x*                                        | Undefined for *x* < 1.<br />The range is [0, ∞).             |
-| `atanh(x)`                              | tanh<sup>-1</sup> *x*                                        | Undefined for *x* ≤ −1 and *x* ≥ 1.                          |
+| `asinh(x)`                              | sinh<sup>−1</sup> *x*                                        |                                                              |
+| `acosh(x)`                              | cosh<sup>−1</sup> *x*                                        | Undefined for *x* < 1.<br />The range is [0, ∞).             |
+| `atanh(x)`                              | tanh<sup>−1</sup> *x*                                        | Undefined for *x* ≤ −1 and *x* ≥ 1.                          |
 | `abs(x)`                                | \|*x*\|                                                      |                                                              |
 | `min(x, y)`                             | min {*x*, *y*}                                               |                                                              |
 | `max(x, y)`                             | max {*x*, *y*}                                               |                                                              |
