@@ -226,7 +226,7 @@ fn and_rel(i: &str) -> ParseResult<Rel> {
     fold_many0(
         preceded(delimited(space0, tag("&&"), space0), primary_rel),
         x,
-        move |xs, y| Rel::new(RelKind::Binary(RelBinaryOp::And, Box::new(xs), Box::new(y))),
+        move |xs, y| Rel::new(RelKind::And(Box::new(xs), Box::new(y))),
     )(i)
 }
 
@@ -236,7 +236,7 @@ fn or_rel(i: &str) -> ParseResult<Rel> {
     fold_many0(
         preceded(delimited(space0, tag("||"), space0), and_rel),
         x,
-        move |xs, y| Rel::new(RelKind::Binary(RelBinaryOp::Or, Box::new(xs), Box::new(y))),
+        move |xs, y| Rel::new(RelKind::Or(Box::new(xs), Box::new(y))),
     )(i)
 }
 

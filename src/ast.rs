@@ -18,7 +18,8 @@ pub enum ExprKind {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum RelKind {
     Equality(EqualityOp, Box<Expr>, Box<Expr>),
-    Binary(RelBinaryOp, Box<Rel>, Box<Rel>),
+    And(Box<Rel>, Box<Rel>),
+    Or(Box<Rel>, Box<Rel>),
 }
 
 #[derive(Clone, Debug)]
@@ -135,13 +136,13 @@ impl Rel {
     }
 
     pub fn get_proposition(&self) -> Proposition {
-        use {RelBinaryOp::*, RelKind::*};
+        use RelKind::*;
         match &self.kind {
             Equality(_, _, _) => Proposition {
                 kind: PropositionKind::Atomic,
                 size: 1,
             },
-            Binary(And, x, y) => {
+            And(x, y) => {
                 let px = x.get_proposition();
                 let py = y.get_proposition();
                 let size = px.size + py.size;
@@ -150,7 +151,7 @@ impl Rel {
                     size,
                 }
             }
-            Binary(Or, x, y) => {
+            Or(x, y) => {
                 let px = x.get_proposition();
                 let py = y.get_proposition();
                 let size = px.size + py.size;

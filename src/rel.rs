@@ -117,16 +117,11 @@ pub enum EqualityOp {
     Lt,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum RelBinaryOp {
-    And,
-    Or,
-}
-
 #[derive(Clone, Debug)]
 pub enum StaticRelKind {
     Equality(EqualityOp, ExprId, ExprId),
-    Binary(RelBinaryOp, RelId, RelId),
+    And(RelId, RelId),
+    Or(RelId, RelId),
 }
 
 #[derive(Clone, Debug)]
@@ -143,7 +138,7 @@ impl StaticRel {
             Equality(Gt, x, y) => ts[*x as usize].gt(&ts[*y as usize]),
             Equality(Le, x, y) => ts[*x as usize].le(&ts[*y as usize]),
             Equality(Lt, x, y) => ts[*x as usize].lt(&ts[*y as usize]),
-            Binary(_, x, y) => {
+            And(x, y) | Or(x, y) => {
                 EvalResult([es[*x as usize].0.clone(), es[*y as usize].0.clone()].concat())
             }
         }

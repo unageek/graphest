@@ -37,7 +37,7 @@ fn traverse_rel<'a, V: Visit<'a>>(v: &mut V, rel: &'a Rel) {
             v.visit_expr(x);
             v.visit_expr(y);
         }
-        Binary(_, x, y) => {
+        And(x, y) | Or(x, y) => {
             v.visit_rel(x);
             v.visit_rel(y);
         }
@@ -77,7 +77,7 @@ fn traverse_rel_mut<V: VisitMut>(v: &mut V, rel: &mut Rel) {
             v.visit_expr_mut(x);
             v.visit_expr_mut(y);
         }
-        Binary(_, x, y) => {
+        And(x, y) | Or(x, y) => {
             v.visit_rel_mut(x);
             v.visit_rel_mut(y);
         }
@@ -334,7 +334,8 @@ impl<'a> Visit<'a> for CollectStatic {
             self.rels.push(StaticRel {
                 kind: match &rel.kind {
                     Equality(op, x, y) => StaticRelKind::Equality(*op, x.id.get(), y.id.get()),
-                    Binary(op, x, y) => StaticRelKind::Binary(*op, x.id.get(), y.id.get()),
+                    And(x, y) => StaticRelKind::And(x.id.get(), y.id.get()),
+                    Or(x, y) => StaticRelKind::Or(x.id.get(), y.id.get()),
                 },
             });
             self.next_rel_id += 1;
