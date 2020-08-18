@@ -134,32 +134,4 @@ impl Rel {
             kind,
         }
     }
-
-    pub fn get_proposition(&self) -> Proposition {
-        use RelKind::*;
-        match &self.kind {
-            Equality(_, _, _) => Proposition {
-                kind: PropositionKind::Atomic,
-                size: 1,
-            },
-            And(x, y) => {
-                let px = x.get_proposition();
-                let py = y.get_proposition();
-                let size = px.size + py.size;
-                Proposition {
-                    kind: PropositionKind::And(box (px, py)),
-                    size,
-                }
-            }
-            Or(x, y) => {
-                let px = x.get_proposition();
-                let py = y.get_proposition();
-                let size = px.size + py.size;
-                Proposition {
-                    kind: PropositionKind::Or(box (px, py)),
-                    size,
-                }
-            }
-        }
-    }
 }

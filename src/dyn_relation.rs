@@ -3,7 +3,6 @@ use std::str::FromStr;
 
 #[derive(Clone, Debug)]
 pub struct DynRelation {
-    prop: Proposition,
     exprs: Vec<StaticExpr>,
     rels: Vec<StaticRel>,
     ts: Vec<TupperIntervalSet>,
@@ -27,8 +26,8 @@ impl DynRelation {
         self.es.last().unwrap().clone()
     }
 
-    pub fn proposition(&self) -> &Proposition {
-        &self.prop
+    pub fn rels(&self) -> &Vec<StaticRel> {
+        &self.rels
     }
 
     fn initialize(&mut self) {
@@ -47,17 +46,16 @@ impl FromStr for DynRelation {
         let mut rel = parse(s)?;
         Transform.visit_rel_mut(&mut rel);
         FoldConstant.visit_rel_mut(&mut rel);
-        let mut v = AssignId::new();
+        let mut v = AssignIdStage1::new();
         v.visit_rel(&rel);
-        let mut v = AssignSite::new(v.site_map());
+        let mut v = AssignIdStage2::new(v);
         v.visit_rel(&rel);
-        let mut v = CollectStatic::new();
+        let mut v = CollectStatic::new(v);
         v.visit_rel(&rel);
         let (exprs, rels) = v.exprs_rels();
         let n_ts = exprs.len() + 2;
         let n_es = rels.len();
         let mut slf = Self {
-            prop: rel.get_proposition(),
             exprs,
             rels,
             ts: vec![TupperIntervalSet::empty(); n_ts],

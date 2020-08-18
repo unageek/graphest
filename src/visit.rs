@@ -168,7 +168,10 @@ impl VisitMut for FoldConstant {
     }
 }
 
-pub struct AssignId<'a> {
+// Does the following tasks:
+// - Assign ids to exprs.
+// - Assign ids to rel leaves so that they match with the indices in `EvalResult`.
+pub struct AssignIdStage1<'a> {
     next_expr_id: ExprId,
     next_site: u8,
     site_map: SiteMap,
@@ -177,9 +180,9 @@ pub struct AssignId<'a> {
     visited_rels: HashSet<&'a Rel>,
 }
 
-impl<'a> AssignId<'a> {
+impl<'a> AssignIdStage1<'a> {
     pub fn new() -> Self {
-        AssignId {
+        AssignIdStage1 {
             next_expr_id: 2, // 0 for x, 1 for y
             next_site: 0,
             site_map: HashMap::new(),
@@ -187,10 +190,6 @@ impl<'a> AssignId<'a> {
             next_rel_id: 0,
             visited_rels: HashSet::new(),
         }
-    }
-
-    pub fn site_map(self) -> SiteMap {
-        self.site_map
     }
 
     fn expr_can_perform_cut(kind: &ExprKind) -> bool {
@@ -208,7 +207,7 @@ impl<'a> AssignId<'a> {
     }
 }
 
-impl<'a> Visit<'a> for AssignId<'a> {
+impl<'a> Visit<'a> for AssignIdStage1<'a> {
     fn visit_expr(&mut self, expr: &'a Expr) {
         traverse_expr(self, expr);
 
@@ -248,6 +247,55 @@ impl<'a> Visit<'a> for AssignId<'a> {
     fn visit_rel(&mut self, rel: &'a Rel) {
         traverse_rel(self, rel);
 
+        if let RelKind::Equality(_, _, _) = rel.kind {
+            match self.visited_rels.get(rel) {
+                Some(visited) => {
+                    let id = visited.id.get();
+                    rel.id.set(id);
+                }
+                _ => {
+                    rel.id.set(self.next_rel_id);
+                    self.next_rel_id += 1;
+                    self.visited_rels.insert(rel);
+                }
+            }
+        }
+    }
+}
+
+// Does the following tasks:
+// - Assign sites to rels.
+// - Assign ids to rel nodes.
+pub struct AssignIdStage2<'a> {
+    next_expr_id: ExprId,
+    site_map: SiteMap,
+    next_rel_id: RelId,
+    visited_rels: HashSet<&'a Rel>,
+}
+
+impl<'a> AssignIdStage2<'a> {
+    pub fn new(stage1: AssignIdStage1<'a>) -> Self {
+        AssignIdStage2 {
+            next_expr_id: stage1.next_expr_id,
+            site_map: stage1.site_map,
+            next_rel_id: stage1.next_rel_id,
+            visited_rels: stage1.visited_rels,
+        }
+    }
+}
+
+impl<'a> Visit<'a> for AssignIdStage2<'a> {
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        traverse_expr(self, expr);
+
+        if let Some(site) = self.site_map.get(&expr.id.get()) {
+            expr.site.set(*site);
+        }
+    }
+
+    fn visit_rel(&mut self, rel: &'a Rel) {
+        traverse_rel(self, rel);
+
         match self.visited_rels.get(rel) {
             Some(visited) => {
                 let id = visited.id.get();
@@ -262,47 +310,26 @@ impl<'a> Visit<'a> for AssignId<'a> {
     }
 }
 
-pub struct AssignSite {
-    site_map: SiteMap,
-}
-
-impl AssignSite {
-    pub fn new(site_map: SiteMap) -> Self {
-        Self { site_map }
-    }
-}
-
-impl<'a> Visit<'a> for AssignSite {
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        traverse_expr(self, expr);
-
-        if let Some(site) = self.site_map.get(&expr.id.get()) {
-            expr.site.set(*site);
-        }
-    }
-}
-
 // Collects `StaticExpr`s (except the ones for X and Y) and `StaticRel`s,
 // sorted topologically.
 pub struct CollectStatic {
-    exprs: Vec<StaticExpr>,
-    next_expr_id: ExprId,
-    rels: Vec<StaticRel>,
-    next_rel_id: RelId,
+    exprs: Vec<Option<StaticExpr>>,
+    rels: Vec<Option<StaticRel>>,
 }
 
 impl CollectStatic {
-    pub fn new() -> Self {
+    pub fn new(stage2: AssignIdStage2) -> Self {
         Self {
-            exprs: Vec::new(),
-            next_expr_id: 2, // 0 for x, 1 for y
-            rels: Vec::new(),
-            next_rel_id: 0,
+            exprs: vec![None; (stage2.next_expr_id - 2) as usize],
+            rels: vec![None; stage2.next_rel_id as usize],
         }
     }
 
     pub fn exprs_rels(self) -> (Vec<StaticExpr>, Vec<StaticRel>) {
-        (self.exprs, self.rels)
+        (
+            self.exprs.into_iter().collect::<Option<Vec<_>>>().unwrap(),
+            self.rels.into_iter().collect::<Option<Vec<_>>>().unwrap(),
+        )
     }
 }
 
@@ -311,8 +338,13 @@ impl<'a> Visit<'a> for CollectStatic {
         use ExprKind::*;
         traverse_expr(self, expr);
 
-        if expr.id.get() == self.next_expr_id {
-            self.exprs.push(StaticExpr {
+        if expr.id.get() < 2 {
+            return;
+        }
+
+        let i = (expr.id.get() - 2) as usize;
+        if self.exprs[i].is_none() {
+            self.exprs[i] = Some(StaticExpr {
                 site: expr.site.get(),
                 kind: match &expr.kind {
                     Constant(x) => StaticExprKind::Constant(x.clone()),
@@ -322,7 +354,6 @@ impl<'a> Visit<'a> for CollectStatic {
                     X | Y | Uninit => panic!(),
                 },
             });
-            self.next_expr_id += 1;
         }
     }
 
@@ -330,15 +361,15 @@ impl<'a> Visit<'a> for CollectStatic {
         use RelKind::*;
         traverse_rel(self, rel);
 
-        if rel.id.get() == self.next_rel_id {
-            self.rels.push(StaticRel {
+        let i = rel.id.get() as usize;
+        if self.rels[i].is_none() {
+            self.rels[i] = Some(StaticRel {
                 kind: match &rel.kind {
                     Equality(op, x, y) => StaticRelKind::Equality(*op, x.id.get(), y.id.get()),
                     And(x, y) => StaticRelKind::And(x.id.get(), y.id.get()),
                     Or(x, y) => StaticRelKind::Or(x.id.get(), y.id.get()),
                 },
             });
-            self.next_rel_id += 1;
         }
     }
 }

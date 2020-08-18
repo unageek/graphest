@@ -1,5 +1,6 @@
 #![allow(clippy::float_cmp)]
 
+use crate::rel::{StaticRel, StaticRelKind};
 use bitflags::*;
 use core::ops::{Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, Mul, Neg, Sub};
 use hexf::*;
@@ -631,19 +632,6 @@ impl TupperIntervalSet {
 }
 
 #[derive(Clone, Debug)]
-pub enum PropositionKind {
-    Atomic,
-    And(Box<(Proposition, Proposition)>),
-    Or(Box<(Proposition, Proposition)>),
-}
-
-#[derive(Clone, Debug)]
-pub struct Proposition {
-    pub kind: PropositionKind,
-    pub size: usize,
-}
-
-#[derive(Clone, Debug)]
 pub struct EvalResult(pub Vec<(SignSet, Decoration)>);
 
 #[derive(Clone, Debug)]
@@ -654,57 +642,67 @@ impl EvalResult {
         self.0.capacity() * std::mem::size_of::<(SignSet, Decoration)>()
     }
 
-    pub fn map<F>(&self, p: &Proposition, f: &F) -> EvalResultMask
+    pub fn map<F>(&self, rels: &[StaticRel], f: &F) -> EvalResultMask
     where
         F: Fn(SignSet, Decoration) -> bool,
     {
-        let mut m = EvalResultMask(vec![false; p.size]);
-        Self::map_impl(&self.0[..], p, f, &mut m.0[..]);
+        let mut m = EvalResultMask(vec![false; rels.len()]);
+        Self::map_impl(&self.0[..], rels, rels.len() - 1, f, &mut m.0[..]);
         m
     }
 
     #[allow(clippy::many_single_char_names)]
-    fn map_impl<F>(slf: &[(SignSet, Decoration)], p: &Proposition, f: &F, m: &mut [bool])
-    where
+    fn map_impl<F>(
+        slf: &[(SignSet, Decoration)],
+        rels: &[StaticRel],
+        i: usize,
+        f: &F,
+        m: &mut [bool],
+    ) where
         F: Fn(SignSet, Decoration) -> bool,
     {
-        use PropositionKind::*;
-        match &p.kind {
-            Atomic => {
-                m[0] = f(slf[0].0, slf[0].1);
+        use StaticRelKind::*;
+        match &rels[i].kind {
+            Equality(_, _, _) => {
+                m[i] = f(slf[i].0, slf[i].1);
             }
-            And(box (x, y)) => {
-                Self::map_impl(&slf[..x.size], &x, f, &mut m[..x.size]);
-                Self::map_impl(&slf[x.size..], &y, f, &mut m[x.size..]);
+            And(x, y) => {
+                Self::map_impl(&slf, rels, *x as usize, f, m);
+                Self::map_impl(&slf, rels, *y as usize, f, m);
             }
-            Or(box (x, y)) => {
-                Self::map_impl(&slf[..x.size], &x, f, &mut m[..x.size]);
-                Self::map_impl(&slf[x.size..], &y, f, &mut m[x.size..]);
+            Or(x, y) => {
+                Self::map_impl(&slf, rels, *x as usize, f, m);
+                Self::map_impl(&slf, rels, *y as usize, f, m);
             }
         }
     }
 
-    pub fn map_reduce<F>(&self, p: &Proposition, f: &F) -> bool
+    pub fn map_reduce<F>(&self, rels: &[StaticRel], f: &F) -> bool
     where
         F: Fn(SignSet, Decoration) -> bool,
     {
-        Self::map_reduce_impl(&self.0[..], p, f)
+        Self::map_reduce_impl(&self.0[..], rels, rels.len() - 1, f)
     }
 
-    fn map_reduce_impl<F>(slf: &[(SignSet, Decoration)], p: &Proposition, f: &F) -> bool
+    fn map_reduce_impl<F>(
+        slf: &[(SignSet, Decoration)],
+        rels: &[StaticRel],
+        i: usize,
+        f: &F,
+    ) -> bool
     where
         F: Fn(SignSet, Decoration) -> bool,
     {
-        use PropositionKind::*;
-        match &p.kind {
-            Atomic => f(slf[0].0, slf[0].1),
-            And(box (x, y)) => {
-                Self::map_reduce_impl(&slf[..x.size], &x, f)
-                    && Self::map_reduce_impl(&slf[x.size..], &y, f)
+        use StaticRelKind::*;
+        match &rels[i].kind {
+            Equality(_, _, _) => f(slf[i].0, slf[i].1),
+            And(x, y) => {
+                Self::map_reduce_impl(&slf, rels, *x as usize, f)
+                    && Self::map_reduce_impl(&slf, rels, *y as usize, f)
             }
-            Or(box (x, y)) => {
-                Self::map_reduce_impl(&slf[..x.size], &x, f)
-                    || Self::map_reduce_impl(&slf[x.size..], &y, f)
+            Or(x, y) => {
+                Self::map_reduce_impl(&slf, rels, *x as usize, f)
+                    || Self::map_reduce_impl(&slf, rels, *y as usize, f)
             }
         }
     }
@@ -717,63 +715,71 @@ impl Default for EvalResult {
 }
 
 impl EvalResultMask {
-    pub fn reduce(&self, p: &Proposition) -> bool {
-        Self::reduce_impl(&self.0[..], p)
+    pub fn reduce(&self, rels: &[StaticRel]) -> bool {
+        Self::reduce_impl(&self.0[..], rels, rels.len() - 1)
     }
 
-    fn reduce_impl(slf: &[bool], p: &Proposition) -> bool {
-        use PropositionKind::*;
-        match &p.kind {
-            Atomic => slf[0],
-            And(box (x, y)) => {
-                Self::reduce_impl(&slf[..x.size], &x) && Self::reduce_impl(&slf[x.size..], &y)
+    fn reduce_impl(slf: &[bool], rels: &[StaticRel], i: usize) -> bool {
+        use StaticRelKind::*;
+        match &rels[i].kind {
+            Equality(_, _, _) => slf[i],
+            And(x, y) => {
+                Self::reduce_impl(&slf, rels, *x as usize)
+                    && Self::reduce_impl(&slf, rels, *y as usize)
             }
-            Or(box (x, y)) => {
-                Self::reduce_impl(&slf[..x.size], &x) || Self::reduce_impl(&slf[x.size..], &y)
+            Or(x, y) => {
+                Self::reduce_impl(&slf, rels, *x as usize)
+                    || Self::reduce_impl(&slf, rels, *y as usize)
             }
         }
     }
 
-    pub fn solution_certainly_exists(&self, p: &Proposition, locally_zero_mask: &Self) -> bool {
-        Self::solution_certainly_exists_impl(&self.0[..], p, &locally_zero_mask.0[..])
+    pub fn solution_certainly_exists(&self, rels: &[StaticRel], locally_zero_mask: &Self) -> bool {
+        Self::solution_certainly_exists_impl(
+            &self.0[..],
+            rels,
+            rels.len() - 1,
+            &locally_zero_mask.0[..],
+        )
     }
 
     fn solution_certainly_exists_impl(
         slf: &[bool],
-        p: &Proposition,
+        rels: &[StaticRel],
+        i: usize,
         locally_zero_mask: &[bool],
     ) -> bool {
-        use PropositionKind::*;
-        match &p.kind {
-            Atomic => slf[0],
-            And(box (x, y)) => {
-                if Self::reduce_impl(&locally_zero_mask[..x.size], &x) {
+        use StaticRelKind::*;
+        match &rels[i].kind {
+            Equality(_, _, _) => slf[i],
+            And(x, y) => {
+                if Self::reduce_impl(&locally_zero_mask, rels, *x as usize) {
                     Self::solution_certainly_exists_impl(
-                        &slf[x.size..],
-                        &y,
-                        &locally_zero_mask[x.size..],
+                        &slf,
+                        rels,
+                        *y as usize,
+                        &locally_zero_mask,
                     )
-                } else if Self::reduce_impl(&locally_zero_mask[x.size..], &y) {
+                } else if Self::reduce_impl(&locally_zero_mask, rels, *y as usize) {
                     Self::solution_certainly_exists_impl(
-                        &slf[..x.size],
-                        &x,
-                        &locally_zero_mask[..x.size],
+                        &slf,
+                        rels,
+                        *x as usize,
+                        &locally_zero_mask,
                     )
                 } else {
                     // Cannot tell the existence of a solution by a normal conjunction.
                     false
                 }
             }
-            Or(box (x, y)) => {
-                Self::solution_certainly_exists_impl(
-                    &slf[..x.size],
-                    &x,
-                    &locally_zero_mask[..x.size],
-                ) || Self::solution_certainly_exists_impl(
-                    &slf[x.size..],
-                    &y,
-                    &locally_zero_mask[x.size..],
-                )
+            Or(x, y) => {
+                Self::solution_certainly_exists_impl(&slf, rels, *x as usize, &locally_zero_mask)
+                    || Self::solution_certainly_exists_impl(
+                        &slf,
+                        rels,
+                        *y as usize,
+                        &locally_zero_mask,
+                    )
             }
         }
     }
