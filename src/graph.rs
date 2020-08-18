@@ -419,7 +419,7 @@ where
             // To prove the existence of a solution by a change of sign...
             //   for conjunctions, both operands must be `Dac`.
             //   for disjunctions, at least one operand must be `Dac`.
-            // There is a little chance that an expression is evaluated
+            // There is little chance that an expression is evaluated
             // to zero on one of the probe points. In that case,
             // the expression is not required to be `Dac` on the entire
             // subpixel. We don't care such a chance.
@@ -491,11 +491,13 @@ where
                         _ => unreachable!(),
                     };
 
+                    // `ss` is not empty if the decoration is `dac`, which is
+                    // ensured by `dac_mask`.
                     neg_mask |= r.map(&rel.prop, &|ss, _| {
-                        ss == SignSet::NEG || ss == SignSet::ZERO
+                        ss == ss & (SignSet::NEG | SignSet::ZERO) // ss <= 0
                     });
                     pos_mask |= r.map(&rel.prop, &|ss, _| {
-                        ss == SignSet::POS || ss == SignSet::ZERO
+                        ss == ss & (SignSet::POS | SignSet::ZERO) // ss >= 0
                     });
 
                     if (&(&neg_mask & &pos_mask) & &dac_mask)
