@@ -717,31 +717,6 @@ impl Default for EvalResult {
 }
 
 impl EvalResultMask {
-    pub fn implies_solution(&self, p: &Proposition, locally_zero_mask: &Self) -> bool {
-        Self::implies_solution_impl(&self.0[..], p, &locally_zero_mask.0[..])
-    }
-
-    fn implies_solution_impl(slf: &[bool], p: &Proposition, locally_zero_mask: &[bool]) -> bool {
-        use PropositionKind::*;
-        match &p.kind {
-            Atomic => slf[0],
-            And(box (x, y)) => {
-                if Self::reduce_impl(&locally_zero_mask[..x.size], &x) {
-                    Self::implies_solution_impl(&slf[x.size..], &y, &locally_zero_mask[x.size..])
-                } else if Self::reduce_impl(&locally_zero_mask[x.size..], &y) {
-                    Self::implies_solution_impl(&slf[..x.size], &x, &locally_zero_mask[..x.size])
-                } else {
-                    // Cannot tell the existence of a solution by a normal conjunction.
-                    false
-                }
-            }
-            Or(box (x, y)) => {
-                Self::implies_solution_impl(&slf[..x.size], &x, &locally_zero_mask[..x.size])
-                    || Self::implies_solution_impl(&slf[x.size..], &y, &locally_zero_mask[x.size..])
-            }
-        }
-    }
-
     pub fn reduce(&self, p: &Proposition) -> bool {
         Self::reduce_impl(&self.0[..], p)
     }
@@ -755,6 +730,50 @@ impl EvalResultMask {
             }
             Or(box (x, y)) => {
                 Self::reduce_impl(&slf[..x.size], &x) || Self::reduce_impl(&slf[x.size..], &y)
+            }
+        }
+    }
+
+    pub fn solution_certainly_exists(&self, p: &Proposition, locally_zero_mask: &Self) -> bool {
+        Self::solution_certainly_exists_impl(&self.0[..], p, &locally_zero_mask.0[..])
+    }
+
+    fn solution_certainly_exists_impl(
+        slf: &[bool],
+        p: &Proposition,
+        locally_zero_mask: &[bool],
+    ) -> bool {
+        use PropositionKind::*;
+        match &p.kind {
+            Atomic => slf[0],
+            And(box (x, y)) => {
+                if Self::reduce_impl(&locally_zero_mask[..x.size], &x) {
+                    Self::solution_certainly_exists_impl(
+                        &slf[x.size..],
+                        &y,
+                        &locally_zero_mask[x.size..],
+                    )
+                } else if Self::reduce_impl(&locally_zero_mask[x.size..], &y) {
+                    Self::solution_certainly_exists_impl(
+                        &slf[..x.size],
+                        &x,
+                        &locally_zero_mask[..x.size],
+                    )
+                } else {
+                    // Cannot tell the existence of a solution by a normal conjunction.
+                    false
+                }
+            }
+            Or(box (x, y)) => {
+                Self::solution_certainly_exists_impl(
+                    &slf[..x.size],
+                    &x,
+                    &locally_zero_mask[..x.size],
+                ) || Self::solution_certainly_exists_impl(
+                    &slf[x.size..],
+                    &y,
+                    &locally_zero_mask[x.size..],
+                )
             }
         }
     }

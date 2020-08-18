@@ -501,7 +501,7 @@ where
                     });
 
                     if (&(&neg_mask & &pos_mask) & &dac_mask)
-                        .implies_solution(&rel.prop, &locally_zero_mask)
+                        .solution_certainly_exists(&rel.prop, &locally_zero_mask)
                     {
                         found_solution = true;
                         break;
