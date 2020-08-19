@@ -1,10 +1,9 @@
-use crate::interval_set::*;
+use crate::{dyn_relation::DynRelation, interval_set::*, rel::StaticRel};
 use image::{imageops, Rgb, RgbImage};
 use inari::{dec_interval, interval, DecoratedInterval, Decoration, Interval};
 use std::{
     collections::HashMap,
     error, fmt, mem,
-    ops::FnMut,
     time::{Duration, Instant},
 };
 
@@ -179,32 +178,6 @@ impl fmt::Display for GraphingError {
 
 impl error::Error for GraphingError {}
 
-#[derive(Debug)]
-pub struct Relation<T>
-where
-    T: FnMut(TupperIntervalSet, TupperIntervalSet) -> EvalResult,
-{
-    pub eval: T,
-    pub prop: Proposition,
-}
-
-impl<T> Relation<T>
-where
-    T: FnMut(TupperIntervalSet, TupperIntervalSet) -> EvalResult,
-{
-    fn eval_on_point(&mut self, x: f64, y: f64) -> EvalResult {
-        let x = dec_interval!(x, x).unwrap();
-        let y = dec_interval!(y, y).unwrap();
-        (self.eval)(TupperIntervalSet::from(x), TupperIntervalSet::from(y))
-    }
-
-    fn eval_on_region(&mut self, r: &Region) -> EvalResult {
-        let x = DecoratedInterval::new(r.0);
-        let y = DecoratedInterval::new(r.1);
-        (self.eval)(TupperIntervalSet::from(x), TupperIntervalSet::from(y))
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct GraphingStatistics {
     pub pixels: usize,
@@ -214,11 +187,9 @@ pub struct GraphingStatistics {
 }
 
 #[derive(Debug)]
-pub struct Graph<T>
-where
-    T: FnMut(TupperIntervalSet, TupperIntervalSet) -> EvalResult,
-{
-    relation: Relation<T>,
+pub struct Graph {
+    rel: DynRelation,
+    rels: Vec<StaticRel>,
     im: Image,
     bs: ImageBlockSet,
     // Affine transformation from pixel coordinates to real coordinates.
@@ -229,15 +200,14 @@ where
     stats: GraphingStatistics,
 }
 
-impl<T> Graph<T>
-where
-    T: FnMut(TupperIntervalSet, TupperIntervalSet) -> EvalResult,
-{
+impl Graph {
     // TODO: Accept `InexactRegion` instead of `Region` for more exactness?
-    pub fn new(relation: Relation<T>, region: Region, im_width: u32, im_height: u32) -> Self {
+    pub fn new(rel: DynRelation, region: Region, im_width: u32, im_height: u32) -> Self {
         assert!(im_width > 0 && im_height > 0);
+        let rels = rel.rels().clone();
         let mut g = Self {
-            relation,
+            rel,
+            rels,
             im: Image::new(im_width, im_height),
             bs: ImageBlockSet {
                 blocks: Vec::new(),
@@ -332,13 +302,13 @@ where
         let mut sub_blocks = Vec::<ImageBlock>::new();
         for ImageBlock(bx, by) in bs.blocks.iter().copied() {
             let u_up = self.image_block_to_region_clipped(bx, by, bw).outer();
-            let r_u_up = self.relation.eval_on_region(&u_up);
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up);
             *evals += 1;
 
-            let prop = &self.relation.prop;
-            let is_true =
-                r_u_up.map_reduce(prop, &|ss, d| d >= Decoration::Def && ss == SignSet::ZERO);
-            let is_false = !r_u_up.map_reduce(prop, &|ss, _| ss.contains(SignSet::ZERO));
+            let is_true = r_u_up.map_reduce(&self.rels[..], &|ss, d| {
+                d >= Decoration::Def && ss == SignSet::ZERO
+            });
+            let is_false = !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO));
             if is_true || is_false {
                 let ix = bx * ibw;
                 let iy = by * ibw;
@@ -392,15 +362,15 @@ where
             let u_up = self
                 .image_block_to_region(bx, by, fbw)
                 .subpixel_outer(ix, iy, bx, by, nbx);
-            let r_u_up = self.relation.eval_on_region(&u_up);
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up);
             *evals += 1;
 
-            if r_u_up.map_reduce(&self.relation.prop, &|ss, _| ss == SignSet::ZERO) {
+            if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
                 // This pixel is proven to be true.
                 *self.im.pixel_mut(ix, iy) = STAT_TRUE;
                 continue;
             }
-            if !r_u_up.map_reduce(&self.relation.prop, &|ss, _| ss.contains(SignSet::ZERO)) {
+            if !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO)) {
                 // This subpixel is proven to be false.
                 *self.im.pixel_mut(ix, iy) -= area;
                 continue;
@@ -423,8 +393,8 @@ where
             // to zero on one of the probe points. In that case,
             // the expression is not required to be `Dac` on the entire
             // subpixel. We don't care such a chance.
-            let dac_mask = r_u_up.map(&self.relation.prop, &|_, d| d >= Decoration::Dac);
-            if dac_mask.reduce(&self.relation.prop) {
+            let dac_mask = r_u_up.map(&self.rels[..], &|_, d| d >= Decoration::Dac);
+            if dac_mask.reduce(&self.rels[..]) {
                 // Suppose we are plotting the graph of a conjunction such as
                 // "y == sin(x) && x >= 0".
                 // If the conjunct "x >= 0" holds everywhere in the subpixel,
@@ -433,7 +403,7 @@ where
                 // there exists a point where the entire relation holds.
                 // Such a test is not possible by merely converting
                 // the relation to "|y - sin(x)| + |x >= 0 ? 0 : 1| == 0".
-                let locally_zero_mask = r_u_up.map(&self.relation.prop, &|ss, d| {
+                let locally_zero_mask = r_u_up.map(&self.rels[..], &|ss, d| {
                     ss == SignSet::ZERO && d >= Decoration::Dac
                 });
 
@@ -454,36 +424,36 @@ where
                 let cx = bx + ix;
                 let cy = by + iy;
 
-                let rel = &mut self.relation;
+                let rel = &mut self.rel;
                 let mut found_solution = false;
-                let mut neg_mask = r_u_up.map(&rel.prop, &|_, _| false);
+                let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
                 let mut pos_mask = neg_mask.clone();
                 for i in 0..4 {
                     let r = match i {
                         0 => cache.entry(ImageBlock(cx, cy)).or_insert_with(|| {
                             // bottom left
-                            let res = rel.eval_on_point(inter.0.inf(), inter.1.inf());
+                            let res = Self::eval_on_point(rel, inter.0.inf(), inter.1.inf());
                             *evals += 1;
                             size_of_cached_payloads += res.get_size_of_payload();
                             res
                         }),
                         1 => cache.entry(ImageBlock(cx + 1, cy)).or_insert_with(|| {
                             // bottom right
-                            let res = rel.eval_on_point(inter.0.sup(), inter.1.inf());
+                            let res = Self::eval_on_point(rel, inter.0.sup(), inter.1.inf());
                             *evals += 1;
                             size_of_cached_payloads += res.get_size_of_payload();
                             res
                         }),
                         2 => cache.entry(ImageBlock(cx, cy + 1)).or_insert_with(|| {
                             // top left
-                            let res = rel.eval_on_point(inter.0.inf(), inter.1.sup());
+                            let res = Self::eval_on_point(rel, inter.0.inf(), inter.1.sup());
                             *evals += 1;
                             size_of_cached_payloads += res.get_size_of_payload();
                             res
                         }),
                         3 => cache.entry(ImageBlock(cx + 1, cy + 1)).or_insert_with(|| {
                             // top right
-                            let res = rel.eval_on_point(inter.0.sup(), inter.1.sup());
+                            let res = Self::eval_on_point(rel, inter.0.sup(), inter.1.sup());
                             *evals += 1;
                             size_of_cached_payloads += res.get_size_of_payload();
                             res
@@ -493,15 +463,15 @@ where
 
                     // `ss` is not empty if the decoration is `dac`, which is
                     // ensured by `dac_mask`.
-                    neg_mask |= r.map(&rel.prop, &|ss, _| {
+                    neg_mask |= r.map(&self.rels[..], &|ss, _| {
                         ss == ss & (SignSet::NEG | SignSet::ZERO) // ss <= 0
                     });
-                    pos_mask |= r.map(&rel.prop, &|ss, _| {
+                    pos_mask |= r.map(&self.rels[..], &|ss, _| {
                         ss == ss & (SignSet::POS | SignSet::ZERO) // ss >= 0
                     });
 
                     if (&(&neg_mask & &pos_mask) & &dac_mask)
-                        .solution_certainly_exists(&rel.prop, &locally_zero_mask)
+                        .solution_certainly_exists(&self.rels[..], &locally_zero_mask)
                     {
                         found_solution = true;
                         break;
@@ -543,6 +513,18 @@ where
                 k: bs.k - 1,
             })
         }
+    }
+
+    fn eval_on_point(rel: &mut DynRelation, x: f64, y: f64) -> EvalResult {
+        let x = dec_interval!(x, x).unwrap();
+        let y = dec_interval!(y, y).unwrap();
+        rel.evaluate(TupperIntervalSet::from(x), TupperIntervalSet::from(y))
+    }
+
+    fn eval_on_region(rel: &mut DynRelation, r: &Region) -> EvalResult {
+        let x = DecoratedInterval::new(r.0);
+        let y = DecoratedInterval::new(r.1);
+        rel.evaluate(TupperIntervalSet::from(x), TupperIntervalSet::from(y))
     }
 
     fn image_block_to_region(&self, bx: u32, by: u32, bw: f64) -> InexactRegion {

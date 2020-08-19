@@ -3,7 +3,6 @@ use std::str::FromStr;
 
 #[derive(Clone, Debug)]
 pub struct DynRelation {
-    prop: Proposition,
     exprs: Vec<StaticExpr>,
     rels: Vec<StaticRel>,
     ts: Vec<TupperIntervalSet>,
@@ -12,13 +11,12 @@ pub struct DynRelation {
 
 impl DynRelation {
     pub fn evaluate(&mut self, x: TupperIntervalSet, y: TupperIntervalSet) -> EvalResult {
-        self.ts[0] = x;
-        self.ts[1] = y;
         for i in 0..self.exprs.len() {
-            if let StaticExprKind::Constant(_) = &self.exprs[i].kind {
-                // noop
-            } else {
-                self.ts[i + 2] = self.exprs[i].evaluate(&self.ts);
+            match &self.exprs[i].kind {
+                StaticExprKind::Constant(_) => (),
+                StaticExprKind::X => self.ts[i] = x.clone(),
+                StaticExprKind::Y => self.ts[i] = y.clone(),
+                _ => self.ts[i] = self.exprs[i].evaluate(&self.ts),
             }
         }
         for i in 0..self.rels.len() {
@@ -27,14 +25,14 @@ impl DynRelation {
         self.es.last().unwrap().clone()
     }
 
-    pub fn proposition(&self) -> &Proposition {
-        &self.prop
+    pub fn rels(&self) -> &Vec<StaticRel> {
+        &self.rels
     }
 
     fn initialize(&mut self) {
         for i in 0..self.exprs.len() {
             if let StaticExprKind::Constant(_) = &self.exprs[i].kind {
-                self.ts[i + 2] = self.exprs[i].evaluate(&self.ts);
+                self.ts[i] = self.exprs[i].evaluate(&self.ts);
             }
         }
     }
@@ -47,17 +45,16 @@ impl FromStr for DynRelation {
         let mut rel = parse(s)?;
         Transform.visit_rel_mut(&mut rel);
         FoldConstant.visit_rel_mut(&mut rel);
-        let mut v = AssignId::new();
+        let mut v = AssignIdStage1::new();
         v.visit_rel(&rel);
-        let mut v = AssignSite::new(v.site_map());
+        let mut v = AssignIdStage2::new(v);
         v.visit_rel(&rel);
-        let mut v = CollectStatic::new();
+        let mut v = CollectStatic::new(v);
         v.visit_rel(&rel);
         let (exprs, rels) = v.exprs_rels();
-        let n_ts = exprs.len() + 2;
+        let n_ts = exprs.len();
         let n_es = rels.len();
         let mut slf = Self {
-            prop: rel.get_proposition(),
             exprs,
             rels,
             ts: vec![TupperIntervalSet::empty(); n_ts],

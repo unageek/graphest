@@ -122,7 +122,7 @@ impl Expr {
             Binary(Mul, x, y) => &x.evaluate() * &y.evaluate(),
             Binary(Sub, x, y) => &x.evaluate() - &y.evaluate(),
             Pown(x, y) => x.evaluate().pown(*y, None),
-            X | Y | Uninit => panic!("cannot evaluate the expression"),
+            X | Y | Uninit => panic!("this expression cannot be evaluated"),
         }
     }
 }
@@ -132,34 +132,6 @@ impl Rel {
         Self {
             id: Cell::new(UNINIT_REL_ID),
             kind,
-        }
-    }
-
-    pub fn get_proposition(&self) -> Proposition {
-        use RelKind::*;
-        match &self.kind {
-            Equality(_, _, _) => Proposition {
-                kind: PropositionKind::Atomic,
-                size: 1,
-            },
-            And(x, y) => {
-                let px = x.get_proposition();
-                let py = y.get_proposition();
-                let size = px.size + py.size;
-                Proposition {
-                    kind: PropositionKind::And(box (px, py)),
-                    size,
-                }
-            }
-            Or(x, y) => {
-                let px = x.get_proposition();
-                let py = y.get_proposition();
-                let size = px.size + py.size;
-                Proposition {
-                    kind: PropositionKind::Or(box (px, py)),
-                    size,
-                }
-            }
         }
     }
 }
