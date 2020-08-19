@@ -102,7 +102,7 @@ fn postfix_expr(i: &str) -> ParseResult<Expr> {
                     preceded(space0, char(')')),
                 ),
             ),
-            move |(f, x)| Expr::new(ExprKind::Unary(f, Box::new(x))),
+            |(f, x)| Expr::new(ExprKind::Unary(f, Box::new(x))),
         ),
         map(
             pair(
@@ -113,7 +113,7 @@ fn postfix_expr(i: &str) -> ParseResult<Expr> {
                     preceded(space0, char(')')),
                 ),
             ),
-            move |(f, (x, y))| Expr::new(ExprKind::Binary(f, Box::new(x), Box::new(y))),
+            |(f, (x, y))| Expr::new(ExprKind::Binary(f, Box::new(x), Box::new(y))),
         ),
         primary_expr,
     ))(i)
@@ -128,7 +128,7 @@ fn power_expr(i: &str) -> ParseResult<Expr> {
                 delimited(space0, char('^'), space0),
                 integer_literal,
             )),
-            move |(x, _, y)| Expr::new(ExprKind::Pown(Box::new(x), y)),
+            |(x, _, y)| Expr::new(ExprKind::Pown(Box::new(x), y)),
         ),
         postfix_expr,
     ))(i)
@@ -160,7 +160,7 @@ fn multiplicative_expr(i: &str) -> ParseResult<Expr> {
             unary_expr,
         ),
         x,
-        move |xs, (op, y)| Expr::new(ExprKind::Binary(op, Box::new(xs), Box::new(y))),
+        |xs, (op, y)| Expr::new(ExprKind::Binary(op, Box::new(xs), Box::new(y))),
     )(i)
 }
 
@@ -180,7 +180,7 @@ fn additive_expr(i: &str) -> ParseResult<Expr> {
             multiplicative_expr,
         ),
         x,
-        move |xs, (op, y)| Expr::new(ExprKind::Binary(op, Box::new(xs), Box::new(y))),
+        |xs, (op, y)| Expr::new(ExprKind::Binary(op, Box::new(xs), Box::new(y))),
     )(i)
 }
 
@@ -205,7 +205,7 @@ fn equality(i: &str) -> ParseResult<Rel> {
             ),
             expr,
         )),
-        move |(x, op, y)| Rel::new(RelKind::Equality(op, Box::new(x), Box::new(y))),
+        |(x, op, y)| Rel::new(RelKind::Equality(op, Box::new(x), Box::new(y))),
     )(i)
 }
 
@@ -226,7 +226,7 @@ fn and_rel(i: &str) -> ParseResult<Rel> {
     fold_many0(
         preceded(delimited(space0, tag("&&"), space0), primary_rel),
         x,
-        move |xs, y| Rel::new(RelKind::And(Box::new(xs), Box::new(y))),
+        |xs, y| Rel::new(RelKind::And(Box::new(xs), Box::new(y))),
     )(i)
 }
 
@@ -236,7 +236,7 @@ fn or_rel(i: &str) -> ParseResult<Rel> {
     fold_many0(
         preceded(delimited(space0, tag("||"), space0), and_rel),
         x,
-        move |xs, y| Rel::new(RelKind::Or(Box::new(xs), Box::new(y))),
+        |xs, y| Rel::new(RelKind::Or(Box::new(xs), Box::new(y))),
     )(i)
 }
 
