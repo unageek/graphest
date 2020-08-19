@@ -52,6 +52,8 @@ pub enum BinaryOp {
 #[derive(Clone, Debug)]
 pub enum StaticExprKind {
     Constant(Box<TupperIntervalSet>),
+    X,
+    Y,
     Unary(UnaryOp, ExprId),
     Binary(BinaryOp, ExprId, ExprId),
     Pown(ExprId, i32),
@@ -104,6 +106,7 @@ impl StaticExpr {
             Binary(Mul, x, y) => &ts[*x as usize] * &ts[*y as usize],
             Binary(Sub, x, y) => &ts[*x as usize] - &ts[*y as usize],
             Pown(x, y) => ts[*x as usize].pown(*y, self.site),
+            X | Y => panic!("this expression cannot be evaluated"),
         }
     }
 }

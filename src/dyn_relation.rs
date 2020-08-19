@@ -11,13 +11,12 @@ pub struct DynRelation {
 
 impl DynRelation {
     pub fn evaluate(&mut self, x: TupperIntervalSet, y: TupperIntervalSet) -> EvalResult {
-        self.ts[0] = x;
-        self.ts[1] = y;
         for i in 0..self.exprs.len() {
-            if let StaticExprKind::Constant(_) = &self.exprs[i].kind {
-                // noop
-            } else {
-                self.ts[i + 2] = self.exprs[i].evaluate(&self.ts);
+            match &self.exprs[i].kind {
+                StaticExprKind::Constant(_) => (),
+                StaticExprKind::X => self.ts[i] = x.clone(),
+                StaticExprKind::Y => self.ts[i] = y.clone(),
+                _ => self.ts[i] = self.exprs[i].evaluate(&self.ts),
             }
         }
         for i in 0..self.rels.len() {
@@ -33,7 +32,7 @@ impl DynRelation {
     fn initialize(&mut self) {
         for i in 0..self.exprs.len() {
             if let StaticExprKind::Constant(_) = &self.exprs[i].kind {
-                self.ts[i + 2] = self.exprs[i].evaluate(&self.ts);
+                self.ts[i] = self.exprs[i].evaluate(&self.ts);
             }
         }
     }
@@ -53,7 +52,7 @@ impl FromStr for DynRelation {
         let mut v = CollectStatic::new(v);
         v.visit_rel(&rel);
         let (exprs, rels) = v.exprs_rels();
-        let n_ts = exprs.len() + 2;
+        let n_ts = exprs.len();
         let n_es = rels.len();
         let mut slf = Self {
             exprs,

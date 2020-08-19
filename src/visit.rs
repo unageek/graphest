@@ -114,7 +114,7 @@ impl VisitMut for Transform {
                 -1 => {
                     *expr = Expr::new(Unary(Recip, std::mem::take(x)));
                 }
-                // Do not transform x^0 to 1.0 as that could discard the decoration.
+                // Do not transform x^0 to 1.0 as that can discard the decoration (e.g. sqrt(x)^0).
                 1 => {
                     *expr = *std::mem::take(x);
                 }
@@ -169,8 +169,8 @@ impl VisitMut for FoldConstant {
 }
 
 // Does the following tasks:
-// - Assign ids to exprs.
-// - Assign ids to rel leaves so that they match with the indices in `EvalResult`.
+// - Assign ids to `Expr`s.
+// - Assign ids to atomic `Rel`s so that they can be used as indices for `EvalResult`.
 pub struct AssignIdStage1<'a> {
     next_expr_id: ExprId,
     next_site: u8,
@@ -183,7 +183,7 @@ pub struct AssignIdStage1<'a> {
 impl<'a> AssignIdStage1<'a> {
     pub fn new() -> Self {
         AssignIdStage1 {
-            next_expr_id: 2, // 0 for x, 1 for y
+            next_expr_id: 0,
             next_site: 0,
             site_map: HashMap::new(),
             visited_exprs: HashSet::new(),
@@ -224,16 +224,9 @@ impl<'a> Visit<'a> for AssignIdStage1<'a> {
                 }
             }
             _ => {
-                let id = match &expr.kind {
-                    ExprKind::X => 0,
-                    ExprKind::Y => 1,
-                    _ => {
-                        let id = self.next_expr_id;
-                        self.next_expr_id += 1;
-                        id
-                    }
-                };
+                let id = self.next_expr_id;
                 expr.id.set(id);
+                self.next_expr_id += 1;
 
                 if Self::expr_can_perform_cut(&expr.kind) {
                     self.site_map.insert(id, None);
@@ -250,8 +243,7 @@ impl<'a> Visit<'a> for AssignIdStage1<'a> {
         if let RelKind::Equality(_, _, _) = rel.kind {
             match self.visited_rels.get(rel) {
                 Some(visited) => {
-                    let id = visited.id.get();
-                    rel.id.set(id);
+                    rel.id.set(visited.id.get());
                 }
                 _ => {
                     rel.id.set(self.next_rel_id);
@@ -264,8 +256,8 @@ impl<'a> Visit<'a> for AssignIdStage1<'a> {
 }
 
 // Does the following tasks:
-// - Assign sites to rels.
-// - Assign ids to rel nodes.
+// - Assign sites to `Expr`s.
+// - Assign ids to the rest of the `Rel`s.
 pub struct AssignIdStage2<'a> {
     next_expr_id: ExprId,
     site_map: SiteMap,
@@ -298,8 +290,7 @@ impl<'a> Visit<'a> for AssignIdStage2<'a> {
 
         match self.visited_rels.get(rel) {
             Some(visited) => {
-                let id = visited.id.get();
-                rel.id.set(id);
+                rel.id.set(visited.id.get());
             }
             _ => {
                 rel.id.set(self.next_rel_id);
@@ -310,8 +301,7 @@ impl<'a> Visit<'a> for AssignIdStage2<'a> {
     }
 }
 
-// Collects `StaticExpr`s (except the ones for X and Y) and `StaticRel`s,
-// sorted topologically.
+// Collects `StaticExpr`s and `StaticRel`s in the topological order.
 pub struct CollectStatic {
     exprs: Vec<Option<StaticExpr>>,
     rels: Vec<Option<StaticRel>>,
@@ -320,7 +310,7 @@ pub struct CollectStatic {
 impl CollectStatic {
     pub fn new(stage2: AssignIdStage2) -> Self {
         Self {
-            exprs: vec![None; (stage2.next_expr_id - 2) as usize],
+            exprs: vec![None; stage2.next_expr_id as usize],
             rels: vec![None; stage2.next_rel_id as usize],
         }
     }
@@ -338,20 +328,18 @@ impl<'a> Visit<'a> for CollectStatic {
         use ExprKind::*;
         traverse_expr(self, expr);
 
-        if expr.id.get() < 2 {
-            return;
-        }
-
-        let i = (expr.id.get() - 2) as usize;
+        let i = expr.id.get() as usize;
         if self.exprs[i].is_none() {
             self.exprs[i] = Some(StaticExpr {
                 site: expr.site.get(),
                 kind: match &expr.kind {
                     Constant(x) => StaticExprKind::Constant(x.clone()),
+                    X => StaticExprKind::X,
+                    Y => StaticExprKind::Y,
                     Unary(op, x) => StaticExprKind::Unary(*op, x.id.get()),
                     Binary(op, x, y) => StaticExprKind::Binary(*op, x.id.get(), y.id.get()),
                     Pown(x, y) => StaticExprKind::Pown(x.id.get(), *y),
-                    X | Y | Uninit => panic!(),
+                    Uninit => panic!(),
                 },
             });
         }

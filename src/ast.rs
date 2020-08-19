@@ -122,7 +122,7 @@ impl Expr {
             Binary(Mul, x, y) => &x.evaluate() * &y.evaluate(),
             Binary(Sub, x, y) => &x.evaluate() - &y.evaluate(),
             Pown(x, y) => x.evaluate().pown(*y, None),
-            X | Y | Uninit => panic!("cannot evaluate the expression"),
+            X | Y | Uninit => panic!("this expression cannot be evaluated"),
         }
     }
 }
