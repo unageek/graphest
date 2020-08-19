@@ -646,7 +646,7 @@ impl EvalResult {
     where
         F: Fn(SignSet, Decoration) -> bool,
     {
-        let mut m = EvalResultMask(vec![false; rels.len()]);
+        let mut m = EvalResultMask(vec![false; self.0.len()]);
         Self::map_impl(&self.0[..], rels, rels.len() - 1, f, &mut m.0[..]);
         m
     }
