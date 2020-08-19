@@ -114,7 +114,7 @@ impl VisitMut for Transform {
                 -1 => {
                     *expr = Expr::new(Unary(Recip, std::mem::take(x)));
                 }
-                // Do not transform x^0 to 1.0 as that can discard the decoration (e.g. sqrt(x)^0).
+                // Do not transform x^0 to 1.0 as that can discard the decoration (e.g. "sqrt(x)^0").
                 1 => {
                     *expr = *std::mem::take(x);
                 }
@@ -143,7 +143,7 @@ impl VisitMut for FoldConstant {
                 if let Constant(_) = &x.kind {
                     let val = expr.evaluate();
                     if val.len() <= 1 {
-                        *expr = Expr::new(Constant(box val));
+                        *expr = Expr::new(Constant(Box::new(val)));
                     }
                 }
             }
@@ -151,7 +151,7 @@ impl VisitMut for FoldConstant {
                 if let (Constant(_), Constant(_)) = (&x.kind, &y.kind) {
                     let val = expr.evaluate();
                     if val.len() <= 1 {
-                        *expr = Expr::new(Constant(box val));
+                        *expr = Expr::new(Constant(Box::new(val)));
                     }
                 }
             }
@@ -159,7 +159,7 @@ impl VisitMut for FoldConstant {
                 if let Constant(_) = &x.kind {
                     let val = expr.evaluate();
                     if val.len() <= 1 {
-                        *expr = Expr::new(Constant(box val));
+                        *expr = Expr::new(Constant(Box::new(val)));
                     }
                 }
             }

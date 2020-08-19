@@ -31,15 +31,15 @@ fn primary_expr(i: &str) -> ParseResult<Expr> {
         map(decimal_literal, |s| {
             let s = ["[", s, ",", s, "]"].concat();
             let x = TupperIntervalSet::from(dec_interval!(&s).unwrap());
-            Expr::new(ExprKind::Constant(box x))
+            Expr::new(ExprKind::Constant(Box::new(x)))
         }),
         map(tag("pi"), |_| {
             let x = TupperIntervalSet::from(DecoratedInterval::PI);
-            Expr::new(ExprKind::Constant(box x))
+            Expr::new(ExprKind::Constant(Box::new(x)))
         }),
         map(char('e'), |_| {
             let x = TupperIntervalSet::from(DecoratedInterval::E);
-            Expr::new(ExprKind::Constant(box x))
+            Expr::new(ExprKind::Constant(Box::new(x)))
         }),
         value(Expr::new(ExprKind::X), char('x')),
         value(Expr::new(ExprKind::Y), char('y')),

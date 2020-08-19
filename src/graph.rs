@@ -302,8 +302,7 @@ impl Graph {
         let mut sub_blocks = Vec::<ImageBlock>::new();
         for ImageBlock(bx, by) in bs.blocks.iter().copied() {
             let u_up = self.image_block_to_region_clipped(bx, by, bw).outer();
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up);
-            *evals += 1;
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, evals);
 
             let is_true = r_u_up.map_reduce(&self.rels[..], &|ss, d| {
                 d >= Decoration::Def && ss == SignSet::ZERO
@@ -362,8 +361,7 @@ impl Graph {
             let u_up = self
                 .image_block_to_region(bx, by, fbw)
                 .subpixel_outer(ix, iy, bx, by, nbx);
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up);
-            *evals += 1;
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, evals);
 
             if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
                 // This pixel is proven to be true.
@@ -424,44 +422,40 @@ impl Graph {
                 let cx = bx + ix;
                 let cy = by + iy;
 
-                let rel = &mut self.rel;
                 let mut found_solution = false;
                 let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
                 let mut pos_mask = neg_mask.clone();
                 for i in 0..4 {
+                    let rel = &mut self.rel;
                     let r = match i {
                         0 => cache.entry(ImageBlock(cx, cy)).or_insert_with(|| {
                             // bottom left
-                            let res = Self::eval_on_point(rel, inter.0.inf(), inter.1.inf());
-                            *evals += 1;
+                            let res = Self::eval_on_point(rel, inter.0.inf(), inter.1.inf(), evals);
                             size_of_cached_payloads += res.get_size_of_payload();
                             res
                         }),
                         1 => cache.entry(ImageBlock(cx + 1, cy)).or_insert_with(|| {
                             // bottom right
-                            let res = Self::eval_on_point(rel, inter.0.sup(), inter.1.inf());
-                            *evals += 1;
+                            let res = Self::eval_on_point(rel, inter.0.sup(), inter.1.inf(), evals);
                             size_of_cached_payloads += res.get_size_of_payload();
                             res
                         }),
                         2 => cache.entry(ImageBlock(cx, cy + 1)).or_insert_with(|| {
                             // top left
-                            let res = Self::eval_on_point(rel, inter.0.inf(), inter.1.sup());
-                            *evals += 1;
+                            let res = Self::eval_on_point(rel, inter.0.inf(), inter.1.sup(), evals);
                             size_of_cached_payloads += res.get_size_of_payload();
                             res
                         }),
                         3 => cache.entry(ImageBlock(cx + 1, cy + 1)).or_insert_with(|| {
                             // top right
-                            let res = Self::eval_on_point(rel, inter.0.sup(), inter.1.sup());
-                            *evals += 1;
+                            let res = Self::eval_on_point(rel, inter.0.sup(), inter.1.sup(), evals);
                             size_of_cached_payloads += res.get_size_of_payload();
                             res
                         }),
                         _ => unreachable!(),
                     };
 
-                    // `ss` is not empty if the decoration is `dac`, which is
+                    // `ss` is not empty if the decoration is `Dac`, which is
                     // ensured by `dac_mask`.
                     neg_mask |= r.map(&self.rels[..], &|ss, _| {
                         ss == ss & (SignSet::NEG | SignSet::ZERO) // ss <= 0
@@ -515,13 +509,15 @@ impl Graph {
         }
     }
 
-    fn eval_on_point(rel: &mut DynRelation, x: f64, y: f64) -> EvalResult {
+    fn eval_on_point(rel: &mut DynRelation, x: f64, y: f64, evals: &mut usize) -> EvalResult {
+        *evals += 1;
         let x = dec_interval!(x, x).unwrap();
         let y = dec_interval!(y, y).unwrap();
         rel.evaluate(TupperIntervalSet::from(x), TupperIntervalSet::from(y))
     }
 
-    fn eval_on_region(rel: &mut DynRelation, r: &Region) -> EvalResult {
+    fn eval_on_region(rel: &mut DynRelation, r: &Region, evals: &mut usize) -> EvalResult {
+        *evals += 1;
         let x = DecoratedInterval::new(r.0);
         let y = DecoratedInterval::new(r.1);
         rel.evaluate(TupperIntervalSet::from(x), TupperIntervalSet::from(y))
