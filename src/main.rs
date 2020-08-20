@@ -43,14 +43,9 @@ fn main() {
         .setting(AppSettings::AllowLeadingHyphen)
         .about("Plots the graph of a relation over the x-y plane.")
         .arg(
-            Arg::with_name("output")
-                .index(1)
-                .about("The path to save the output image (only .png is supported)."),
-        )
-        .arg(
             Arg::with_name("relation")
-                .index(2)
-                .about("The relation to plot."),
+                .index(1)
+                .about("Relation to plot."),
         )
         .arg(
             Arg::with_name("bounds")
@@ -58,7 +53,13 @@ fn main() {
                 .number_of_values(4)
                 .default_values(&["-10", "10", "-10", "10"])
                 .value_names(&["xmin", "xmax", "ymin", "ymax"])
-                .about("Sets the bounds of the plot region."),
+                .about("Bounds of the plot region."),
+        )
+        .arg(
+            Arg::with_name("output")
+                .short('o')
+                .default_value("graph.png")
+                .about("Output file, only .png is supported."),
         )
         .arg(
             Arg::with_name("size")
@@ -66,13 +67,13 @@ fn main() {
                 .number_of_values(2)
                 .default_values(&["1024", "1024"])
                 .value_names(&["width", "height"])
-                .about("Sets the dimensions of the output image."),
+                .about("Dimensions of the plot."),
         )
         .get_matches();
 
-    let output = matches.value_of("output");
     let rel = matches.value_of_t_or_exit::<DynRelation>("relation");
     let bounds = matches.values_of_t_or_exit::<f64>("bounds");
+    let output = matches.value_of("output");
     let size = matches.values_of_t_or_exit::<u32>("size");
 
     let mut g = Graph::new(

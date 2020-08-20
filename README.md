@@ -7,13 +7,16 @@
 
 inari-graph can plot the graph of an arbitrary relation (like above) in a reliable manner. It aims to provide an open-source and extensible alternative to [GrafEq™](http://www.peda.com/grafeq/) program [Ped].
 
-Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4.1 and 3.4.2.
-
 ## Usage
 
-1. Install Rust
+If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and follow the steps below.
 
-   https://www.rust-lang.org/tools/install
+1. Install Rust and other build tools
+
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   sudo apt install build-essential curl git m4
+   ```
 
 1. Build
 
@@ -26,14 +29,34 @@ Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4
 1. Run
 
    ```bash
-   ./target/release/inari-graph graph.png "y == sin(x)"
+   ./target/release/inari-graph "y == sin(x)"
    ```
 
-   Use `-b <xmin> <xmax> <ymin> <ymax>` option to change the bounds. The default is `-10 10 -10 10`.
+   The plot will be saved to `graph.png` in the current directory.
 
-   Use `-s <width> <height>` option to change the size of the output image. The default is `1024 1024`.
+   Try plotting some [example relations](Examples.md) or your own one.
 
-   Try some [example relations](Examples.md) or your own one.
+   Use `-h` option to show help:
+
+   ```bash
+   inari-graph 
+   Plots the graph of a relation over the x-y plane.
+   
+   USAGE:
+       inari-graph [OPTIONS] [relation]
+   
+   ARGS:
+       <relation>    Relation to plot.
+   
+   FLAGS:
+       -h, --help       Prints help information
+       -V, --version    Prints version information
+   
+   OPTIONS:
+       -b <xmin> <xmax> <ymin> <ymax>        Bounds of the plot region. [default: -10 10 -10 10]
+       -o <output>                           Output file, only .png is supported. [default: graph.png]
+       -s <width> <height>                   Dimensions of the plot. [default: 1024 1024]
+   ```
 
 ## Color Legend
 
@@ -92,6 +115,10 @@ Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4
 | `X \|\| Y` | *X* ∨ *Y*      | [Logical disjunction.](https://en.wikipedia.org/wiki/Logical_disjunction)<br />`X` and `Y` must be a relation. |
 
 You can group a part of an expression or a relation with `(` … `)`.
+
+## Details
+
+Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4.1 and 3.4.2.
 
 ## References
 
