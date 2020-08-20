@@ -229,6 +229,30 @@ The graph must be empty:
 "y == sqrt(x - 3)*sqrt(1 - x)"
 ```
 
+## Examples from [Cool Graphs of Implicit Equations](https://web.archive.org/web/20160221140058/http://www.xamuel.com/graphs-of-implicit-equations/)
+
+🐌
+
+```
+"exp(sin(x) + cos(y)) == sin(exp(x + y))"
+```
+
+```
+"sin(sin(x) + cos(y)) == cos(sin(x*y) + cos(x))"
+```
+
+```
+"sin(x^2 + y^2) == cos(x*y)"
+```
+
+```
+"abs(sin(x^2 - y^2)) == sin(x + y) + cos(x * y)"
+```
+
+```
+"abs(sin(x^2 + 2*x*y)) == sin(x - 2*y)"
+```
+
 ## Tests for Conjunction and Disjunction
 
 The graph must be empty:
