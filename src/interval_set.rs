@@ -593,10 +593,10 @@ bitflags! {
 
 macro_rules! impl_rel_op {
     ($op:ident, $map_neg:expr, $map_zero:expr, $map_pos:expr) => {
-        pub fn $op(&self, rhs: &Self) -> EvalResult {
+        pub fn $op(&self, rhs: &Self) -> DecSignSet {
             let xs = self - rhs;
             if xs.is_empty() {
-                return EvalResult(vec![(SignSet::empty(), Decoration::Trv)]);
+                return DecSignSet::empty();
             }
 
             let mut ss = SignSet::empty();
@@ -616,7 +616,7 @@ macro_rules! impl_rel_op {
                 d = d.min(x.d);
             }
 
-            EvalResult(vec![(ss, d)])
+            DecSignSet(ss, d)
         }
     };
 }
@@ -632,10 +632,16 @@ impl TupperIntervalSet {
 }
 
 #[derive(Clone, Debug)]
-pub struct EvalResult(pub Vec<(SignSet, Decoration)>);
+pub struct DecSignSet(pub SignSet, pub Decoration);
+
+impl DecSignSet {
+    pub fn empty() -> Self {
+        Self(SignSet::empty(), Decoration::Trv)
+    }
+}
 
 #[derive(Clone, Debug)]
-pub struct EvalResultMask(pub Vec<bool>);
+pub struct EvalResult(pub Vec<DecSignSet>);
 
 impl EvalResult {
     pub fn get_size_of_payload(&self) -> usize {
@@ -652,13 +658,8 @@ impl EvalResult {
     }
 
     #[allow(clippy::many_single_char_names)]
-    fn map_impl<F>(
-        slf: &[(SignSet, Decoration)],
-        rels: &[StaticRel],
-        i: usize,
-        f: &F,
-        m: &mut [bool],
-    ) where
+    fn map_impl<F>(slf: &[DecSignSet], rels: &[StaticRel], i: usize, f: &F, m: &mut [bool])
+    where
         F: Fn(SignSet, Decoration) -> bool,
     {
         use StaticRelKind::*;
@@ -684,12 +685,7 @@ impl EvalResult {
         Self::map_reduce_impl(&self.0[..], rels, rels.len() - 1, f)
     }
 
-    fn map_reduce_impl<F>(
-        slf: &[(SignSet, Decoration)],
-        rels: &[StaticRel],
-        i: usize,
-        f: &F,
-    ) -> bool
+    fn map_reduce_impl<F>(slf: &[DecSignSet], rels: &[StaticRel], i: usize, f: &F) -> bool
     where
         F: Fn(SignSet, Decoration) -> bool,
     {
@@ -708,11 +704,8 @@ impl EvalResult {
     }
 }
 
-impl Default for EvalResult {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
-}
+#[derive(Clone, Debug)]
+pub struct EvalResultMask(pub Vec<bool>);
 
 impl EvalResultMask {
     pub fn reduce(&self, rels: &[StaticRel]) -> bool {

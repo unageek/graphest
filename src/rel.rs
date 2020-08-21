@@ -133,7 +133,7 @@ pub struct StaticRel {
 }
 
 impl StaticRel {
-    pub fn evaluate(&self, ts: &[TupperIntervalSet], es: &[EvalResult]) -> EvalResult {
+    pub fn evaluate(&self, ts: &[TupperIntervalSet]) -> DecSignSet {
         use {RelOp::*, StaticRelKind::*};
         match &self.kind {
             Atomic(Eq, x, y) => ts[*x as usize].eq(&ts[*y as usize]),
@@ -141,9 +141,7 @@ impl StaticRel {
             Atomic(Gt, x, y) => ts[*x as usize].gt(&ts[*y as usize]),
             Atomic(Le, x, y) => ts[*x as usize].le(&ts[*y as usize]),
             Atomic(Lt, x, y) => ts[*x as usize].lt(&ts[*y as usize]),
-            And(x, y) | Or(x, y) => {
-                EvalResult([es[*x as usize].0.clone(), es[*y as usize].0.clone()].concat())
-            }
+            And(_, _) | Or(_, _) => panic!("compound relation cannot be evaluated"),
         }
     }
 }

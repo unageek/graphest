@@ -5,24 +5,28 @@ use std::str::FromStr;
 pub struct DynRelation {
     exprs: Vec<StaticExpr>,
     rels: Vec<StaticRel>,
+    n_atom_rels: usize,
     ts: Vec<TupperIntervalSet>,
-    es: Vec<EvalResult>,
 }
 
 impl DynRelation {
     pub fn evaluate(&mut self, x: TupperIntervalSet, y: TupperIntervalSet) -> EvalResult {
+        use StaticExprKind::*;
         for i in 0..self.exprs.len() {
             match &self.exprs[i].kind {
-                StaticExprKind::Constant(_) => (),
-                StaticExprKind::X => self.ts[i] = x.clone(),
-                StaticExprKind::Y => self.ts[i] = y.clone(),
+                Constant(_) => (),
+                X => self.ts[i] = x.clone(),
+                Y => self.ts[i] = y.clone(),
                 _ => self.ts[i] = self.exprs[i].evaluate(&self.ts),
             }
         }
-        for i in 0..self.rels.len() {
-            self.es[i] = self.rels[i].evaluate(&self.ts, &self.es);
-        }
-        self.es.last().unwrap().clone()
+        EvalResult(
+            self.rels
+                .iter()
+                .take(self.n_atom_rels)
+                .map(|r| r.evaluate(&self.ts))
+                .collect(),
+        )
     }
 
     pub fn rels(&self) -> &Vec<StaticRel> {
@@ -53,12 +57,15 @@ impl FromStr for DynRelation {
         v.visit_rel(&rel);
         let (exprs, rels) = v.exprs_rels();
         let n_ts = exprs.len();
-        let n_es = rels.len();
+        let n_atom_rels = rels
+            .iter()
+            .filter(|r| matches!(r.kind, StaticRelKind::Atomic(_, _, _)))
+            .count();
         let mut slf = Self {
             exprs,
             rels,
+            n_atom_rels,
             ts: vec![TupperIntervalSet::empty(); n_ts],
-            es: vec![EvalResult::default(); n_es],
         };
         slf.initialize();
         Ok(slf)
