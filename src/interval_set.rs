@@ -663,7 +663,7 @@ impl EvalResult {
     {
         use StaticRelKind::*;
         match &rels[i].kind {
-            Equality(_, _, _) => {
+            Atomic(_, _, _) => {
                 m[i] = f(slf[i].0, slf[i].1);
             }
             And(x, y) => {
@@ -695,7 +695,7 @@ impl EvalResult {
     {
         use StaticRelKind::*;
         match &rels[i].kind {
-            Equality(_, _, _) => f(slf[i].0, slf[i].1),
+            Atomic(_, _, _) => f(slf[i].0, slf[i].1),
             And(x, y) => {
                 Self::map_reduce_impl(&slf, rels, *x as usize, f)
                     && Self::map_reduce_impl(&slf, rels, *y as usize, f)
@@ -722,7 +722,7 @@ impl EvalResultMask {
     fn reduce_impl(slf: &[bool], rels: &[StaticRel], i: usize) -> bool {
         use StaticRelKind::*;
         match &rels[i].kind {
-            Equality(_, _, _) => slf[i],
+            Atomic(_, _, _) => slf[i],
             And(x, y) => {
                 Self::reduce_impl(&slf, rels, *x as usize)
                     && Self::reduce_impl(&slf, rels, *y as usize)
@@ -751,7 +751,7 @@ impl EvalResultMask {
     ) -> bool {
         use StaticRelKind::*;
         match &rels[i].kind {
-            Equality(_, _, _) => slf[i],
+            Atomic(_, _, _) => slf[i],
             And(x, y) => {
                 if Self::reduce_impl(&locally_zero_mask, rels, *x as usize) {
                     Self::solution_certainly_exists_impl(

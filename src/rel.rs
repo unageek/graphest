@@ -112,7 +112,7 @@ impl StaticExpr {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum EqualityOp {
+pub enum RelOp {
     Eq,
     Ge,
     Gt,
@@ -122,7 +122,7 @@ pub enum EqualityOp {
 
 #[derive(Clone, Debug)]
 pub enum StaticRelKind {
-    Equality(EqualityOp, ExprId, ExprId),
+    Atomic(RelOp, ExprId, ExprId),
     And(RelId, RelId),
     Or(RelId, RelId),
 }
@@ -134,13 +134,13 @@ pub struct StaticRel {
 
 impl StaticRel {
     pub fn evaluate(&self, ts: &[TupperIntervalSet], es: &[EvalResult]) -> EvalResult {
-        use {EqualityOp::*, StaticRelKind::*};
+        use {RelOp::*, StaticRelKind::*};
         match &self.kind {
-            Equality(Eq, x, y) => ts[*x as usize].eq(&ts[*y as usize]),
-            Equality(Ge, x, y) => ts[*x as usize].ge(&ts[*y as usize]),
-            Equality(Gt, x, y) => ts[*x as usize].gt(&ts[*y as usize]),
-            Equality(Le, x, y) => ts[*x as usize].le(&ts[*y as usize]),
-            Equality(Lt, x, y) => ts[*x as usize].lt(&ts[*y as usize]),
+            Atomic(Eq, x, y) => ts[*x as usize].eq(&ts[*y as usize]),
+            Atomic(Ge, x, y) => ts[*x as usize].ge(&ts[*y as usize]),
+            Atomic(Gt, x, y) => ts[*x as usize].gt(&ts[*y as usize]),
+            Atomic(Le, x, y) => ts[*x as usize].le(&ts[*y as usize]),
+            Atomic(Lt, x, y) => ts[*x as usize].lt(&ts[*y as usize]),
             And(x, y) | Or(x, y) => {
                 EvalResult([es[*x as usize].0.clone(), es[*y as usize].0.clone()].concat())
             }

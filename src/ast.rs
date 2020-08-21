@@ -17,7 +17,7 @@ pub enum ExprKind {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum RelKind {
-    Equality(EqualityOp, Box<Expr>, Box<Expr>),
+    Atomic(RelOp, Box<Expr>, Box<Expr>),
     And(Box<Rel>, Box<Rel>),
     Or(Box<Rel>, Box<Rel>),
 }

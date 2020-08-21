@@ -33,7 +33,7 @@ fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, expr: &'a Expr) {
 fn traverse_rel<'a, V: Visit<'a>>(v: &mut V, rel: &'a Rel) {
     use RelKind::*;
     match &rel.kind {
-        Equality(_, x, y) => {
+        Atomic(_, x, y) => {
             v.visit_expr(x);
             v.visit_expr(y);
         }
@@ -73,7 +73,7 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, expr: &mut Expr) {
 fn traverse_rel_mut<V: VisitMut>(v: &mut V, rel: &mut Rel) {
     use RelKind::*;
     match &mut rel.kind {
-        Equality(_, x, y) => {
+        Atomic(_, x, y) => {
             v.visit_expr_mut(x);
             v.visit_expr_mut(y);
         }
@@ -240,7 +240,7 @@ impl<'a> Visit<'a> for AssignIdStage1<'a> {
     fn visit_rel(&mut self, rel: &'a Rel) {
         traverse_rel(self, rel);
 
-        if let RelKind::Equality(_, _, _) = rel.kind {
+        if let RelKind::Atomic(_, _, _) = rel.kind {
             match self.visited_rels.get(rel) {
                 Some(visited) => {
                     rel.id.set(visited.id.get());
@@ -353,7 +353,7 @@ impl<'a> Visit<'a> for CollectStatic {
         if self.rels[i].is_none() {
             self.rels[i] = Some(StaticRel {
                 kind: match &rel.kind {
-                    Equality(op, x, y) => StaticRelKind::Equality(*op, x.id.get(), y.id.get()),
+                    Atomic(op, x, y) => StaticRelKind::Atomic(*op, x.id.get(), y.id.get()),
                     And(x, y) => StaticRelKind::And(x.id.get(), y.id.get()),
                     Or(x, y) => StaticRelKind::Or(x.id.get(), y.id.get()),
                 },

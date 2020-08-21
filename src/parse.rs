@@ -195,17 +195,17 @@ fn equality(i: &str) -> ParseResult<Rel> {
             delimited(
                 space0,
                 alt((
-                    value(EqualityOp::Eq, tag("==")),
-                    value(EqualityOp::Ge, tag(">=")),
-                    value(EqualityOp::Gt, char('>')),
-                    value(EqualityOp::Le, tag("<=")),
-                    value(EqualityOp::Lt, char('<')),
+                    value(RelOp::Eq, tag("==")),
+                    value(RelOp::Ge, tag(">=")),
+                    value(RelOp::Gt, char('>')),
+                    value(RelOp::Le, tag("<=")),
+                    value(RelOp::Lt, char('<')),
                 )),
                 space0,
             ),
             expr,
         )),
-        |(x, op, y)| Rel::new(RelKind::Equality(op, Box::new(x), Box::new(y))),
+        |(x, op, y)| Rel::new(RelKind::Atomic(op, Box::new(x), Box::new(y))),
     )(i)
 }
 
