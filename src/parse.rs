@@ -97,7 +97,7 @@ fn postfix_expr(i: &str) -> ParseResult<Expr> {
             pair(
                 fn1,
                 delimited(
-                    terminated(char('('), space0),
+                    delimited(space0, char('('), space0),
                     expr,
                     preceded(space0, char(')')),
                 ),
@@ -108,7 +108,7 @@ fn postfix_expr(i: &str) -> ParseResult<Expr> {
             pair(
                 fn2,
                 delimited(
-                    terminated(char('('), space0),
+                    delimited(space0, char('('), space0),
                     separated_pair(expr, delimited(space0, char(','), space0), expr),
                     preceded(space0, char(')')),
                 ),
@@ -244,8 +244,12 @@ fn rel(i: &str) -> ParseResult<Rel> {
     or_rel(i)
 }
 
+fn relation(i: &str) -> ParseResult<Rel> {
+    delimited(space0, rel, space0)(i)
+}
+
 pub fn parse(i: &str) -> Result<Rel, String> {
-    match all_consuming(rel)(i) {
+    match all_consuming(relation)(i) {
         Ok(("", x)) => Ok(x),
         Err(NomErr::Error(e)) | Err(NomErr::Failure(e)) => Err(convert_error(i, e)),
         _ => unreachable!(),
