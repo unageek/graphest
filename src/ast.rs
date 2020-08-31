@@ -100,7 +100,7 @@ impl Expr {
             Unary(Exp10, x) => x.evaluate().exp10(),
             Unary(Exp2, x) => x.evaluate().exp2(),
             Unary(Floor, x) => x.evaluate().floor(None),
-            Unary(Log, x) => x.evaluate().log(),
+            Unary(Ln, x) => x.evaluate().ln(),
             Unary(Log10, x) => x.evaluate().log10(),
             Unary(Log2, x) => x.evaluate().log2(),
             Unary(Neg, x) => -&x.evaluate(),

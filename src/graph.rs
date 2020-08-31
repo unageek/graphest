@@ -27,6 +27,7 @@ struct Image {
 }
 
 impl Image {
+    /// Creates a new `Image` with all pixels set to `STAT_UNCERTAIN`.
     fn new(width: u32, height: u32) -> Self {
         Self {
             width,
@@ -35,6 +36,7 @@ impl Image {
         }
     }
 
+    /// Returns the value of the pixel.
     fn pixel(&self, x: u32, y: u32) -> u32 {
         self.data[self.pixel_index(x, y)]
     }
@@ -43,6 +45,7 @@ impl Image {
         y as usize * self.width as usize + x as usize
     }
 
+    /// Returns a mutable reference to the pixel.
     fn pixel_mut(&mut self, x: u32, y: u32) -> &mut u32 {
         let i = self.pixel_index(x, y);
         &mut self.data[i]
@@ -65,25 +68,30 @@ struct ImageBlockSet {
 pub struct Region(Interval, Interval);
 
 impl Region {
+    /// Creates a new `Region` with the specified bounds.
     pub fn new(l: f64, r: f64, b: f64, t: f64) -> Self {
         // Regions constructed directly do not need to satisfy these conditions.
         assert!(l < r && b < t && l.is_finite() && r.is_finite() && b.is_finite() && t.is_finite());
         Self(interval!(l, r).unwrap(), interval!(b, t).unwrap())
     }
 
+    // Returns the height of the region as an interval.
     fn height(&self) -> Interval {
         interval!(self.1.sup(), self.1.sup()).unwrap()
             - interval!(self.1.inf(), self.1.inf()).unwrap()
     }
 
+    /// Returns the intersection of two regions.
     fn intersection(&self, rhs: &Self) -> Self {
         Self(self.0.intersection(rhs.0), self.1.intersection(rhs.1))
     }
 
+    /// Returns if the region is the empty set.
     fn is_empty(&self) -> bool {
         self.0.is_empty() || self.1.is_empty()
     }
 
+    /// Returns the width of the region as an interval.
     fn width(&self) -> Interval {
         interval!(self.0.sup(), self.0.sup()).unwrap()
             - interval!(self.0.inf(), self.0.inf()).unwrap()
@@ -229,6 +237,9 @@ impl Graph {
         g
     }
 
+    /// Performs the refinement step.
+    ///
+    /// Returns `Ok(true)`/`Ok(false)` if graphing is complete/incomplete after refinement.
     pub fn step(&mut self) -> Result<bool, GraphingError> {
         if self.bs.blocks.is_empty() {
             return Ok(true);

@@ -1,5 +1,5 @@
 use crate::{ast::*, interval_set::*, rel::*};
-use inari::*;
+use inari::{dec_interval, DecoratedInterval};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -75,7 +75,7 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
             value(UnaryOp::Abs, tag("abs")),
             value(UnaryOp::Cos, tag("cos")),
             value(UnaryOp::Exp, tag("exp")),
-            value(UnaryOp::Log, tag("log")),
+            value(UnaryOp::Ln, tag("log")),
             value(UnaryOp::Sin, tag("sin")),
             value(UnaryOp::Tan, tag("tan")),
         )),

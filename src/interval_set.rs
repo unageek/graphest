@@ -4,11 +4,12 @@ use crate::rel::{StaticRel, StaticRelKind};
 use bitflags::*;
 use core::ops::{Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, Mul, Neg, Sub};
 use hexf::*;
-use inari::*;
+use inari::{const_dec_interval, interval, DecoratedInterval, Decoration, Interval};
 use smallvec::SmallVec;
 use std::{
     convert::From,
     hash::{Hash, Hasher},
+    mem::transmute,
 };
 
 // Represents a partial function {0, ..., 31} -> {0, 1}
@@ -64,7 +65,6 @@ impl IntervalBranch {
 //  trv        | def: [F,F], [F,T]
 //             | cont: [F,F], [F,T], [T,T]
 
-#[derive(Clone, Copy)]
 #[repr(C)]
 struct _DecoratedInterval {
     x: Interval,
@@ -82,19 +82,24 @@ struct TupperInterval {
 }
 
 impl TupperInterval {
+    /// Creates a new `TupperInterval` with the given `DecoratedInterval` and `IntervalBranch`.
+    ///
+    /// Panics if The interval is NaI.
     fn new(x: DecoratedInterval, g: IntervalBranch) -> Self {
         // nai is prohibited.
         assert!(!x.is_nai());
-        let x = unsafe { std::mem::transmute::<DecoratedInterval, _DecoratedInterval>(x) };
+        let x = unsafe { transmute::<_, _DecoratedInterval>(x) };
         Self { x: x.x, d: x.d, g }
     }
 
+    /// Returns the `DecoratedInterval` part of the `TupperInterval`.
     fn to_dec_interval(self) -> DecoratedInterval {
-        let x = _DecoratedInterval {
-            x: self.x,
-            d: self.d,
-        };
-        unsafe { std::mem::transmute(x) }
+        unsafe {
+            transmute(_DecoratedInterval {
+                x: self.x,
+                d: self.d,
+            })
+        }
     }
 }
 
@@ -124,24 +129,29 @@ type TupperIntervalVec = SmallVec<[TupperInterval; 2]>;
 pub struct TupperIntervalSet(TupperIntervalVec);
 
 impl TupperIntervalSet {
+    /// Creates a new, empty `TupperIntervalSet`.
     pub fn empty() -> Self {
         Self(TupperIntervalVec::new())
     }
 
+    /// Returns the number of intervals in the set.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Inserts an interval to the set. If the interval is empty, the set remains intact.
     fn insert(&mut self, x: TupperInterval) {
         if !x.x.is_empty() {
             self.0.push(x);
         }
     }
 
+    /// Returns if the set is empty.
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Expected to be called after modifying the set. It does nothing for the moment.
     fn normalize(self) -> Self {
         // TODO: Merge overlapping intervals.
         self
@@ -457,7 +467,7 @@ impl TupperIntervalSet {
             .min(&y)
     }
 
-    // Like the sinc function, but undefined for 0.
+    // Like the (unnormalized) sinc function, but undefined for 0.
     // Less precise for an interval near zero but does not contain zero.
     pub fn sin_over_x(&self) -> Self {
         const ARGMIN_RD: f64 = hexf64!("0x4.7e50150d41abp+0");
@@ -567,7 +577,7 @@ impl TupperIntervalSet {
     impl_no_cut_op!(exp);
     impl_no_cut_op!(exp10);
     impl_no_cut_op!(exp2);
-    impl_no_cut_op!(log);
+    impl_no_cut_op!(ln);
     impl_no_cut_op!(log10);
     impl_no_cut_op!(log2);
     impl_no_cut_op!(sin);
