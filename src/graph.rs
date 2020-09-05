@@ -86,7 +86,7 @@ impl Region {
         Self(self.0.intersection(rhs.0), self.1.intersection(rhs.1))
     }
 
-    /// Returns if the region is the empty set.
+    /// Returns `true` if the region is empty.
     fn is_empty(&self) -> bool {
         self.0.is_empty() || self.1.is_empty()
     }

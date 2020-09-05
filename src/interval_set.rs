@@ -134,24 +134,24 @@ impl TupperIntervalSet {
         Self(TupperIntervalVec::new())
     }
 
-    /// Returns the number of intervals in the set.
+    /// Returns the number of intervals in `self`.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    /// Inserts an interval to the set. If the interval is empty, the set remains intact.
+    /// Inserts an interval to `self`. If the interval is empty, `self` remains intact.
     fn insert(&mut self, x: TupperInterval) {
         if !x.x.is_empty() {
             self.0.push(x);
         }
     }
 
-    /// Returns if the set is empty.
+    /// Returns `true` if `self` is empty.
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
-    /// Expected to be called after modifying the set. It does nothing for the moment.
+    /// Expected to be called after modifying `self`. It is no-op for the moment.
     fn normalize(self) -> Self {
         // TODO: Merge overlapping intervals.
         self

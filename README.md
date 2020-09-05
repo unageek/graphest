@@ -39,19 +39,19 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
    Use `-h` option to show help:
 
    ```bash
-   inari-graph 
+   inari-graph
    Plots the graph of a relation over the x-y plane.
-   
+
    USAGE:
        inari-graph [OPTIONS] [relation]
-   
+
    ARGS:
        <relation>    Relation to plot.
-   
+
    FLAGS:
        -h, --help       Prints help information
        -V, --version    Prints version information
-   
+
    OPTIONS:
        -b <xmin> <xmax> <ymin> <ymax>        Bounds of the plot region. [default: -10 10 -10 10]
        -o <output>                           Output file, only .png is supported. [default: graph.png]
@@ -72,6 +72,9 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 
 | Input                                   | Interpreted as                                               | Notes                                                        |
 | --------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `123`<br />`123.5`<br />`.5`            | 123<br />123.5<br />0.5                                      | A decimal constant.                                          |
+| `e`                                     | e                                                            | The base of natural logarithms.                              |
+| `pi`                                    | π                                                            |                                                              |
 | `-x`                                    | −*x*                                                         |                                                              |
 | `x + y`                                 | *x* + *y*                                                    |                                                              |
 | `x - y`                                 | *x* − *y*                                                    |                                                              |
