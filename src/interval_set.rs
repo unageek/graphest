@@ -792,6 +792,7 @@ impl BitAnd for &EvalResultMask {
     type Output = EvalResultMask;
 
     fn bitand(self, rhs: Self) -> Self::Output {
+        #[allow(clippy::suspicious_arithmetic_impl)]
         EvalResultMask(
             self.0
                 .iter()
@@ -812,6 +813,7 @@ impl BitOr for &EvalResultMask {
     type Output = EvalResultMask;
 
     fn bitor(self, rhs: Self) -> Self::Output {
+        #[allow(clippy::suspicious_arithmetic_impl)]
         EvalResultMask(
             self.0
                 .iter()
