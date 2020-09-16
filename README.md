@@ -61,7 +61,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 ## Color Legend
 
 - ![Black](images/black.png) There is at least one solution in the pixel.
-- ![Blue](images/blue.png) The program has not decided the existence or absence of solutions.
+- ![Blue](images/blue.png) There mey or mey not be solutions in the pixel.
 - ![White](images/white.png) There are no solutions in the pixel.
 
 "Solution" here means any point that satisfies the relation.

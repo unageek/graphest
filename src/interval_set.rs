@@ -12,9 +12,8 @@ use std::{
     mem::transmute,
 };
 
-// Represents a partial function {0, ..., 31} -> {0, 1}
-// which domain is the set of branch cut site ids
-// and range is the set of branch indices.
+// Represents a partial function {0, ..., 31} -> {0, 1}, the domain of which is
+// the set of branch cut sites and the codomain is the set of branch indices.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(C)]
 struct IntervalBranch {

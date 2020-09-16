@@ -392,8 +392,7 @@ impl Graph {
             }
 
             // We could re-evaluate the relation on `inter` instead of `u_up`
-            // to get a slightly better result, but the effect would be
-            // negligible.
+            // to get a slightly better result, but the effect would be negligible.
 
             // To prove the existence of a solution by a change of sign...
             //   for conjunctions, both operands must be `Dac`.
