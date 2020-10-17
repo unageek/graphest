@@ -4,7 +4,9 @@ use crate::rel::{StaticRel, StaticRelKind};
 use bitflags::*;
 use core::ops::{Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, Mul, Neg, Sub};
 use hexf::*;
-use inari::{const_dec_interval, interval, DecoratedInterval, Decoration, Interval};
+use inari::{
+    const_dec_interval, const_interval, interval, DecoratedInterval, Decoration, Interval,
+};
 use smallvec::SmallVec;
 use std::{
     convert::From,
@@ -74,7 +76,7 @@ struct _DecoratedInterval {
 // the size of `TupperInterval` 48 bytes instead of 32 due to the alignment.
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
-struct TupperInterval {
+pub struct TupperInterval {
     x: Interval,
     d: Decoration,
     g: IntervalBranch,
@@ -92,7 +94,7 @@ impl TupperInterval {
     }
 
     /// Returns the `DecoratedInterval` part of the `TupperInterval`.
-    fn to_dec_interval(self) -> DecoratedInterval {
+    pub fn to_dec_interval(self) -> DecoratedInterval {
         unsafe {
             transmute(_DecoratedInterval {
                 x: self.x,
@@ -121,11 +123,12 @@ impl Hash for TupperInterval {
     }
 }
 
-type TupperIntervalVec = SmallVec<[TupperInterval; 2]>;
+pub type TupperIntervalVec = SmallVec<[TupperInterval; 2]>;
 
 // NOTE: Equality is order-sensitive.
+// TODO: Rename .0 to .vec?
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct TupperIntervalSet(TupperIntervalVec);
+pub struct TupperIntervalSet(pub TupperIntervalVec);
 
 impl TupperIntervalSet {
     /// Creates a new, empty `TupperIntervalSet`.
@@ -267,6 +270,13 @@ macro_rules! impl_integer_op {
     };
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Parity {
+    NoneOrUnknown,
+    Even,
+    Odd,
+}
+
 impl TupperIntervalSet {
     pub fn atan2(&self, rhs: &Self, site: Option<u8>) -> Self {
         let mut rs = Self::empty();
@@ -393,6 +403,159 @@ impl TupperIntervalSet {
                                 g,
                             ));
                         }
+                    }
+                }
+            }
+        }
+        rs.normalize()
+    }
+
+    // Precondition: y is neither ±∞ nor NaN.
+    fn exponentiation_parity(y: f64) -> Parity {
+        if y == y.trunc() {
+            // y ∈ ℤ.
+
+            if y == 2.0 * (y / 2.0).trunc() {
+                // y ∈ 2ℤ.
+                Parity::Even
+            } else {
+                // y ∈ 2ℤ + 1.
+                Parity::Odd
+            }
+        } else {
+            // TODO
+            Parity::NoneOrUnknown
+        }
+    }
+
+    // - For any integer m and positive odd integer n, we define
+    //     x^(m/n) = surd(x, n)^m,
+    //   where surd(x, n) is the real-valued nth root of x.
+    // - We define 0^0 = 1.
+    //
+    // - For x < 0, x^y =
+    //     | (-x)^y     if y = even / odd
+    //     |            (x^y is an even function wrt x),
+    //     | -(-x)^y    if y = odd / odd
+    //     |            (x^y is an odd function wrt y),
+    //     | undefined  otherwise (y = odd / even or irrational).
+    // - Decoration is weakened to `Trv` if some (x, y) is outside the domain of
+    //   the original `Interval::pow` function, i.e., if:
+    //   ∃(x, y) ∈ X × Y : x < 0 ∨ (x = 0 ∧ y ≤ 0).
+    pub fn pow(&self, rhs: &Self, site: Option<u8>) -> Self {
+        let mut rs = Self::empty();
+        for x in &self.0 {
+            for y in &rhs.0 {
+                if let Some(g) = x.g.union(y.g) {
+                    let a = x.x.inf();
+                    let b = x.x.sup();
+                    let c = y.x.inf();
+                    let d = y.x.sup();
+
+                    let one_or_empty = if a <= 0.0 && b >= 0.0 && c <= 0.0 && d >= 0.0 {
+                        const_interval!(1.0, 1.0)
+                    } else {
+                        Interval::EMPTY
+                    };
+
+                    let parity = if y.to_dec_interval().is_singleton() {
+                        Some(Self::exponentiation_parity(c))
+                    } else {
+                        None
+                    };
+
+                    let dec_xy = x.d.min(y.d);
+                    if parity == Some(Parity::Even) {
+                        // y is a singleton (c = d) of even / odd.
+
+                        let dec = if c < 0.0 && a <= 0.0 && b >= 0.0 {
+                            Decoration::Trv
+                        } else {
+                            // The restriction is continuous, thus `Dac`.
+                            // It can be `Com`, but that does not matter for graphing.
+                            Decoration::Dac
+                        };
+                        let dec = dec.min(dec_xy);
+
+                        let x = x.x.abs();
+                        let z = x.pow(y.x);
+                        rs.insert(TupperInterval::new(
+                            DecoratedInterval::set_dec(z.convex_hull(one_or_empty), dec),
+                            g,
+                        ));
+                    } else if parity == Some(Parity::Odd) {
+                        // y is a singleton (c = d) of odd / odd.
+
+                        let dec = if c < 0.0 && a <= 0.0 && b >= 0.0 {
+                            Decoration::Trv
+                        } else {
+                            Decoration::Dac
+                        };
+                        let dec = dec.min(dec_xy);
+
+                        let xn = x.x.intersection(const_interval!(f64::NEG_INFINITY, 0.0));
+                        let z = -(-xn).pow(y.x);
+                        rs.insert(TupperInterval::new(
+                            DecoratedInterval::set_dec(z, dec),
+                            match site {
+                                Some(site) => g.inserted(site, 0),
+                                _ => g,
+                            },
+                        ));
+
+                        let xp = x.x.intersection(const_interval!(0.0, f64::INFINITY));
+                        let z = xp.pow(y.x);
+                        rs.insert(TupperInterval::new(
+                            DecoratedInterval::set_dec(z, dec),
+                            match site {
+                                Some(site) => g.inserted(site, 1),
+                                _ => g,
+                            },
+                        ));
+                    } else if a < 0.0 {
+                        // a < 0.
+
+                        // x^y ≥ 0 part from
+                        //   x ≥ 0 (incl. 0^0), and
+                        //   x < 0 for those ys where x^y is an even function wrt x.
+                        let x0 = x.x.abs();
+                        let z = x0.pow(y.x);
+                        rs.insert(TupperInterval::new(
+                            DecoratedInterval::set_dec(
+                                z.convex_hull(one_or_empty),
+                                Decoration::Trv,
+                            ),
+                            match site {
+                                Some(site) => g.inserted(site, 0),
+                                _ => g,
+                            },
+                        ));
+
+                        // x^y < 0 part from
+                        //   x < 0 for those ys where x^y is an odd function wrt x.
+                        let x1 = x.x.min(const_interval!(0.0, 0.0));
+                        let z = -(-x1).pow(y.x);
+                        rs.insert(TupperInterval::new(
+                            DecoratedInterval::set_dec(z, Decoration::Trv),
+                            match site {
+                                Some(site) => g.inserted(site, 1),
+                                _ => g,
+                            },
+                        ));
+                    } else {
+                        // x ≥ 0 (a ≥ 0).
+
+                        // y is not a singleton.
+                        // If a = b = 0 ∧ c ≤ 0 ≤ d, we need to add {0^0} to z manually.
+                        // In that case, the decoration is already `Trv`.
+                        let z = x.to_dec_interval().pow(y.to_dec_interval());
+                        rs.insert(TupperInterval::new(
+                            DecoratedInterval::set_dec(
+                                z.interval_part().unwrap().convex_hull(one_or_empty),
+                                z.decoration_part(),
+                            ),
+                            g,
+                        ));
                     }
                 }
             }

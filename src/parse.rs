@@ -3,8 +3,8 @@ use inari::{dec_interval, DecoratedInterval};
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, digit0, digit1, one_of, space0},
-    combinator::{all_consuming, map, map_res, opt, recognize, value},
+    character::complete::{char, digit0, digit1, space0},
+    combinator::{all_consuming, map, opt, recognize, value},
     error::VerboseError,
     multi::fold_many0,
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
@@ -12,12 +12,6 @@ use nom::{
 };
 
 type ParseResult<'a, O> = IResult<&'a str, O, VerboseError<&'a str>>;
-
-fn integer_literal(s: &str) -> ParseResult<i32> {
-    map_res(recognize(pair(opt(one_of("+-")), digit1)), |i: &str| {
-        i.parse::<i32>()
-    })(s)
-}
 
 fn decimal_literal(i: &str) -> ParseResult<&str> {
     alt((
@@ -119,16 +113,16 @@ fn postfix_expr(i: &str) -> ParseResult<Expr> {
     ))(i)
 }
 
-// Repetition like x^2^3 (== x^(2^3)) is not permitted at the moment.
+// ^ is right-associative: x^y^z is the same as x^(y^z).
 fn power_expr(i: &str) -> ParseResult<Expr> {
     alt((
         map(
-            tuple((
+            separated_pair(
                 postfix_expr,
                 delimited(space0, char('^'), space0),
-                integer_literal,
-            )),
-            |(x, _, y)| Expr::new(ExprKind::Pown(Box::new(x), y)),
+                unary_expr,
+            ),
+            |(x, y)| Expr::new(ExprKind::Binary(BinaryOp::Pow, Box::new(x), Box::new(y))),
         ),
         postfix_expr,
     ))(i)

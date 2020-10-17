@@ -46,6 +46,7 @@ pub enum BinaryOp {
     Min,
     Mod,
     Mul,
+    Pow,
     Sub,
 }
 
@@ -104,6 +105,7 @@ impl StaticExpr {
             Binary(Min, x, y) => ts[*x as usize].min(&ts[*y as usize]),
             Binary(Mod, x, y) => ts[*x as usize].rem_euclid(&ts[*y as usize], self.site),
             Binary(Mul, x, y) => &ts[*x as usize] * &ts[*y as usize],
+            Binary(Pow, x, y) => ts[*x as usize].pow(&ts[*y as usize], self.site),
             Binary(Sub, x, y) => &ts[*x as usize] - &ts[*y as usize],
             Pown(x, y) => ts[*x as usize].pown(*y, self.site),
             X | Y => panic!("this expression cannot be evaluated"),

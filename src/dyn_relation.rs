@@ -49,6 +49,8 @@ impl FromStr for DynRelation {
         let mut rel = parse(s)?;
         Transform.visit_rel_mut(&mut rel);
         FoldConstant.visit_rel_mut(&mut rel);
+        Transform.visit_rel_mut(&mut rel);
+        FoldConstant.visit_rel_mut(&mut rel);
         let mut v = AssignIdStage1::new();
         v.visit_rel(&rel);
         let mut v = AssignIdStage2::new(v);
