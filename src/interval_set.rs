@@ -429,19 +429,16 @@ impl TupperIntervalSet {
     }
 
     // - For any integer m and positive odd integer n, we define
-    //     x^(m/n) = surd(x, n)^m,
+    //     x^(m / n) = surd(x, n)^m,
     //   where surd(x, n) is the real-valued nth root of x.
+    //   Therefore, for x < 0,
+    //           | (-x)^y     if y = even / odd
+    //           |            (x^y is an even function of x),
+    //     x^y = | -(-x)^y    if y = odd / odd
+    //           |            (x^y is an odd function of x),
+    //           | undefined  otherwise (y = odd / even or irrational).
     // - We define 0^0 = 1.
-    //
-    // - For x < 0, x^y =
-    //     | (-x)^y     if y = even / odd
-    //     |            (x^y is an even function wrt x),
-    //     | -(-x)^y    if y = odd / odd
-    //     |            (x^y is an odd function wrt y),
-    //     | undefined  otherwise (y = odd / even or irrational).
-    // - Decoration is weakened to `Trv` if some (x, y) is outside the domain of
-    //   the original `Interval::pow` function, i.e., if:
-    //   ∃(x′, y′) ∈ x × y : x′ < 0 ∨ (x′ = 0 ∧ y′ ≤ 0).
+    // The original `Interval::pow` is not defined for x < 0 nor x = y = 0.
     pub fn pow(&self, rhs: &Self, site: Option<u8>) -> Self {
         let mut rs = Self::empty();
         for x in &self.0 {
@@ -476,9 +473,8 @@ impl TupperIntervalSet {
                                 } else {
                                     // The restriction is continuous, thus `Dac`.
                                     // It can be `Com`, but that does not matter for graphing.
-                                    Decoration::Dac
+                                    Decoration::Dac.min(x.d).min(y.d)
                                 };
-                                let dec = dec.min(x.d).min(y.d);
 
                                 let x = x.x.abs();
                                 let z = x.pow(y.x);
@@ -491,9 +487,8 @@ impl TupperIntervalSet {
                                 let dec = if a <= 0.0 && b >= 0.0 && c < 0.0 {
                                     Decoration::Trv
                                 } else {
-                                    Decoration::Dac
+                                    Decoration::Dac.min(x.d).min(y.d)
                                 };
-                                let dec = dec.min(x.d).min(y.d);
 
                                 // xn or xp can be empty.
                                 let xn = x.x.intersection(const_interval!(f64::NEG_INFINITY, 0.0));
@@ -555,7 +550,7 @@ impl TupperIntervalSet {
                     } else {
                         // a ≥ 0.
 
-                        // If a = b = 0 ∧ c ≤ 0 ≤ d, we need to add {0^0} to z manually.
+                        // If a = b = 0 ∧ c ≤ 0 ≤ d, we need to add {1} to z manually.
                         // In that case, the decoration of z is already `Trv`.
                         let z = x.to_dec_interval().pow(y.to_dec_interval());
                         rs.insert(TupperInterval::new(

@@ -81,7 +81,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `x * y`                                 | _x_ _y_                                                      |                                                              |
 | `x / y`                                 | _x_ / _y_                                                    | Undefined for _y_ = 0.                                       |
 | `sqrt(x)`                               | √*x*                                                         | Undefined for _x_ < 0.                                       |
-| `x^y`                                   | _x_<sup>_y_</sup>                                            | `^` is right-associative: `x^y^z` is the same as `x^(y^z)`.<br />See [About Exponentation](#about-exponentation) for the definition.<br />See also `exp`, `exp2` and `exp10`. |
+| `x^y`                                   | _x_<sup>_y_</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition.<br />See also `exp`, `exp2` and `exp10`. |
 | `exp(x)`<br />`exp2(x)`<br />`exp10(x)` | e<sup>_x_</sup><br />2<sup>_x_</sup><br />10<sup>_x_</sup>   |                                                              |
 | `log(x)`<br />`log2(x)`<br />`log10(x)` | log<sub>e</sub> _x_<br />log<sub>2</sub> _x_<br />log<sub>10</sub> _x_ | Undefined for _x_ ≤ 0.                                       |
 | `sin(x)`                                | sin _x_                                                      |                                                              |
@@ -105,16 +105,6 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `sign(x)`                               | sgn(_x_)                                                     | [The sign function.](https://en.wikipedia.org/wiki/Sign_function) |
 | `mod(x, y)`                             | _x_ mod _y_                                                  | [The modulo operation.](https://en.wikipedia.org/wiki/Modulo_operation)<br />The result is nonnegative, _i.e._, 0 ≤ _x_ mod _y_ < \|_y_\|. |
 
-#### About Exponentation
-
-To be consistent with GrafEq, the following definitions of exponentation is implemented.
-
-- For _x_ < 0, _x_<sup>_y_</sup> is defined if and only if _y_ is a rational number with an odd denominator.
-  - For any positive integers _m_ and _n_, _x_<sup>±_m_ / _n_</sup> := (<sup>_n_</sup>√_x_)<sup>±_m_</sup>, where <sup>_n_</sup>√_x_ is the real-valued *n*th root of _x_.
-- _x_<sup>±_m_ / _n_</sup> is an even/odd function of _x_ if _m_ is even/odd.
-  
-- We let 0<sup>0</sup> := 1.
-
 ### Relation
 
 | Input      | Interpreted as | Notes                                                                                                          |
@@ -133,7 +123,17 @@ You can group a part of an expression or a relation with `(` … `)`.
 
 Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4.1 and 3.4.2.
 
-## References
+#### About Exponentiation
+
+To be consistent with GrafEq, the following definitions of exponentiation is implemented.
+
+- For _x_ < 0, _x_<sup>_y_</sup> is defined if and only if _y_ is a rational number with an odd denominator:
+  - For any positive integers _m_ and _n_, _x_<sup>±_m_ / _n_</sup> := (<sup>_n_</sup>√_x_)<sup>±_m_</sup>, where <sup>_n_</sup>√_x_ is the real-valued *n*th root of _x_.
+  - _x_<sup>±_m_ / _n_</sup> is an even (odd) function of _x_ if _m_ is even (odd).
+
+- 0<sup>0</sup> := 1.
+
+### References
 
 - [Ped] Pedagoguery Software Inc. GrafEq™. http://www.peda.com/grafeq
 - [Tup96] Jeffrey Allen Tupper. _Graphing Equations with Generalized Interval Arithmetic._ Master's thesis, University of Toronto, 1996. http://www.dgp.toronto.edu/~mooncake/thesis.pdf
