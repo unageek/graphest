@@ -1,4 +1,5 @@
 use crate::{ast::*, rel::*};
+use inari::const_dec_interval;
 use std::{
     collections::{HashMap, HashSet},
     marker::Sized,
@@ -110,19 +111,30 @@ impl VisitMut for Transform {
                     _ => (),
                 };
             }
-            Pown(x, y) => match y {
-                -1 => {
-                    *expr = Expr::new(Unary(Recip, std::mem::take(x)));
-                }
-                // Do not transform x^0 to 1.0 as that can discard the decoration (e.g. "sqrt(x)^0").
-                1 => {
-                    *expr = *std::mem::take(x);
-                }
-                2 => {
-                    *expr = Expr::new(Unary(Sqr, std::mem::take(x)));
-                }
-                _ => (),
-            },
+            Binary(Pow, x, y) => {
+                if let Constant(y) = &y.kind {
+                    let y = &*y;
+                    if y.len() == 1 {
+                        let y = y.0[0].to_dec_interval();
+                        // Do not transform x^0 to 1 as that can discard the decoration (e.g. sqrt(x)^0).
+                        if y == const_dec_interval!(-1.0, -1.0) {
+                            *expr = Expr::new(Unary(Recip, std::mem::take(x)));
+                        } else if y == const_dec_interval!(0.5, 0.5) {
+                            *expr = Expr::new(Unary(Sqrt, std::mem::take(x)));
+                        } else if y == const_dec_interval!(1.0, 1.0) {
+                            *expr = std::mem::take(x);
+                        } else if y == const_dec_interval!(2.0, 2.0) {
+                            *expr = Expr::new(Unary(Sqr, std::mem::take(x)));
+                        } else if y.is_singleton() {
+                            let y = y.inf();
+                            let iy = y as i32;
+                            if y == iy as f64 {
+                                *expr = Expr::new(Pown(std::mem::take(x), iy));
+                            }
+                        }
+                    }
+                };
+            }
             _ => (),
         }
     }
@@ -203,6 +215,7 @@ impl<'a> AssignIdStage1<'a> {
             | Binary(Atan2, _, _)
             | Binary(Div, _, _)
             | Binary(Mod, _, _)
+            | Binary(Pow, _, _)
             | Pown(_, _))
     }
 }

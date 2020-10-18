@@ -120,6 +120,7 @@ impl Expr {
             Binary(Min, x, y) => x.evaluate().min(&y.evaluate()),
             Binary(Mod, x, y) => x.evaluate().rem_euclid(&y.evaluate(), None),
             Binary(Mul, x, y) => &x.evaluate() * &y.evaluate(),
+            Binary(Pow, x, y) => x.evaluate().pow(&y.evaluate(), None),
             Binary(Sub, x, y) => &x.evaluate() - &y.evaluate(),
             Pown(x, y) => x.evaluate().pown(*y, None),
             X | Y | Uninit => panic!("this expression cannot be evaluated"),
