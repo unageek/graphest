@@ -278,7 +278,6 @@ enum Parity {
 }
 
 impl TupperIntervalSet {
-    // TODO: Fix decoration.
     pub fn atan2(&self, rhs: &Self, site: Option<u8>) -> Self {
         let mut rs = Self::empty();
         for y in &self.0 {
@@ -461,7 +460,6 @@ impl TupperIntervalSet {
                         Interval::EMPTY
                     };
 
-                    let dec_xy = x.d.min(y.d);
                     if c == d {
                         // y is a singleton.
                         match Self::exponentiation_parity(c) {
@@ -480,7 +478,7 @@ impl TupperIntervalSet {
                                     // It can be `Com`, but that does not matter for graphing.
                                     Decoration::Dac
                                 };
-                                let dec = dec.min(dec_xy);
+                                let dec = dec.min(x.d).min(y.d);
 
                                 let x = x.x.abs();
                                 let z = x.pow(y.x);
@@ -495,7 +493,7 @@ impl TupperIntervalSet {
                                 } else {
                                     Decoration::Dac
                                 };
-                                let dec = dec.min(dec_xy);
+                                let dec = dec.min(x.d).min(y.d);
 
                                 // xn or xp can be empty.
                                 let xn = x.x.intersection(const_interval!(f64::NEG_INFINITY, 0.0));
