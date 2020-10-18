@@ -123,14 +123,13 @@ You can group a part of an expression or a relation with `(` … `)`.
 
 Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4.1 and 3.4.2.
 
-#### About Exponentiation
+### About Exponentiation
 
 To be consistent with GrafEq, the following definitions of exponentiation is implemented.
 
 - For _x_ < 0, _x_<sup>_y_</sup> is defined if and only if _y_ is a rational number with an odd denominator:
   - For any positive integers _m_ and _n_, _x_<sup>±_m_ / _n_</sup> := (<sup>_n_</sup>√_x_)<sup>±_m_</sup>, where <sup>_n_</sup>√_x_ is the real-valued *n*th root of _x_.
   - _x_<sup>±_m_ / _n_</sup> is an even (odd) function of _x_ if _m_ is even (odd).
-
 - 0<sup>0</sup> := 1.
 
 ### References
