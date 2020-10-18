@@ -277,27 +277,32 @@ impl TupperIntervalSet {
                     let b = x.x.sup();
                     let c = y.x.inf();
                     let d = y.x.sup();
+
                     if a == 0.0 && b == 0.0 && c < 0.0 && d > 0.0 {
+                        let dec = Decoration::Trv;
+
                         rs.insert(TupperInterval::new(
-                            DecoratedInterval::set_dec(-Interval::FRAC_PI_2, Decoration::Trv),
+                            DecoratedInterval::set_dec(-Interval::FRAC_PI_2, dec),
                             match site {
                                 Some(site) => g.inserted(site, 0),
                                 _ => g,
                             },
                         ));
                         rs.insert(TupperInterval::new(
-                            DecoratedInterval::set_dec(Interval::FRAC_PI_2, Decoration::Trv),
+                            DecoratedInterval::set_dec(Interval::FRAC_PI_2, dec),
                             match site {
                                 Some(site) => g.inserted(site, 1),
                                 _ => g,
                             },
                         ));
-                    } else if b <= 0.0 && c < 0.0 && d >= 0.0 {
+                    } else if a < 0.0 && b <= 0.0 && c < 0.0 && d >= 0.0 {
                         let dec = if b == 0.0 {
                             Decoration::Trv
                         } else {
-                            Decoration::Def
+                            Decoration::Def.min(x.d).min(y.d)
                         };
+
+                        // y < 0 (thus z < 0) part.
                         let x0 = interval!(b, b).unwrap();
                         let y0 = interval!(c, c).unwrap();
                         rs.insert(TupperInterval::new(
@@ -310,29 +315,19 @@ impl TupperIntervalSet {
                                 _ => g,
                             },
                         ));
-                        if d == 0.0 {
-                            rs.insert(TupperInterval::new(
-                                DecoratedInterval::set_dec(Interval::PI, dec),
-                                match site {
-                                    Some(site) => g.inserted(site, 1),
-                                    _ => g,
-                                },
-                            ));
-                        } else {
-                            let x1 = interval!(b, b).unwrap();
-                            let y1 = interval!(d, d).unwrap();
-                            rs.insert(TupperInterval::new(
-                                DecoratedInterval::set_dec(
-                                    interval!(y1.atan2(x1).inf(), Interval::PI.sup()).unwrap(),
-                                    dec,
-                                ),
-                                match site {
-                                    Some(site) => g.inserted(site, 1),
-                                    _ => g,
-                                },
-                            ));
-                        }
+
+                        // y ≥ 0 (thus z > 0) part.
+                        let x1 = interval!(a, b).unwrap();
+                        let y1 = interval!(0.0, d).unwrap();
+                        rs.insert(TupperInterval::new(
+                            DecoratedInterval::set_dec(y1.atan2(x1), dec),
+                            match site {
+                                Some(site) => g.inserted(site, 1),
+                                _ => g,
+                            },
+                        ));
                     } else {
+                        // a = b = c = d = 0 goes here.
                         rs.insert(TupperInterval::new(
                             y.to_dec_interval().atan2(x.to_dec_interval()),
                             g,
