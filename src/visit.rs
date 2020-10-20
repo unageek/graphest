@@ -112,8 +112,16 @@ impl VisitMut for Transform {
                 };
             }
             Binary(Pow, x, y) => {
-                if let Constant(y) = &y.kind {
-                    let y = &*y;
+                if let Constant(x) = &x.kind {
+                    if x.len() == 1 {
+                        let x = x.0[0].to_dec_interval();
+                        if x == const_dec_interval!(2.0, 2.0) {
+                            *expr = Expr::new(Unary(Exp2, std::mem::take(y)));
+                        } else if x == const_dec_interval!(10.0, 10.0) {
+                            *expr = Expr::new(Unary(Exp10, std::mem::take(y)));
+                        }
+                    }
+                } else if let Constant(y) = &y.kind {
                     if y.len() == 1 {
                         let y = y.0[0].to_dec_interval();
                         // Do not transform x^0 to 1 as that can discard the decoration (e.g. sqrt(x)^0).
@@ -133,7 +141,7 @@ impl VisitMut for Transform {
                             }
                         }
                     }
-                };
+                }
             }
             _ => (),
         }

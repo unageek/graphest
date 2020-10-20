@@ -81,8 +81,8 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `x * y`                                 | *x* *y*                                                      |                                                              |
 | `x / y`                                 | *x* / *y*                                                    | Undefined for *y* = 0.                                       |
 | `sqrt(x)`                               | √*x*                                                         | Undefined for *x* < 0.                                       |
-| `x^y`                                   | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition.<br />See also `exp`, `exp2` and `exp10`. |
-| `exp(x)`<br />`exp2(x)`<br />`exp10(x)` | e<sup>*x*</sup><br />2<sup>*x*</sup><br />10<sup>*x*</sup>   |                                                              |
+| `x^y`                                   | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
+| `exp(x)`                                | e<sup>*x*</sup>                                              |                                                              |
 | `log(x)`<br />`log2(x)`<br />`log10(x)` | log<sub>e</sub> *x*<br />log<sub>2</sub> *x*<br />log<sub>10</sub> *x* | Undefined for *x* ≤ 0.                                       |
 | `sin(x)`                                | sin *x*                                                      |                                                              |
 | `cos(x)`                                | cos *x*                                                      |                                                              |
