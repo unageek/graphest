@@ -23,7 +23,7 @@
   - 📄 Parabolic Waves.gqs
 
     ```text
-    "abs(sin(sqrt(x^2 + y^2))) == abs(cos(x))"
+    "|sin(sqrt(x^2 + y^2))| == |cos(x)|"
     ```
 
   - 📄 Pythagorean Pairs.gqs 🐌
@@ -56,7 +56,7 @@
   - 📄 Solid Disc.gqs
 
     ```text
-    "81 - x^2 - y^2 == abs(81 - x^2 - y^2)"
+    "81 - x^2 - y^2 == |81 - x^2 - y^2|"
     ```
 
   - 📄 Spike.gqs
@@ -74,7 +74,7 @@
   - 📄 Upper Triangle.gqs
 
     ```text
-    "x + y == abs(x + y)"
+    "x + y == |x + y|"
     ```
 
   - 📄 Wave.gqs
@@ -105,19 +105,19 @@
 
     ```text
     "(mod(892 * 2^(-floor(mod(floor(y)^2/10^(-ceil(1.25*x)), 10))), 2) >= 1 && \
-      30 * max(abs(mod(y,1) - 1/2), abs(mod(x,0.8)+0.1 - 1/2) + abs(mod(y,1) - 1/2) - 1/4) < 1 || \
+      30 * max(|mod(y,1) - 1/2|, |mod(x,0.8)+0.1 - 1/2| + |mod(y,1) - 1/2| - 1/4) < 1 || \
       mod(365 * 2^(-floor(mod(floor(y)^2/10^(-ceil(1.25*x)), 10))), 2) >= 1 && \
-      30 * max(abs(mod(y,1) - 1/10), abs(mod(x,0.8)+0.1 - 1/2) + abs(mod(y,1) - 1/10) - 1/4) < 1 || \
+      30 * max(|mod(y,1) - 1/10|, |mod(x,0.8)+0.1 - 1/2| + |mod(y,1) - 1/10| - 1/4) < 1 || \
       mod(941 * 2^(-floor(mod(floor(y)^2/10^(-ceil(1.25*x)), 10))), 2) >= 1 && \
-      30 * max(abs(mod(y,1) - 9/10), abs(mod(x,0.8)+0.1 - 1/2) + abs(mod(y,1) - 9/10) - 1/4) < 1 || \
+      30 * max(|mod(y,1) - 9/10|, |mod(x,0.8)+0.1 - 1/2| + |mod(y,1) - 9/10| - 1/4) < 1 || \
       mod(927 * 2^(-floor(mod(floor(y)^2/10^(-ceil(1.25*x)), 10))), 2) >= 1 && \
-      30 * max(abs(mod(x,0.8)+0.1 - 4/5), abs(mod(y,1) - 7/10) + abs(mod(x,0.8)+0.1 - 4/5) - 1/8) < 1 || \
+      30 * max(|mod(x,0.8)+0.1 - 4/5|, |mod(y,1) - 7/10| + |mod(x,0.8)+0.1 - 4/5| - 1/8) < 1 || \
       mod(881 * 2^(-floor(mod(floor(y)^2/10^(-ceil(1.25*x)), 10))), 2) >= 1 && \
-      30 * max(abs(mod(x,0.8)+0.1 - 1/5), abs(mod(y,1) - 7/10) + abs(mod(x,0.8)+0.1 - 1/5) - 1/8) < 1 || \
+      30 * max(|mod(x,0.8)+0.1 - 1/5|, |mod(y,1) - 7/10| + |mod(x,0.8)+0.1 - 1/5| - 1/8) < 1 || \
       mod(325 * 2^(-floor(mod(floor(y)^2/10^(-ceil(1.25*x)), 10))), 2) >= 1 && \
-      30 * max(abs(mod(x,0.8)+0.1 - 1/5), abs(mod(y,1) - 3/10) + abs(mod(x,0.8)+0.1 - 1/5) - 1/8) < 1 || \
+      30 * max(|mod(x,0.8)+0.1 - 1/5|, |mod(y,1) - 3/10| + |mod(x,0.8)+0.1 - 1/5| - 1/8) < 1 || \
       mod(1019 * 2^(-floor(mod(floor(y)^2/10^(-ceil(1.25*x)), 10))), 2) >= 1 && \
-      30 * max(abs(mod(x,0.8)+0.1 - 4/5), abs(mod(y,1) - 3/10) + abs(mod(x,0.8)+0.1 - 4/5) - 1/8) < 1) && \
+      30 * max(|mod(x,0.8)+0.1 - 4/5|, |mod(y,1) - 3/10| + |mod(x,0.8)+0.1 - 4/5| - 1/8) < 1) && \
      x < 0 && 0 < floor(y)^2 && floor(y)^2 >= 10^(-ceil(1.25*x))" -b -7 3 1 11
     ```
 
@@ -189,13 +189,13 @@
   - 📄 Highwire.gqs 🐌
 
     ```text
-    "abs(x*cos(x) - y*sin(y)) == abs(x*cos(y) - y*sin(x))"
+    "|x*cos(x) - y*sin(y)| == |x*cos(y) - y*sin(x)|"
     ```
 
   - 📄 Trapezoidal Fortress.gqs 🐌
 
     ```text
-    "abs(x*cos(x) + y*sin(y)) == x*cos(y) - y*sin(x)"
+    "|x*cos(x) + y*sin(y)| == x*cos(y) - y*sin(x)"
     ```
 
 - 📂 Single Relation/Solid/
@@ -210,7 +210,7 @@
   - 📄 The Disco Hall.gqs
 
     ```text
-    "sin(abs(x + y)) > max(cos(x^2), sin(y^2))"
+    "sin(|x + y|) > max(cos(x^2), sin(y^2))"
     ```
 
 ## Examples from [GrafEq Reviews](http://www.peda.com/grafeq/reviews.html)
@@ -246,11 +246,11 @@ The graph must be empty:
 ```
 
 ```text
-"abs(sin(x^2 - y^2)) == sin(x + y) + cos(x * y)"
+"|sin(x^2 - y^2)| == sin(x + y) + cos(x * y)"
 ```
 
 ```text
-"abs(sin(x^2 + 2*x*y)) == sin(x - 2*y)"
+"|sin(x^2 + 2*x*y)| == sin(x - 2*y)"
 ```
 
 ## Tests for Conjunction and Disjunction

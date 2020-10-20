@@ -42,11 +42,18 @@ fn primary_expr(i: &str) -> ParseResult<Expr> {
             expr,
             preceded(space0, char(')')),
         ),
+        map(
+            delimited(
+                terminated(char('|'), space0),
+                expr,
+                preceded(space0, char('|')),
+            ),
+            |x| Expr::new(ExprKind::Unary(UnaryOp::Abs, Box::new(x))),
+        ),
     ))(i)
 }
 
 fn fn1(i: &str) -> ParseResult<UnaryOp> {
-    // alt is limited to 21 choices.
     alt((
         value(UnaryOp::Acosh, tag("acosh")),
         value(UnaryOp::Asinh, tag("asinh")),
@@ -63,14 +70,11 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
         value(UnaryOp::Sinh, tag("sinh")),
         value(UnaryOp::Sqrt, tag("sqrt")),
         value(UnaryOp::Tanh, tag("tanh")),
-        alt((
-            value(UnaryOp::Abs, tag("abs")),
-            value(UnaryOp::Cos, tag("cos")),
-            value(UnaryOp::Exp, tag("exp")),
-            value(UnaryOp::Ln, tag("log")),
-            value(UnaryOp::Sin, tag("sin")),
-            value(UnaryOp::Tan, tag("tan")),
-        )),
+        value(UnaryOp::Cos, tag("cos")),
+        value(UnaryOp::Exp, tag("exp")),
+        value(UnaryOp::Ln, tag("log")),
+        value(UnaryOp::Sin, tag("sin")),
+        value(UnaryOp::Tan, tag("tan")),
     ))(i)
 }
 

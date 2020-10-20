@@ -97,7 +97,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `asinh(x)`                              | sinh<sup>−1</sup> *x*                                        |                                                              |
 | `acosh(x)`                              | cosh<sup>−1</sup> *x*                                        | Undefined for *x* < 1.<br />The range is [0, ∞).             |
 | `atanh(x)`                              | tanh<sup>−1</sup> *x*                                        | Undefined for *x* ≤ −1 and *x* ≥ 1.                          |
-| `abs(x)`                                | \|*x*\|                                                      |                                                              |
+| `\|x\|`                                 | \|*x*\|                                                      |                                                              |
 | `min(x, y)`                             | min {*x*, *y*}                                               |                                                              |
 | `max(x, y)`                             | max {*x*, *y*}                                               |                                                              |
 | `floor(x)`                              | ⌊*x*⌋                                                        | [The floor function.](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions) |
