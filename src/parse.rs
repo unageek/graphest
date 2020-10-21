@@ -27,7 +27,7 @@ fn primary_expr(i: &str) -> ParseResult<Expr> {
             let x = TupperIntervalSet::from(dec_interval!(&s).unwrap());
             Expr::new(ExprKind::Constant(Box::new(x)))
         }),
-        map(tag("pi"), |_| {
+        map(alt((tag("pi"), tag("π"))), |_| {
             let x = TupperIntervalSet::from(DecoratedInterval::PI);
             Expr::new(ExprKind::Constant(Box::new(x)))
         }),
@@ -49,6 +49,22 @@ fn primary_expr(i: &str) -> ParseResult<Expr> {
                 preceded(space0, char('|')),
             ),
             |x| Expr::new(ExprKind::Unary(UnaryOp::Abs, Box::new(x))),
+        ),
+        map(
+            delimited(
+                terminated(char('⌈'), space0),
+                expr,
+                preceded(space0, char('⌉')),
+            ),
+            |x| Expr::new(ExprKind::Unary(UnaryOp::Ceil, Box::new(x))),
+        ),
+        map(
+            delimited(
+                terminated(char('⌊'), space0),
+                expr,
+                preceded(space0, char('⌋')),
+            ),
+            |x| Expr::new(ExprKind::Unary(UnaryOp::Floor, Box::new(x))),
         ),
     ))(i)
 }

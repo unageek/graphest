@@ -74,7 +74,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | --------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | `123`<br />`123.5`<br />`.5`            | 123<br />123.5<br />0.5                                      | A decimal constant.                                          |
 | `e`                                     | e                                                            | The base of natural logarithms.                              |
-| `pi`                                    | π                                                            |                                                              |
+| `pi`<br />`π`                           | π                                                            |                                                              |
 | `-x`                                    | −*x*                                                         |                                                              |
 | `x + y`                                 | *x* + *y*                                                    |                                                              |
 | `x - y`                                 | *x* − *y*                                                    |                                                              |
@@ -100,8 +100,8 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `\|x\|`                                 | \|*x*\|                                                      |                                                              |
 | `min(x, y)`                             | min {*x*, *y*}                                               |                                                              |
 | `max(x, y)`                             | max {*x*, *y*}                                               |                                                              |
-| `floor(x)`                              | ⌊*x*⌋                                                        | [The floor function.](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions) |
-| `ceil(x)`                               | ⌈*x*⌉                                                        | [The ceiling function.](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions) |
+| `floor(x)`<br />`⌊x⌋`                   | ⌊*x*⌋                                                        | [The floor function.](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions) |
+| `ceil(x)`<br />`⌈x⌉`                    | ⌈*x*⌉                                                        | [The ceiling function.](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions) |
 | `sign(x)`                               | sgn(*x*)                                                     | [The sign function.](https://en.wikipedia.org/wiki/Sign_function) |
 | `mod(x, y)`                             | *x* mod *y*                                                  | [The modulo operation.](https://en.wikipedia.org/wiki/Modulo_operation)<br />The result is nonnegative, i.e., 0 ≤ *x* mod *y* < \|*y*\|. |
 
