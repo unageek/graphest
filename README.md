@@ -78,7 +78,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `-x`                                    | −*x*                                                         |                                                              |
 | `x + y`                                 | *x* + *y*                                                    |                                                              |
 | `x - y`                                 | *x* − *y*                                                    |                                                              |
-| `x * y`                                 | *x* *y*                                                      |                                                              |
+| `x y`<br />`x * y`                      | *x* *y*                                                      |                                                              |
 | `x / y`                                 | *x* / *y*                                                    | Undefined for *y* = 0.                                       |
 | `sqrt(x)`                               | √*x*                                                         | Undefined for *x* < 0.                                       |
 | `x^y`                                   | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |

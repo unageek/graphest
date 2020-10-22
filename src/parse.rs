@@ -3,8 +3,8 @@ use inari::{dec_interval, DecoratedInterval};
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, digit0, digit1, space0},
-    combinator::{all_consuming, map, opt, recognize, value},
+    character::complete::{anychar, char, digit0, digit1, space0},
+    combinator::{all_consuming, map, not, opt, peek, recognize, value, verify},
     error::VerboseError,
     multi::fold_many0,
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
@@ -20,6 +20,13 @@ fn decimal_literal(i: &str) -> ParseResult<&str> {
     ))(i)
 }
 
+fn keyword<'a>(kw: &'a str) -> impl Fn(&'a str) -> ParseResult<'a, &'a str> {
+    terminated(
+        tag(kw),
+        not(verify(peek(anychar), |c| c.is_alphanumeric() || *c == '_')),
+    )
+}
+
 fn primary_expr(i: &str) -> ParseResult<Expr> {
     alt((
         map(decimal_literal, |s| {
@@ -27,16 +34,16 @@ fn primary_expr(i: &str) -> ParseResult<Expr> {
             let x = TupperIntervalSet::from(dec_interval!(&s).unwrap());
             Expr::new(ExprKind::Constant(Box::new(x)))
         }),
-        map(alt((tag("pi"), tag("π"))), |_| {
+        map(alt((keyword("pi"), keyword("π"))), |_| {
             let x = TupperIntervalSet::from(DecoratedInterval::PI);
             Expr::new(ExprKind::Constant(Box::new(x)))
         }),
-        map(char('e'), |_| {
+        map(keyword("e"), |_| {
             let x = TupperIntervalSet::from(DecoratedInterval::E);
             Expr::new(ExprKind::Constant(Box::new(x)))
         }),
-        value(Expr::new(ExprKind::X), char('x')),
-        value(Expr::new(ExprKind::Y), char('y')),
+        value(Expr::new(ExprKind::X), keyword("x")),
+        value(Expr::new(ExprKind::Y), keyword("y")),
         delimited(
             terminated(char('('), space0),
             expr,
@@ -71,35 +78,35 @@ fn primary_expr(i: &str) -> ParseResult<Expr> {
 
 fn fn1(i: &str) -> ParseResult<UnaryOp> {
     alt((
-        value(UnaryOp::Acosh, tag("acosh")),
-        value(UnaryOp::Asinh, tag("asinh")),
-        value(UnaryOp::Atanh, tag("atanh")),
-        value(UnaryOp::Floor, tag("floor")),
-        value(UnaryOp::Log10, tag("log10")),
-        value(UnaryOp::Acos, tag("acos")),
-        value(UnaryOp::Asin, tag("asin")),
-        value(UnaryOp::Atan, tag("atan")),
-        value(UnaryOp::Ceil, tag("ceil")),
-        value(UnaryOp::Cosh, tag("cosh")),
-        value(UnaryOp::Log2, tag("log2")),
-        value(UnaryOp::Sign, tag("sign")),
-        value(UnaryOp::Sinh, tag("sinh")),
-        value(UnaryOp::Sqrt, tag("sqrt")),
-        value(UnaryOp::Tanh, tag("tanh")),
-        value(UnaryOp::Cos, tag("cos")),
-        value(UnaryOp::Exp, tag("exp")),
-        value(UnaryOp::Ln, tag("log")),
-        value(UnaryOp::Sin, tag("sin")),
-        value(UnaryOp::Tan, tag("tan")),
+        value(UnaryOp::Acosh, keyword("acosh")),
+        value(UnaryOp::Asinh, keyword("asinh")),
+        value(UnaryOp::Atanh, keyword("atanh")),
+        value(UnaryOp::Floor, keyword("floor")),
+        value(UnaryOp::Log10, keyword("log10")),
+        value(UnaryOp::Acos, keyword("acos")),
+        value(UnaryOp::Asin, keyword("asin")),
+        value(UnaryOp::Atan, keyword("atan")),
+        value(UnaryOp::Ceil, keyword("ceil")),
+        value(UnaryOp::Cosh, keyword("cosh")),
+        value(UnaryOp::Log2, keyword("log2")),
+        value(UnaryOp::Sign, keyword("sign")),
+        value(UnaryOp::Sinh, keyword("sinh")),
+        value(UnaryOp::Sqrt, keyword("sqrt")),
+        value(UnaryOp::Tanh, keyword("tanh")),
+        value(UnaryOp::Cos, keyword("cos")),
+        value(UnaryOp::Exp, keyword("exp")),
+        value(UnaryOp::Ln, keyword("log")),
+        value(UnaryOp::Sin, keyword("sin")),
+        value(UnaryOp::Tan, keyword("tan")),
     ))(i)
 }
 
 fn fn2(i: &str) -> ParseResult<BinaryOp> {
     alt((
-        value(BinaryOp::Atan2, tag("atan2")),
-        value(BinaryOp::Max, tag("max")),
-        value(BinaryOp::Min, tag("min")),
-        value(BinaryOp::Mod, tag("mod")),
+        value(BinaryOp::Atan2, keyword("atan2")),
+        value(BinaryOp::Max, keyword("max")),
+        value(BinaryOp::Min, keyword("min")),
+        value(BinaryOp::Mod, keyword("mod")),
     ))(i)
 }
 
@@ -160,17 +167,23 @@ fn multiplicative_expr(i: &str) -> ParseResult<Expr> {
     let (i, x) = unary_expr(i)?;
 
     fold_many0(
-        pair(
-            delimited(
-                space0,
-                alt((
-                    value(BinaryOp::Mul, char('*')),
-                    value(BinaryOp::Div, char('/')),
-                )),
-                space0,
+        alt((
+            // x * y
+            // x / y
+            pair(
+                delimited(
+                    space0,
+                    alt((
+                        value(BinaryOp::Mul, char('*')),
+                        value(BinaryOp::Div, char('/')),
+                    )),
+                    space0,
+                ),
+                unary_expr,
             ),
-            unary_expr,
-        ),
+            // x y
+            pair(value(BinaryOp::Mul, space0), power_expr),
+        )),
         x,
         |xs, (op, y)| Expr::new(ExprKind::Binary(op, Box::new(xs), Box::new(y))),
     )(i)
