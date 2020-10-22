@@ -81,7 +81,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `x y`<br />`x * y`                      | *x* *y*                                                      |                                                              |
 | `x / y`                                 | *x* / *y*                                                    | Undefined for *y* = 0.                                       |
 | `sqrt(x)`                               | √*x*                                                         | Undefined for *x* < 0.                                       |
-| `x^y`                                   | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
+| `x ^ y`                                 | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
 | `exp(x)`                                | e<sup>*x*</sup>                                              |                                                              |
 | `log(x)`<br />`log2(x)`<br />`log10(x)` | log<sub>e</sub> *x*<br />log<sub>2</sub> *x*<br />log<sub>10</sub> *x* | Undefined for *x* ≤ 0.                                       |
 | `sin(x)`                                | sin *x*                                                      |                                                              |
@@ -107,15 +107,15 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 
 ### Relation
 
-| Input      | Interpreted as | Notes                                                                                                          |
-| ---------- | -------------- | -------------------------------------------------------------------------------------------------------------- |
-| `x == y`   | *x* = *y*      |                                                                                                                |
-| `x < y`    | *x* < *y*      |                                                                                                                |
-| `x <= y`   | *x* ≤ *y*      |                                                                                                                |
-| `x > y`    | *x* > *y*      |                                                                                                                |
-| `x >= y`   | *x* ≥ *y*      |                                                                                                                |
-| `X && Y`   | *X* ∧ *Y*      | [Logical conjunction.](https://en.wikipedia.org/wiki/Logical_conjunction)<br />`X` and `Y` must be a relation. |
-| `X \|\| Y` | *X* ∨ *Y*      | [Logical disjunction.](https://en.wikipedia.org/wiki/Logical_disjunction)<br />`X` and `Y` must be a relation. |
+| Input                 | Interpreted as | Notes                                                        |
+| --------------------- | -------------- | ------------------------------------------------------------ |
+| `x = y`               | *x* = *y*      |                                                              |
+| `x < y`               | *x* < *y*      |                                                              |
+| `x <= y`<br />`x ≤ y` | *x* ≤ *y*      |                                                              |
+| `x > y`               | *x* > *y*      |                                                              |
+| `x >= y`<br />`x ≥ y` | *x* ≥ *y*      |                                                              |
+| `X && Y`              | *X* ∧ *Y*      | [Logical conjunction.](https://en.wikipedia.org/wiki/Logical_conjunction)<br />`X` and `Y` must be a relation. |
+| `X \|\| Y`            | *X* ∨ *Y*      | [Logical disjunction.](https://en.wikipedia.org/wiki/Logical_disjunction)<br />`X` and `Y` must be a relation. |
 
 You can group a part of an expression or a relation with `(` … `)`.
 

@@ -220,10 +220,10 @@ fn equality(i: &str) -> ParseResult<Rel> {
             delimited(
                 space0,
                 alt((
-                    value(RelOp::Eq, tag("==")),
-                    value(RelOp::Ge, tag(">=")),
+                    value(RelOp::Eq, char('=')),
+                    value(RelOp::Ge, alt((tag(">="), tag("≥")))),
                     value(RelOp::Gt, char('>')),
-                    value(RelOp::Le, tag("<=")),
+                    value(RelOp::Le, alt((tag("<="), tag("≤")))),
                     value(RelOp::Lt, char('<')),
                 )),
                 space0,
