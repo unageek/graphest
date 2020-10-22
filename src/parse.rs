@@ -168,6 +168,8 @@ fn multiplicative_expr(i: &str) -> ParseResult<Expr> {
 
     fold_many0(
         alt((
+            // x * y
+            // x / y
             pair(
                 delimited(
                     space0,
@@ -179,6 +181,7 @@ fn multiplicative_expr(i: &str) -> ParseResult<Expr> {
                 ),
                 unary_expr,
             ),
+            // x y
             pair(value(BinaryOp::Mul, space0), power_expr),
         )),
         x,
