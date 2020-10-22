@@ -29,7 +29,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 1. Run
 
    ```bash
-   ./target/release/inari-graph "y == sin(x)"
+   ./target/release/inari-graph "y = sin(x)"
    ```
 
    The plot will be saved to `graph.png` in the current directory.
