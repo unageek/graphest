@@ -95,14 +95,20 @@ impl VisitMut for Transform {
         traverse_expr_mut(self, expr);
 
         match &mut expr.kind {
+            Unary(Neg, x) => {
+                if let Unary(Neg, x) = &mut x.kind {
+                    // (Neg (Neg x)) => x
+                    *expr = std::mem::take(&mut **x);
+                }
+            }
             Binary(Div, x, y) => {
                 match (&x.kind, &y.kind) {
-                    // (Div (Sin z) y) => (SinOverX y) if z == y
                     (Unary(Sin, z), _) if z == y => {
+                        // (Div (Sin z) y) => (SinOverX y) if z == y
                         *expr = Expr::new(Unary(SinOverX, std::mem::take(y)));
                     }
-                    // (Div x (Sin z)) => (Recip (SinOverX x)) if z == x
                     (_, Unary(Sin, z)) if z == x => {
+                        // (Div x (Sin z)) => (Recip (SinOverX x)) if z == x
                         *expr = Expr::new(Unary(
                             Recip,
                             Box::new(Expr::new(Unary(SinOverX, std::mem::take(x)))),

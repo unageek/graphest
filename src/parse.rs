@@ -155,10 +155,10 @@ fn power_expr(i: &str) -> ParseResult<Expr> {
 
 fn unary_expr(i: &str) -> ParseResult<Expr> {
     alt((
-        map(
-            separated_pair(value(UnaryOp::Neg, char('-')), space0, unary_expr),
-            |(op, x)| Expr::new(ExprKind::Unary(op, Box::new(x))),
-        ),
+        preceded(pair(char('+'), space0), unary_expr),
+        map(preceded(pair(char('-'), space0), unary_expr), |x| {
+            Expr::new(ExprKind::Unary(UnaryOp::Neg, Box::new(x)))
+        }),
         power_expr,
     ))(i)
 }
