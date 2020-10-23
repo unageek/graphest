@@ -31,8 +31,9 @@ fn print_statistics(cur: &GraphingStatistics, prev: &GraphingStatistics) {
     println!(
         "  {:>14.3}  {:>14}  {:>14}  {:>14}  {:>14}",
         cur.time_elapsed.as_secs_f64(),
-        &format!("{:7.3}", area)[1..8],
-        format!("(+{:>11})", &format!("{:7.3}", delta_area)[1..8]),
+        // Extract the lower bound and remove the minus sign in "-0.000".
+        &format!("{:7.3}", area)[1..8].replace('-', " "),
+        format!("(+{:>11})", &format!("{:7.3}", delta_area)[1..8]).replace('-', " "),
         cur.evaluations,
         format!("(+{:11})", cur.evaluations - prev.evaluations),
     );
