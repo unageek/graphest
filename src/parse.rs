@@ -78,25 +78,25 @@ fn primary_expr(i: &str) -> ParseResult<Expr> {
 
 fn fn1(i: &str) -> ParseResult<UnaryOp> {
     alt((
-        value(UnaryOp::Acosh, keyword("acosh")),
-        value(UnaryOp::Asinh, keyword("asinh")),
-        value(UnaryOp::Atanh, keyword("atanh")),
-        value(UnaryOp::Floor, keyword("floor")),
         value(UnaryOp::Acos, keyword("acos")),
+        value(UnaryOp::Acosh, keyword("acosh")),
         value(UnaryOp::Asin, keyword("asin")),
+        value(UnaryOp::Asinh, keyword("asinh")),
         value(UnaryOp::Atan, keyword("atan")),
+        value(UnaryOp::Atanh, keyword("atanh")),
         value(UnaryOp::Ceil, keyword("ceil")),
+        value(UnaryOp::Cos, keyword("cos")),
         value(UnaryOp::Cosh, keyword("cosh")),
+        value(UnaryOp::Exp, keyword("exp")),
+        value(UnaryOp::Floor, keyword("floor")),
+        value(UnaryOp::Ln, keyword("ln")),
+        value(UnaryOp::Log10, keyword("log")),
         value(UnaryOp::Sign, keyword("sign")),
+        value(UnaryOp::Sin, keyword("sin")),
         value(UnaryOp::Sinh, keyword("sinh")),
         value(UnaryOp::Sqrt, keyword("sqrt")),
-        value(UnaryOp::Tanh, keyword("tanh")),
-        value(UnaryOp::Cos, keyword("cos")),
-        value(UnaryOp::Exp, keyword("exp")),
-        value(UnaryOp::Log10, keyword("log")),
-        value(UnaryOp::Sin, keyword("sin")),
         value(UnaryOp::Tan, keyword("tan")),
-        value(UnaryOp::Ln, keyword("ln")),
+        value(UnaryOp::Tanh, keyword("tanh")),
     ))(i)
 }
 
