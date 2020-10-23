@@ -6,8 +6,8 @@ use nom::{
     character::complete::{anychar, char, digit0, digit1, space0},
     combinator::{all_consuming, map, not, opt, peek, recognize, value, verify},
     error::VerboseError,
-    multi::fold_many0,
-    sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
+    multi::{fold_many0, fold_many1},
+    sequence::{delimited, pair, preceded, separated_pair, terminated},
     Err as NomErr, IResult,
 };
 
@@ -213,24 +213,50 @@ fn expr(i: &str) -> ParseResult<Expr> {
     additive_expr(i)
 }
 
+// (In)equalities can be chained: x < y < z is the same as x < y && y < z.
 fn equality(i: &str) -> ParseResult<Rel> {
+    // `acc` is a pair of `Vec<RelOp>` and `Vec<Expr>` that store
+    // lists of equality operators and their operands, respectively.
+    // `acc.1.len() == acc.0.len() + 1` holds.
+    let (i, acc) = map(expr, |x| (vec![], vec![x]))(i)?;
+
     map(
-        tuple((
-            expr,
-            delimited(
-                space0,
-                alt((
-                    value(RelOp::Eq, char('=')),
-                    value(RelOp::Ge, alt((tag(">="), tag("≥")))),
-                    value(RelOp::Gt, char('>')),
-                    value(RelOp::Le, alt((tag("<="), tag("≤")))),
-                    value(RelOp::Lt, char('<')),
-                )),
-                space0,
+        fold_many1(
+            pair(
+                delimited(
+                    space0,
+                    alt((
+                        value(RelOp::Eq, char('=')),
+                        value(RelOp::Ge, alt((tag(">="), tag("≥")))),
+                        value(RelOp::Gt, char('>')),
+                        value(RelOp::Le, alt((tag("<="), tag("≤")))),
+                        value(RelOp::Lt, char('<')),
+                    )),
+                    space0,
+                ),
+                expr,
             ),
-            expr,
-        )),
-        |(x, op, y)| Rel::new(RelKind::Atomic(op, Box::new(x), Box::new(y))),
+            acc,
+            |mut acc, (op, y)| {
+                acc.0.push(op);
+                acc.1.push(y);
+                acc
+            },
+        ),
+        |acc| {
+            let op = acc.0[0];
+            let x = acc.1[0].clone();
+            let y = acc.1[1].clone();
+            let mut rel = Rel::new(RelKind::Atomic(op, Box::new(x), Box::new(y)));
+            for i in 1..acc.0.len() {
+                let op = acc.0[i];
+                let x = acc.1[i].clone();
+                let y = acc.1[i + 1].clone();
+                let rel2 = Rel::new(RelKind::Atomic(op, Box::new(x), Box::new(y)));
+                rel = Rel::new(RelKind::And(Box::new(rel), Box::new(rel2)));
+            }
+            rel
+        },
     )(i)
 }
 
