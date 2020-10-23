@@ -70,40 +70,40 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 
 ### Expression
 
-| Input                                   | Interpreted as                                               | Notes                                                        |
-| --------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `123`<br />`123.5`<br />`.5`            | 123<br />123.5<br />0.5                                      | A decimal constant.                                          |
-| `e`                                     | e                                                            | The base of natural logarithms.                              |
-| `pi`<br />`π`                           | π                                                            |                                                              |
-| `-x`                                    | −*x*                                                         |                                                              |
-| `x + y`                                 | *x* + *y*                                                    |                                                              |
-| `x - y`                                 | *x* − *y*                                                    |                                                              |
-| `x y`<br />`x * y`                      | *x* *y*                                                      |                                                              |
-| `x / y`                                 | *x* / *y*                                                    | Undefined for *y* = 0.                                       |
-| `sqrt(x)`                               | √*x*                                                         | Undefined for *x* < 0.                                       |
-| `x ^ y`                                 | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
-| `exp(x)`                                | e<sup>*x*</sup>                                              |                                                              |
-| `log(x)`<br />`log2(x)`<br />`log10(x)` | log<sub>e</sub> *x*<br />log<sub>2</sub> *x*<br />log<sub>10</sub> *x* | Undefined for *x* ≤ 0.                                       |
-| `sin(x)`                                | sin *x*                                                      |                                                              |
-| `cos(x)`                                | cos *x*                                                      |                                                              |
-| `tan(x)`                                | tan *x*                                                      | Undefined for *x* = (*n* + 1/2)π for all integer *n*.        |
-| `asin(x)`                               | sin<sup>−1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [−π/2, π/2]. |
-| `acox(x)`                               | cos<sup>−1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [0, π]. |
-| `atan(x)`                               | tan<sup>−1</sup> *x*                                         | The range is (−π/2, π/2).                                    |
-| `atan2(y, x)`                           | tan<sup>−1</sup>(*y* / *x*)                                  | [The two-argument arctangent.](https://en.wikipedia.org/wiki/Atan2)<br />Undefined for (*x*, *y*) = (0, 0).<br />The range is (−π, π]. |
-| `sinh(x)`                               | sinh *x*                                                     |                                                              |
-| `cosh(x)`                               | cosh *x*                                                     |                                                              |
-| `tanh(x)`                               | tanh *x*                                                     |                                                              |
-| `asinh(x)`                              | sinh<sup>−1</sup> *x*                                        |                                                              |
-| `acosh(x)`                              | cosh<sup>−1</sup> *x*                                        | Undefined for *x* < 1.<br />The range is [0, ∞).             |
-| `atanh(x)`                              | tanh<sup>−1</sup> *x*                                        | Undefined for *x* ≤ −1 and *x* ≥ 1.                          |
-| `\|x\|`                                 | \|*x*\|                                                      |                                                              |
-| `min(x, y)`                             | min {*x*, *y*}                                               |                                                              |
-| `max(x, y)`                             | max {*x*, *y*}                                               |                                                              |
-| `floor(x)`<br />`⌊x⌋`                   | ⌊*x*⌋                                                        | [The floor function.](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions) |
-| `ceil(x)`<br />`⌈x⌉`                    | ⌈*x*⌉                                                        | [The ceiling function.](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions) |
-| `sign(x)`                               | sgn(*x*)                                                     | [The sign function.](https://en.wikipedia.org/wiki/Sign_function) |
-| `mod(x, y)`                             | *x* mod *y*                                                  | [The modulo operation.](https://en.wikipedia.org/wiki/Modulo_operation)<br />The result is nonnegative, i.e., 0 ≤ *x* mod *y* < \|*y*\|. |
+| Input                                  | Interpreted as                                               | Notes                                                        |
+| -------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `123`<br />`123.5`<br />`.5`           | 123<br />123.5<br />0.5                                      | A decimal constant.                                          |
+| `e`                                    | e                                                            | The base of natural logarithms.                              |
+| `pi`<br />`π`                          | π                                                            |                                                              |
+| `-x`                                   | −*x*                                                         |                                                              |
+| `x + y`                                | *x* + *y*                                                    |                                                              |
+| `x - y`                                | *x* − *y*                                                    |                                                              |
+| `x y`<br />`x * y`                     | *x* *y*                                                      |                                                              |
+| `x / y`                                | *x* / *y*                                                    | Undefined for *y* = 0.                                       |
+| `sqrt(x)`                              | √*x*                                                         | Undefined for *x* < 0.                                       |
+| `x ^ y`                                | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
+| `exp(x)`                               | e<sup>*x*</sup>                                              |                                                              |
+| `ln(x)`<br />`log(x)`<br />`log(b, x)` | log<sub>e</sub> *x*<br />log<sub>10</sub> *x*<br />log<sub>*b*</sub> *x* | Undefined for *x* ≤ 0 ∨ *b* ≤ 0 ∨ *b* = 1.                   |
+| `sin(x)`                               | sin *x*                                                      |                                                              |
+| `cos(x)`                               | cos *x*                                                      |                                                              |
+| `tan(x)`                               | tan *x*                                                      | Undefined for *x* = (*n* + 1/2)π for all integer *n*.        |
+| `asin(x)`                              | sin<sup>−1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [−π/2, π/2]. |
+| `acox(x)`                              | cos<sup>−1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [0, π]. |
+| `atan(x)`                              | tan<sup>−1</sup> *x*                                         | The range is (−π/2, π/2).                                    |
+| `atan2(y, x)`                          | tan<sup>−1</sup>(*y* / *x*)                                  | [The two-argument arctangent.](https://en.wikipedia.org/wiki/Atan2)<br />Undefined for (*x*, *y*) = (0, 0).<br />The range is (−π, π]. |
+| `sinh(x)`                              | sinh *x*                                                     |                                                              |
+| `cosh(x)`                              | cosh *x*                                                     |                                                              |
+| `tanh(x)`                              | tanh *x*                                                     |                                                              |
+| `asinh(x)`                             | sinh<sup>−1</sup> *x*                                        |                                                              |
+| `acosh(x)`                             | cosh<sup>−1</sup> *x*                                        | Undefined for *x* < 1.<br />The range is [0, ∞).             |
+| `atanh(x)`                             | tanh<sup>−1</sup> *x*                                        | Undefined for *x* ≤ −1 and *x* ≥ 1.                          |
+| `\|x\|`                                | \|*x*\|                                                      |                                                              |
+| `min(x, y)`                            | min {*x*, *y*}                                               |                                                              |
+| `max(x, y)`                            | max {*x*, *y*}                                               |                                                              |
+| `floor(x)`<br />`⌊x⌋`                  | ⌊*x*⌋                                                        | [The floor function.](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions) |
+| `ceil(x)`<br />`⌈x⌉`                   | ⌈*x*⌉                                                        | [The ceiling function.](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions) |
+| `sign(x)`                              | sgn(*x*)                                                     | [The sign function.](https://en.wikipedia.org/wiki/Sign_function) |
+| `mod(x, y)`                            | *x* mod *y*                                                  | [The modulo operation.](https://en.wikipedia.org/wiki/Modulo_operation)<br />The result is nonnegative, i.e., 0 ≤ *x* mod *y* < \|*y*\|. |
 
 ### Relation
 

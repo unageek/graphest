@@ -102,7 +102,6 @@ impl Expr {
             Unary(Floor, x) => x.evaluate().floor(None),
             Unary(Ln, x) => x.evaluate().ln(),
             Unary(Log10, x) => x.evaluate().log10(),
-            Unary(Log2, x) => x.evaluate().log2(),
             Unary(Neg, x) => -&x.evaluate(),
             Unary(Recip, x) => x.evaluate().recip(None),
             Unary(Sign, x) => x.evaluate().sign(None),
@@ -116,6 +115,8 @@ impl Expr {
             Binary(Add, x, y) => &x.evaluate() + &y.evaluate(),
             Binary(Atan2, x, y) => x.evaluate().atan2(&y.evaluate(), None),
             Binary(Div, x, y) => x.evaluate().div(&y.evaluate(), None),
+            // Beware the order of arguments.
+            Binary(Log, b, x) => x.evaluate().log(&b.evaluate(), None),
             Binary(Max, x, y) => x.evaluate().max(&y.evaluate()),
             Binary(Min, x, y) => x.evaluate().min(&y.evaluate()),
             Binary(Mod, x, y) => x.evaluate().rem_euclid(&y.evaluate(), None),

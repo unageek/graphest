@@ -82,28 +82,28 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
         value(UnaryOp::Asinh, keyword("asinh")),
         value(UnaryOp::Atanh, keyword("atanh")),
         value(UnaryOp::Floor, keyword("floor")),
-        value(UnaryOp::Log10, keyword("log10")),
         value(UnaryOp::Acos, keyword("acos")),
         value(UnaryOp::Asin, keyword("asin")),
         value(UnaryOp::Atan, keyword("atan")),
         value(UnaryOp::Ceil, keyword("ceil")),
         value(UnaryOp::Cosh, keyword("cosh")),
-        value(UnaryOp::Log2, keyword("log2")),
         value(UnaryOp::Sign, keyword("sign")),
         value(UnaryOp::Sinh, keyword("sinh")),
         value(UnaryOp::Sqrt, keyword("sqrt")),
         value(UnaryOp::Tanh, keyword("tanh")),
         value(UnaryOp::Cos, keyword("cos")),
         value(UnaryOp::Exp, keyword("exp")),
-        value(UnaryOp::Ln, keyword("log")),
+        value(UnaryOp::Log10, keyword("log")),
         value(UnaryOp::Sin, keyword("sin")),
         value(UnaryOp::Tan, keyword("tan")),
+        value(UnaryOp::Ln, keyword("ln")),
     ))(i)
 }
 
 fn fn2(i: &str) -> ParseResult<BinaryOp> {
     alt((
         value(BinaryOp::Atan2, keyword("atan2")),
+        value(BinaryOp::Log, keyword("log")),
         value(BinaryOp::Max, keyword("max")),
         value(BinaryOp::Min, keyword("min")),
         value(BinaryOp::Mod, keyword("mod")),

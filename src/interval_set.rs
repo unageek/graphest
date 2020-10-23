@@ -385,6 +385,10 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
+    pub fn log(&self, rhs: &Self, site: Option<u8>) -> Self {
+        self.log2().div(&rhs.log2(), site)
+    }
+
     pub fn mul_add(&self, rhs: &Self, addend: &Self) -> Self {
         let mut rs = Self::empty();
         for x in &self.0 {
