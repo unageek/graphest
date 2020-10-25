@@ -1,6 +1,7 @@
 use crate::{interval_set::*, rel::*};
 use std::{
     cell::Cell,
+    collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
 };
 
@@ -27,6 +28,7 @@ pub struct Expr {
     pub id: Cell<ExprId>,
     pub site: Cell<Option<u8>>,
     pub kind: ExprKind,
+    internal_hash: Cell<Option<u64>>,
 }
 
 impl Default for Expr {
@@ -35,6 +37,7 @@ impl Default for Expr {
             id: Cell::new(UNINIT_EXPR_ID),
             site: Cell::new(None),
             kind: ExprKind::Uninit,
+            internal_hash: Cell::new(None),
         }
     }
 }
@@ -49,7 +52,17 @@ impl Eq for Expr {}
 
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.kind.hash(state);
+        self.internal_hash
+            .get()
+            .unwrap_or_else(|| {
+                // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
+                let mut hasher = DefaultHasher::new();
+                self.kind.hash(&mut hasher);
+                let h = hasher.finish();
+                self.internal_hash.set(Some(h));
+                h
+            })
+            .hash(state);
     }
 }
 
@@ -79,6 +92,7 @@ impl Expr {
             id: Cell::new(UNINIT_EXPR_ID),
             site: Cell::new(None),
             kind,
+            internal_hash: Cell::new(None),
         }
     }
 

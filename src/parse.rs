@@ -15,7 +15,9 @@ type ParseResult<'a, O> = IResult<&'a str, O, VerboseError<&'a str>>;
 
 fn decimal_literal(i: &str) -> ParseResult<&str> {
     alt((
+        // "12", "12." or "12.3"
         recognize(pair(digit1, opt(pair(char('.'), digit0)))),
+        // ".3"
         recognize(pair(char('.'), digit1)),
     ))(i)
 }
