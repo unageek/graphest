@@ -12,6 +12,7 @@ use std::{
     convert::From,
     hash::{Hash, Hasher},
     mem::transmute,
+    slice::Iter,
 };
 
 // Represents a partial function {0, ..., 31} -> {0, 1}, the domain of which is
@@ -123,17 +124,21 @@ impl Hash for TupperInterval {
     }
 }
 
-pub type TupperIntervalVec = SmallVec<[TupperInterval; 2]>;
+type TupperIntervalVecBackingArray = [TupperInterval; 2];
+type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 
 // NOTE: Equality is order-sensitive.
-// TODO: Rename .0 to .vec?
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct TupperIntervalSet(pub TupperIntervalVec);
+pub struct TupperIntervalSet(TupperIntervalVec);
 
 impl TupperIntervalSet {
     /// Creates a new, empty `TupperIntervalSet`.
     pub fn empty() -> Self {
         Self(TupperIntervalVec::new())
+    }
+
+    pub fn iter(&self) -> Iter<'_, TupperInterval> {
+        self.0.iter()
     }
 
     /// Returns the number of intervals in `self`.
@@ -168,12 +173,30 @@ impl From<DecoratedInterval> for TupperIntervalSet {
     }
 }
 
+impl IntoIterator for TupperIntervalSet {
+    type Item = TupperInterval;
+    type IntoIter = smallvec::IntoIter<TupperIntervalVecBackingArray>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a TupperIntervalSet {
+    type Item = &'a TupperInterval;
+    type IntoIter = Iter<'a, TupperInterval>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl Neg for &TupperIntervalSet {
     type Output = TupperIntervalSet;
 
     fn neg(self) -> Self::Output {
         let mut rs = Self::Output::empty();
-        for x in &self.0 {
+        for x in self {
             rs.insert(TupperInterval::new(-x.to_dec_interval(), x.g));
         }
         rs.normalize()
@@ -187,8 +210,8 @@ macro_rules! impl_arith_op {
 
             fn $op(self, rhs: &'b TupperIntervalSet) -> Self::Output {
                 let mut rs = Self::Output::empty();
-                for x in &self.0 {
-                    for y in &rhs.0 {
+                for x in self {
+                    for y in rhs {
                         if let Some(g) = x.g.union(y.g) {
                             rs.insert(TupperInterval::new(
                                 x.to_dec_interval().$op(y.to_dec_interval()),
@@ -211,7 +234,7 @@ macro_rules! impl_no_cut_op {
     ($op:ident) => {
         pub fn $op(&self) -> Self {
             let mut rs = Self::empty();
-            for x in &self.0 {
+            for x in self {
                 rs.insert(TupperInterval::new(x.to_dec_interval().$op(), x.g));
             }
             rs.normalize()
@@ -223,8 +246,8 @@ macro_rules! impl_no_cut_op2 {
     ($op:ident) => {
         pub fn $op(&self, rhs: &Self) -> Self {
             let mut rs = Self::empty();
-            for x in &self.0 {
-                for y in &rhs.0 {
+            for x in self {
+                for y in rhs {
                     if let Some(g) = x.g.union(y.g) {
                         rs.insert(TupperInterval::new(
                             x.to_dec_interval().$op(y.to_dec_interval()),
@@ -242,7 +265,7 @@ macro_rules! impl_integer_op {
     ($op:ident) => {
         pub fn $op(&self, site: Option<u8>) -> Self {
             let mut rs = Self::empty();
-            for x in &self.0 {
+            for x in self {
                 let y = TupperInterval::new(x.to_dec_interval().$op(), x.g);
                 let a = y.x.inf();
                 let b = y.x.sup();
@@ -280,8 +303,8 @@ enum Parity {
 impl TupperIntervalSet {
     pub fn atan2(&self, rhs: &Self, site: Option<u8>) -> Self {
         let mut rs = Self::empty();
-        for y in &self.0 {
-            for x in &rhs.0 {
+        for y in self {
+            for x in rhs {
                 if let Some(g) = x.g.union(y.g) {
                     let a = x.x.inf();
                     let b = x.x.sup();
@@ -351,8 +374,8 @@ impl TupperIntervalSet {
 
     pub fn div(&self, rhs: &Self, site: Option<u8>) -> Self {
         let mut rs = Self::empty();
-        for x in &self.0 {
-            for y in &rhs.0 {
+        for x in self {
+            for y in rhs {
                 if let Some(g) = x.g.union(y.g) {
                     let c = y.x.inf();
                     let d = y.x.sup();
@@ -391,10 +414,10 @@ impl TupperIntervalSet {
 
     pub fn mul_add(&self, rhs: &Self, addend: &Self) -> Self {
         let mut rs = Self::empty();
-        for x in &self.0 {
-            for y in &rhs.0 {
+        for x in self {
+            for y in rhs {
                 if let Some(g) = x.g.union(y.g) {
-                    for z in &addend.0 {
+                    for z in addend {
                         if let Some(g) = g.union(z.g) {
                             rs.insert(TupperInterval::new(
                                 x.to_dec_interval()
@@ -440,8 +463,8 @@ impl TupperIntervalSet {
     // The original `Interval::pow` is not defined for x < 0 nor x = y = 0.
     pub fn pow(&self, rhs: &Self, site: Option<u8>) -> Self {
         let mut rs = Self::empty();
-        for x in &self.0 {
-            for y in &rhs.0 {
+        for x in self {
+            for y in rhs {
                 if let Some(g) = x.g.union(y.g) {
                     let a = x.x.inf();
                     let b = x.x.sup();
@@ -568,7 +591,7 @@ impl TupperIntervalSet {
 
     pub fn pown(&self, rhs: i32, site: Option<u8>) -> Self {
         let mut rs = Self::empty();
-        for x in &self.0 {
+        for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
             if rhs < 0 && rhs % 2 == 1 && a < 0.0 && b > 0.0 {
@@ -597,7 +620,7 @@ impl TupperIntervalSet {
 
     pub fn recip(&self, site: Option<u8>) -> Self {
         let mut rs = Self::empty();
-        for x in &self.0 {
+        for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
             if a < 0.0 && b > 0.0 {
@@ -638,7 +661,7 @@ impl TupperIntervalSet {
         const ARGMIN_RD: f64 = hexf64!("0x4.7e50150d41abp+0");
         const MIN_RD: f64 = hexf64!("-0x3.79c9f80c234ecp-4");
         let mut rs = Self::empty();
-        for x in &self.0 {
+        for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
             if a <= 0.0 && b >= 0.0 {
@@ -676,7 +699,7 @@ impl TupperIntervalSet {
 
     pub fn tan(&self, site: Option<u8>) -> Self {
         let mut rs = Self::empty();
-        for x in &self.0 {
+        for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
             let q_nowrap = (x.x / Interval::FRAC_PI_2).floor();
@@ -776,7 +799,7 @@ macro_rules! impl_rel_op {
 
             let mut ss = SignSet::empty();
             let mut d = Decoration::Com;
-            for x in xs.0.iter() {
+            for x in xs {
                 let a = x.x.inf();
                 let b = x.x.sup();
                 if a < 0.0 {
@@ -799,7 +822,7 @@ macro_rules! impl_rel_op {
 impl TupperIntervalSet {
     impl_rel_op!(eq, SignSet::NEG, SignSet::ZERO, SignSet::POS);
 
-    // f >= 0 ⇔ (f >= 0 ? 0 : 1) == 0, etc.
+    // f ≥ 0 ⟺ (f ≥ 0 ? 0 : 1) = 0, etc.
     impl_rel_op!(ge, SignSet::POS, SignSet::ZERO, SignSet::ZERO);
     impl_rel_op!(gt, SignSet::POS, SignSet::POS, SignSet::ZERO);
     impl_rel_op!(le, SignSet::ZERO, SignSet::ZERO, SignSet::POS);
