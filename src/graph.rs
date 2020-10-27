@@ -1,4 +1,9 @@
-use crate::{dyn_relation::DynRelation, interval_set::*, rel::StaticRel};
+use crate::{
+    dyn_relation::DynRelation,
+    eval_result::EvalResult,
+    interval_set::{SignSet, TupperIntervalSet},
+    rel::StaticRel,
+};
 use image::{imageops, Rgb, RgbImage};
 use inari::{dec_interval, interval, DecoratedInterval, Decoration, Interval};
 use std::{

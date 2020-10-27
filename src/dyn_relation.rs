@@ -1,4 +1,10 @@
-use crate::{interval_set::*, parse::*, rel::*, visit::*};
+use crate::{
+    eval_result::EvalResult,
+    interval_set::TupperIntervalSet,
+    parse::parse,
+    rel::{StaticExpr, StaticExprKind, StaticRel, StaticRelKind},
+    visit::*,
+};
 use std::str::FromStr;
 
 #[derive(Clone, Debug)]

@@ -1,12 +1,16 @@
 mod ast;
 mod dyn_relation;
+mod eval_result;
 mod graph;
 mod interval_set;
 mod parse;
 mod rel;
 mod visit;
 
-use crate::{dyn_relation::*, graph::*};
+use crate::{
+    dyn_relation::DynRelation,
+    graph::{Graph, GraphingStatistics, Region},
+};
 use clap::{App, AppSettings, Arg};
 use inari::{const_interval, interval, Interval};
 

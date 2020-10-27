@@ -1,4 +1,7 @@
-use crate::{ast::*, interval_set::*, rel::*};
+use crate::{
+    ast::{BinaryOp, Expr, ExprKind, Rel, RelKind, RelOp, UnaryOp},
+    interval_set::TupperIntervalSet,
+};
 use inari::{dec_interval, DecoratedInterval};
 use nom::{
     branch::alt,

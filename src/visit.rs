@@ -1,4 +1,7 @@
-use crate::{ast::*, rel::*};
+use crate::{
+    ast::{BinaryOp, Expr, ExprId, ExprKind, Rel, RelId, RelKind, UnaryOp},
+    rel::{StaticExpr, StaticExprKind, StaticRel, StaticRelKind},
+};
 use inari::const_dec_interval;
 use std::{
     collections::{HashMap, HashSet},

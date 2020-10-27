@@ -1,54 +1,7 @@
-use crate::interval_set::*;
-
-pub type ExprId = u32;
-pub const UNINIT_EXPR_ID: ExprId = ExprId::MAX;
-
-pub type RelId = u32;
-pub const UNINIT_REL_ID: RelId = RelId::MAX;
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum UnaryOp {
-    Abs,
-    Acos,
-    Acosh,
-    Asin,
-    Asinh,
-    Atan,
-    Atanh,
-    Ceil,
-    Cos,
-    Cosh,
-    Exp,
-    Exp10,
-    Exp2,
-    Floor,
-    Ln,
-    Log10,
-    Neg,
-    Recip,
-    Sign,
-    Sin,
-    SinOverX,
-    Sinh,
-    Sqr,
-    Sqrt,
-    Tan,
-    Tanh,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum BinaryOp {
-    Add,
-    Atan2,
-    Div,
-    Log,
-    Max,
-    Min,
-    Mod,
-    Mul,
-    Pow,
-    Sub,
-}
+use crate::{
+    ast::{BinaryOp, ExprId, RelId, RelOp, UnaryOp},
+    interval_set::{DecSignSet, TupperIntervalSet},
+};
 
 #[derive(Clone, Debug)]
 pub enum StaticExprKind {
@@ -112,15 +65,6 @@ impl StaticExpr {
             X | Y => panic!("this expression cannot be evaluated"),
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum RelOp {
-    Eq,
-    Ge,
-    Gt,
-    Le,
-    Lt,
 }
 
 #[derive(Clone, Debug)]
