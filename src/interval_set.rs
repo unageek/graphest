@@ -7,7 +7,7 @@ use hexf::*;
 use inari::{
     const_dec_interval, const_interval, interval, DecoratedInterval, Decoration, Interval,
 };
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use std::{
     convert::From,
     hash::{Hash, Hasher},
@@ -839,18 +839,18 @@ impl DecSignSet {
 }
 
 #[derive(Clone, Debug)]
-pub struct EvalResult(pub Vec<DecSignSet>);
+pub struct EvalResult(pub SmallVec<[DecSignSet; 32]>);
 
 impl EvalResult {
     pub fn get_size_of_payload(&self) -> usize {
-        self.0.capacity() * std::mem::size_of::<(SignSet, Decoration)>()
+        self.0.capacity() * std::mem::size_of::<DecSignSet>()
     }
 
     pub fn map<F>(&self, rels: &[StaticRel], f: &F) -> EvalResultMask
     where
         F: Fn(SignSet, Decoration) -> bool,
     {
-        let mut m = EvalResultMask(vec![false; self.0.len()]);
+        let mut m = EvalResultMask(smallvec![false; self.0.len()]);
         Self::map_impl(&self.0[..], rels, rels.len() - 1, f, &mut m.0[..]);
         m
     }
@@ -903,7 +903,7 @@ impl EvalResult {
 }
 
 #[derive(Clone, Debug)]
-pub struct EvalResultMask(pub Vec<bool>);
+pub struct EvalResultMask(pub SmallVec<[bool; 32]>);
 
 impl EvalResultMask {
     pub fn reduce(&self, rels: &[StaticRel]) -> bool {
