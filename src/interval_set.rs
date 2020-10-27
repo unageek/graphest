@@ -14,15 +14,21 @@ use std::{
     slice::Iter,
 };
 
-// Represents a partial function {0, ..., 31} -> {0, 1}, the domain of which is
+pub type Site = u8;
+pub const MAX_SITE: Site = 31;
+
+type Branch = u8;
+const MAX_BRANCH: Branch = 1;
+
+// Represents a partial function {0, …, 31} → {0, 1}, the domain of which is
 // the set of branch cut sites and the codomain is the set of branch indices.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(C)]
 struct IntervalBranch {
     // A bit field that keeps track of at which sites
-    // branch cut has been performed during the derivation of the interval.
+    // branch cuts have been performed during evaluation.
     cut: u32,
-    // A bit field that records the chosen branch (0 or 1)
+    // A bit field that records the branch chosen (0 or 1)
     // at each site, when the corresponding bit of `cut` is set.
     chosen: u32,
 }
@@ -32,8 +38,8 @@ impl IntervalBranch {
         Self { cut: 0, chosen: 0 }
     }
 
-    fn inserted(self, site: u8, branch: u8) -> Self {
-        assert!(site <= 31 && branch <= 1 && self.cut & 1 << site == 0);
+    fn inserted(self, site: Site, branch: Branch) -> Self {
+        assert!(site <= MAX_SITE && branch <= MAX_BRANCH && self.cut & 1 << site == 0);
         Self {
             cut: self.cut | 1 << site,
             chosen: self.chosen | (branch as u32) << site,
@@ -262,7 +268,7 @@ macro_rules! impl_no_cut_op2 {
 
 macro_rules! impl_integer_op {
     ($op:ident) => {
-        pub fn $op(&self, site: Option<u8>) -> Self {
+        pub fn $op(&self, site: Option<Site>) -> Self {
             let mut rs = Self::empty();
             for x in self {
                 let y = TupperInterval::new(x.to_dec_interval().$op(), x.g);
@@ -300,7 +306,7 @@ enum Parity {
 }
 
 impl TupperIntervalSet {
-    pub fn atan2(&self, rhs: &Self, site: Option<u8>) -> Self {
+    pub fn atan2(&self, rhs: &Self, site: Option<Site>) -> Self {
         let mut rs = Self::empty();
         for y in self {
             for x in rhs {
@@ -371,7 +377,7 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
-    pub fn div(&self, rhs: &Self, site: Option<u8>) -> Self {
+    pub fn div(&self, rhs: &Self, site: Option<Site>) -> Self {
         let mut rs = Self::empty();
         for x in self {
             for y in rhs {
@@ -407,7 +413,7 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
-    pub fn log(&self, rhs: &Self, site: Option<u8>) -> Self {
+    pub fn log(&self, rhs: &Self, site: Option<Site>) -> Self {
         self.log2().div(&rhs.log2(), site)
     }
 
@@ -460,7 +466,7 @@ impl TupperIntervalSet {
     //           | undefined  otherwise (y = odd / even or irrational).
     // - We define 0^0 = 1.
     // The original `Interval::pow` is not defined for x < 0 nor x = y = 0.
-    pub fn pow(&self, rhs: &Self, site: Option<u8>) -> Self {
+    pub fn pow(&self, rhs: &Self, site: Option<Site>) -> Self {
         let mut rs = Self::empty();
         for x in self {
             for y in rhs {
@@ -588,7 +594,7 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
-    pub fn pown(&self, rhs: i32, site: Option<u8>) -> Self {
+    pub fn pown(&self, rhs: i32, site: Option<Site>) -> Self {
         let mut rs = Self::empty();
         for x in self {
             let a = x.x.inf();
@@ -617,7 +623,7 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
-    pub fn recip(&self, site: Option<u8>) -> Self {
+    pub fn recip(&self, site: Option<Site>) -> Self {
         let mut rs = Self::empty();
         for x in self {
             let a = x.x.inf();
@@ -646,7 +652,7 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
-    pub fn rem_euclid(&self, rhs: &Self, site: Option<u8>) -> Self {
+    pub fn rem_euclid(&self, rhs: &Self, site: Option<Site>) -> Self {
         let zero = TupperIntervalSet::from(const_dec_interval!(0.0, 0.0));
         let y = rhs.abs();
         (self - &(&y * &self.div(&y, None).floor(site)))
@@ -696,7 +702,7 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
-    pub fn tan(&self, site: Option<u8>) -> Self {
+    pub fn tan(&self, site: Option<Site>) -> Self {
         let mut rs = Self::empty();
         for x in self {
             let a = x.x.inf();

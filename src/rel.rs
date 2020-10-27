@@ -1,6 +1,6 @@
 use crate::{
     ast::{BinaryOp, ExprId, RelId, RelOp, UnaryOp},
-    interval_set::{DecSignSet, TupperIntervalSet},
+    interval_set::{DecSignSet, Site, TupperIntervalSet},
 };
 
 #[derive(Clone, Debug)]
@@ -15,7 +15,7 @@ pub enum StaticExprKind {
 
 #[derive(Clone, Debug)]
 pub struct StaticExpr {
-    pub site: Option<u8>,
+    pub site: Option<Site>,
     pub kind: StaticExprKind,
 }
 

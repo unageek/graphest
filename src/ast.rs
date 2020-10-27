@@ -1,4 +1,4 @@
-use crate::interval_set::TupperIntervalSet;
+use crate::interval_set::{Site, TupperIntervalSet};
 use std::{
     cell::Cell,
     collections::hash_map::DefaultHasher,
@@ -85,7 +85,7 @@ pub enum RelKind {
 #[derive(Clone, Debug)]
 pub struct Expr {
     pub id: Cell<ExprId>,
-    pub site: Cell<Option<u8>>,
+    pub site: Cell<Option<Site>>,
     pub kind: ExprKind,
     internal_hash: Cell<Option<u64>>,
 }

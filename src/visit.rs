@@ -1,5 +1,6 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprId, ExprKind, Rel, RelId, RelKind, UnaryOp},
+    interval_set::{Site, MAX_SITE},
     rel::{StaticExpr, StaticExprKind, StaticRel, StaticRelKind},
 };
 use inari::const_dec_interval;
@@ -88,7 +89,7 @@ fn traverse_rel_mut<V: VisitMut>(v: &mut V, rel: &mut Rel) {
     };
 }
 
-type SiteMap = HashMap<ExprId, Option<u8>>;
+type SiteMap = HashMap<ExprId, Option<Site>>;
 
 pub struct Transform;
 
@@ -202,7 +203,7 @@ impl VisitMut for FoldConstant {
 // - Assign ids to atomic `Rel`s so that they can be used as indices for `EvalResult`.
 pub struct AssignIdStage1<'a> {
     next_expr_id: ExprId,
-    next_site: u8,
+    next_site: Site,
     site_map: SiteMap,
     visited_exprs: HashSet<&'a Expr>,
     next_rel_id: RelId,
@@ -248,8 +249,8 @@ impl<'a> Visit<'a> for AssignIdStage1<'a> {
                 expr.id.set(id);
 
                 if let Some(site) = self.site_map.get_mut(&id) {
-                    if site.is_none() && self.next_site <= 31 {
-                        *site = Some(self.next_site as u8);
+                    if site.is_none() && self.next_site <= MAX_SITE {
+                        *site = Some(self.next_site);
                         self.next_site += 1;
                     }
                 }
