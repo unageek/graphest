@@ -5,13 +5,18 @@ use crate::{
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 use inari::Decoration;
 use smallvec::{smallvec, SmallVec};
+use std::mem::size_of;
 
 #[derive(Clone, Debug)]
 pub struct EvalResult(pub SmallVec<[DecSignSet; 32]>);
 
 impl EvalResult {
-    pub fn get_size_of_payload(&self) -> usize {
-        self.0.capacity() * std::mem::size_of::<DecSignSet>()
+    pub fn size_in_heap(&self) -> usize {
+        if self.0.spilled() {
+            self.0.capacity() * size_of::<DecSignSet>()
+        } else {
+            0
+        }
     }
 
     pub fn map<F>(&self, rels: &[StaticRel], f: &F) -> EvalResultMask

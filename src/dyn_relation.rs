@@ -5,7 +5,49 @@ use crate::{
     rel::{StaticExpr, StaticExprKind, StaticRel, StaticRelKind},
     visit::*,
 };
-use std::str::FromStr;
+use inari::{DecoratedInterval, Interval};
+use std::{collections::HashMap, mem::size_of, str::FromStr};
+
+type EvaluationCacheKey = [u64; 4];
+pub struct EvaluationCache {
+    cache: HashMap<EvaluationCacheKey, EvalResult>,
+    size_of_values_in_heap: usize,
+}
+
+impl EvaluationCache {
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            cache: HashMap::with_capacity(capacity),
+            size_of_values_in_heap: 0,
+        }
+    }
+
+    pub fn get_or_insert_with<F: FnOnce() -> EvalResult>(
+        &mut self,
+        x: Interval,
+        y: Interval,
+        default: F,
+    ) -> &EvalResult {
+        let res = self
+            .cache
+            .entry([
+                x.inf().to_bits(),
+                x.sup().to_bits(),
+                y.inf().to_bits(),
+                y.sup().to_bits(),
+            ])
+            .or_insert_with(default);
+        self.size_of_values_in_heap += res.size_in_heap();
+        res
+    }
+
+    pub fn size_in_bytes(&self) -> usize {
+        // This is the lowest bound, the actual size can be much larger.
+        self.cache.capacity()
+            * (size_of::<u64>() + size_of::<EvaluationCacheKey>() + size_of::<EvalResult>())
+            + self.size_of_values_in_heap
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct DynRelation {
@@ -16,13 +58,30 @@ pub struct DynRelation {
 }
 
 impl DynRelation {
-    pub fn evaluate(&mut self, x: TupperIntervalSet, y: TupperIntervalSet) -> EvalResult {
-        use StaticExprKind::*;
+    pub fn evaluate(
+        &mut self,
+        x: Interval,
+        y: Interval,
+        cache: Option<&mut EvaluationCache>,
+    ) -> EvalResult {
+        match cache {
+            Some(cache) => cache
+                .get_or_insert_with(x, y, || self.evaluate_impl(x, y))
+                .clone(),
+            _ => self.evaluate_impl(x, y),
+        }
+    }
+
+    fn evaluate_impl(&mut self, x: Interval, y: Interval) -> EvalResult {
         for i in 0..self.exprs.len() {
             match &self.exprs[i].kind {
-                Constant(_) => (),
-                X => self.ts[i] = x.clone(),
-                Y => self.ts[i] = y.clone(),
+                StaticExprKind::Constant(_) => (),
+                StaticExprKind::X => {
+                    self.ts[i] = TupperIntervalSet::from(DecoratedInterval::new(x))
+                }
+                StaticExprKind::Y => {
+                    self.ts[i] = TupperIntervalSet::from(DecoratedInterval::new(y))
+                }
                 _ => self.ts[i] = self.exprs[i].evaluate(&self.ts),
             }
         }

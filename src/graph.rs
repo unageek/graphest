@@ -1,14 +1,14 @@
 use crate::{
-    dyn_relation::DynRelation,
+    dyn_relation::{DynRelation, EvaluationCache},
     eval_result::EvalResult,
-    interval_set::{SignSet, TupperIntervalSet},
+    interval_set::SignSet,
     rel::StaticRel,
 };
 use image::{imageops, Rgb, RgbImage};
-use inari::{dec_interval, interval, DecoratedInterval, Decoration, Interval};
+use inari::{interval, Decoration, Interval};
 use std::{
-    collections::HashMap,
-    error, fmt, mem,
+    error, fmt,
+    mem::size_of,
     time::{Duration, Instant},
 };
 
@@ -318,7 +318,7 @@ impl Graph {
         let mut sub_blocks = Vec::<ImageBlock>::new();
         for ImageBlock(bx, by) in bs.blocks.iter().copied() {
             let u_up = self.image_block_to_region_clipped(bx, by, bw).outer();
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, evals);
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, None, evals);
 
             let is_true = r_u_up.map_reduce(&self.rels[..], &|ss, d| {
                 d >= Decoration::Def && ss == SignSet::ZERO
@@ -335,7 +335,7 @@ impl Graph {
                 }
             } else {
                 Self::push_sub_blocks_clipped(&mut sub_blocks, bx, by, sub_nbc, sub_nbr);
-                if (bs.blocks.capacity() + sub_blocks.capacity()) * mem::size_of::<ImageBlock>()
+                if (bs.blocks.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
                     > MEM_LIMIT
                 {
                     return Err(GraphingError {
@@ -356,8 +356,7 @@ impl Graph {
         let fbw = bs.block_width;
         let nbx = 1u32 << -bs.k; // Number of blocks in each row per pixel.
         let area = 1u32 << (2 * (bs.k - MIN_K));
-        let mut cache = HashMap::<ImageBlock, EvalResult>::with_capacity(bs.blocks.len());
-        let mut size_of_cached_payloads = 0usize;
+        let mut cache = EvaluationCache::with_capacity(bs.blocks.len());
         let mut some_test_failed = false;
         let mut sub_blocks = Vec::<ImageBlock>::new();
         for ImageBlock(bx, by) in bs.blocks.iter().copied() {
@@ -377,7 +376,7 @@ impl Graph {
             let u_up = self
                 .image_block_to_region(bx, by, fbw)
                 .subpixel_outer(ix, iy, bx, by, nbx);
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, evals);
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, None, evals);
 
             if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
                 // This pixel is proven to be true.
@@ -420,55 +419,24 @@ impl Graph {
                     ss == SignSet::ZERO && d >= Decoration::Dac
                 });
 
-                // Use `(cx, cy)` instead of `(bx, by)` for cache indices
-                // so that values at the pixel boundary may not be shared
-                // among the adjacent pixels.
-                //
-                //                   Values are different at these two points.
-                //                     vv
-                //   +  ||  +   +   +  ||  +   +   +  ||  +
-                //       \_____________/
-                //             p_dn
-                // The exact pixel boundary is somewhere between ||.
-                //
-                // We could keep the cache across levels by multiplying
-                // `cy` and `cy` by `1u32 << (bs.k - MIN_K)`, but that
-                // increased graphing time significantly.
-                let cx = bx + ix;
-                let cy = by + iy;
+                let points = [
+                    (inter.0.inf(), inter.1.inf()), // bottom left
+                    (inter.0.sup(), inter.1.inf()), // bottom right
+                    (inter.0.inf(), inter.1.sup()), // top left
+                    (inter.0.sup(), inter.1.sup()), // top right
+                ];
 
                 let mut found_solution = false;
                 let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
                 let mut pos_mask = neg_mask.clone();
-                for i in 0..4 {
-                    let rel = &mut self.rel;
-                    let r = match i {
-                        0 => cache.entry(ImageBlock(cx, cy)).or_insert_with(|| {
-                            // bottom left
-                            let res = Self::eval_on_point(rel, inter.0.inf(), inter.1.inf(), evals);
-                            size_of_cached_payloads += res.get_size_of_payload();
-                            res
-                        }),
-                        1 => cache.entry(ImageBlock(cx + 1, cy)).or_insert_with(|| {
-                            // bottom right
-                            let res = Self::eval_on_point(rel, inter.0.sup(), inter.1.inf(), evals);
-                            size_of_cached_payloads += res.get_size_of_payload();
-                            res
-                        }),
-                        2 => cache.entry(ImageBlock(cx, cy + 1)).or_insert_with(|| {
-                            // top left
-                            let res = Self::eval_on_point(rel, inter.0.inf(), inter.1.sup(), evals);
-                            size_of_cached_payloads += res.get_size_of_payload();
-                            res
-                        }),
-                        3 => cache.entry(ImageBlock(cx + 1, cy + 1)).or_insert_with(|| {
-                            // top right
-                            let res = Self::eval_on_point(rel, inter.0.sup(), inter.1.sup(), evals);
-                            size_of_cached_payloads += res.get_size_of_payload();
-                            res
-                        }),
-                        _ => unreachable!(),
-                    };
+                for point in &points {
+                    let r = Self::eval_on_point(
+                        &mut self.rel,
+                        point.0,
+                        point.1,
+                        Some(&mut cache),
+                        evals,
+                    );
 
                     // `ss` is not empty if the decoration is `Dac`, which is
                     // ensured by `dac_mask`.
@@ -495,12 +463,8 @@ impl Graph {
 
             if bs.k > MIN_K {
                 Self::push_sub_blocks(&mut sub_blocks, bx, by);
-                if (bs.blocks.capacity() + sub_blocks.capacity()) * mem::size_of::<ImageBlock>()
-                    + cache.capacity()
-                        * (mem::size_of::<u64>()
-                            + mem::size_of::<ImageBlock>()
-                            + mem::size_of::<EvalResult>())
-                    + size_of_cached_payloads
+                if (bs.blocks.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
+                    + cache.size_in_bytes()
                     > MEM_LIMIT
                 {
                     return Err(GraphingError {
@@ -524,18 +488,25 @@ impl Graph {
         }
     }
 
-    fn eval_on_point(rel: &mut DynRelation, x: f64, y: f64, evals: &mut usize) -> EvalResult {
+    fn eval_on_point(
+        rel: &mut DynRelation,
+        x: f64,
+        y: f64,
+        cache: Option<&mut EvaluationCache>,
+        evals: &mut usize,
+    ) -> EvalResult {
         *evals += 1;
-        let x = dec_interval!(x, x).unwrap();
-        let y = dec_interval!(y, y).unwrap();
-        rel.evaluate(TupperIntervalSet::from(x), TupperIntervalSet::from(y))
+        rel.evaluate(interval!(x, x).unwrap(), interval!(y, y).unwrap(), cache)
     }
 
-    fn eval_on_region(rel: &mut DynRelation, r: &Region, evals: &mut usize) -> EvalResult {
+    fn eval_on_region(
+        rel: &mut DynRelation,
+        r: &Region,
+        cache: Option<&mut EvaluationCache>,
+        evals: &mut usize,
+    ) -> EvalResult {
         *evals += 1;
-        let x = DecoratedInterval::new(r.0);
-        let y = DecoratedInterval::new(r.1);
-        rel.evaluate(TupperIntervalSet::from(x), TupperIntervalSet::from(y))
+        rel.evaluate(r.0, r.1, cache)
     }
 
     fn image_block_to_region(&self, bx: u32, by: u32, bw: f64) -> InexactRegion {
