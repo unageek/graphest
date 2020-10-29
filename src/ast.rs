@@ -75,13 +75,6 @@ pub enum ExprKind {
     Uninit,
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum RelKind {
-    Atomic(RelOp, Box<Expr>, Box<Expr>),
-    And(Box<Rel>, Box<Rel>),
-    Or(Box<Rel>, Box<Rel>),
-}
-
 #[derive(Clone, Debug)]
 pub struct Expr {
     pub id: Cell<ExprId>,
@@ -122,26 +115,6 @@ impl Hash for Expr {
                 h
             })
             .hash(state);
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Rel {
-    pub id: Cell<RelId>,
-    pub kind: RelKind,
-}
-
-impl PartialEq for Rel {
-    fn eq(&self, rhs: &Self) -> bool {
-        self.kind == rhs.kind
-    }
-}
-
-impl Eq for Rel {}
-
-impl Hash for Rel {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.kind.hash(state);
     }
 }
 
@@ -199,6 +172,33 @@ impl Expr {
             Pown(x, y) => x.evaluate().pown(*y, None),
             X | Y | Uninit => panic!("this expression cannot be evaluated"),
         }
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum RelKind {
+    Atomic(RelOp, Box<Expr>, Box<Expr>),
+    And(Box<Rel>, Box<Rel>),
+    Or(Box<Rel>, Box<Rel>),
+}
+
+#[derive(Clone, Debug)]
+pub struct Rel {
+    pub id: Cell<RelId>,
+    pub kind: RelKind,
+}
+
+impl PartialEq for Rel {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.kind == rhs.kind
+    }
+}
+
+impl Eq for Rel {}
+
+impl Hash for Rel {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.kind.hash(state);
     }
 }
 
