@@ -45,8 +45,7 @@
   - 📄 Pythagorean Pairs.gqs 🐌
 
     ```text
-    "⌊x⌋^2 + ⌊y⌋^2 = ⌊sqrt(⌊x⌋^2 + ⌊y⌋^2)⌋^2" \
-    -b -40 40 -40 40
+    "⌊x⌋^2 + ⌊y⌋^2 = ⌊sqrt(⌊x⌋^2 + ⌊y⌋^2)⌋^2" -b -40 40 -40 40
     ```
 
   - 📄 Pythagorean Triples.gqs 🐌
@@ -142,8 +141,7 @@
   - 📄 bi-infinite binary tree.gqs
 
     ```text
-    "sin(2^⌊y⌋ x + π/4 (y - ⌊y⌋) - π/2) = 0 || \
-     sin(2^⌊y⌋ x - π/4 (y - ⌊y⌋) - π/2) = 0"
+    "sin(2^⌊y⌋ x + π/4 (y - ⌊y⌋) - π/2) = 0 || sin(2^⌊y⌋ x - π/4 (y - ⌊y⌋) - π/2) = 0"
     ```
 
 - 📂 Single Relation/Enumerations/Half-Toned/
