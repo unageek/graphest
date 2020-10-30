@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp)]
+
 mod ast;
 mod dyn_relation;
 mod eval_result;

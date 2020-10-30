@@ -1,5 +1,3 @@
-#![allow(clippy::float_cmp)]
-
 use bitflags::*;
 use hexf::*;
 use inari::{
@@ -466,6 +464,7 @@ impl TupperIntervalSet {
     //           | undefined  otherwise (y = odd / even or irrational).
     // - We define 0^0 = 1.
     // The original `Interval::pow` is not defined for x < 0 nor x = y = 0.
+    #[allow(clippy::many_single_char_names)]
     pub fn pow(&self, rhs: &Self, site: Option<Site>) -> Self {
         let mut rs = Self::empty();
         for x in self {
