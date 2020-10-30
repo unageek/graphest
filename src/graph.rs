@@ -195,7 +195,7 @@ impl error::Error for GraphingError {}
 pub struct GraphingStatistics {
     pub pixels: usize,
     pub pixels_proven: usize,
-    pub evaluations: usize,
+    pub evaluation_count: usize,
     pub time_elapsed: Duration,
 }
 
@@ -234,7 +234,7 @@ impl Graph {
             stats: GraphingStatistics {
                 pixels: im_width as usize * im_height as usize,
                 pixels_proven: 0,
-                evaluations: 0,
+                evaluation_count: 0,
                 time_elapsed: Duration::new(0, 0),
             },
         };
@@ -250,18 +250,13 @@ impl Graph {
             return Ok(true);
         }
 
-        let mut evals = 0usize;
         let now = Instant::now();
-
-        if self.bs.k >= 0 {
-            self.bs = self.refine_pixels(&mut evals)?;
+        self.bs = if self.bs.k >= 0 {
+            self.refine_pixels()?
         } else {
-            self.bs = self.refine_subpixels(&mut evals)?;
-        }
-
-        self.stats.evaluations += evals;
+            self.refine_subpixels()?
+        };
         self.stats.time_elapsed += now.elapsed();
-
         Ok(self.bs.blocks.is_empty())
     }
 
@@ -286,6 +281,7 @@ impl Graph {
                 .iter()
                 .filter(|&s| *s == STAT_TRUE || *s == STAT_FALSE)
                 .count(),
+            evaluation_count: self.rel.evaluation_count(),
             ..self.stats
         }
     }
@@ -308,7 +304,7 @@ impl Graph {
         }
     }
 
-    fn refine_pixels(&mut self, evals: &mut usize) -> Result<ImageBlockSet, GraphingError> {
+    fn refine_pixels(&mut self) -> Result<ImageBlockSet, GraphingError> {
         let bs = &self.bs;
         let bw = bs.block_width;
         let ibw = bw as u32;
@@ -318,7 +314,7 @@ impl Graph {
         let mut sub_blocks = Vec::<ImageBlock>::new();
         for ImageBlock(bx, by) in bs.blocks.iter().copied() {
             let u_up = self.image_block_to_region_clipped(bx, by, bw).outer();
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, None, evals);
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, None);
 
             let is_true = r_u_up.map_reduce(&self.rels[..], &|ss, d| {
                 d >= Decoration::Def && ss == SignSet::ZERO
@@ -351,7 +347,7 @@ impl Graph {
         })
     }
 
-    fn refine_subpixels(&mut self, evals: &mut usize) -> Result<ImageBlockSet, GraphingError> {
+    fn refine_subpixels(&mut self) -> Result<ImageBlockSet, GraphingError> {
         let bs = &self.bs;
         let fbw = bs.block_width;
         let nbx = 1u32 << -bs.k; // Number of blocks in each row per pixel.
@@ -376,7 +372,7 @@ impl Graph {
             let u_up = self
                 .image_block_to_region(bx, by, fbw)
                 .subpixel_outer(ix, iy, bx, by, nbx);
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, None, evals);
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, None);
 
             if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
                 // This pixel is proven to be true.
@@ -430,13 +426,7 @@ impl Graph {
                 let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
                 let mut pos_mask = neg_mask.clone();
                 for point in &points {
-                    let r = Self::eval_on_point(
-                        &mut self.rel,
-                        point.0,
-                        point.1,
-                        Some(&mut cache),
-                        evals,
-                    );
+                    let r = Self::eval_on_point(&mut self.rel, point.0, point.1, Some(&mut cache));
 
                     // `ss` is not empty if the decoration is `Dac`, which is
                     // ensured by `dac_mask`.
@@ -493,9 +483,7 @@ impl Graph {
         x: f64,
         y: f64,
         cache: Option<&mut EvaluationCache>,
-        evals: &mut usize,
     ) -> EvalResult {
-        *evals += 1;
         rel.evaluate(interval!(x, x).unwrap(), interval!(y, y).unwrap(), cache)
     }
 
@@ -503,9 +491,7 @@ impl Graph {
         rel: &mut DynRelation,
         r: &Region,
         cache: Option<&mut EvaluationCache>,
-        evals: &mut usize,
     ) -> EvalResult {
-        *evals += 1;
         rel.evaluate(r.0, r.1, cache)
     }
 

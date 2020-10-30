@@ -55,6 +55,7 @@ pub struct DynRelation {
     rels: Vec<StaticRel>,
     n_atom_rels: usize,
     ts: Vec<TupperIntervalSet>,
+    eval_count: usize,
 }
 
 impl DynRelation {
@@ -85,6 +86,7 @@ impl DynRelation {
                 _ => self.ts[i] = self.exprs[i].evaluate(&self.ts),
             }
         }
+        self.eval_count += 1;
         EvalResult(
             self.rels
                 .iter()
@@ -92,6 +94,10 @@ impl DynRelation {
                 .map(|r| r.evaluate(&self.ts))
                 .collect(),
         )
+    }
+
+    pub fn evaluation_count(&self) -> usize {
+        self.eval_count
     }
 
     pub fn rels(&self) -> &Vec<StaticRel> {
@@ -133,6 +139,7 @@ impl FromStr for DynRelation {
             rels,
             n_atom_rels,
             ts: vec![TupperIntervalSet::empty(); n_ts],
+            eval_count: 0,
         };
         slf.initialize();
         Ok(slf)
