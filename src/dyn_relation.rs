@@ -15,9 +15,9 @@ pub struct EvaluationCache {
 }
 
 impl EvaluationCache {
-    pub fn with_capacity(capacity: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            cache: HashMap::with_capacity(capacity),
+            cache: HashMap::new(),
             size_of_values_in_heap: 0,
         }
     }
@@ -26,7 +26,7 @@ impl EvaluationCache {
         &mut self,
         x: Interval,
         y: Interval,
-        default: F,
+        f: F,
     ) -> &EvalResult {
         let res = self
             .cache
@@ -36,7 +36,7 @@ impl EvaluationCache {
                 y.inf().to_bits(),
                 y.sup().to_bits(),
             ])
-            .or_insert_with(default);
+            .or_insert_with(f);
         self.size_of_values_in_heap += res.size_in_heap();
         res
     }

@@ -352,7 +352,7 @@ impl Graph {
         let fbw = bs.block_width;
         let nbx = 1u32 << -bs.k; // Number of blocks in each row per pixel.
         let area = 1u32 << (2 * (bs.k - MIN_K));
-        let mut cache = EvaluationCache::with_capacity(bs.blocks.len());
+        let mut cache = EvaluationCache::new();
         let mut some_test_failed = false;
         let mut sub_blocks = Vec::<ImageBlock>::new();
         for ImageBlock(bx, by) in bs.blocks.iter().copied() {
