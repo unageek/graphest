@@ -1,6 +1,6 @@
 # Examples
 
-🐌: Takes a long time to finish graphing.
+🐌: Takes a long time to terminate.
 
 ## Basic Examples
 
@@ -32,7 +32,7 @@
 -b -3 3 -3 3
 ```
 
-## Examples from [GrafEq](http://www.peda.com/grafeq/)
+## Examples taken from [GrafEq](http://www.peda.com/grafeq/)
 
 - 📂 Single Relation/Abstract/Simple/
 
@@ -42,13 +42,13 @@
     "|sin(sqrt(x^2 + y^2))| = |cos(x)|"
     ```
 
-  - 📄 Pythagorean Pairs.gqs 🐌
+  - 📄 Pythagorean Pairs.gqs
 
     ```text
     "⌊x⌋^2 + ⌊y⌋^2 = ⌊sqrt(⌊x⌋^2 + ⌊y⌋^2)⌋^2" -b -40 40 -40 40
     ```
 
-  - 📄 Pythagorean Triples.gqs 🐌
+  - 📄 Pythagorean Triples.gqs
 
     ```text
     "⌊x⌋^2 + ⌊y⌋^2 = 25"
@@ -200,13 +200,13 @@
     -b 4.0 6.5 2.0 4.5
     ```
 
-  - 📄 Highwire.gqs 🐌
+  - 📄 Highwire.gqs
 
     ```text
     "|x cos(x) - y sin(y)| = |x cos(y) - y sin(x)|"
     ```
 
-  - 📄 Trapezoidal Fortress.gqs 🐌
+  - 📄 Trapezoidal Fortress.gqs
 
     ```text
     "|x cos(x) + y sin(y)| = x cos(y) - y sin(x)"
@@ -227,7 +227,7 @@
     "sin(|x + y|) > max(cos(x^2), sin(y^2))"
     ```
 
-## Examples from [GrafEq Reviews](http://www.peda.com/grafeq/reviews.html)
+## Examples taken from [GrafEq Reviews](http://www.peda.com/grafeq/reviews.html)
 
 ```text
 "y = sqrt(x)^2"
@@ -243,7 +243,7 @@ The graph must be empty:
 "y = sqrt(x-3) sqrt(1-x)"
 ```
 
-## Examples from [Cool Graphs of Implicit Equations](https://web.archive.org/web/20160221140058/http://www.xamuel.com/graphs-of-implicit-equations/)
+## Examples taken from [Cool Graphs of Implicit Equations](https://web.archive.org/web/20160221140058/http://www.xamuel.com/graphs-of-implicit-equations/)
 
 🐌
 

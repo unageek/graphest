@@ -1,4 +1,5 @@
 use crate::interval_set::{Site, TupperIntervalSet};
+use bitflags::*;
 use std::{
     cell::Cell,
     collections::hash_map::DefaultHasher,
@@ -75,12 +76,35 @@ pub enum ExprKind {
     Uninit,
 }
 
+bitflags! {
+    pub struct AxisSet: u8 {
+        const EMPTY = 0b00;
+        const X = 0b01;
+        const Y = 0b10;
+        const XY = 0b11;
+    }
+}
+
+impl ExprKind {
+    fn dependent_axes(&self) -> AxisSet {
+        match self {
+            ExprKind::Constant(_) => AxisSet::EMPTY,
+            ExprKind::X => AxisSet::X,
+            ExprKind::Y => AxisSet::Y,
+            ExprKind::Unary(_, x) | ExprKind::Pown(x, _) => x.dependent_axes,
+            ExprKind::Binary(_, x, y) => x.dependent_axes | y.dependent_axes,
+            ExprKind::Uninit => panic!(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Expr {
     pub id: Cell<ExprId>,
     pub site: Cell<Option<Site>>,
     pub kind: ExprKind,
-    internal_hash: Cell<Option<u64>>,
+    pub dependent_axes: AxisSet,
+    internal_hash: u64,
 }
 
 impl Default for Expr {
@@ -89,7 +113,8 @@ impl Default for Expr {
             id: Cell::new(UNINIT_EXPR_ID),
             site: Cell::new(None),
             kind: ExprKind::Uninit,
-            internal_hash: Cell::new(None),
+            dependent_axes: AxisSet::EMPTY,
+            internal_hash: 0,
         }
     }
 }
@@ -104,17 +129,7 @@ impl Eq for Expr {}
 
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.internal_hash
-            .get()
-            .unwrap_or_else(|| {
-                // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
-                let mut hasher = DefaultHasher::new();
-                self.kind.hash(&mut hasher);
-                let h = hasher.finish();
-                self.internal_hash.set(Some(h));
-                h
-            })
-            .hash(state);
+        self.internal_hash.hash(state);
     }
 }
 
@@ -124,7 +139,8 @@ impl Expr {
             id: Cell::new(UNINIT_EXPR_ID),
             site: Cell::new(None),
             kind,
-            internal_hash: Cell::new(None),
+            dependent_axes: AxisSet::EMPTY,
+            internal_hash: 0,
         }
     }
 
@@ -171,6 +187,18 @@ impl Expr {
             Binary(Sub, x, y) => &x.evaluate() - &y.evaluate(),
             Pown(x, y) => x.evaluate().pown(*y, None),
             X | Y | Uninit => panic!("this expression cannot be evaluated"),
+        }
+    }
+
+    // Precondition:
+    //   The function is called on all subexpressions and they have not changed since then.
+    pub fn update_metadata(&mut self) {
+        self.dependent_axes = self.kind.dependent_axes();
+        self.internal_hash = {
+            // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
+            let mut hasher = DefaultHasher::new();
+            self.kind.hash(&mut hasher);
+            hasher.finish()
         }
     }
 }
