@@ -407,8 +407,8 @@ impl<'a> Visit<'a> for CollectStatic {
 // Collects ids of maximal subexpressions that depend only on X or Y for caching.
 // Atomic expressions X and Y are excluded.
 pub struct FindMaxima {
-    pub mx: Vec<ExprId>,
-    pub my: Vec<ExprId>,
+    mx: Vec<ExprId>,
+    my: Vec<ExprId>,
 }
 
 impl FindMaxima {
@@ -417,6 +417,14 @@ impl FindMaxima {
             mx: Vec::new(),
             my: Vec::new(),
         }
+    }
+
+    pub fn mx_my(mut self) -> (Vec<ExprId>, Vec<ExprId>) {
+        self.mx.sort();
+        self.mx.dedup();
+        self.my.sort();
+        self.my.dedup();
+        (self.mx, self.my)
     }
 }
 

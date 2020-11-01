@@ -257,7 +257,7 @@ impl FromStr for DynRelation {
 
         let mut v = FindMaxima::new();
         v.visit_rel(&rel);
-        let (mx, my) = (v.mx, v.my);
+        let (mx, my) = v.mx_my();
 
         let mut slf = Self {
             exprs,
