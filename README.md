@@ -121,7 +121,7 @@ You can group a part of an expression or a relation with `(` … `)`.
 
 ## Details
 
-Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4.1 and 3.4.2.
+Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4.1–3.4.3.
 
 ### About Exponentiation
 

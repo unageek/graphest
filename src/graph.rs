@@ -1,5 +1,5 @@
 use crate::{
-    dyn_relation::{DynRelation, EvaluationCache},
+    dyn_relation::{DynRelation, EvaluationCache, EvaluationCacheLevel},
     eval_result::EvalResult,
     interval_set::SignSet,
     rel::StaticRel,
@@ -311,10 +311,11 @@ impl Graph {
         let sub_bw = bw / 2.0;
         let sub_nbc = (self.im.width as f64 / sub_bw).ceil() as u32;
         let sub_nbr = (self.im.height as f64 / sub_bw).ceil() as u32;
+        let mut cache = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
         let mut sub_blocks = Vec::<ImageBlock>::new();
         for ImageBlock(bx, by) in bs.blocks.iter().copied() {
             let u_up = self.image_block_to_region_clipped(bx, by, bw).outer();
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, None);
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(&mut cache));
 
             let is_true = r_u_up.map_reduce(&self.rels[..], &|ss, d| {
                 d >= Decoration::Def && ss == SignSet::ZERO
@@ -332,6 +333,7 @@ impl Graph {
             } else {
                 Self::push_sub_blocks_clipped(&mut sub_blocks, bx, by, sub_nbc, sub_nbr);
                 if (bs.blocks.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
+                    + cache.size_in_bytes()
                     > MEM_LIMIT
                 {
                     return Err(GraphingError {
@@ -352,7 +354,8 @@ impl Graph {
         let fbw = bs.block_width;
         let nbx = 1u32 << -bs.k; // Number of blocks in each row per pixel.
         let area = 1u32 << (2 * (bs.k - MIN_K));
-        let mut cache = EvaluationCache::new();
+        let mut cache_per_axis = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
+        let mut cache_full = EvaluationCache::new(EvaluationCacheLevel::Full);
         let mut some_test_failed = false;
         let mut sub_blocks = Vec::<ImageBlock>::new();
         for ImageBlock(bx, by) in bs.blocks.iter().copied() {
@@ -372,7 +375,7 @@ impl Graph {
             let u_up = self
                 .image_block_to_region(bx, by, fbw)
                 .subpixel_outer(ix, iy, bx, by, nbx);
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, None);
+            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(&mut cache_per_axis));
 
             if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
                 // This pixel is proven to be true.
@@ -426,7 +429,8 @@ impl Graph {
                 let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
                 let mut pos_mask = neg_mask.clone();
                 for point in &points {
-                    let r = Self::eval_on_point(&mut self.rel, point.0, point.1, Some(&mut cache));
+                    let r =
+                        Self::eval_on_point(&mut self.rel, point.0, point.1, Some(&mut cache_full));
 
                     // `ss` is not empty if the decoration is `Dac`, which is
                     // ensured by `dac_mask`.
@@ -454,7 +458,8 @@ impl Graph {
             if bs.k > MIN_K {
                 Self::push_sub_blocks(&mut sub_blocks, bx, by);
                 if (bs.blocks.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
-                    + cache.size_in_bytes()
+                    + cache_per_axis.size_in_bytes()
+                    + cache_full.size_in_bytes()
                     > MEM_LIMIT
                 {
                     return Err(GraphingError {

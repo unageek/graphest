@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 use std::{
     convert::From,
     hash::{Hash, Hasher},
-    mem::transmute,
+    mem::{size_of, transmute},
     ops::{Add, Mul, Neg, Sub},
     slice::Iter,
 };
@@ -147,6 +147,14 @@ impl TupperIntervalSet {
     /// Returns the number of intervals in `self`.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn size_in_heap(&self) -> usize {
+        if self.0.spilled() {
+            self.0.capacity() * size_of::<TupperInterval>()
+        } else {
+            0
+        }
     }
 
     /// Inserts an interval to `self`. If the interval is empty, `self` remains intact.

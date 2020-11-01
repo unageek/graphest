@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, ExprId, ExprKind, Rel, RelId, RelKind, UnaryOp},
+    ast::{AxisSet, BinaryOp, Expr, ExprId, ExprKind, Rel, RelId, RelKind, UnaryOp},
     interval_set::{Site, MAX_SITE},
     rel::{StaticExpr, StaticExprKind, StaticRel, StaticRelKind},
 };
@@ -198,6 +198,15 @@ impl VisitMut for FoldConstant {
     }
 }
 
+pub struct UpdateMetadata;
+
+impl VisitMut for UpdateMetadata {
+    fn visit_expr_mut(&mut self, expr: &mut Expr) {
+        traverse_expr_mut(self, expr);
+        expr.update_metadata();
+    }
+}
+
 // Does the following tasks:
 // - Assign ids to `Expr`s.
 // - Assign ids to atomic `Rel`s so that they can be used as indices for `EvalResult`.
@@ -373,6 +382,7 @@ impl<'a> Visit<'a> for CollectStatic {
                     Pown(x, y) => StaticExprKind::Pown(x.id.get(), *y),
                     Uninit => panic!(),
                 },
+                dependent_axes: expr.dependent_axes,
             });
         }
     }
@@ -391,5 +401,52 @@ impl<'a> Visit<'a> for CollectStatic {
                 },
             });
         }
+    }
+}
+
+// Collects ids of maximal subexpressions that depend only on X or Y for caching.
+// Atomic expressions X and Y are excluded.
+pub struct FindMaxima {
+    mx: Vec<ExprId>,
+    my: Vec<ExprId>,
+}
+
+impl FindMaxima {
+    pub fn new() -> FindMaxima {
+        Self {
+            mx: Vec::new(),
+            my: Vec::new(),
+        }
+    }
+
+    pub fn mx_my(mut self) -> (Vec<ExprId>, Vec<ExprId>) {
+        self.mx.sort();
+        self.mx.dedup();
+        self.my.sort();
+        self.my.dedup();
+        (self.mx, self.my)
+    }
+}
+
+impl<'a> Visit<'a> for FindMaxima {
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        match expr.dependent_axes {
+            AxisSet::X => {
+                if !matches!(expr.kind, ExprKind::X) {
+                    self.mx.push(expr.id.get());
+                }
+            }
+            AxisSet::Y => {
+                if !matches!(expr.kind, ExprKind::Y) {
+                    self.my.push(expr.id.get());
+                }
+            }
+            AxisSet::XY => traverse_expr(self, expr),
+            _ => (),
+        }
+    }
+
+    fn visit_rel(&mut self, rel: &'a Rel) {
+        traverse_rel(self, rel);
     }
 }

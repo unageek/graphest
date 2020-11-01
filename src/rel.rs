@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, ExprId, RelId, RelOp, UnaryOp},
+    ast::{AxisSet, BinaryOp, ExprId, RelId, RelOp, UnaryOp},
     interval_set::{DecSignSet, Site, TupperIntervalSet},
 };
 
@@ -17,6 +17,7 @@ pub enum StaticExprKind {
 pub struct StaticExpr {
     pub site: Option<Site>,
     pub kind: StaticExprKind,
+    pub dependent_axes: AxisSet,
 }
 
 impl StaticExpr {
