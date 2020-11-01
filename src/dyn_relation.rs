@@ -21,12 +21,12 @@ pub enum EvaluationCacheLevel {
 
 pub struct EvaluationCache {
     level: EvaluationCacheLevel,
-    cache: HashMap<[u64; 4], EvalResult>,
-    mx_ts: HashMap<[u64; 2], Vec<TupperIntervalSet>>,
-    my_ts: HashMap<[u64; 2], Vec<TupperIntervalSet>>,
-    size_of_cache: usize,
-    size_of_mx_ts: usize,
-    size_of_my_ts: usize,
+    cx: HashMap<[u64; 2], Vec<TupperIntervalSet>>,
+    cy: HashMap<[u64; 2], Vec<TupperIntervalSet>>,
+    cxy: HashMap<[u64; 4], EvalResult>,
+    size_of_cx: usize,
+    size_of_cy: usize,
+    size_of_cxy: usize,
     size_of_values_in_heap: usize,
 }
 
@@ -34,60 +34,68 @@ impl EvaluationCache {
     pub fn new(level: EvaluationCacheLevel) -> Self {
         Self {
             level,
-            cache: HashMap::new(),
-            mx_ts: HashMap::new(),
-            my_ts: HashMap::new(),
-            size_of_cache: 0,
-            size_of_mx_ts: 0,
-            size_of_my_ts: 0,
+            cx: HashMap::new(),
+            cy: HashMap::new(),
+            cxy: HashMap::new(),
+            size_of_cx: 0,
+            size_of_cy: 0,
+            size_of_cxy: 0,
             size_of_values_in_heap: 0,
         }
     }
 
-    pub fn get(&self, k: &[u64; 4]) -> Option<&EvalResult> {
+    pub fn get_x(&self, k: &[u64; 2]) -> Option<&Vec<TupperIntervalSet>> {
+        self.cx.get(k)
+    }
+
+    pub fn get_y(&self, k: &[u64; 2]) -> Option<&Vec<TupperIntervalSet>> {
+        self.cy.get(k)
+    }
+
+    pub fn get_xy(&self, k: &[u64; 4]) -> Option<&EvalResult> {
         match self.level {
             EvaluationCacheLevel::PerAxis => None,
-            EvaluationCacheLevel::Full => self.cache.get(k),
+            EvaluationCacheLevel::Full => self.cxy.get(k),
         }
     }
 
-    pub fn insert_with<F: FnOnce() -> EvalResult>(&mut self, k: [u64; 4], f: F) {
+    pub fn insert_x_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, k: [u64; 2], f: F) {
+        if let Entry::Vacant(e) = self.cx.entry(k) {
+            let v = f();
+            self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
+                + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
+            e.insert(v);
+            self.size_of_cx = self.cx.capacity()
+                * (size_of::<u64>() + size_of::<[u64; 2]>() + size_of::<Vec<TupperIntervalSet>>());
+        }
+    }
+
+    pub fn insert_y_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, k: [u64; 2], f: F) {
+        if let Entry::Vacant(e) = self.cy.entry(k) {
+            let v = f();
+            self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
+                + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
+            e.insert(v);
+            self.size_of_cy = self.cy.capacity()
+                * (size_of::<u64>() + size_of::<[u64; 2]>() + size_of::<Vec<TupperIntervalSet>>());
+        }
+    }
+
+    pub fn insert_xy_with<F: FnOnce() -> EvalResult>(&mut self, k: [u64; 4], f: F) {
         if self.level == EvaluationCacheLevel::Full {
-            if let Entry::Vacant(e) = self.cache.entry(k) {
+            if let Entry::Vacant(e) = self.cxy.entry(k) {
                 let v = f();
                 self.size_of_values_in_heap += v.size_in_heap();
                 e.insert(v);
-                self.size_of_cache = self.cache.capacity()
+                self.size_of_cxy = self.cxy.capacity()
                     * (size_of::<u64>() + size_of::<[u64; 4]>() + size_of::<EvalResult>());
             }
         }
     }
 
-    pub fn insert_mx_ts_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, k: [u64; 2], f: F) {
-        if let Entry::Vacant(e) = self.mx_ts.entry(k) {
-            let v = f();
-            self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
-                + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
-            e.insert(v);
-            self.size_of_mx_ts = self.mx_ts.capacity()
-                * (size_of::<u64>() + size_of::<[u64; 2]>() + size_of::<Vec<TupperIntervalSet>>());
-        }
-    }
-
-    pub fn insert_my_ts_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, k: [u64; 2], f: F) {
-        if let Entry::Vacant(e) = self.my_ts.entry(k) {
-            let v = f();
-            self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
-                + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
-            e.insert(v);
-            self.size_of_my_ts = self.my_ts.capacity()
-                * (size_of::<u64>() + size_of::<[u64; 2]>() + size_of::<Vec<TupperIntervalSet>>());
-        }
-    }
-
     pub fn size_in_bytes(&self) -> usize {
         // This is the lowest bound, the actual size can be much larger.
-        self.size_of_cache + self.size_of_mx_ts + self.size_of_my_ts + self.size_of_values_in_heap
+        self.size_of_cx + self.size_of_cy + self.size_of_cxy + self.size_of_values_in_heap
     }
 }
 
@@ -115,6 +123,14 @@ impl DynRelation {
         }
     }
 
+    pub fn evaluation_count(&self) -> usize {
+        self.eval_count
+    }
+
+    pub fn rels(&self) -> &Vec<StaticRel> {
+        &self.rels
+    }
+
     fn evaluate_with_cache(
         &mut self,
         x: Interval,
@@ -125,13 +141,13 @@ impl DynRelation {
         let ky = [y.inf().to_bits(), y.sup().to_bits()];
         let kxy = [kx[0], kx[1], ky[0], ky[1]];
 
-        if let Some(r) = cache.get(&kxy) {
+        if let Some(r) = cache.get_xy(&kxy) {
             return r.clone();
         }
 
         let ts = &mut self.ts;
-        let mx_ts = cache.mx_ts.get(&kx);
-        let my_ts = cache.my_ts.get(&ky);
+        let mx_ts = cache.get_x(&kx);
+        let my_ts = cache.get_y(&ky);
         if let Some(mx_ts) = mx_ts {
             for i in 0..self.mx.len() {
                 ts[self.mx[i] as usize] = mx_ts[i].clone();
@@ -167,6 +183,7 @@ impl DynRelation {
             }
         }
 
+        self.eval_count += 1;
         let r = EvalResult(
             self.rels
                 .iter()
@@ -174,20 +191,19 @@ impl DynRelation {
                 .map(|r| r.evaluate(&ts))
                 .collect(),
         );
-        self.eval_count += 1;
 
         let ts = &self.ts;
-        cache.insert_mx_ts_with(kx, || {
+        cache.insert_x_with(kx, || {
             (0..self.mx.len())
                 .map(|i| ts[self.mx[i] as usize].clone())
                 .collect()
         });
-        cache.insert_my_ts_with(ky, || {
+        cache.insert_y_with(ky, || {
             (0..self.my.len())
                 .map(|i| ts[self.my[i] as usize].clone())
                 .collect()
         });
-        cache.insert_with(kxy, || r.clone());
+        cache.insert_xy_with(kxy, || r.clone());
         r
     }
 
@@ -215,18 +231,11 @@ impl DynRelation {
         )
     }
 
-    pub fn evaluation_count(&self) -> usize {
-        self.eval_count
-    }
-
-    pub fn rels(&self) -> &Vec<StaticRel> {
-        &self.rels
-    }
-
     fn initialize(&mut self) {
         for i in 0..self.exprs.len() {
-            if self.exprs[i].dependent_axes.is_empty() {
-                self.ts[i] = self.exprs[i].evaluate(&self.ts);
+            let expr = &self.exprs[i];
+            if let StaticExprKind::Constant(_) = expr.kind {
+                self.ts[i] = expr.evaluate(&self.ts);
             }
         }
     }
