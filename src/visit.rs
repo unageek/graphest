@@ -102,7 +102,7 @@ impl VisitMut for Transform {
             Unary(Neg, x) => {
                 if let Unary(Neg, x) = &mut x.kind {
                     // (Neg (Neg x)) => x
-                    *expr = std::mem::take(&mut **x);
+                    *expr = std::mem::take(x);
                 }
             }
             Binary(Div, x, y) => {
