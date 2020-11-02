@@ -12,18 +12,28 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// You can pick any value.
 const MEM_LIMIT: usize = 1usize << 30; // 1GiB
+
+/// The value is chosen so that `STAT_UNCERTAIN` fits in `u32`.
 const MIN_K: i32 = -15;
+/// An arbitrary value that satisfies `MAX_WIDTH * 2^(-MIN_K) < u32::MAX`.
+const MAX_WIDTH: u32 = 1u32 << 15; // 32768
+
+/// The width of the smallest subpixels.
+const MIN_WIDTH: f64 = 1.0 / ((1u32 << -MIN_K) as f64);
 
 const STAT_FALSE: u32 = 0;
 const STAT_UNCERTAIN: u32 = 1u32 << (2 * -MIN_K);
 const STAT_TRUE: u32 = !0u32;
 
-// Each pixel of an `Image` keeps track of the proof status as follows.
-//   STAT_FALSE: the relation has been proven to be false on the pixel.
-//   1..STAT_UNCERTAIN: uncertain, but proven to be false on a part of the pixel.
-//   STAT_UNCERTAIN: uncertain.
-//   STAT_TRUE: proven to be true.
+/// Each pixel of an `Image` keeps track of the proof status as follows:
+///
+///   - `STAT_FALSE`: The relation has no solution within the pixel.
+///   - `1..STAT_UNCERTAIN`: Uncertain, but the relation is known to
+///     have no solution within some parts of the pixel.
+///   - `STAT_UNCERTAIN`: Uncertain.
+///   - `STAT_TRUE`: The relation has at least one solution within the pixel.
 #[derive(Debug)]
 struct Image {
     width: u32,
@@ -34,6 +44,7 @@ struct Image {
 impl Image {
     /// Creates a new `Image` with all pixels set to `STAT_UNCERTAIN`.
     fn new(width: u32, height: u32) -> Self {
+        assert!(width <= MAX_WIDTH && height <= MAX_WIDTH);
         Self {
             width,
             height,
@@ -41,31 +52,78 @@ impl Image {
         }
     }
 
+    /// Returns the index in `data` where the value of the pixel is stored.
+    fn index(&self, p: PixelIndex) -> usize {
+        p.y as usize * self.width as usize + p.x as usize
+    }
+
     /// Returns the value of the pixel.
-    fn pixel(&self, x: u32, y: u32) -> u32 {
-        self.data[self.pixel_index(x, y)]
+    fn pixel(&self, p: PixelIndex) -> u32 {
+        self.data[self.index(p)]
     }
 
-    fn pixel_index(&self, x: u32, y: u32) -> usize {
-        y as usize * self.width as usize + x as usize
-    }
-
-    /// Returns a mutable reference to the pixel.
-    fn pixel_mut(&mut self, x: u32, y: u32) -> &mut u32 {
-        let i = self.pixel_index(x, y);
+    /// Returns a mutable reference to the value of the pixel.
+    fn pixel_mut(&mut self, p: PixelIndex) -> &mut u32 {
+        let i = self.index(p);
         &mut self.data[i]
     }
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct PixelIndex {
+    x: u32,
+    y: u32,
+}
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-struct ImageBlock(u32, u32);
+impl PixelIndex {
+    fn to_block(&self) -> ImageBlock {
+        ImageBlock {
+            x: self.x << -MIN_K,
+            y: self.y << -MIN_K,
+            k: 0,
+        }
+    }
+}
 
-// Represents a set of square regions of an image.
-#[derive(Debug)]
-struct ImageBlockSet {
-    blocks: Vec<ImageBlock>,
-    block_width: f64, // 2^k
-    k: i32,           // TODO: Negate and rename to `level`?
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ImageBlock {
+    /// The horizontal index of the first subpixel in the block.
+    /// The index is represented in multiples of the smallest subpixel (= 2^MIN_K px).
+    x: u32,
+    /// The vertical index of the first subpixel.
+    y: u32,
+    k: i32,
+}
+
+impl ImageBlock {
+    /// Returns the area of the block in multiples of `MIN_WIDTH^2`.
+    /// Precondition: k ≤ 0.
+    fn area(&self) -> u32 {
+        1u32 << (2 * (self.k - MIN_K))
+    }
+
+    fn is_subdivisible(&self) -> bool {
+        self.k > MIN_K
+    }
+
+    /// Returns the index of the pixel that contains the block.
+    /// If the block spans multiple pixels (k > 0), the least index is returned.
+    fn pixel_index(&self) -> PixelIndex {
+        PixelIndex {
+            x: self.x >> -MIN_K,
+            y: self.y >> -MIN_K,
+        }
+    }
+
+    /// Returns the pixel width (or height) of the block.
+    /// Precondition: k ≥ 0.
+    fn pixel_width(&self) -> u32 {
+        1u32 << self.k
+    }
+
+    /// Returns the width (or height) of the block in multiples of `MIN_WIDTH`.
+    fn width(&self) -> u32 {
+        1u32 << (self.k - MIN_K)
+    }
 }
 
 // Represents a rectangular region (subset of ℝ²).
@@ -80,13 +138,13 @@ impl Region {
         Self(interval!(l, r).unwrap(), interval!(b, t).unwrap())
     }
 
-    // Returns the height of the region as an interval.
+    /// Returns the tightest enclusure of the height of the region.
     fn height(&self) -> Interval {
         interval!(self.1.sup(), self.1.sup()).unwrap()
             - interval!(self.1.inf(), self.1.inf()).unwrap()
     }
 
-    /// Returns the intersection of two regions.
+    /// Returns the intersection of the two regions.
     fn intersection(&self, rhs: &Self) -> Self {
         Self(self.0.intersection(rhs.0), self.1.intersection(rhs.1))
     }
@@ -96,7 +154,7 @@ impl Region {
         self.0.is_empty() || self.1.is_empty()
     }
 
-    /// Returns the width of the region as an interval.
+    /// Returns the tightest enclosure of the width of the region.
     fn width(&self) -> Interval {
         interval!(self.0.sup(), self.0.sup()).unwrap()
             - interval!(self.0.inf(), self.0.inf()).unwrap()
@@ -112,6 +170,7 @@ struct InexactRegion {
 }
 
 impl InexactRegion {
+    /// Returns the inner bounds of the inexact region.
     fn inner(&self) -> Region {
         Region(
             {
@@ -135,6 +194,7 @@ impl InexactRegion {
         )
     }
 
+    /// Returns the outer bounds of the inexact region.
     fn outer(&self) -> Region {
         Region(
             interval!(self.l.inf(), self.r.sup()).unwrap(),
@@ -142,25 +202,26 @@ impl InexactRegion {
         )
     }
 
-    fn subpixel_outer(&self, ix: u32, iy: u32, bx: u32, by: u32, nbx: u32) -> Region {
-        let rem_x = bx - ix * nbx; // bx % nbx
-        let rem_y = by - iy * nbx; // by % nbx
-        let l = if rem_x == 0 {
+    fn subpixel_outer(&self, b: ImageBlock) -> Region {
+        let modulus = b.width() - 1; // `b.width()` is a power of two, thus this works as a bit mask.
+        let rem_bx = b.x & modulus; // `bx % modulus`
+        let rem_by = b.y & modulus; // `by % modulus`
+        let l = if rem_bx == 0 {
             self.l.inf()
         } else {
             self.l.mid()
         };
-        let r = if rem_x == nbx - 1 {
+        let r = if rem_bx == modulus {
             self.r.sup()
         } else {
             self.r.mid()
         };
-        let b = if rem_y == 0 {
+        let b = if rem_by == 0 {
             self.b.inf()
         } else {
             self.b.mid()
         };
-        let t = if rem_y == nbx - 1 {
+        let t = if rem_by == modulus {
             self.t.sup()
         } else {
             self.t.mid()
@@ -204,8 +265,14 @@ pub struct Graph {
     rel: DynRelation,
     rels: Vec<StaticRel>,
     im: Image,
-    bs: ImageBlockSet,
-    // Affine transformation from pixel coordinates to real coordinates.
+    bx_end: u32,
+    by_end: u32,
+    bs: Vec<ImageBlock>,
+    // Affine transformation from subpixel coordinates (bx, by) to real coordinates (x, y):
+    //
+    //   ⎛ x ⎞   ⎛ sx   0  tx ⎞ ⎛ bx ⎞
+    //   ⎜ y ⎟ = ⎜  0  sy  ty ⎟ ⎜ by ⎟.
+    //   ⎝ 1 ⎠   ⎝  0   0   1 ⎠ ⎝  1 ⎠
     sx: Interval,
     sy: Interval,
     tx: Interval,
@@ -214,7 +281,6 @@ pub struct Graph {
 }
 
 impl Graph {
-    // TODO: Accept `InexactRegion` instead of `Region` for more exactness?
     pub fn new(rel: DynRelation, region: Region, im_width: u32, im_height: u32) -> Self {
         assert!(im_width > 0 && im_height > 0);
         let rels = rel.rels().clone();
@@ -222,13 +288,11 @@ impl Graph {
             rel,
             rels,
             im: Image::new(im_width, im_height),
-            bs: ImageBlockSet {
-                blocks: Vec::new(),
-                block_width: 0.0,
-                k: 0,
-            },
-            sx: region.width() / Self::point_interval(im_width as f64),
-            sy: region.height() / Self::point_interval(im_height as f64),
+            bx_end: im_width << -MIN_K,
+            by_end: im_height << -MIN_K,
+            bs: Vec::new(),
+            sx: region.width() / Self::point_interval(im_width as f64 / MIN_WIDTH),
+            sy: region.height() / Self::point_interval(im_height as f64 / MIN_WIDTH),
             tx: Self::point_interval(region.0.inf()),
             ty: Self::point_interval(region.1.inf()),
             stats: GraphingStatistics {
@@ -246,18 +310,18 @@ impl Graph {
     ///
     /// Returns `Ok(true)`/`Ok(false)` if graphing is complete/incomplete after refinement.
     pub fn step(&mut self) -> Result<bool, GraphingError> {
-        if self.bs.blocks.is_empty() {
+        if self.bs.is_empty() {
             return Ok(true);
         }
 
         let now = Instant::now();
-        self.bs = if self.bs.k >= 0 {
+        self.bs = if self.bs[0].k >= 0 {
             self.refine_pixels()?
         } else {
             self.refine_subpixels()?
         };
         self.stats.time_elapsed += now.elapsed();
-        Ok(self.bs.blocks.is_empty())
+        Ok(self.bs.is_empty())
     }
 
     pub fn get_image(&self) -> RgbImage {
@@ -286,35 +350,30 @@ impl Graph {
         }
     }
 
-    fn get_initial_image_blocks(&self) -> ImageBlockSet {
+    fn get_initial_image_blocks(&self) -> Vec<ImageBlock> {
         let k = (self.im.width.max(self.im.height) as f64).log2() as i32;
         let bw = 2.0f64.powi(k);
-        let nbc = (self.im.width as f64 / bw).ceil() as u32;
-        let nbr = (self.im.height as f64 / bw).ceil() as u32;
+        let nx = (self.im.width as f64 / bw).ceil() as u32;
+        let ny = (self.im.height as f64 / bw).ceil() as u32;
         let mut blocks = Vec::<ImageBlock>::new();
-        for by in 0..nbr {
-            for bx in 0..nbc {
-                blocks.push(ImageBlock(bx, by));
+        for by in 0..ny {
+            for bx in 0..nx {
+                blocks.push(ImageBlock {
+                    x: bx << (k - MIN_K),
+                    y: by << (k - MIN_K),
+                    k,
+                });
             }
         }
-        ImageBlockSet {
-            blocks,
-            block_width: bw,
-            k: k as i32,
-        }
+        blocks
     }
 
-    fn refine_pixels(&mut self) -> Result<ImageBlockSet, GraphingError> {
+    fn refine_pixels(&mut self) -> Result<Vec<ImageBlock>, GraphingError> {
         let bs = &self.bs;
-        let bw = bs.block_width;
-        let ibw = bw as u32;
-        let sub_bw = bw / 2.0;
-        let sub_nbc = (self.im.width as f64 / sub_bw).ceil() as u32;
-        let sub_nbr = (self.im.height as f64 / sub_bw).ceil() as u32;
         let mut cache = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
         let mut sub_blocks = Vec::<ImageBlock>::new();
-        for ImageBlock(bx, by) in bs.blocks.iter().copied() {
-            let u_up = self.image_block_to_region_clipped(bx, by, bw).outer();
+        for b in bs.iter().copied() {
+            let u_up = self.image_block_to_region_clipped(b).outer();
             let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(&mut cache));
 
             let is_true = r_u_up.map_reduce(&self.rels[..], &|ss, d| {
@@ -322,17 +381,17 @@ impl Graph {
             });
             let is_false = !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO));
             if is_true || is_false {
-                let ix = bx * ibw;
-                let iy = by * ibw;
+                let pixel = b.pixel_index();
+                let pixel_width = b.pixel_width();
                 let stat = if is_true { STAT_TRUE } else { STAT_FALSE };
-                for iy in iy..(iy + ibw).min(self.im.height) {
-                    for ix in ix..(ix + ibw).min(self.im.width) {
-                        *self.im.pixel_mut(ix, iy) = stat;
+                for y in pixel.y..(pixel.y + pixel_width).min(self.im.height) {
+                    for x in pixel.x..(pixel.x + pixel_width).min(self.im.width) {
+                        *self.im.pixel_mut(PixelIndex { x, y }) = stat;
                     }
                 }
             } else {
-                Self::push_sub_blocks_clipped(&mut sub_blocks, bx, by, sub_nbc, sub_nbr);
-                if (bs.blocks.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
+                self.push_sub_blocks_clipped(&mut sub_blocks, b);
+                if (bs.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
                     + cache.size_in_bytes()
                     > MEM_LIMIT
                 {
@@ -342,55 +401,45 @@ impl Graph {
                 }
             }
         }
-        Ok(ImageBlockSet {
-            blocks: sub_blocks,
-            block_width: sub_bw,
-            k: bs.k - 1,
-        })
+        Ok(sub_blocks)
     }
 
-    fn refine_subpixels(&mut self) -> Result<ImageBlockSet, GraphingError> {
+    fn refine_subpixels(&mut self) -> Result<Vec<ImageBlock>, GraphingError> {
         let bs = &self.bs;
-        let fbw = bs.block_width;
-        let nbx = 1u32 << -bs.k; // Number of blocks in each row per pixel.
-        let area = 1u32 << (2 * (bs.k - MIN_K));
         let mut cache_per_axis = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
         let mut cache_full = EvaluationCache::new(EvaluationCacheLevel::Full);
         let mut some_test_failed = false;
         let mut sub_blocks = Vec::<ImageBlock>::new();
-        for ImageBlock(bx, by) in bs.blocks.iter().copied() {
-            let ix = bx >> -bs.k;
-            let iy = by >> -bs.k;
-            let stat = self.im.pixel(ix, iy);
+        for b in bs.iter().copied() {
+            let pixel = b.pixel_index();
+            let stat = self.im.pixel(pixel);
             if stat == STAT_FALSE || stat == STAT_TRUE {
                 continue;
             }
 
-            let p_dn = self.image_block_to_region(ix, iy, 1.0).inner();
+            let p_dn = self.image_block_to_region(pixel.to_block()).inner();
             if p_dn.is_empty() {
                 some_test_failed = true;
                 continue;
             }
 
-            let u_up = self
-                .image_block_to_region(bx, by, fbw)
-                .subpixel_outer(ix, iy, bx, by, nbx);
+            let u_up = self.image_block_to_region(b).subpixel_outer(b);
             let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(&mut cache_per_axis));
 
             if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
                 // This pixel is proven to be true.
-                *self.im.pixel_mut(ix, iy) = STAT_TRUE;
+                *self.im.pixel_mut(pixel) = STAT_TRUE;
                 continue;
             }
             if !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO)) {
                 // This subpixel is proven to be false.
-                *self.im.pixel_mut(ix, iy) -= area;
+                *self.im.pixel_mut(pixel) -= b.area();
                 continue;
             }
 
             let inter = u_up.intersection(&p_dn);
             if inter.is_empty() {
-                *self.im.pixel_mut(ix, iy) -= area;
+                *self.im.pixel_mut(pixel) -= b.area();
                 continue;
             }
 
@@ -450,14 +499,14 @@ impl Graph {
                 }
 
                 if found_solution {
-                    *self.im.pixel_mut(ix, iy) = STAT_TRUE;
+                    *self.im.pixel_mut(pixel) = STAT_TRUE;
                     continue;
                 }
             }
 
-            if bs.k > MIN_K {
-                Self::push_sub_blocks(&mut sub_blocks, bx, by);
-                if (bs.blocks.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
+            if b.is_subdivisible() {
+                Self::push_sub_blocks(&mut sub_blocks, b);
+                if (bs.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
                     + cache_per_axis.size_in_bytes()
                     + cache_full.size_in_bytes()
                     > MEM_LIMIT
@@ -475,11 +524,7 @@ impl Graph {
                 kind: GraphingErrorKind::ReachedSubdivisionLimit,
             })
         } else {
-            Ok(ImageBlockSet {
-                blocks: sub_blocks,
-                block_width: fbw / 2.0,
-                k: bs.k - 1,
-            })
+            Ok(sub_blocks)
         }
     }
 
@@ -500,22 +545,22 @@ impl Graph {
         rel.evaluate(r.0, r.1, cache)
     }
 
-    fn image_block_to_region(&self, bx: u32, by: u32, bw: f64) -> InexactRegion {
+    fn image_block_to_region(&self, b: ImageBlock) -> InexactRegion {
         InexactRegion {
-            l: Self::point_interval(bx as f64 * bw).mul_add(self.sx, self.tx),
-            r: Self::point_interval((bx + 1) as f64 * bw).mul_add(self.sx, self.tx),
-            b: Self::point_interval(by as f64 * bw).mul_add(self.sy, self.ty),
-            t: Self::point_interval((by + 1) as f64 * bw).mul_add(self.sy, self.ty),
+            l: Self::point_interval(b.x as f64).mul_add(self.sx, self.tx),
+            r: Self::point_interval((b.x + b.width()) as f64).mul_add(self.sx, self.tx),
+            b: Self::point_interval(b.y as f64).mul_add(self.sy, self.ty),
+            t: Self::point_interval((b.y + b.width()) as f64).mul_add(self.sy, self.ty),
         }
     }
 
-    fn image_block_to_region_clipped(&self, bx: u32, by: u32, bw: f64) -> InexactRegion {
+    fn image_block_to_region_clipped(&self, b: ImageBlock) -> InexactRegion {
         InexactRegion {
-            l: Self::point_interval(bx as f64 * bw).mul_add(self.sx, self.tx),
-            r: Self::point_interval(((bx + 1) as f64 * bw).min(self.im.width as f64))
+            l: Self::point_interval(b.x as f64).mul_add(self.sx, self.tx),
+            r: Self::point_interval((b.x + b.width()).min(self.bx_end) as f64)
                 .mul_add(self.sx, self.tx),
-            b: Self::point_interval(by as f64 * bw).mul_add(self.sy, self.ty),
-            t: Self::point_interval(((by + 1) as f64 * bw).min(self.im.height as f64))
+            b: Self::point_interval(b.y as f64).mul_add(self.sy, self.ty),
+            t: Self::point_interval((b.y + b.width()).min(self.by_end) as f64)
                 .mul_add(self.sy, self.ty),
         }
     }
@@ -524,33 +569,33 @@ impl Graph {
         interval!(x, x).unwrap()
     }
 
-    fn push_sub_blocks(blocks: &mut Vec<ImageBlock>, bx: u32, by: u32) {
-        let sub_bx = 2 * bx;
-        let sub_by = 2 * by;
-        blocks.push(ImageBlock(sub_bx, sub_by));
-        blocks.push(ImageBlock(sub_bx + 1, sub_by));
-        blocks.push(ImageBlock(sub_bx, sub_by + 1));
-        blocks.push(ImageBlock(sub_bx + 1, sub_by + 1));
+    fn push_sub_blocks(blocks: &mut Vec<ImageBlock>, b: ImageBlock) {
+        let x0 = b.x;
+        let y0 = b.y;
+        let x1 = x0 + b.width() / 2;
+        let y1 = y0 + b.width() / 2;
+        let k = b.k - 1;
+        blocks.push(ImageBlock { x: x0, y: y0, k });
+        blocks.push(ImageBlock { x: x1, y: y0, k });
+        blocks.push(ImageBlock { x: x0, y: y1, k });
+        blocks.push(ImageBlock { x: x1, y: y1, k });
     }
 
-    fn push_sub_blocks_clipped(
-        blocks: &mut Vec<ImageBlock>,
-        bx: u32,
-        by: u32,
-        sub_nbc: u32,
-        sub_nbr: u32,
-    ) {
-        let sub_bx = 2 * bx;
-        let sub_by = 2 * by;
-        blocks.push(ImageBlock(sub_bx, sub_by));
-        if sub_bx + 1 < sub_nbc {
-            blocks.push(ImageBlock(sub_bx + 1, sub_by));
+    fn push_sub_blocks_clipped(&self, blocks: &mut Vec<ImageBlock>, b: ImageBlock) {
+        let x0 = b.x;
+        let y0 = b.y;
+        let x1 = x0 + b.width() / 2;
+        let y1 = y0 + b.width() / 2;
+        let k = b.k - 1;
+        blocks.push(ImageBlock { x: x0, y: y0, k });
+        if x1 < self.bx_end {
+            blocks.push(ImageBlock { x: x1, y: y0, k });
         }
-        if sub_by + 1 < sub_nbr {
-            blocks.push(ImageBlock(sub_bx, sub_by + 1));
+        if y1 < self.by_end {
+            blocks.push(ImageBlock { x: x0, y: y1, k });
         }
-        if sub_bx + 1 < sub_nbc && sub_by + 1 < sub_nbr {
-            blocks.push(ImageBlock(sub_bx + 1, sub_by + 1));
+        if x1 < self.bx_end && y1 < self.by_end {
+            blocks.push(ImageBlock { x: x1, y: y1, k });
         }
     }
 }
