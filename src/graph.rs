@@ -345,8 +345,8 @@ impl Graph {
         Ok(self.bs.is_empty())
     }
 
-    pub fn get_image(&self) -> RgbImage {
-        let mut im = RgbImage::new(self.im.width, self.im.height);
+    pub fn get_image(&self, im: &mut RgbImage) {
+        assert!(im.width() == self.im.width && im.height() == self.im.height);
         for (src, dst) in self.im.data.iter().zip(im.pixels_mut()) {
             *dst = match *src {
                 STAT_TRUE => Rgb([0, 0, 0]),
@@ -354,8 +354,7 @@ impl Graph {
                 _ => Rgb([64, 128, 192]),
             }
         }
-        imageops::flip_vertical_in_place(&mut im);
-        im
+        imageops::flip_vertical_in_place(im);
     }
 
     pub fn get_statistics(&self) -> GraphingStatistics {
