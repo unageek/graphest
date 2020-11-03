@@ -7,6 +7,7 @@ use crate::{
 use image::{imageops, Rgb, RgbImage};
 use inari::{interval, Decoration, Interval};
 use std::{
+    collections::VecDeque,
     error, fmt,
     mem::size_of,
     time::{Duration, Instant},
@@ -68,6 +69,7 @@ impl Image {
         &mut self.data[i]
     }
 }
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct PixelIndex {
     x: u32,
@@ -267,7 +269,7 @@ pub struct Graph {
     im: Image,
     bx_end: u32,
     by_end: u32,
-    bs: Vec<ImageBlock>,
+    bs: VecDeque<ImageBlock>,
     // Affine transformation from subpixel coordinates (bx, by) to real coordinates (x, y):
     //
     //   ⎛ x ⎞   ⎛ sx   0  tx ⎞ ⎛ bx ⎞
@@ -290,7 +292,7 @@ impl Graph {
             im: Image::new(im_width, im_height),
             bx_end: im_width << -MIN_K,
             by_end: im_height << -MIN_K,
-            bs: Vec::new(),
+            bs: VecDeque::new(),
             sx: region.width() / Self::point_interval(im_width as f64 / MIN_WIDTH),
             sy: region.height() / Self::point_interval(im_height as f64 / MIN_WIDTH),
             tx: Self::point_interval(region.0.inf()),
@@ -302,24 +304,43 @@ impl Graph {
                 time_elapsed: Duration::new(0, 0),
             },
         };
-        g.bs = g.get_initial_image_blocks();
+        g.bs.extend(g.initial_image_blocks().into_iter());
         g
     }
 
     /// Performs the refinement step.
     ///
     /// Returns `Ok(true)`/`Ok(false)` if graphing is complete/incomplete after refinement.
-    pub fn step(&mut self) -> Result<bool, GraphingError> {
-        if self.bs.is_empty() {
-            return Ok(true);
+    pub fn step(&mut self, timeout: Duration) -> Result<bool, GraphingError> {
+        let now = Instant::now();
+
+        let mut cache_per_axis = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
+        let mut cache_full = EvaluationCache::new(EvaluationCacheLevel::Full);
+        while !self.bs.is_empty() {
+            let b = self.bs.pop_front().unwrap();
+            let sub_bs = if b.k >= 0 {
+                self.refine_pixel(b, &mut cache_per_axis)?
+            } else {
+                self.refine_subpixel(b, &mut cache_per_axis, &mut cache_full)?
+            };
+
+            self.bs.extend(sub_bs.into_iter());
+
+            if self.bs.capacity() * size_of::<ImageBlock>()
+                + cache_per_axis.size_in_bytes()
+                + cache_full.size_in_bytes()
+                > MEM_LIMIT
+            {
+                return Err(GraphingError {
+                    kind: GraphingErrorKind::ReachedMemLimit,
+                });
+            }
+
+            if now.elapsed() > timeout {
+                break;
+            }
         }
 
-        let now = Instant::now();
-        self.bs = if self.bs[0].k >= 0 {
-            self.refine_pixels()?
-        } else {
-            self.refine_subpixels()?
-        };
         self.stats.time_elapsed += now.elapsed();
         Ok(self.bs.is_empty())
     }
@@ -350,181 +371,162 @@ impl Graph {
         }
     }
 
-    fn get_initial_image_blocks(&self) -> Vec<ImageBlock> {
+    fn initial_image_blocks(&self) -> Vec<ImageBlock> {
         let k = (self.im.width.max(self.im.height) as f64).log2() as i32;
         let bw = 2.0f64.powi(k);
         let nx = (self.im.width as f64 / bw).ceil() as u32;
         let ny = (self.im.height as f64 / bw).ceil() as u32;
-        let mut blocks = Vec::<ImageBlock>::new();
+        let mut bs = Vec::<ImageBlock>::new();
         for by in 0..ny {
             for bx in 0..nx {
-                blocks.push(ImageBlock {
+                bs.push(ImageBlock {
                     x: bx << (k - MIN_K),
                     y: by << (k - MIN_K),
                     k,
                 });
             }
         }
-        blocks
+        bs
     }
 
-    fn refine_pixels(&mut self) -> Result<Vec<ImageBlock>, GraphingError> {
-        let bs = &self.bs;
-        let mut cache = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
-        let mut sub_blocks = Vec::<ImageBlock>::new();
-        for b in bs.iter().copied() {
-            let u_up = self.image_block_to_region_clipped(b).outer();
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(&mut cache));
+    fn refine_pixel(
+        &mut self,
+        b: ImageBlock,
+        cache: &mut EvaluationCache,
+    ) -> Result<Vec<ImageBlock>, GraphingError> {
+        let mut sub_bs = Vec::<ImageBlock>::new();
 
-            let is_true = r_u_up.map_reduce(&self.rels[..], &|ss, d| {
-                d >= Decoration::Def && ss == SignSet::ZERO
-            });
-            let is_false = !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO));
-            if is_true || is_false {
-                let pixel = b.pixel_index();
-                let pixel_width = b.pixel_width();
-                let stat = if is_true { STAT_TRUE } else { STAT_FALSE };
-                for y in pixel.y..(pixel.y + pixel_width).min(self.im.height) {
-                    for x in pixel.x..(pixel.x + pixel_width).min(self.im.width) {
-                        *self.im.pixel_mut(PixelIndex { x, y }) = stat;
-                    }
-                }
-            } else {
-                self.push_sub_blocks_clipped(&mut sub_blocks, b);
-                if (bs.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
-                    + cache.size_in_bytes()
-                    > MEM_LIMIT
-                {
-                    return Err(GraphingError {
-                        kind: GraphingErrorKind::ReachedMemLimit,
-                    });
-                }
-            }
-        }
-        Ok(sub_blocks)
-    }
+        let u_up = self.image_block_to_region_clipped(b).outer();
+        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache));
 
-    fn refine_subpixels(&mut self) -> Result<Vec<ImageBlock>, GraphingError> {
-        let bs = &self.bs;
-        let mut cache_per_axis = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
-        let mut cache_full = EvaluationCache::new(EvaluationCacheLevel::Full);
-        let mut some_test_failed = false;
-        let mut sub_blocks = Vec::<ImageBlock>::new();
-        for b in bs.iter().copied() {
+        let is_true = r_u_up.map_reduce(&self.rels[..], &|ss, d| {
+            d >= Decoration::Def && ss == SignSet::ZERO
+        });
+        let is_false = !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO));
+        if is_true || is_false {
             let pixel = b.pixel_index();
-            let stat = self.im.pixel(pixel);
-            if stat == STAT_FALSE || stat == STAT_TRUE {
-                continue;
+            let pixel_width = b.pixel_width();
+            let stat = if is_true { STAT_TRUE } else { STAT_FALSE };
+            for y in pixel.y..(pixel.y + pixel_width).min(self.im.height) {
+                for x in pixel.x..(pixel.x + pixel_width).min(self.im.width) {
+                    *self.im.pixel_mut(PixelIndex { x, y }) = stat;
+                }
             }
+        } else {
+            self.push_sub_blocks_clipped(&mut sub_bs, b);
+        }
 
-            let p_dn = self.image_block_to_region(pixel.to_block()).inner();
-            if p_dn.is_empty() {
-                some_test_failed = true;
-                continue;
-            }
+        Ok(sub_bs)
+    }
 
-            let u_up = self.image_block_to_region(b).subpixel_outer(b);
-            let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(&mut cache_per_axis));
+    fn refine_subpixel(
+        &mut self,
+        b: ImageBlock,
+        cache_per_axis: &mut EvaluationCache,
+        cache_full: &mut EvaluationCache,
+    ) -> Result<Vec<ImageBlock>, GraphingError> {
+        let mut sub_bs = Vec::<ImageBlock>::new();
 
-            if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
-                // This pixel is proven to be true.
-                *self.im.pixel_mut(pixel) = STAT_TRUE;
-                continue;
-            }
-            if !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO)) {
-                // This subpixel is proven to be false.
-                *self.im.pixel_mut(pixel) -= b.area();
-                continue;
-            }
+        let pixel = b.pixel_index();
+        let stat = self.im.pixel(pixel);
+        if stat == STAT_FALSE || stat == STAT_TRUE {
+            return Ok(sub_bs);
+        }
 
-            let inter = u_up.intersection(&p_dn);
-            if inter.is_empty() {
-                *self.im.pixel_mut(pixel) -= b.area();
-                continue;
-            }
+        let p_dn = self.image_block_to_region(pixel.to_block()).inner();
+        if p_dn.is_empty() {
+            return Err(GraphingError {
+                kind: GraphingErrorKind::ReachedSubdivisionLimit,
+            });
+        }
 
-            // We could re-evaluate the relation on `inter` instead of `u_up`
-            // to get a slightly better result, but the effect would be negligible.
+        let u_up = self.image_block_to_region(b).subpixel_outer(b);
+        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache_per_axis));
 
-            // To prove the existence of a solution by a change of sign...
-            //   for conjunctions, both operands must be `Dac`.
-            //   for disjunctions, at least one operand must be `Dac`.
-            // There is little chance that an expression is evaluated
-            // to zero on one of the probe points. In that case,
-            // the expression is not required to be `Dac` on the entire
-            // subpixel. We don't care such a chance.
-            let dac_mask = r_u_up.map(&self.rels[..], &|_, d| d >= Decoration::Dac);
-            if dac_mask.reduce(&self.rels[..]) {
-                // Suppose we are plotting the graph of a conjunction such as
-                // "y == sin(x) && x >= 0".
-                // If the conjunct "x >= 0" holds everywhere in the subpixel,
-                // and "y - sin(x)" evaluates to both `POS` and `NEG` at
-                // different points in the region, we can tell that
-                // there exists a point where the entire relation holds.
-                // Such a test is not possible by merely converting
-                // the relation to "|y - sin(x)| + |x >= 0 ? 0 : 1| == 0".
-                let locally_zero_mask = r_u_up.map(&self.rels[..], &|ss, d| {
-                    ss == SignSet::ZERO && d >= Decoration::Dac
+        if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
+            // This pixel is proven to be true.
+            *self.im.pixel_mut(pixel) = STAT_TRUE;
+            return Ok(sub_bs);
+        }
+        if !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO)) {
+            // This subpixel is proven to be false.
+            *self.im.pixel_mut(pixel) -= b.area();
+            return Ok(sub_bs);
+        }
+
+        let inter = u_up.intersection(&p_dn);
+        if inter.is_empty() {
+            *self.im.pixel_mut(pixel) -= b.area();
+            return Ok(sub_bs);
+        }
+
+        // We could re-evaluate the relation on `inter` instead of `u_up`
+        // to get a slightly better result, but the effect would be negligible.
+
+        // To prove the existence of a solution by a change of sign...
+        //   for conjunctions, both operands must be `Dac`.
+        //   for disjunctions, at least one operand must be `Dac`.
+        // There is little chance that an expression is evaluated
+        // to zero on one of the probe points. In that case,
+        // the expression is not required to be `Dac` on the entire
+        // subpixel. We don't care such a chance.
+        let dac_mask = r_u_up.map(&self.rels[..], &|_, d| d >= Decoration::Dac);
+        if dac_mask.reduce(&self.rels[..]) {
+            // Suppose we are plotting the graph of a conjunction such as
+            // "y == sin(x) && x >= 0".
+            // If the conjunct "x >= 0" holds everywhere in the subpixel,
+            // and "y - sin(x)" evaluates to both `POS` and `NEG` at
+            // different points in the region, we can tell that
+            // there exists a point where the entire relation holds.
+            // Such a test is not possible by merely converting
+            // the relation to "|y - sin(x)| + |x >= 0 ? 0 : 1| == 0".
+            let locally_zero_mask = r_u_up.map(&self.rels[..], &|ss, d| {
+                ss == SignSet::ZERO && d >= Decoration::Dac
+            });
+
+            let points = [
+                (inter.0.inf(), inter.1.inf()), // bottom left
+                (inter.0.sup(), inter.1.inf()), // bottom right
+                (inter.0.inf(), inter.1.sup()), // top left
+                (inter.0.sup(), inter.1.sup()), // top right
+            ];
+
+            let mut found_solution = false;
+            let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
+            let mut pos_mask = neg_mask.clone();
+            for point in &points {
+                let r = Self::eval_on_point(&mut self.rel, point.0, point.1, Some(cache_full));
+
+                // `ss` is not empty if the decoration is `Dac`, which is
+                // ensured by `dac_mask`.
+                neg_mask |= r.map(&self.rels[..], &|ss, _| {
+                    ss == ss & (SignSet::NEG | SignSet::ZERO) // ss <= 0
+                });
+                pos_mask |= r.map(&self.rels[..], &|ss, _| {
+                    ss == ss & (SignSet::POS | SignSet::ZERO) // ss >= 0
                 });
 
-                let points = [
-                    (inter.0.inf(), inter.1.inf()), // bottom left
-                    (inter.0.sup(), inter.1.inf()), // bottom right
-                    (inter.0.inf(), inter.1.sup()), // top left
-                    (inter.0.sup(), inter.1.sup()), // top right
-                ];
-
-                let mut found_solution = false;
-                let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
-                let mut pos_mask = neg_mask.clone();
-                for point in &points {
-                    let r =
-                        Self::eval_on_point(&mut self.rel, point.0, point.1, Some(&mut cache_full));
-
-                    // `ss` is not empty if the decoration is `Dac`, which is
-                    // ensured by `dac_mask`.
-                    neg_mask |= r.map(&self.rels[..], &|ss, _| {
-                        ss == ss & (SignSet::NEG | SignSet::ZERO) // ss <= 0
-                    });
-                    pos_mask |= r.map(&self.rels[..], &|ss, _| {
-                        ss == ss & (SignSet::POS | SignSet::ZERO) // ss >= 0
-                    });
-
-                    if (&(&neg_mask & &pos_mask) & &dac_mask)
-                        .solution_certainly_exists(&self.rels[..], &locally_zero_mask)
-                    {
-                        found_solution = true;
-                        break;
-                    }
-                }
-
-                if found_solution {
-                    *self.im.pixel_mut(pixel) = STAT_TRUE;
-                    continue;
-                }
-            }
-
-            if b.is_subdivisible() {
-                Self::push_sub_blocks(&mut sub_blocks, b);
-                if (bs.capacity() + sub_blocks.capacity()) * size_of::<ImageBlock>()
-                    + cache_per_axis.size_in_bytes()
-                    + cache_full.size_in_bytes()
-                    > MEM_LIMIT
+                if (&(&neg_mask & &pos_mask) & &dac_mask)
+                    .solution_certainly_exists(&self.rels[..], &locally_zero_mask)
                 {
-                    return Err(GraphingError {
-                        kind: GraphingErrorKind::ReachedMemLimit,
-                    });
+                    found_solution = true;
+                    break;
                 }
             }
-            some_test_failed = true;
+
+            if found_solution {
+                *self.im.pixel_mut(pixel) = STAT_TRUE;
+                return Ok(sub_bs);
+            }
         }
 
-        if sub_blocks.is_empty() && some_test_failed {
+        if b.is_subdivisible() {
+            Self::push_sub_blocks(&mut sub_bs, b);
+            Ok(sub_bs)
+        } else {
             Err(GraphingError {
                 kind: GraphingErrorKind::ReachedSubdivisionLimit,
             })
-        } else {
-            Ok(sub_blocks)
         }
     }
 
@@ -569,33 +571,33 @@ impl Graph {
         interval!(x, x).unwrap()
     }
 
-    fn push_sub_blocks(blocks: &mut Vec<ImageBlock>, b: ImageBlock) {
+    fn push_sub_blocks(sub_bs: &mut Vec<ImageBlock>, b: ImageBlock) {
         let x0 = b.x;
         let y0 = b.y;
         let x1 = x0 + b.width() / 2;
         let y1 = y0 + b.width() / 2;
         let k = b.k - 1;
-        blocks.push(ImageBlock { x: x0, y: y0, k });
-        blocks.push(ImageBlock { x: x1, y: y0, k });
-        blocks.push(ImageBlock { x: x0, y: y1, k });
-        blocks.push(ImageBlock { x: x1, y: y1, k });
+        sub_bs.push(ImageBlock { x: x0, y: y0, k });
+        sub_bs.push(ImageBlock { x: x1, y: y0, k });
+        sub_bs.push(ImageBlock { x: x0, y: y1, k });
+        sub_bs.push(ImageBlock { x: x1, y: y1, k });
     }
 
-    fn push_sub_blocks_clipped(&self, blocks: &mut Vec<ImageBlock>, b: ImageBlock) {
+    fn push_sub_blocks_clipped(&self, sub_bs: &mut Vec<ImageBlock>, b: ImageBlock) {
         let x0 = b.x;
         let y0 = b.y;
         let x1 = x0 + b.width() / 2;
         let y1 = y0 + b.width() / 2;
         let k = b.k - 1;
-        blocks.push(ImageBlock { x: x0, y: y0, k });
+        sub_bs.push(ImageBlock { x: x0, y: y0, k });
         if x1 < self.bx_end {
-            blocks.push(ImageBlock { x: x1, y: y0, k });
+            sub_bs.push(ImageBlock { x: x1, y: y0, k });
         }
         if y1 < self.by_end {
-            blocks.push(ImageBlock { x: x0, y: y1, k });
+            sub_bs.push(ImageBlock { x: x0, y: y1, k });
         }
         if x1 < self.bx_end && y1 < self.by_end {
-            blocks.push(ImageBlock { x: x1, y: y1, k });
+            sub_bs.push(ImageBlock { x: x1, y: y1, k });
         }
     }
 }

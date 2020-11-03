@@ -15,6 +15,7 @@ use crate::{
 };
 use clap::{App, AppSettings, Arg};
 use inari::{const_interval, interval, Interval};
+use std::time::Duration;
 
 fn print_statistics_header() {
     println!(
@@ -94,7 +95,7 @@ fn main() {
     print_statistics_header();
 
     loop {
-        let result = g.step();
+        let result = g.step(Duration::from_millis(1500));
 
         let stat = g.get_statistics();
         print_statistics(&stat, &prev_stat);
