@@ -98,13 +98,17 @@ struct ImageBlock {
 
 impl ImageBlock {
     /// Returns the area of the block in multiples of `MIN_WIDTH^2`.
-    /// Precondition: k ≤ 0.
+    /// Precondition: k ≤ 0, to prevent overflow.
     fn area(&self) -> u32 {
         1u32 << (2 * (self.k - MIN_K))
     }
 
     fn is_subdivisible(&self) -> bool {
         self.k > MIN_K
+    }
+
+    fn is_subpixel(&self) -> bool {
+        self.k < 0
     }
 
     /// Returns the index of the pixel that contains the block.
@@ -116,7 +120,7 @@ impl ImageBlock {
         }
     }
 
-    /// Returns the pixel width (or height) of the block.
+    /// Returns the width (or height) of the block in pixels.
     /// Precondition: k ≥ 0.
     fn pixel_width(&self) -> u32 {
         1u32 << self.k
@@ -314,21 +318,23 @@ impl Graph {
     pub fn step(&mut self, timeout: Duration) -> Result<bool, GraphingError> {
         let now = Instant::now();
 
-        let mut cache_per_axis = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
-        let mut cache_full = EvaluationCache::new(EvaluationCacheLevel::Full);
+        // The blocks are queued in the Morton order, thus the cache should work effectively.
+        let mut cache_eval_on_region = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
+        let mut cache_eval_on_point = EvaluationCache::new(EvaluationCacheLevel::Full);
         while !self.bs.is_empty() {
+            // TODO: Subdivide the block here and not on pushing into the queue?
             let b = self.bs.pop_front().unwrap();
-            let sub_bs = if b.k >= 0 {
-                self.refine_pixel(b, &mut cache_per_axis)?
+            let sub_bs = if !b.is_subpixel() {
+                self.refine_pixel(b, &mut cache_eval_on_region)?
             } else {
-                self.refine_subpixel(b, &mut cache_per_axis, &mut cache_full)?
+                self.refine_subpixel(b, &mut cache_eval_on_region, &mut cache_eval_on_point)?
             };
 
             self.bs.extend(sub_bs.into_iter());
 
             if self.bs.capacity() * size_of::<ImageBlock>()
-                + cache_per_axis.size_in_bytes()
-                + cache_full.size_in_bytes()
+                + cache_eval_on_region.size_in_bytes()
+                + cache_eval_on_point.size_in_bytes()
                 > MEM_LIMIT
             {
                 return Err(GraphingError {
@@ -376,11 +382,11 @@ impl Graph {
         let nx = (self.im.width as f64 / bw).ceil() as u32;
         let ny = (self.im.height as f64 / bw).ceil() as u32;
         let mut bs = Vec::<ImageBlock>::new();
-        for by in 0..ny {
-            for bx in 0..nx {
+        for iy in 0..ny {
+            for ix in 0..nx {
                 bs.push(ImageBlock {
-                    x: bx << (k - MIN_K),
-                    y: by << (k - MIN_K),
+                    x: ix << (k - MIN_K),
+                    y: iy << (k - MIN_K),
                     k,
                 });
             }
@@ -402,6 +408,7 @@ impl Graph {
             d >= Decoration::Def && ss == SignSet::ZERO
         });
         let is_false = !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO));
+
         if is_true || is_false {
             let pixel = b.pixel_index();
             let pixel_width = b.pixel_width();
@@ -421,8 +428,8 @@ impl Graph {
     fn refine_subpixel(
         &mut self,
         b: ImageBlock,
-        cache_per_axis: &mut EvaluationCache,
-        cache_full: &mut EvaluationCache,
+        cache_eval_on_region: &mut EvaluationCache,
+        cache_eval_on_point: &mut EvaluationCache,
     ) -> Result<Vec<ImageBlock>, GraphingError> {
         let mut sub_bs = Vec::<ImageBlock>::new();
 
@@ -440,7 +447,7 @@ impl Graph {
         }
 
         let u_up = self.image_block_to_region(b).subpixel_outer(b);
-        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache_per_axis));
+        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache_eval_on_region));
 
         if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
             // This pixel is proven to be true.
@@ -459,8 +466,8 @@ impl Graph {
             return Ok(sub_bs);
         }
 
-        // We could re-evaluate the relation on `inter` instead of `u_up`
-        // to get a slightly better result, but the effect would be negligible.
+        // We could evaluate again on `inter` (which is slightly finer than `u_up`)
+        // to get a better result, but the effect would be negligible.
 
         // To prove the existence of a solution by a change of sign...
         //   for conjunctions, both operands must be `Dac`.
@@ -494,7 +501,7 @@ impl Graph {
             let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
             let mut pos_mask = neg_mask.clone();
             for point in &points {
-                let r = Self::eval_on_point(&mut self.rel, point.0, point.1, Some(cache_full));
+                let r = Self::eval_on_point(&mut self.rel, point.0, point.1, Some(cache_eval_on_point));
 
                 // `ss` is not empty if the decoration is `Dac`, which is
                 // ensured by `dac_mask`.

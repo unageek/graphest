@@ -420,9 +420,9 @@ impl FindMaxima {
     }
 
     pub fn mx_my(mut self) -> (Vec<ExprId>, Vec<ExprId>) {
-        self.mx.sort();
+        self.mx.sort_unstable();
         self.mx.dedup();
-        self.my.sort();
+        self.my.sort_unstable();
         self.my.dedup();
         (self.mx, self.my)
     }
