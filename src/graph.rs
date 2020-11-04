@@ -480,7 +480,6 @@ impl Graph {
                 (inter.0.sup(), inter.1.sup()), // top right
             ];
 
-            let mut found_solution = false;
             let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
             let mut pos_mask = neg_mask.clone();
             for point in &points {
@@ -499,14 +498,10 @@ impl Graph {
                 if (&(&neg_mask & &pos_mask) & &dac_mask)
                     .solution_certainly_exists(&self.rels[..], &locally_zero_mask)
                 {
-                    found_solution = true;
-                    break;
+                    // Found a solution.
+                    *self.im.pixel_mut(pixel) = STAT_TRUE;
+                    return Ok(sub_bs);
                 }
-            }
-
-            if found_solution {
-                *self.im.pixel_mut(pixel) = STAT_TRUE;
-                return Ok(sub_bs);
             }
         }
 
