@@ -308,7 +308,8 @@ impl Graph {
                 time_elapsed: Duration::new(0, 0),
             },
         };
-        g.bs.extend(g.initial_image_blocks().into_iter());
+        let k = (im_width.max(im_height) as f64).log2().ceil() as i32;
+        g.bs.push_back(ImageBlock { x: 0, y: 0, k });
         g
     }
 
@@ -374,24 +375,6 @@ impl Graph {
             evaluation_count: self.rel.evaluation_count(),
             ..self.stats
         }
-    }
-
-    fn initial_image_blocks(&self) -> Vec<ImageBlock> {
-        let k = (self.im.width.max(self.im.height) as f64).log2() as i32;
-        let bw = 2.0f64.powi(k);
-        let nx = (self.im.width as f64 / bw).ceil() as u32;
-        let ny = (self.im.height as f64 / bw).ceil() as u32;
-        let mut bs = Vec::<ImageBlock>::new();
-        for iy in 0..ny {
-            for ix in 0..nx {
-                bs.push(ImageBlock {
-                    x: ix << (k - MIN_K),
-                    y: iy << (k - MIN_K),
-                    k,
-                });
-            }
-        }
-        bs
     }
 
     fn refine_pixel(
@@ -501,7 +484,8 @@ impl Graph {
             let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
             let mut pos_mask = neg_mask.clone();
             for point in &points {
-                let r = Self::eval_on_point(&mut self.rel, point.0, point.1, Some(cache_eval_on_point));
+                let r =
+                    Self::eval_on_point(&mut self.rel, point.0, point.1, Some(cache_eval_on_point));
 
                 // `ss` is not empty if the decoration is `Dac`, which is
                 // ensured by `dac_mask`.
