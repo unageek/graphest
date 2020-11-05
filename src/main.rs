@@ -14,7 +14,9 @@ use crate::{
     graph::{Graph, GraphingStatistics, Region},
 };
 use clap::{App, AppSettings, Arg};
+use image::RgbImage;
 use inari::{const_interval, interval, Interval};
+use std::time::Duration;
 
 fn print_statistics_header() {
     println!(
@@ -89,20 +91,22 @@ fn main() {
         size[0],
         size[1],
     );
-    let mut prev_stat = g.get_statistics();
+    let mut im = RgbImage::new(size[0], size[1]);
 
+    let mut prev_stat = g.get_statistics();
     print_statistics_header();
+    print_statistics(&prev_stat, &prev_stat);
 
     loop {
-        let result = g.step();
+        let result = g.step(Duration::from_millis(1500));
 
         let stat = g.get_statistics();
         print_statistics(&stat, &prev_stat);
         prev_stat = stat;
 
         if let Some(output) = output {
-            let im = g.get_image();
-            im.save(output).unwrap();
+            g.get_image(&mut im);
+            im.save(output).expect("saving image failed");
         }
 
         match result {
