@@ -419,8 +419,8 @@ impl Graph {
         cache_eval_on_point: &mut EvaluationCache,
     ) -> Result<(), GraphingError> {
         let pixel = b.pixel_index();
-        let stat = self.im.pixel(pixel);
-        if stat == STAT_FALSE || stat == STAT_TRUE {
+        if self.im.pixel(pixel) == STAT_TRUE {
+            // This pixel has already been proven to be true.
             return Ok(());
         }
 
