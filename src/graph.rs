@@ -15,12 +15,11 @@ use std::{
 
 /// You can pick any value.
 const MEM_LIMIT: usize = 1usize << 30; // 1GiB
+/// An arbitrary value that satisfies `MAX_WIDTH * 2^(-MIN_K) < u32::MAX`.
+const MAX_IMAGE_WIDTH: u32 = 1u32 << 15; // 32768
 
 /// The value is chosen so that `STAT_UNCERTAIN` fits in `u32`.
 const MIN_K: i32 = -15;
-/// An arbitrary value that satisfies `MAX_WIDTH * 2^(-MIN_K) < u32::MAX`.
-const MAX_WIDTH: u32 = 1u32 << 15; // 32768
-
 /// The width of the smallest subpixels.
 const MIN_WIDTH: f64 = 1.0 / ((1u32 << -MIN_K) as f64);
 
@@ -45,7 +44,7 @@ struct Image {
 impl Image {
     /// Creates a new `Image` with all pixels set to `STAT_UNCERTAIN`.
     fn new(width: u32, height: u32) -> Self {
-        assert!(width <= MAX_WIDTH && height <= MAX_WIDTH);
+        assert!(width > 0 && width <= MAX_IMAGE_WIDTH && height > 0 && height <= MAX_IMAGE_WIDTH);
         Self {
             width,
             height,
@@ -67,6 +66,10 @@ impl Image {
     fn pixel_mut(&mut self, p: PixelIndex) -> &mut u32 {
         let i = self.index(p);
         &mut self.data[i]
+    }
+
+    fn size_in_bytes(&self) -> usize {
+        self.data.capacity() * size_of::<u32>()
     }
 }
 
@@ -271,9 +274,9 @@ pub struct Graph {
     rel: DynRelation,
     rels: Vec<StaticRel>,
     im: Image,
+    bs_to_subdivide: VecDeque<ImageBlock>,
     bx_end: u32,
     by_end: u32,
-    bs: VecDeque<ImageBlock>,
     // Affine transformation from subpixel coordinates (bx, by) to real coordinates (x, y):
     //
     //   ⎛ x ⎞   ⎛ sx   0  tx ⎞ ⎛ bx ⎞
@@ -288,15 +291,14 @@ pub struct Graph {
 
 impl Graph {
     pub fn new(rel: DynRelation, region: Region, im_width: u32, im_height: u32) -> Self {
-        assert!(im_width > 0 && im_height > 0);
         let rels = rel.rels().clone();
         let mut g = Self {
             rel,
             rels,
             im: Image::new(im_width, im_height),
+            bs_to_subdivide: VecDeque::new(),
             bx_end: im_width << -MIN_K,
             by_end: im_height << -MIN_K,
-            bs: VecDeque::new(),
             sx: region.width() / Self::point_interval(im_width as f64 / MIN_WIDTH),
             sy: region.height() / Self::point_interval(im_height as f64 / MIN_WIDTH),
             tx: Self::point_interval(region.0.inf()),
@@ -309,7 +311,7 @@ impl Graph {
             },
         };
         let k = (im_width.max(im_height) as f64).log2().ceil() as i32;
-        g.bs.push_back(ImageBlock { x: 0, y: 0, k });
+        g.bs_to_subdivide.push_back(ImageBlock { x: 0, y: 0, k });
         g
     }
 
@@ -319,21 +321,31 @@ impl Graph {
     pub fn step(&mut self, timeout: Duration) -> Result<bool, GraphingError> {
         let now = Instant::now();
 
+        let mut sub_bs = Vec::<ImageBlock>::new();
         // The blocks are queued in the Morton order, thus the cache should work effectively.
         let mut cache_eval_on_region = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
         let mut cache_eval_on_point = EvaluationCache::new(EvaluationCacheLevel::Full);
-        while !self.bs.is_empty() {
-            // TODO: Subdivide the block here and not on pushing into the queue?
-            let b = self.bs.pop_front().unwrap();
-            let sub_bs = if !b.is_subpixel() {
-                self.refine_pixel(b, &mut cache_eval_on_region)?
+        while let Some(b) = self.bs_to_subdivide.pop_front() {
+            if !b.is_subpixel() {
+                self.push_sub_blocks_clipped(&mut sub_bs, b);
             } else {
-                self.refine_subpixel(b, &mut cache_eval_on_region, &mut cache_eval_on_point)?
-            };
+                Self::push_sub_blocks(&mut sub_bs, b);
+            }
 
-            self.bs.extend(sub_bs.into_iter());
+            for sub_b in sub_bs.drain(..) {
+                if !sub_b.is_subpixel() {
+                    self.refine_pixel(sub_b, &mut cache_eval_on_region)?;
+                } else {
+                    self.refine_subpixel(
+                        sub_b,
+                        &mut cache_eval_on_region,
+                        &mut cache_eval_on_point,
+                    )?;
+                };
+            }
 
-            if self.bs.capacity() * size_of::<ImageBlock>()
+            if self.im.size_in_bytes()
+                + self.bs_to_subdivide.capacity() * size_of::<ImageBlock>()
                 + cache_eval_on_region.size_in_bytes()
                 + cache_eval_on_point.size_in_bytes()
                 > MEM_LIMIT
@@ -349,7 +361,7 @@ impl Graph {
         }
 
         self.stats.time_elapsed += now.elapsed();
-        Ok(self.bs.is_empty())
+        Ok(self.bs_to_subdivide.is_empty())
     }
 
     pub fn get_image(&self, im: &mut RgbImage) {
@@ -381,9 +393,7 @@ impl Graph {
         &mut self,
         b: ImageBlock,
         cache: &mut EvaluationCache,
-    ) -> Result<Vec<ImageBlock>, GraphingError> {
-        let mut sub_bs = Vec::<ImageBlock>::new();
-
+    ) -> Result<(), GraphingError> {
         let u_up = self.image_block_to_region_clipped(b).outer();
         let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache));
 
@@ -402,10 +412,10 @@ impl Graph {
                 }
             }
         } else {
-            self.push_sub_blocks_clipped(&mut sub_bs, b);
+            self.bs_to_subdivide.push_back(b);
         }
 
-        Ok(sub_bs)
+        Ok(())
     }
 
     fn refine_subpixel(
@@ -413,13 +423,11 @@ impl Graph {
         b: ImageBlock,
         cache_eval_on_region: &mut EvaluationCache,
         cache_eval_on_point: &mut EvaluationCache,
-    ) -> Result<Vec<ImageBlock>, GraphingError> {
-        let mut sub_bs = Vec::<ImageBlock>::new();
-
+    ) -> Result<(), GraphingError> {
         let pixel = b.pixel_index();
         let stat = self.im.pixel(pixel);
         if stat == STAT_FALSE || stat == STAT_TRUE {
-            return Ok(sub_bs);
+            return Ok(());
         }
 
         let p_dn = self.image_block_to_region(pixel.to_block()).inner();
@@ -435,18 +443,18 @@ impl Graph {
         if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
             // This pixel is proven to be true.
             *self.im.pixel_mut(pixel) = STAT_TRUE;
-            return Ok(sub_bs);
+            return Ok(());
         }
         if !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO)) {
             // This subpixel is proven to be false.
             *self.im.pixel_mut(pixel) -= b.area();
-            return Ok(sub_bs);
+            return Ok(());
         }
 
         let inter = u_up.intersection(&p_dn);
         if inter.is_empty() {
             *self.im.pixel_mut(pixel) -= b.area();
-            return Ok(sub_bs);
+            return Ok(());
         }
 
         // We could evaluate again on `inter` (which is slightly finer than `u_up`)
@@ -500,14 +508,14 @@ impl Graph {
                 {
                     // Found a solution.
                     *self.im.pixel_mut(pixel) = STAT_TRUE;
-                    return Ok(sub_bs);
+                    return Ok(());
                 }
             }
         }
 
         if b.is_subdivisible() {
-            Self::push_sub_blocks(&mut sub_bs, b);
-            Ok(sub_bs)
+            self.bs_to_subdivide.push_back(b);
+            Ok(())
         } else {
             Err(GraphingError {
                 kind: GraphingErrorKind::ReachedSubdivisionLimit,
