@@ -334,7 +334,7 @@ impl Graph {
 
             for sub_b in sub_bs.drain(..) {
                 if !sub_b.is_subpixel() {
-                    self.refine_pixel(sub_b, &mut cache_eval_on_region)?;
+                    self.refine_pixel(sub_b, &mut cache_eval_on_region);
                 } else {
                     self.refine_subpixel(
                         sub_b,
@@ -393,7 +393,7 @@ impl Graph {
         &mut self,
         b: ImageBlock,
         cache: &mut EvaluationCache,
-    ) -> Result<(), GraphingError> {
+    ) {
         let u_up = self.image_block_to_region_clipped(b).outer();
         let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache));
 
@@ -414,8 +414,6 @@ impl Graph {
         } else {
             self.bs_to_subdivide.push_back(b);
         }
-
-        Ok(())
     }
 
     fn refine_subpixel(
