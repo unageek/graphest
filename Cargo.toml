@@ -12,8 +12,8 @@ lto = true
 [dependencies]
 bitflags = "1.2"
 hexf = "0.1"
-inari = "0.5"
-nom = "5.1"
+inari = "0.6"
+nom = "6.0"
 smallvec = "1.4"
 static_assertions = "1.1"
 

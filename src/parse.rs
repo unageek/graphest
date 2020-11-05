@@ -25,7 +25,7 @@ fn decimal_literal(i: &str) -> ParseResult<&str> {
     ))(i)
 }
 
-fn keyword<'a>(kw: &'a str) -> impl Fn(&'a str) -> ParseResult<'a, &'a str> {
+fn keyword<'a>(kw: &'a str) -> impl FnMut(&'a str) -> ParseResult<'a, &'a str> {
     terminated(
         tag(kw),
         not(verify(peek(anychar), |c| c.is_alphanumeric() || *c == '_')),
