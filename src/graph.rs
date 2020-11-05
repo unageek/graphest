@@ -389,11 +389,7 @@ impl Graph {
         }
     }
 
-    fn refine_pixel(
-        &mut self,
-        b: ImageBlock,
-        cache: &mut EvaluationCache,
-    ) {
+    fn refine_pixel(&mut self, b: ImageBlock, cache: &mut EvaluationCache) {
         let u_up = self.image_block_to_region_clipped(b).outer();
         let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache));
 
