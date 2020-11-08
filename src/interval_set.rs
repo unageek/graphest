@@ -18,16 +18,19 @@ pub const MAX_SITE: Site = 31;
 type Branch = u8;
 const MAX_BRANCH: Branch = 1;
 
-// Represents a partial function {0, …, 31} → {0, 1}, the domain of which is
-// the set of branch cut sites and the codomain is the set of branch indices.
+/// Represents a partial function from the set of branch cut sites: {0, …, 31}
+/// to the set of branch indices: {0, 1}.
+///
+/// For example, `IntervalBranch { cut: 0b00101110, chosen: 0b00001010 }`
+/// represents a function {1 ↦ 1, 2 ↦ 0, 3 ↦ 1, 5 ↦ 0}.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(C)]
 struct IntervalBranch {
-    // A bit field that keeps track of at which sites
-    // branch cuts have been performed during evaluation.
+    /// A bit field that keeps track of at which sites
+    /// branch cuts have been performed during evaluation.
     cut: u32,
-    // A bit field that records the branch chosen (0 or 1)
-    // at each site, when the corresponding bit of `cut` is set.
+    /// A bit field that records the branch chosen (0 or 1)
+    /// at each site, when the corresponding bit of `cut` is set.
     chosen: u32,
 }
 
@@ -443,8 +446,9 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
-    // Returns the parity of the function f(x) = x^y.
-    // Precondition: y is neither ±∞ nor NaN.
+    /// Returns the parity of the function f(x) = x^y.
+    ///
+    /// Precondition: y is neither ±∞ nor NaN.
     fn exponentiation_parity(y: f64) -> Parity {
         if y == y.trunc() {
             // y ∈ ℤ.

@@ -98,7 +98,7 @@ fn main() {
     print_statistics(&prev_stat, &prev_stat);
 
     loop {
-        let result = g.step(Duration::from_millis(1500));
+        let result = g.refine(Duration::from_millis(1500));
 
         let stat = g.get_statistics();
         print_statistics(&stat, &prev_stat);
