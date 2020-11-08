@@ -119,6 +119,20 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 
 You can group a part of an expression or a relation with `(` … `)`.
 
+## Tips
+
+- Writing polynomials in [Horner form](https://en.wikipedia.org/wiki/Horner%27s_method) can significantly improve the speed of graphing. For example, the truncated Maclaurin series of `sin(x)` up to order 17 is:
+
+  ```text
+  "y = x - x^3/6 + x^5/120 - x^7/5040 + x^9/362880 - x^11/39916800 + x^13/6227020800 - x^15/1307674368000 + x^17/355687428096000"
+  ```
+
+  The horner form of the above is:
+
+  ```text
+  "y = x (1 + x^2 (-1/6 + x^2 (1/120 + x^2 (-1/5040 + x^2 (1/362880 + x^2 (-1/39916800 + x^2 (1/6227020800+x^2 (-1/1307674368000 + x^2/355687428096000))))))))"
+  ```
+
 ## Details
 
 Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4.1–3.4.3.
@@ -132,7 +146,7 @@ To be consistent with GrafEq, the following definitions of exponentiation is imp
   - *x*<sup>±*m* / *n*</sup> is an even (odd) function of *x* if *m* is even (odd).
 - 0<sup>0</sup> := 1.
 
-### References
+## References
 
 - [Ped] Pedagoguery Software Inc. GrafEq™. http://www.peda.com/grafeq
 - [Tup96] Jeffrey Allen Tupper. *Graphing Equations with Generalized Interval Arithmetic.* Master's thesis, University of Toronto, 1996. http://www.dgp.toronto.edu/~mooncake/thesis.pdf
