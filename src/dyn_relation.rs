@@ -99,6 +99,13 @@ impl EvaluationCache {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RelationType {
+    FunctionOfX, // y = f(x)
+    FunctionOfY, // x = f(y)
+    Implicit,
+}
+
 #[derive(Clone, Debug)]
 pub struct DynRelation {
     exprs: Vec<StaticExpr>,
@@ -125,6 +132,46 @@ impl DynRelation {
 
     pub fn evaluation_count(&self) -> usize {
         self.eval_count
+    }
+
+    pub fn relation_type(&self) -> RelationType {
+        self.relation_type_impl(self.rels.len() - 1)
+    }
+
+    fn relation_type_impl(&self, i: usize) -> RelationType {
+        match self.rels[i].kind {
+            StaticRelKind::Atomic(_, i, j) => {
+                match (
+                    &self.exprs[i as usize].kind,
+                    &self.exprs[j as usize],
+                    &self.exprs[i as usize],
+                    &self.exprs[j as usize].kind,
+                ) {
+                    (StaticExprKind::Y, f, _, _) | (_, _, f, StaticExprKind::Y)
+                        if !f.dependent_axes.contains(AxisSet::Y) =>
+                    {
+                        // y = f(x) or f(x) = y
+                        RelationType::FunctionOfX
+                    }
+                    (StaticExprKind::X, f, _, _) | (_, _, f, StaticExprKind::X)
+                        if !f.dependent_axes.contains(AxisSet::X) =>
+                    {
+                        // x = f(y) or f(y) = x
+                        RelationType::FunctionOfY
+                    }
+                    _ => RelationType::Implicit,
+                }
+            }
+            StaticRelKind::And(i, j) | StaticRelKind::Or(i, j) => {
+                match (
+                    self.relation_type_impl(i as usize),
+                    self.relation_type_impl(j as usize),
+                ) {
+                    (x, y) if x == y => x,
+                    _ => RelationType::Implicit,
+                }
+            }
+        }
     }
 
     pub fn rels(&self) -> &Vec<StaticRel> {
