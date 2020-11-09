@@ -121,6 +121,22 @@ You can group a part of an expression or a relation with `(` … `)`.
 
 ## Tips
 
+- You can use [Matplotlib](https://matplotlib.org/) to add a frame to the plot:
+
+  ```py
+  #!/usr/bin/env python3
+  import matplotlib.pyplot as plt
+  
+  image = plt.imread('graph.png')
+  fig, ax = plt.subplots(figsize=(5, 5))
+  ax.set_xlabel('x')
+  ax.set_ylabel('y')
+  ax.tick_params(top=True, right=True)
+  ax.imshow(image, extent=[-10, 10, -10, 10], interpolation='none')
+  fig.tight_layout()
+  fig.savefig('graph.pdf')
+  ```
+
 - Writing polynomials in [Horner form](https://en.wikipedia.org/wiki/Horner%27s_method) can significantly improve the speed of graphing. For example, the truncated Maclaurin series of `sin(x)` up to order 17 is:
 
   ```text
