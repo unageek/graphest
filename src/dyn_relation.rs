@@ -1,9 +1,9 @@
 use crate::{
-    ast::{AxisSet, ExprId},
+    ast::{TermId, VarSet},
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
     parse::parse,
-    rel::{StaticExpr, StaticExprKind, StaticRel, StaticRelKind},
+    rel::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind},
     visit::*,
 };
 use inari::{DecoratedInterval, Interval};
@@ -14,13 +14,13 @@ use std::{
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum EvaluationCacheLevel {
+pub enum EvalCacheLevel {
     PerAxis,
     Full,
 }
 
-pub struct EvaluationCache {
-    level: EvaluationCacheLevel,
+pub struct EvalCache {
+    level: EvalCacheLevel,
     cx: HashMap<[u64; 2], Vec<TupperIntervalSet>>,
     cy: HashMap<[u64; 2], Vec<TupperIntervalSet>>,
     cxy: HashMap<[u64; 4], EvalResult>,
@@ -30,8 +30,8 @@ pub struct EvaluationCache {
     size_of_values_in_heap: usize,
 }
 
-impl EvaluationCache {
-    pub fn new(level: EvaluationCacheLevel) -> Self {
+impl EvalCache {
+    pub fn new(level: EvalCacheLevel) -> Self {
         Self {
             level,
             cx: HashMap::new(),
@@ -54,8 +54,8 @@ impl EvaluationCache {
 
     pub fn get_xy(&self, k: &[u64; 4]) -> Option<&EvalResult> {
         match self.level {
-            EvaluationCacheLevel::PerAxis => None,
-            EvaluationCacheLevel::Full => self.cxy.get(k),
+            EvalCacheLevel::PerAxis => None,
+            EvalCacheLevel::Full => self.cxy.get(k),
         }
     }
 
@@ -82,7 +82,7 @@ impl EvaluationCache {
     }
 
     pub fn insert_xy_with<F: FnOnce() -> EvalResult>(&mut self, k: [u64; 4], f: F) {
-        if self.level == EvaluationCacheLevel::Full {
+        if self.level == EvalCacheLevel::Full {
             if let Entry::Vacant(e) = self.cxy.entry(k) {
                 let v = f();
                 self.size_of_values_in_heap += v.size_in_heap();
@@ -108,53 +108,53 @@ pub enum RelationType {
 
 #[derive(Clone, Debug)]
 pub struct DynRelation {
-    exprs: Vec<StaticExpr>,
-    rels: Vec<StaticRel>,
-    n_atom_rels: usize,
+    terms: Vec<StaticTerm>,
+    forms: Vec<StaticForm>,
+    n_atom_forms: usize,
     ts: Vec<TupperIntervalSet>,
     eval_count: usize,
-    mx: Vec<ExprId>,
-    my: Vec<ExprId>,
+    mx: Vec<TermId>,
+    my: Vec<TermId>,
 }
 
 impl DynRelation {
-    pub fn evaluate(
-        &mut self,
-        x: Interval,
-        y: Interval,
-        cache: Option<&mut EvaluationCache>,
-    ) -> EvalResult {
+    pub fn eval(&mut self, x: Interval, y: Interval, cache: Option<&mut EvalCache>) -> EvalResult {
+        self.eval_count += 1;
         match cache {
-            Some(cache) => self.evaluate_with_cache(x, y, cache),
-            _ => self.evaluate_without_cache(x, y),
+            Some(cache) => self.eval_with_cache(x, y, cache),
+            _ => self.eval_without_cache(x, y),
         }
     }
 
-    pub fn evaluation_count(&self) -> usize {
+    pub fn eval_count(&self) -> usize {
         self.eval_count
     }
 
+    pub fn forms(&self) -> &Vec<StaticForm> {
+        &self.forms
+    }
+
     pub fn relation_type(&self) -> RelationType {
-        self.relation_type_impl(self.rels.len() - 1)
+        self.relation_type_impl(self.forms.len() - 1)
     }
 
     fn relation_type_impl(&self, i: usize) -> RelationType {
-        match self.rels[i].kind {
-            StaticRelKind::Atomic(_, i, j) => {
+        match self.forms[i].kind {
+            StaticFormKind::Atomic(_, i, j) => {
                 match (
-                    &self.exprs[i as usize].kind,
-                    &self.exprs[j as usize],
-                    &self.exprs[i as usize],
-                    &self.exprs[j as usize].kind,
+                    &self.terms[i as usize].kind,
+                    &self.terms[j as usize],
+                    &self.terms[i as usize],
+                    &self.terms[j as usize].kind,
                 ) {
-                    (StaticExprKind::Y, f, _, _) | (_, _, f, StaticExprKind::Y)
-                        if !f.dependent_axes.contains(AxisSet::Y) =>
+                    (StaticTermKind::Y, t, _, _) | (_, _, t, StaticTermKind::Y)
+                        if !t.vars.contains(VarSet::Y) =>
                     {
                         // y = f(x) or f(x) = y
                         RelationType::FunctionOfX
                     }
-                    (StaticExprKind::X, f, _, _) | (_, _, f, StaticExprKind::X)
-                        if !f.dependent_axes.contains(AxisSet::X) =>
+                    (StaticTermKind::X, t, _, _) | (_, _, t, StaticTermKind::X)
+                        if !t.vars.contains(VarSet::X) =>
                     {
                         // x = f(y) or f(y) = x
                         RelationType::FunctionOfY
@@ -162,7 +162,7 @@ impl DynRelation {
                     _ => RelationType::Implicit,
                 }
             }
-            StaticRelKind::And(i, j) | StaticRelKind::Or(i, j) => {
+            StaticFormKind::And(i, j) | StaticFormKind::Or(i, j) => {
                 match (
                     self.relation_type_impl(i as usize),
                     self.relation_type_impl(j as usize),
@@ -174,16 +174,7 @@ impl DynRelation {
         }
     }
 
-    pub fn rels(&self) -> &Vec<StaticRel> {
-        &self.rels
-    }
-
-    fn evaluate_with_cache(
-        &mut self,
-        x: Interval,
-        y: Interval,
-        cache: &mut EvaluationCache,
-    ) -> EvalResult {
+    fn eval_with_cache(&mut self, x: Interval, y: Interval, cache: &mut EvalCache) -> EvalResult {
         let kx = [x.inf().to_bits(), x.sup().to_bits()];
         let ky = [y.inf().to_bits(), y.sup().to_bits()];
         let kxy = [kx[0], kx[1], ky[0], ky[1]];
@@ -206,83 +197,83 @@ impl DynRelation {
             }
         }
 
-        for i in 0..self.exprs.len() {
-            let expr = &self.exprs[i];
-            match expr.kind {
-                StaticExprKind::X => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(x)),
-                StaticExprKind::Y => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(y)),
-                _ => match expr.dependent_axes {
-                    AxisSet::X => {
+        for i in 0..self.terms.len() {
+            let t = &self.terms[i];
+            match t.kind {
+                StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(x)),
+                StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(y)),
+                _ => match t.vars {
+                    VarSet::X => {
                         if mx_ts == None {
-                            ts[i] = expr.evaluate(&ts);
+                            ts[i] = t.eval(&ts);
                         }
                     }
-                    AxisSet::Y => {
+                    VarSet::Y => {
                         if my_ts == None {
-                            ts[i] = expr.evaluate(&ts);
+                            ts[i] = t.eval(&ts);
                         }
                     }
-                    AxisSet::XY => {
-                        ts[i] = expr.evaluate(&ts);
+                    VarSet::XY => {
+                        ts[i] = t.eval(&ts);
                     }
                     _ => (),
                 },
             }
         }
 
-        self.eval_count += 1;
         let r = EvalResult(
-            self.rels
+            self.forms[..self.n_atom_forms]
                 .iter()
-                .take(self.n_atom_rels)
-                .map(|r| r.evaluate(&ts))
+                .map(|f| f.eval(&ts))
                 .collect(),
         );
 
         let ts = &self.ts;
         cache.insert_x_with(kx, || {
-            (0..self.mx.len())
-                .map(|i| ts[self.mx[i] as usize].clone())
+            self.mx
+                .iter()
+                .copied()
+                .map(|i| ts[i as usize].clone())
                 .collect()
         });
         cache.insert_y_with(ky, || {
-            (0..self.my.len())
-                .map(|i| ts[self.my[i] as usize].clone())
+            self.my
+                .iter()
+                .copied()
+                .map(|i| ts[i as usize].clone())
                 .collect()
         });
         cache.insert_xy_with(kxy, || r.clone());
         r
     }
 
-    fn evaluate_without_cache(&mut self, x: Interval, y: Interval) -> EvalResult {
+    fn eval_without_cache(&mut self, x: Interval, y: Interval) -> EvalResult {
         let ts = &mut self.ts;
-        for i in 0..self.exprs.len() {
-            let expr = &self.exprs[i];
-            match expr.kind {
-                StaticExprKind::Constant(_) => (),
-                StaticExprKind::X => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(x)),
-                StaticExprKind::Y => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(y)),
+        for i in 0..self.terms.len() {
+            let t = &self.terms[i];
+            match t.kind {
+                StaticTermKind::Constant(_) => (),
+                StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(x)),
+                StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(y)),
                 _ => {
-                    ts[i] = expr.evaluate(&ts);
+                    ts[i] = t.eval(&ts);
                 }
             }
         }
 
-        self.eval_count += 1;
         EvalResult(
-            self.rels
+            self.forms[..self.n_atom_forms]
                 .iter()
-                .take(self.n_atom_rels)
-                .map(|r| r.evaluate(&ts))
+                .map(|f| f.eval(&ts))
                 .collect(),
         )
     }
 
     fn initialize(&mut self) {
-        for i in 0..self.exprs.len() {
-            let expr = &self.exprs[i];
-            if let StaticExprKind::Constant(_) = expr.kind {
-                self.ts[i] = expr.evaluate(&self.ts);
+        for i in 0..self.terms.len() {
+            let t = &self.terms[i];
+            if let StaticTermKind::Constant(_) = t.kind {
+                self.ts[i] = t.eval(&self.ts);
             }
         }
     }
@@ -292,33 +283,33 @@ impl FromStr for DynRelation {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, String> {
-        let mut rel = parse(s)?;
-        Transform.visit_rel_mut(&mut rel);
-        FoldConstant.visit_rel_mut(&mut rel);
-        Transform.visit_rel_mut(&mut rel);
-        FoldConstant.visit_rel_mut(&mut rel);
-        UpdateMetadata.visit_rel_mut(&mut rel);
+        let mut form = parse(s)?;
+        Transform.visit_form_mut(&mut form);
+        FoldConstant.visit_form_mut(&mut form);
+        Transform.visit_form_mut(&mut form);
+        FoldConstant.visit_form_mut(&mut form);
+        UpdateMetadata.visit_form_mut(&mut form);
         let mut v = AssignIdStage1::new();
-        v.visit_rel(&rel);
+        v.visit_form(&form);
         let mut v = AssignIdStage2::new(v);
-        v.visit_rel(&rel);
+        v.visit_form(&form);
         let mut v = CollectStatic::new(v);
-        v.visit_rel(&rel);
-        let (exprs, rels) = v.exprs_rels();
-        let n_ts = exprs.len();
-        let n_atom_rels = rels
+        v.visit_form(&form);
+        let (terms, forms) = v.terms_forms();
+        let n_ts = terms.len();
+        let n_atom_forms = forms
             .iter()
-            .filter(|r| matches!(r.kind, StaticRelKind::Atomic(_, _, _)))
+            .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _, _)))
             .count();
 
         let mut v = FindMaxima::new();
-        v.visit_rel(&rel);
+        v.visit_form(&form);
         let (mx, my) = v.mx_my();
 
         let mut slf = Self {
-            exprs,
-            rels,
-            n_atom_rels,
+            terms,
+            forms,
+            n_atom_forms,
             ts: vec![TupperIntervalSet::empty(); n_ts],
             eval_count: 0,
             mx,

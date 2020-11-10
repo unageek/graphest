@@ -1,12 +1,12 @@
 use crate::{
-    interval_set::{DecSignSet, SignSet},
-    rel::{StaticRel, StaticRelKind},
+    interval_set::DecSignSet,
+    rel::{StaticForm, StaticFormKind},
 };
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
-use inari::Decoration;
-use smallvec::{smallvec, SmallVec};
+use smallvec::SmallVec;
 use std::mem::size_of;
 
+/// Stores the evaluation results of atomic formulas.
 #[derive(Clone, Debug)]
 pub struct EvalResult(pub SmallVec<[DecSignSet; 32]>);
 
@@ -19,115 +19,74 @@ impl EvalResult {
         }
     }
 
-    pub fn map<F>(&self, rels: &[StaticRel], f: &F) -> EvalResultMask
+    /// Applies the given boolean-valued function on each result.
+    pub fn map<F>(&self, f: F) -> EvalResultMask
     where
-        F: Fn(SignSet, Decoration) -> bool,
+        F: Fn(DecSignSet) -> bool,
     {
-        let mut m = EvalResultMask(smallvec![false; self.0.len()]);
-        Self::map_impl(&self.0[..], rels, rels.len() - 1, f, &mut m.0[..]);
-        m
-    }
-
-    #[allow(clippy::many_single_char_names)]
-    fn map_impl<F>(slf: &[DecSignSet], rels: &[StaticRel], i: usize, f: &F, m: &mut [bool])
-    where
-        F: Fn(SignSet, Decoration) -> bool,
-    {
-        use StaticRelKind::*;
-        match &rels[i].kind {
-            Atomic(_, _, _) => {
-                m[i] = f(slf[i].0, slf[i].1);
-            }
-            And(x, y) => {
-                Self::map_impl(&slf, rels, *x as usize, f, m);
-                Self::map_impl(&slf, rels, *y as usize, f, m);
-            }
-            Or(x, y) => {
-                Self::map_impl(&slf, rels, *x as usize, f, m);
-                Self::map_impl(&slf, rels, *y as usize, f, m);
-            }
-        }
-    }
-
-    pub fn map_reduce<F>(&self, rels: &[StaticRel], f: &F) -> bool
-    where
-        F: Fn(SignSet, Decoration) -> bool,
-    {
-        Self::map_reduce_impl(&self.0[..], rels, rels.len() - 1, f)
-    }
-
-    fn map_reduce_impl<F>(slf: &[DecSignSet], rels: &[StaticRel], i: usize, f: &F) -> bool
-    where
-        F: Fn(SignSet, Decoration) -> bool,
-    {
-        use StaticRelKind::*;
-        match &rels[i].kind {
-            Atomic(_, _, _) => f(slf[i].0, slf[i].1),
-            And(x, y) => {
-                Self::map_reduce_impl(&slf, rels, *x as usize, f)
-                    && Self::map_reduce_impl(&slf, rels, *y as usize, f)
-            }
-            Or(x, y) => {
-                Self::map_reduce_impl(&slf, rels, *x as usize, f)
-                    || Self::map_reduce_impl(&slf, rels, *y as usize, f)
-            }
-        }
+        EvalResultMask(self.0.iter().copied().map(f).collect())
     }
 }
 
+/// Represents a truth assignment (valuation) for a set of atomic formulas.
 #[derive(Clone, Debug)]
 pub struct EvalResultMask(pub SmallVec<[bool; 32]>);
 
 impl EvalResultMask {
-    pub fn reduce(&self, rels: &[StaticRel]) -> bool {
-        Self::reduce_impl(&self.0[..], rels, rels.len() - 1)
+    /// Evaluates the last formula to a boolean value.
+    pub fn eval(&self, forms: &[StaticForm]) -> bool {
+        Self::eval_impl(&self.0[..], forms, forms.len() - 1)
     }
 
-    fn reduce_impl(slf: &[bool], rels: &[StaticRel], i: usize) -> bool {
-        use StaticRelKind::*;
-        match &rels[i].kind {
+    fn eval_impl(slf: &[bool], forms: &[StaticForm], i: usize) -> bool {
+        use StaticFormKind::*;
+        match &forms[i].kind {
             Atomic(_, _, _) => slf[i],
             And(x, y) => {
-                Self::reduce_impl(&slf, rels, *x as usize)
-                    && Self::reduce_impl(&slf, rels, *y as usize)
+                Self::eval_impl(&slf, forms, *x as usize)
+                    && Self::eval_impl(&slf, forms, *y as usize)
             }
             Or(x, y) => {
-                Self::reduce_impl(&slf, rels, *x as usize)
-                    || Self::reduce_impl(&slf, rels, *y as usize)
+                Self::eval_impl(&slf, forms, *x as usize)
+                    || Self::eval_impl(&slf, forms, *y as usize)
             }
         }
     }
 
-    pub fn solution_certainly_exists(&self, rels: &[StaticRel], locally_zero_mask: &Self) -> bool {
+    pub fn solution_certainly_exists(
+        &self,
+        forms: &[StaticForm],
+        locally_zero_mask: &Self,
+    ) -> bool {
         Self::solution_certainly_exists_impl(
             &self.0[..],
-            rels,
-            rels.len() - 1,
+            forms,
+            forms.len() - 1,
             &locally_zero_mask.0[..],
         )
     }
 
     fn solution_certainly_exists_impl(
         slf: &[bool],
-        rels: &[StaticRel],
+        forms: &[StaticForm],
         i: usize,
         locally_zero_mask: &[bool],
     ) -> bool {
-        use StaticRelKind::*;
-        match &rels[i].kind {
+        use StaticFormKind::*;
+        match &forms[i].kind {
             Atomic(_, _, _) => slf[i],
             And(x, y) => {
-                if Self::reduce_impl(&locally_zero_mask, rels, *x as usize) {
+                if Self::eval_impl(&locally_zero_mask, forms, *x as usize) {
                     Self::solution_certainly_exists_impl(
                         &slf,
-                        rels,
+                        forms,
                         *y as usize,
                         &locally_zero_mask,
                     )
-                } else if Self::reduce_impl(&locally_zero_mask, rels, *y as usize) {
+                } else if Self::eval_impl(&locally_zero_mask, forms, *y as usize) {
                     Self::solution_certainly_exists_impl(
                         &slf,
-                        rels,
+                        forms,
                         *x as usize,
                         &locally_zero_mask,
                     )
@@ -137,10 +96,10 @@ impl EvalResultMask {
                 }
             }
             Or(x, y) => {
-                Self::solution_certainly_exists_impl(&slf, rels, *x as usize, &locally_zero_mask)
+                Self::solution_certainly_exists_impl(&slf, forms, *x as usize, &locally_zero_mask)
                     || Self::solution_certainly_exists_impl(
                         &slf,
-                        rels,
+                        forms,
                         *y as usize,
                         &locally_zero_mask,
                     )

@@ -1,7 +1,7 @@
 use crate::{
-    ast::{AxisSet, BinaryOp, Expr, ExprId, ExprKind, Rel, RelId, RelKind, UnaryOp},
+    ast::{BinaryOp, Form, FormId, FormKind, Term, TermId, TermKind, UnaryOp, VarSet},
     interval_set::{Site, MAX_SITE},
-    rel::{StaticExpr, StaticExprKind, StaticRel, StaticRelKind},
+    rel::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind},
 };
 use inari::const_dec_interval;
 use std::{
@@ -13,38 +13,38 @@ pub trait Visit<'a>
 where
     Self: Sized,
 {
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        traverse_expr(self, expr);
+    fn visit_term(&mut self, t: &'a Term) {
+        traverse_term(self, t);
     }
 
-    fn visit_rel(&mut self, rel: &'a Rel) {
-        traverse_rel(self, rel)
+    fn visit_form(&mut self, f: &'a Form) {
+        traverse_form(self, f)
     }
 }
 
-fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, expr: &'a Expr) {
-    use ExprKind::*;
-    match &expr.kind {
-        Unary(_, x) => v.visit_expr(x),
+fn traverse_term<'a, V: Visit<'a>>(v: &mut V, t: &'a Term) {
+    use TermKind::*;
+    match &t.kind {
+        Unary(_, x) => v.visit_term(x),
         Binary(_, x, y) => {
-            v.visit_expr(x);
-            v.visit_expr(y);
+            v.visit_term(x);
+            v.visit_term(y);
         }
-        Pown(x, _) => v.visit_expr(x),
+        Pown(x, _) => v.visit_term(x),
         _ => (),
     };
 }
 
-fn traverse_rel<'a, V: Visit<'a>>(v: &mut V, rel: &'a Rel) {
-    use RelKind::*;
-    match &rel.kind {
+fn traverse_form<'a, V: Visit<'a>>(v: &mut V, f: &'a Form) {
+    use FormKind::*;
+    match &f.kind {
         Atomic(_, x, y) => {
-            v.visit_expr(x);
-            v.visit_expr(y);
+            v.visit_term(x);
+            v.visit_term(y);
         }
         And(x, y) | Or(x, y) => {
-            v.visit_rel(x);
-            v.visit_rel(y);
+            v.visit_form(x);
+            v.visit_form(y);
         }
     };
 }
@@ -53,69 +53,69 @@ pub trait VisitMut
 where
     Self: Sized,
 {
-    fn visit_expr_mut(&mut self, expr: &mut Expr) {
-        traverse_expr_mut(self, expr);
+    fn visit_term_mut(&mut self, t: &mut Term) {
+        traverse_term_mut(self, t);
     }
 
-    fn visit_rel_mut(&mut self, rel: &mut Rel) {
-        traverse_rel_mut(self, rel);
+    fn visit_form_mut(&mut self, f: &mut Form) {
+        traverse_form_mut(self, f);
     }
 }
 
-fn traverse_expr_mut<V: VisitMut>(v: &mut V, expr: &mut Expr) {
-    use ExprKind::*;
-    match &mut expr.kind {
-        Unary(_, x) => v.visit_expr_mut(x),
+fn traverse_term_mut<V: VisitMut>(v: &mut V, t: &mut Term) {
+    use TermKind::*;
+    match &mut t.kind {
+        Unary(_, x) => v.visit_term_mut(x),
         Binary(_, x, y) => {
-            v.visit_expr_mut(x);
-            v.visit_expr_mut(y);
+            v.visit_term_mut(x);
+            v.visit_term_mut(y);
         }
-        Pown(x, _) => v.visit_expr_mut(x),
+        Pown(x, _) => v.visit_term_mut(x),
         _ => (),
     };
 }
 
-fn traverse_rel_mut<V: VisitMut>(v: &mut V, rel: &mut Rel) {
-    use RelKind::*;
-    match &mut rel.kind {
+fn traverse_form_mut<V: VisitMut>(v: &mut V, f: &mut Form) {
+    use FormKind::*;
+    match &mut f.kind {
         Atomic(_, x, y) => {
-            v.visit_expr_mut(x);
-            v.visit_expr_mut(y);
+            v.visit_term_mut(x);
+            v.visit_term_mut(y);
         }
         And(x, y) | Or(x, y) => {
-            v.visit_rel_mut(x);
-            v.visit_rel_mut(y);
+            v.visit_form_mut(x);
+            v.visit_form_mut(y);
         }
     };
 }
 
-type SiteMap = HashMap<ExprId, Option<Site>>;
+type SiteMap = HashMap<TermId, Option<Site>>;
 
 pub struct Transform;
 
 impl VisitMut for Transform {
-    fn visit_expr_mut(&mut self, expr: &mut Expr) {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
-        traverse_expr_mut(self, expr);
+    fn visit_term_mut(&mut self, t: &mut Term) {
+        use {BinaryOp::*, TermKind::*, UnaryOp::*};
+        traverse_term_mut(self, t);
 
-        match &mut expr.kind {
+        match &mut t.kind {
             Unary(Neg, x) => {
                 if let Unary(Neg, x) = &mut x.kind {
                     // (Neg (Neg x)) => x
-                    *expr = std::mem::take(x);
+                    *t = std::mem::take(x);
                 }
             }
             Binary(Div, x, y) => {
                 match (&x.kind, &y.kind) {
                     (Unary(Sin, z), _) if z == y => {
                         // (Div (Sin z) y) => (SinOverX y) if z == y
-                        *expr = Expr::new(Unary(SinOverX, std::mem::take(y)));
+                        *t = Term::new(Unary(SinOverX, std::mem::take(y)));
                     }
                     (_, Unary(Sin, z)) if z == x => {
                         // (Div x (Sin z)) => (Recip (SinOverX x)) if z == x
-                        *expr = Expr::new(Unary(
+                        *t = Term::new(Unary(
                             Recip,
-                            Box::new(Expr::new(Unary(SinOverX, std::mem::take(x)))),
+                            Box::new(Term::new(Unary(SinOverX, std::mem::take(x)))),
                         ));
                     }
                     _ => (),
@@ -126,9 +126,9 @@ impl VisitMut for Transform {
                     if x.len() == 1 {
                         let x = x.iter().next().unwrap().to_dec_interval();
                         if x == const_dec_interval!(2.0, 2.0) {
-                            *expr = Expr::new(Unary(Exp2, std::mem::take(y)));
+                            *t = Term::new(Unary(Exp2, std::mem::take(y)));
                         } else if x == const_dec_interval!(10.0, 10.0) {
-                            *expr = Expr::new(Unary(Exp10, std::mem::take(y)));
+                            *t = Term::new(Unary(Exp10, std::mem::take(y)));
                         }
                     }
                 } else if let Constant(y) = &y.kind {
@@ -136,18 +136,18 @@ impl VisitMut for Transform {
                         let y = y.iter().next().unwrap().to_dec_interval();
                         // Do not transform x^0 to 1 as that can discard the decoration (e.g. sqrt(x)^0).
                         if y == const_dec_interval!(-1.0, -1.0) {
-                            *expr = Expr::new(Unary(Recip, std::mem::take(x)));
+                            *t = Term::new(Unary(Recip, std::mem::take(x)));
                         } else if y == const_dec_interval!(0.5, 0.5) {
-                            *expr = Expr::new(Unary(Sqrt, std::mem::take(x)));
+                            *t = Term::new(Unary(Sqrt, std::mem::take(x)));
                         } else if y == const_dec_interval!(1.0, 1.0) {
-                            *expr = std::mem::take(x);
+                            *t = std::mem::take(x);
                         } else if y == const_dec_interval!(2.0, 2.0) {
-                            *expr = Expr::new(Unary(Sqr, std::mem::take(x)));
+                            *t = Term::new(Unary(Sqr, std::mem::take(x)));
                         } else if y.is_singleton() {
                             let y = y.inf();
                             let iy = y as i32;
                             if y == iy as f64 {
-                                *expr = Expr::new(Pown(std::mem::take(x), iy));
+                                *t = Term::new(Pown(std::mem::take(x), iy));
                             }
                         }
                     }
@@ -164,32 +164,32 @@ pub struct FoldConstant;
 // since the sites are not assigned and branch cut tracking is not possible
 // at this moment.
 impl VisitMut for FoldConstant {
-    fn visit_expr_mut(&mut self, expr: &mut Expr) {
-        use ExprKind::*;
-        traverse_expr_mut(self, expr);
+    fn visit_term_mut(&mut self, t: &mut Term) {
+        use TermKind::*;
+        traverse_term_mut(self, t);
 
-        match &mut expr.kind {
+        match &mut t.kind {
             Unary(_, x) => {
                 if let Constant(_) = &x.kind {
-                    let val = expr.evaluate();
+                    let val = t.eval();
                     if val.len() <= 1 {
-                        *expr = Expr::new(Constant(Box::new(val)));
+                        *t = Term::new(Constant(Box::new(val)));
                     }
                 }
             }
             Binary(_, x, y) => {
                 if let (Constant(_), Constant(_)) = (&x.kind, &y.kind) {
-                    let val = expr.evaluate();
+                    let val = t.eval();
                     if val.len() <= 1 {
-                        *expr = Expr::new(Constant(Box::new(val)));
+                        *t = Term::new(Constant(Box::new(val)));
                     }
                 }
             }
             Pown(x, _) => {
                 if let Constant(_) = &x.kind {
-                    let val = expr.evaluate();
+                    let val = t.eval();
                     if val.len() <= 1 {
-                        *expr = Expr::new(Constant(Box::new(val)));
+                        *t = Term::new(Constant(Box::new(val)));
                     }
                 }
             }
@@ -201,38 +201,40 @@ impl VisitMut for FoldConstant {
 pub struct UpdateMetadata;
 
 impl VisitMut for UpdateMetadata {
-    fn visit_expr_mut(&mut self, expr: &mut Expr) {
-        traverse_expr_mut(self, expr);
-        expr.update_metadata();
+    fn visit_term_mut(&mut self, t: &mut Term) {
+        traverse_term_mut(self, t);
+        t.update_metadata();
     }
 }
 
-// Does the following tasks:
-// - Assign ids to `Expr`s.
-// - Assign ids to atomic `Rel`s so that they can be used as indices for `EvalResult`.
+/// Does the following tasks:
+///
+/// - Assign ids to the terms.
+/// - Assign ids to the atomic formulas so that they can be used as indices for `EvalResult`.
 pub struct AssignIdStage1<'a> {
-    next_expr_id: ExprId,
+    next_term_id: TermId,
     next_site: Site,
     site_map: SiteMap,
-    visited_exprs: HashSet<&'a Expr>,
-    next_rel_id: RelId,
-    visited_rels: HashSet<&'a Rel>,
+    visited_terms: HashSet<&'a Term>,
+    next_form_id: FormId,
+    visited_forms: HashSet<&'a Form>,
 }
 
 impl<'a> AssignIdStage1<'a> {
     pub fn new() -> Self {
         AssignIdStage1 {
-            next_expr_id: 0,
+            next_term_id: 0,
             next_site: 0,
             site_map: HashMap::new(),
-            visited_exprs: HashSet::new(),
-            next_rel_id: 0,
-            visited_rels: HashSet::new(),
+            visited_terms: HashSet::new(),
+            next_form_id: 0,
+            visited_forms: HashSet::new(),
         }
     }
 
-    fn expr_can_perform_cut(kind: &ExprKind) -> bool {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+    /// Returns `true` if the term can perform branch cut on evaluation.
+    fn term_can_perform_cut(kind: &TermKind) -> bool {
+        use {BinaryOp::*, TermKind::*, UnaryOp::*};
         matches!(kind,
             Unary(Ceil, _)
             | Unary(Floor, _)
@@ -249,13 +251,13 @@ impl<'a> AssignIdStage1<'a> {
 }
 
 impl<'a> Visit<'a> for AssignIdStage1<'a> {
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        traverse_expr(self, expr);
+    fn visit_term(&mut self, t: &'a Term) {
+        traverse_term(self, t);
 
-        match self.visited_exprs.get(expr) {
+        match self.visited_terms.get(t) {
             Some(visited) => {
                 let id = visited.id.get();
-                expr.id.set(id);
+                t.id.set(id);
 
                 if let Some(site) = self.site_map.get_mut(&id) {
                     if site.is_none() && self.next_site <= MAX_SITE {
@@ -265,150 +267,152 @@ impl<'a> Visit<'a> for AssignIdStage1<'a> {
                 }
             }
             _ => {
-                let id = self.next_expr_id;
-                expr.id.set(id);
-                self.next_expr_id += 1;
+                let id = self.next_term_id;
+                t.id.set(id);
+                self.next_term_id += 1;
 
-                if Self::expr_can_perform_cut(&expr.kind) {
+                if Self::term_can_perform_cut(&t.kind) {
                     self.site_map.insert(id, None);
                 }
 
-                self.visited_exprs.insert(expr);
+                self.visited_terms.insert(t);
             }
         }
     }
 
-    fn visit_rel(&mut self, rel: &'a Rel) {
-        traverse_rel(self, rel);
+    fn visit_form(&mut self, f: &'a Form) {
+        traverse_form(self, f);
 
-        if let RelKind::Atomic(_, _, _) = rel.kind {
-            match self.visited_rels.get(rel) {
+        if let FormKind::Atomic(_, _, _) = f.kind {
+            match self.visited_forms.get(f) {
                 Some(visited) => {
-                    rel.id.set(visited.id.get());
+                    f.id.set(visited.id.get());
                 }
                 _ => {
-                    rel.id.set(self.next_rel_id);
-                    self.next_rel_id += 1;
-                    self.visited_rels.insert(rel);
+                    f.id.set(self.next_form_id);
+                    self.next_form_id += 1;
+                    self.visited_forms.insert(f);
                 }
             }
         }
     }
 }
 
-// Does the following tasks:
-// - Assign sites to `Expr`s.
-// - Assign ids to the rest of the `Rel`s.
+/// Does the following tasks:
+///
+/// - Assign sites to the terms.
+/// - Assign ids to the rest of the formulas.
 pub struct AssignIdStage2<'a> {
-    next_expr_id: ExprId,
+    next_term_id: TermId,
     site_map: SiteMap,
-    next_rel_id: RelId,
-    visited_rels: HashSet<&'a Rel>,
+    next_form_id: FormId,
+    visited_forms: HashSet<&'a Form>,
 }
 
 impl<'a> AssignIdStage2<'a> {
     pub fn new(stage1: AssignIdStage1<'a>) -> Self {
         AssignIdStage2 {
-            next_expr_id: stage1.next_expr_id,
+            next_term_id: stage1.next_term_id,
             site_map: stage1.site_map,
-            next_rel_id: stage1.next_rel_id,
-            visited_rels: stage1.visited_rels,
+            next_form_id: stage1.next_form_id,
+            visited_forms: stage1.visited_forms,
         }
     }
 }
 
 impl<'a> Visit<'a> for AssignIdStage2<'a> {
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        traverse_expr(self, expr);
+    fn visit_term(&mut self, t: &'a Term) {
+        traverse_term(self, t);
 
-        if let Some(site) = self.site_map.get(&expr.id.get()) {
-            expr.site.set(*site);
+        if let Some(site) = self.site_map.get(&t.id.get()) {
+            t.site.set(*site);
         }
     }
 
-    fn visit_rel(&mut self, rel: &'a Rel) {
-        traverse_rel(self, rel);
+    fn visit_form(&mut self, f: &'a Form) {
+        traverse_form(self, f);
 
-        match self.visited_rels.get(rel) {
+        match self.visited_forms.get(f) {
             Some(visited) => {
-                rel.id.set(visited.id.get());
+                f.id.set(visited.id.get());
             }
             _ => {
-                rel.id.set(self.next_rel_id);
-                self.next_rel_id += 1;
-                self.visited_rels.insert(rel);
+                f.id.set(self.next_form_id);
+                self.next_form_id += 1;
+                self.visited_forms.insert(f);
             }
         }
     }
 }
 
-// Collects `StaticExpr`s and `StaticRel`s in the topological order.
+/// Collects `StaticTerm`s and `StaticForm`s in the topological order.
 pub struct CollectStatic {
-    exprs: Vec<Option<StaticExpr>>,
-    rels: Vec<Option<StaticRel>>,
+    terms: Vec<Option<StaticTerm>>,
+    forms: Vec<Option<StaticForm>>,
 }
 
 impl CollectStatic {
     pub fn new(stage2: AssignIdStage2) -> Self {
         Self {
-            exprs: vec![None; stage2.next_expr_id as usize],
-            rels: vec![None; stage2.next_rel_id as usize],
+            terms: vec![None; stage2.next_term_id as usize],
+            forms: vec![None; stage2.next_form_id as usize],
         }
     }
 
-    pub fn exprs_rels(self) -> (Vec<StaticExpr>, Vec<StaticRel>) {
+    /// Returns the collected terms and formulas.
+    pub fn terms_forms(self) -> (Vec<StaticTerm>, Vec<StaticForm>) {
         (
-            self.exprs.into_iter().collect::<Option<Vec<_>>>().unwrap(),
-            self.rels.into_iter().collect::<Option<Vec<_>>>().unwrap(),
+            self.terms.into_iter().collect::<Option<Vec<_>>>().unwrap(),
+            self.forms.into_iter().collect::<Option<Vec<_>>>().unwrap(),
         )
     }
 }
 
 impl<'a> Visit<'a> for CollectStatic {
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        use ExprKind::*;
-        traverse_expr(self, expr);
+    fn visit_term(&mut self, t: &'a Term) {
+        use TermKind::*;
+        traverse_term(self, t);
 
-        let i = expr.id.get() as usize;
-        if self.exprs[i].is_none() {
-            self.exprs[i] = Some(StaticExpr {
-                site: expr.site.get(),
-                kind: match &expr.kind {
-                    Constant(x) => StaticExprKind::Constant(x.clone()),
-                    X => StaticExprKind::X,
-                    Y => StaticExprKind::Y,
-                    Unary(op, x) => StaticExprKind::Unary(*op, x.id.get()),
-                    Binary(op, x, y) => StaticExprKind::Binary(*op, x.id.get(), y.id.get()),
-                    Pown(x, y) => StaticExprKind::Pown(x.id.get(), *y),
+        let i = t.id.get() as usize;
+        if self.terms[i].is_none() {
+            self.terms[i] = Some(StaticTerm {
+                site: t.site.get(),
+                kind: match &t.kind {
+                    Constant(x) => StaticTermKind::Constant(x.clone()),
+                    X => StaticTermKind::X,
+                    Y => StaticTermKind::Y,
+                    Unary(op, x) => StaticTermKind::Unary(*op, x.id.get()),
+                    Binary(op, x, y) => StaticTermKind::Binary(*op, x.id.get(), y.id.get()),
+                    Pown(x, y) => StaticTermKind::Pown(x.id.get(), *y),
                     Uninit => panic!(),
                 },
-                dependent_axes: expr.dependent_axes,
+                vars: t.vars,
             });
         }
     }
 
-    fn visit_rel(&mut self, rel: &'a Rel) {
-        use RelKind::*;
-        traverse_rel(self, rel);
+    fn visit_form(&mut self, f: &'a Form) {
+        use FormKind::*;
+        traverse_form(self, f);
 
-        let i = rel.id.get() as usize;
-        if self.rels[i].is_none() {
-            self.rels[i] = Some(StaticRel {
-                kind: match &rel.kind {
-                    Atomic(op, x, y) => StaticRelKind::Atomic(*op, x.id.get(), y.id.get()),
-                    And(x, y) => StaticRelKind::And(x.id.get(), y.id.get()),
-                    Or(x, y) => StaticRelKind::Or(x.id.get(), y.id.get()),
+        let i = f.id.get() as usize;
+        if self.forms[i].is_none() {
+            self.forms[i] = Some(StaticForm {
+                kind: match &f.kind {
+                    Atomic(op, x, y) => StaticFormKind::Atomic(*op, x.id.get(), y.id.get()),
+                    And(x, y) => StaticFormKind::And(x.id.get(), y.id.get()),
+                    Or(x, y) => StaticFormKind::Or(x.id.get(), y.id.get()),
                 },
             });
         }
     }
 }
 
-// Collects ids of maximal subexpressions that depend only on X or Y for caching.
-// Atomic expressions X and Y are excluded.
+/// Collects the ids of maximal sub-terms that contain exactly one free variable.
+/// Terms of kind `TermKind::X` and `TermKind::Y` are excluded from collection.
 pub struct FindMaxima {
-    mx: Vec<ExprId>,
-    my: Vec<ExprId>,
+    mx: Vec<TermId>,
+    my: Vec<TermId>,
 }
 
 impl FindMaxima {
@@ -419,7 +423,7 @@ impl FindMaxima {
         }
     }
 
-    pub fn mx_my(mut self) -> (Vec<ExprId>, Vec<ExprId>) {
+    pub fn mx_my(mut self) -> (Vec<TermId>, Vec<TermId>) {
         self.mx.sort_unstable();
         self.mx.dedup();
         self.my.sort_unstable();
@@ -429,24 +433,24 @@ impl FindMaxima {
 }
 
 impl<'a> Visit<'a> for FindMaxima {
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        match expr.dependent_axes {
-            AxisSet::X => {
-                if !matches!(expr.kind, ExprKind::X) {
-                    self.mx.push(expr.id.get());
+    fn visit_term(&mut self, t: &'a Term) {
+        match t.vars {
+            VarSet::X => {
+                if !matches!(t.kind, TermKind::X) {
+                    self.mx.push(t.id.get());
                 }
             }
-            AxisSet::Y => {
-                if !matches!(expr.kind, ExprKind::Y) {
-                    self.my.push(expr.id.get());
+            VarSet::Y => {
+                if !matches!(t.kind, TermKind::Y) {
+                    self.my.push(t.id.get());
                 }
             }
-            AxisSet::XY => traverse_expr(self, expr),
+            VarSet::XY => traverse_term(self, t),
             _ => (),
         }
     }
 
-    fn visit_rel(&mut self, rel: &'a Rel) {
-        traverse_rel(self, rel);
+    fn visit_form(&mut self, f: &'a Form) {
+        traverse_form(self, f);
     }
 }

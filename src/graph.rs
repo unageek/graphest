@@ -1,8 +1,8 @@
 use crate::{
-    dyn_relation::{DynRelation, EvaluationCache, EvaluationCacheLevel, RelationType},
+    dyn_relation::{DynRelation, EvalCache, EvalCacheLevel, RelationType},
     eval_result::EvalResult,
-    interval_set::SignSet,
-    rel::StaticRel,
+    interval_set::{DecSignSet, SignSet},
+    rel::StaticForm,
 };
 use image::{imageops, Rgb, RgbImage};
 use inari::{interval, Decoration, Interval};
@@ -336,14 +336,14 @@ impl error::Error for GraphingError {}
 pub struct GraphingStatistics {
     pub pixels: usize,
     pub pixels_proven: usize,
-    pub evaluation_count: usize,
+    pub eval_count: usize,
     pub time_elapsed: Duration,
 }
 
 #[derive(Debug)]
 pub struct Graph {
     rel: DynRelation,
-    rels: Vec<StaticRel>,
+    forms: Vec<StaticForm>,
     relation_type: RelationType,
     im: Image,
     bs_to_subdivide: VecDeque<ImageBlock>,
@@ -363,11 +363,11 @@ pub struct Graph {
 
 impl Graph {
     pub fn new(rel: DynRelation, region: Region, im_width: u32, im_height: u32) -> Self {
-        let rels = rel.rels().clone();
+        let forms = rel.forms().clone();
         let relation_type = rel.relation_type();
         let mut g = Self {
             rel,
-            rels,
+            forms,
             relation_type,
             im: Image::new(im_width, im_height),
             bs_to_subdivide: VecDeque::new(),
@@ -380,7 +380,7 @@ impl Graph {
             stats: GraphingStatistics {
                 pixels: im_width as usize * im_height as usize,
                 pixels_proven: 0,
-                evaluation_count: 0,
+                eval_count: 0,
                 time_elapsed: Duration::new(0, 0),
             },
         };
@@ -414,7 +414,7 @@ impl Graph {
                 .iter()
                 .filter(|&s| *s == STAT_TRUE || *s == STAT_FALSE)
                 .count(),
-            evaluation_count: self.rel.evaluation_count(),
+            eval_count: self.rel.eval_count(),
             ..self.stats
         }
     }
@@ -427,8 +427,8 @@ impl Graph {
 
         let mut sub_bs = Vec::<ImageBlock>::new();
         // The blocks are queued in the Morton order. Thus, the cache should work effectively.
-        let mut cache_eval_on_region = EvaluationCache::new(EvaluationCacheLevel::PerAxis);
-        let mut cache_eval_on_point = EvaluationCache::new(EvaluationCacheLevel::Full);
+        let mut cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
+        let mut cache_eval_on_point = EvalCache::new(EvalCacheLevel::Full);
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             if b.is_superpixel() {
                 self.push_sub_blocks_clipped(&mut sub_bs, b);
@@ -468,14 +468,16 @@ impl Graph {
         Ok(self.bs_to_subdivide.is_empty())
     }
 
-    fn refine_pixel(&mut self, b: ImageBlock, cache: &mut EvaluationCache) {
+    fn refine_pixel(&mut self, b: ImageBlock, cache: &mut EvalCache) {
         let u_up = self.block_to_region_clipped(b).outer();
         let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache));
 
-        let is_true = r_u_up.map_reduce(&self.rels[..], &|ss, d| {
-            d >= Decoration::Def && ss == SignSet::ZERO
-        });
-        let is_false = !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO));
+        let is_true = r_u_up
+            .map(|DecSignSet(ss, d)| d >= Decoration::Def && ss == SignSet::ZERO)
+            .eval(&self.forms[..]);
+        let is_false = !r_u_up
+            .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
+            .eval(&self.forms[..]);
 
         if is_true || is_false {
             let pixel = b.pixel_index();
@@ -494,8 +496,8 @@ impl Graph {
     fn refine_subpixel(
         &mut self,
         b: ImageBlock,
-        cache_eval_on_region: &mut EvaluationCache,
-        cache_eval_on_point: &mut EvaluationCache,
+        cache_eval_on_region: &mut EvalCache,
+        cache_eval_on_point: &mut EvalCache,
     ) -> Result<(), GraphingError> {
         let pixel = b.pixel_index();
         if self.im.pixel(pixel) == STAT_TRUE {
@@ -513,12 +515,18 @@ impl Graph {
         let u_up = self.block_to_region(b).subpixel_outer(b);
         let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache_eval_on_region));
 
-        if r_u_up.map_reduce(&self.rels[..], &|ss, _| ss == SignSet::ZERO) {
+        if r_u_up
+            .map(|DecSignSet(ss, _)| ss == SignSet::ZERO)
+            .eval(&self.forms[..])
+        {
             // This pixel is proven to be true.
             *self.im.pixel_mut(pixel) = STAT_TRUE;
             return Ok(());
         }
-        if !r_u_up.map_reduce(&self.rels[..], &|ss, _| ss.contains(SignSet::ZERO)) {
+        if !r_u_up
+            .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
+            .eval(&self.forms[..])
+        {
             // This subpixel is proven to be false.
             *self.im.pixel_mut(pixel) -= b.area();
             return Ok(());
@@ -540,8 +548,8 @@ impl Graph {
         // to zero on one of the probe points. In that case,
         // the expression is not required to be `Dac` on the entire
         // subpixel. We don't care such a chance.
-        let dac_mask = r_u_up.map(&self.rels[..], &|_, d| d >= Decoration::Dac);
-        if dac_mask.reduce(&self.rels[..]) {
+        let dac_mask = r_u_up.map(|DecSignSet(_, d)| d >= Decoration::Dac);
+        if dac_mask.eval(&self.forms[..]) {
             // Suppose we are plotting the graph of a conjunction such as
             // "y == sin(x) && x >= 0".
             // If the conjunct "x >= 0" holds everywhere in the subpixel,
@@ -550,9 +558,8 @@ impl Graph {
             // there exists a point where the entire relation holds.
             // Such a test is not possible by merely converting
             // the relation to "|y - sin(x)| + |x >= 0 ? 0 : 1| == 0".
-            let locally_zero_mask = r_u_up.map(&self.rels[..], &|ss, d| {
-                ss == SignSet::ZERO && d >= Decoration::Dac
-            });
+            let locally_zero_mask =
+                r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac);
 
             let points = [
                 (inter.0.inf(), inter.1.inf()), // bottom left
@@ -561,7 +568,7 @@ impl Graph {
                 (inter.0.sup(), inter.1.sup()), // top right
             ];
 
-            let mut neg_mask = r_u_up.map(&self.rels[..], &|_, _| false);
+            let mut neg_mask = r_u_up.map(|_| false);
             let mut pos_mask = neg_mask.clone();
             for point in &points {
                 let r =
@@ -569,15 +576,15 @@ impl Graph {
 
                 // `ss` is not empty if the decoration is `Dac`, which is
                 // ensured by `dac_mask`.
-                neg_mask |= r.map(&self.rels[..], &|ss, _| {
+                neg_mask |= r.map(|DecSignSet(ss, _)| {
                     ss == ss & (SignSet::NEG | SignSet::ZERO) // ss <= 0
                 });
-                pos_mask |= r.map(&self.rels[..], &|ss, _| {
+                pos_mask |= r.map(|DecSignSet(ss, _)| {
                     ss == ss & (SignSet::POS | SignSet::ZERO) // ss >= 0
                 });
 
                 if (&(&neg_mask & &pos_mask) & &dac_mask)
-                    .solution_certainly_exists(&self.rels[..], &locally_zero_mask)
+                    .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
                 {
                     // Found a solution.
                     *self.im.pixel_mut(pixel) = STAT_TRUE;
@@ -600,17 +607,17 @@ impl Graph {
         rel: &mut DynRelation,
         x: f64,
         y: f64,
-        cache: Option<&mut EvaluationCache>,
+        cache: Option<&mut EvalCache>,
     ) -> EvalResult {
-        rel.evaluate(Self::point_interval(x), Self::point_interval(y), cache)
+        rel.eval(Self::point_interval(x), Self::point_interval(y), cache)
     }
 
     fn eval_on_region(
         rel: &mut DynRelation,
         r: &Region,
-        cache: Option<&mut EvaluationCache>,
+        cache: Option<&mut EvalCache>,
     ) -> EvalResult {
-        rel.evaluate(r.0, r.1, cache)
+        rel.eval(r.0, r.1, cache)
     }
 
     /// Precondition: `!b.is_superpixel()`.

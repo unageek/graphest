@@ -1,28 +1,31 @@
 use crate::{
-    ast::{AxisSet, BinaryOp, ExprId, RelId, RelOp, UnaryOp},
+    ast::{BinaryOp, FormId, RelOp, TermId, UnaryOp, VarSet},
     interval_set::{DecSignSet, Site, TupperIntervalSet},
 };
 
 #[derive(Clone, Debug)]
-pub enum StaticExprKind {
+pub enum StaticTermKind {
     Constant(Box<TupperIntervalSet>),
     X,
     Y,
-    Unary(UnaryOp, ExprId),
-    Binary(BinaryOp, ExprId, ExprId),
-    Pown(ExprId, i32),
+    Unary(UnaryOp, TermId),
+    Binary(BinaryOp, TermId, TermId),
+    Pown(TermId, i32),
 }
 
 #[derive(Clone, Debug)]
-pub struct StaticExpr {
+pub struct StaticTerm {
     pub site: Option<Site>,
-    pub kind: StaticExprKind,
-    pub dependent_axes: AxisSet,
+    pub kind: StaticTermKind,
+    pub vars: VarSet,
 }
 
-impl StaticExpr {
-    pub fn evaluate(&self, ts: &[TupperIntervalSet]) -> TupperIntervalSet {
-        use {BinaryOp::*, StaticExprKind::*, UnaryOp::*};
+impl StaticTerm {
+    /// Evaluates the term.
+    ///
+    /// Panics if the term is of kind `StaticTermKind::X` or `StaticTermKind::Y`.
+    pub fn eval(&self, ts: &[TupperIntervalSet]) -> TupperIntervalSet {
+        use {BinaryOp::*, StaticTermKind::*, UnaryOp::*};
         match &self.kind {
             Constant(x) => *x.clone(),
             Unary(Abs, x) => ts[*x as usize].abs(),
@@ -63,33 +66,36 @@ impl StaticExpr {
             Binary(Pow, x, y) => ts[*x as usize].pow(&ts[*y as usize], self.site),
             Binary(Sub, x, y) => &ts[*x as usize] - &ts[*y as usize],
             Pown(x, y) => ts[*x as usize].pown(*y, self.site),
-            X | Y => panic!("this expression cannot be evaluated"),
+            X | Y => panic!("free variables cannot be evaluated"),
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum StaticRelKind {
-    Atomic(RelOp, ExprId, ExprId),
-    And(RelId, RelId),
-    Or(RelId, RelId),
+pub enum StaticFormKind {
+    Atomic(RelOp, TermId, TermId),
+    And(FormId, FormId),
+    Or(FormId, FormId),
 }
 
 #[derive(Clone, Debug)]
-pub struct StaticRel {
-    pub kind: StaticRelKind,
+pub struct StaticForm {
+    pub kind: StaticFormKind,
 }
 
-impl StaticRel {
-    pub fn evaluate(&self, ts: &[TupperIntervalSet]) -> DecSignSet {
-        use {RelOp::*, StaticRelKind::*};
+impl StaticForm {
+    /// Evaluates the formula.
+    ///
+    /// Panics if the formula is non-atomic.
+    pub fn eval(&self, ts: &[TupperIntervalSet]) -> DecSignSet {
+        use {RelOp::*, StaticFormKind::*};
         match &self.kind {
             Atomic(Eq, x, y) => ts[*x as usize].eq(&ts[*y as usize]),
             Atomic(Ge, x, y) => ts[*x as usize].ge(&ts[*y as usize]),
             Atomic(Gt, x, y) => ts[*x as usize].gt(&ts[*y as usize]),
             Atomic(Le, x, y) => ts[*x as usize].le(&ts[*y as usize]),
             Atomic(Lt, x, y) => ts[*x as usize].lt(&ts[*y as usize]),
-            And(_, _) | Or(_, _) => panic!("compound relation cannot be evaluated"),
+            And(_, _) | Or(_, _) => panic!("non-atomic formulas cannot be evaluated"),
         }
     }
 }

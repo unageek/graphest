@@ -42,8 +42,8 @@ fn print_statistics(cur: &GraphingStatistics, prev: &GraphingStatistics) {
         // Extract the lower bound and remove the minus sign in "-0.000".
         format!("{:7.3}", area)[1..8].replace('-', " "),
         format!("{:7.3}", delta_area)[1..8].replace('-', " "),
-        cur.evaluation_count,
-        (cur.evaluation_count - prev.evaluation_count)
+        cur.eval_count,
+        (cur.eval_count - prev.eval_count)
     );
 }
 

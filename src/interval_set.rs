@@ -845,7 +845,7 @@ impl TupperIntervalSet {
     impl_rel_op!(lt, SignSet::ZERO, SignSet::POS, SignSet::POS);
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct DecSignSet(pub SignSet, pub Decoration);
 
 impl DecSignSet {

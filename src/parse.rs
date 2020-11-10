@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, ExprKind, Rel, RelKind, RelOp, UnaryOp},
+    ast::{BinaryOp, Form, FormKind, RelOp, Term, TermKind, UnaryOp},
     interval_set::TupperIntervalSet,
 };
 use inari::{dec_interval, DecoratedInterval};
@@ -32,51 +32,51 @@ fn keyword<'a>(kw: &'a str) -> impl FnMut(&'a str) -> ParseResult<'a, &'a str> {
     )
 }
 
-fn primary_expr(i: &str) -> ParseResult<Expr> {
+fn primary_term(i: &str) -> ParseResult<Term> {
     alt((
         map(decimal_literal, |s| {
             let s = ["[", s, ",", s, "]"].concat();
             let x = TupperIntervalSet::from(dec_interval!(&s).unwrap());
-            Expr::new(ExprKind::Constant(Box::new(x)))
+            Term::new(TermKind::Constant(Box::new(x)))
         }),
         map(alt((keyword("pi"), keyword("π"))), |_| {
             let x = TupperIntervalSet::from(DecoratedInterval::PI);
-            Expr::new(ExprKind::Constant(Box::new(x)))
+            Term::new(TermKind::Constant(Box::new(x)))
         }),
         map(keyword("e"), |_| {
             let x = TupperIntervalSet::from(DecoratedInterval::E);
-            Expr::new(ExprKind::Constant(Box::new(x)))
+            Term::new(TermKind::Constant(Box::new(x)))
         }),
-        value(Expr::new(ExprKind::X), keyword("x")),
-        value(Expr::new(ExprKind::Y), keyword("y")),
+        value(Term::new(TermKind::X), keyword("x")),
+        value(Term::new(TermKind::Y), keyword("y")),
         delimited(
             terminated(char('('), space0),
-            expr,
+            term,
             preceded(space0, char(')')),
         ),
         map(
             delimited(
                 terminated(char('|'), space0),
-                expr,
+                term,
                 preceded(space0, char('|')),
             ),
-            |x| Expr::new(ExprKind::Unary(UnaryOp::Abs, Box::new(x))),
+            |x| Term::new(TermKind::Unary(UnaryOp::Abs, Box::new(x))),
         ),
         map(
             delimited(
                 terminated(char('⌈'), space0),
-                expr,
+                term,
                 preceded(space0, char('⌉')),
             ),
-            |x| Expr::new(ExprKind::Unary(UnaryOp::Ceil, Box::new(x))),
+            |x| Term::new(TermKind::Unary(UnaryOp::Ceil, Box::new(x))),
         ),
         map(
             delimited(
                 terminated(char('⌊'), space0),
-                expr,
+                term,
                 preceded(space0, char('⌋')),
             ),
-            |x| Expr::new(ExprKind::Unary(UnaryOp::Floor, Box::new(x))),
+            |x| Term::new(TermKind::Unary(UnaryOp::Floor, Box::new(x))),
         ),
     ))(i)
 }
@@ -115,61 +115,61 @@ fn fn2(i: &str) -> ParseResult<BinaryOp> {
     ))(i)
 }
 
-fn postfix_expr(i: &str) -> ParseResult<Expr> {
+fn postfix_term(i: &str) -> ParseResult<Term> {
     alt((
         map(
             pair(
                 fn1,
                 delimited(
                     delimited(space0, char('('), space0),
-                    expr,
+                    term,
                     preceded(space0, char(')')),
                 ),
             ),
-            |(f, x)| Expr::new(ExprKind::Unary(f, Box::new(x))),
+            |(f, x)| Term::new(TermKind::Unary(f, Box::new(x))),
         ),
         map(
             pair(
                 fn2,
                 delimited(
                     delimited(space0, char('('), space0),
-                    separated_pair(expr, delimited(space0, char(','), space0), expr),
+                    separated_pair(term, delimited(space0, char(','), space0), term),
                     preceded(space0, char(')')),
                 ),
             ),
-            |(f, (x, y))| Expr::new(ExprKind::Binary(f, Box::new(x), Box::new(y))),
+            |(f, (x, y))| Term::new(TermKind::Binary(f, Box::new(x), Box::new(y))),
         ),
-        primary_expr,
+        primary_term,
     ))(i)
 }
 
 // ^ is right-associative: x^y^z is the same as x^(y^z).
-fn power_expr(i: &str) -> ParseResult<Expr> {
+fn power_term(i: &str) -> ParseResult<Term> {
     alt((
         map(
             separated_pair(
-                postfix_expr,
+                postfix_term,
                 delimited(space0, char('^'), space0),
-                unary_expr,
+                unary_term,
             ),
-            |(x, y)| Expr::new(ExprKind::Binary(BinaryOp::Pow, Box::new(x), Box::new(y))),
+            |(x, y)| Term::new(TermKind::Binary(BinaryOp::Pow, Box::new(x), Box::new(y))),
         ),
-        postfix_expr,
+        postfix_term,
     ))(i)
 }
 
-fn unary_expr(i: &str) -> ParseResult<Expr> {
+fn unary_term(i: &str) -> ParseResult<Term> {
     alt((
-        preceded(pair(char('+'), space0), unary_expr),
-        map(preceded(pair(char('-'), space0), unary_expr), |x| {
-            Expr::new(ExprKind::Unary(UnaryOp::Neg, Box::new(x)))
+        preceded(pair(char('+'), space0), unary_term),
+        map(preceded(pair(char('-'), space0), unary_term), |x| {
+            Term::new(TermKind::Unary(UnaryOp::Neg, Box::new(x)))
         }),
-        power_expr,
+        power_term,
     ))(i)
 }
 
-fn multiplicative_expr(i: &str) -> ParseResult<Expr> {
-    let (i, x) = unary_expr(i)?;
+fn multiplicative_term(i: &str) -> ParseResult<Term> {
+    let (i, x) = unary_term(i)?;
 
     fold_many0(
         alt((
@@ -184,18 +184,18 @@ fn multiplicative_expr(i: &str) -> ParseResult<Expr> {
                     )),
                     space0,
                 ),
-                unary_expr,
+                unary_term,
             ),
             // x y
-            pair(value(BinaryOp::Mul, space0), power_expr),
+            pair(value(BinaryOp::Mul, space0), power_term),
         )),
         x,
-        |xs, (op, y)| Expr::new(ExprKind::Binary(op, Box::new(xs), Box::new(y))),
+        |xs, (op, y)| Term::new(TermKind::Binary(op, Box::new(xs), Box::new(y))),
     )(i)
 }
 
-fn additive_expr(i: &str) -> ParseResult<Expr> {
-    let (i, x) = multiplicative_expr(i)?;
+fn additive_term(i: &str) -> ParseResult<Term> {
+    let (i, x) = multiplicative_term(i)?;
 
     fold_many0(
         pair(
@@ -207,23 +207,23 @@ fn additive_expr(i: &str) -> ParseResult<Expr> {
                 )),
                 space0,
             ),
-            multiplicative_expr,
+            multiplicative_term,
         ),
         x,
-        |xs, (op, y)| Expr::new(ExprKind::Binary(op, Box::new(xs), Box::new(y))),
+        |xs, (op, y)| Term::new(TermKind::Binary(op, Box::new(xs), Box::new(y))),
     )(i)
 }
 
-fn expr(i: &str) -> ParseResult<Expr> {
-    additive_expr(i)
+fn term(i: &str) -> ParseResult<Term> {
+    additive_term(i)
 }
 
 // (In)equalities can be chained: x < y < z is the same as x < y && y < z.
-fn equality(i: &str) -> ParseResult<Rel> {
-    // `acc` is a pair of `Vec<RelOp>` and `Vec<Expr>` that store
+fn equality(i: &str) -> ParseResult<Form> {
+    // `acc` is a pair of `Vec<RelOp>` and `Vec<Term>` that store
     // lists of equality operators and their operands, respectively.
     // `acc.1.len() == acc.0.len() + 1` holds.
-    let (i, acc) = map(expr, |x| (vec![], vec![x]))(i)?;
+    let (i, acc) = map(term, |x| (vec![], vec![x]))(i)?;
 
     map(
         fold_many1(
@@ -239,7 +239,7 @@ fn equality(i: &str) -> ParseResult<Rel> {
                     )),
                     space0,
                 ),
-                expr,
+                term,
             ),
             acc,
             |mut acc, (op, y)| {
@@ -252,60 +252,56 @@ fn equality(i: &str) -> ParseResult<Rel> {
             let op = acc.0[0];
             let x = acc.1[0].clone();
             let y = acc.1[1].clone();
-            let mut rel = Rel::new(RelKind::Atomic(op, Box::new(x), Box::new(y)));
+            let mut f = Form::new(FormKind::Atomic(op, Box::new(x), Box::new(y)));
             for i in 1..acc.0.len() {
                 let op = acc.0[i];
                 let x = acc.1[i].clone();
                 let y = acc.1[i + 1].clone();
-                let rel2 = Rel::new(RelKind::Atomic(op, Box::new(x), Box::new(y)));
-                rel = Rel::new(RelKind::And(Box::new(rel), Box::new(rel2)));
+                let f2 = Form::new(FormKind::Atomic(op, Box::new(x), Box::new(y)));
+                f = Form::new(FormKind::And(Box::new(f), Box::new(f2)));
             }
-            rel
+            f
         },
     )(i)
 }
 
-fn primary_rel(i: &str) -> ParseResult<Rel> {
+fn primary_form(i: &str) -> ParseResult<Form> {
     alt((
         delimited(
             terminated(char('('), space0),
-            rel,
+            form,
             preceded(space0, char(')')),
         ),
         equality,
     ))(i)
 }
 
-fn and_rel(i: &str) -> ParseResult<Rel> {
-    let (i, x) = primary_rel(i)?;
+fn and_form(i: &str) -> ParseResult<Form> {
+    let (i, x) = primary_form(i)?;
 
     fold_many0(
-        preceded(delimited(space0, tag("&&"), space0), primary_rel),
+        preceded(delimited(space0, tag("&&"), space0), primary_form),
         x,
-        |xs, y| Rel::new(RelKind::And(Box::new(xs), Box::new(y))),
+        |xs, y| Form::new(FormKind::And(Box::new(xs), Box::new(y))),
     )(i)
 }
 
-fn or_rel(i: &str) -> ParseResult<Rel> {
-    let (i, x) = and_rel(i)?;
+fn or_form(i: &str) -> ParseResult<Form> {
+    let (i, x) = and_form(i)?;
 
     fold_many0(
-        preceded(delimited(space0, tag("||"), space0), and_rel),
+        preceded(delimited(space0, tag("||"), space0), and_form),
         x,
-        |xs, y| Rel::new(RelKind::Or(Box::new(xs), Box::new(y))),
+        |xs, y| Form::new(FormKind::Or(Box::new(xs), Box::new(y))),
     )(i)
 }
 
-fn rel(i: &str) -> ParseResult<Rel> {
-    or_rel(i)
+fn form(i: &str) -> ParseResult<Form> {
+    or_form(i)
 }
 
-fn relation(i: &str) -> ParseResult<Rel> {
-    delimited(space0, rel, space0)(i)
-}
-
-pub fn parse(i: &str) -> Result<Rel, String> {
-    match all_consuming(relation)(i) {
+pub fn parse(i: &str) -> Result<Form, String> {
+    match all_consuming(delimited(space0, form, space0))(i) {
         Ok(("", x)) => Ok(x),
         Err(NomErr::Error(e)) | Err(NomErr::Failure(e)) => Err(convert_error(i, e)),
         _ => unreachable!(),
