@@ -18,14 +18,14 @@ pub const MAX_SITE: Site = 31;
 type Branch = u8;
 const MAX_BRANCH: Branch = 1;
 
-/// Represents a partial function from the set of branch cut sites: {0, …, 31}
-/// to the set of branch indices: {0, 1}.
+/// Represents a partial function from the set of branch cut sites: `{0, …, MAX_SITE}`
+/// to the set of branch indices `{0, …, MAX_BRANCH}`.
 ///
-/// For example, `IntervalBranch { cut: 0b00101110, chosen: 0b00001010 }`
-/// represents a function {1 ↦ 1, 2 ↦ 0, 3 ↦ 1, 5 ↦ 0}.
+/// For example, `BranchMap { cut: 0b00101110, chosen: 0b00001010 }`
+/// represents a function `{1 ↦ 1, 2 ↦ 0, 3 ↦ 1, 5 ↦ 0}`.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(C)]
-struct IntervalBranch {
+struct BranchMap {
     /// A bit field that keeps track of at which sites
     /// branch cuts have been performed during evaluation.
     cut: u32,
@@ -34,11 +34,15 @@ struct IntervalBranch {
     chosen: u32,
 }
 
-impl IntervalBranch {
+impl BranchMap {
+    /// Creates an empty `BranchMap`.
     fn new() -> Self {
         Self { cut: 0, chosen: 0 }
     }
 
+    /// Creates a `BranchMap` defined by `self ∪ {site ↦ branch}`.
+    ///
+    /// Panics if `site > MAX_SITE`, `branch > MAX_BRANCH` or `site ∈ dom(self)`.
     fn inserted(self, site: Site, branch: Branch) -> Self {
         assert!(site <= MAX_SITE && branch <= MAX_BRANCH && self.cut & 1 << site == 0);
         Self {
@@ -47,12 +51,14 @@ impl IntervalBranch {
         }
     }
 
+    /// Returns `Some(self ∪ rhs)` if `self` and `rhs` are compatible, i.e.,
+    /// `∀x ∈ dom(self) ∩ dom(rhs) : self(x) = rhs(x)`;
+    /// otherwise, `None`.
     fn union(self, rhs: Self) -> Option<Self> {
-        // Tests if Graph(self) ∪ Graph(rhs) is a valid graph of a partial function.
         let mask = self.cut & rhs.cut;
-        let valid = (self.chosen & mask) == (rhs.chosen & mask);
+        let compatible = self.chosen & mask == rhs.chosen & mask;
 
-        if valid {
+        if compatible {
             Some(Self {
                 cut: self.cut | rhs.cut,
                 chosen: self.chosen | rhs.chosen,
@@ -73,6 +79,7 @@ impl IntervalBranch {
 //  trv        | def: [F,F], [F,T]
 //             | cont: [F,F], [F,T], [T,T]
 
+// For type punning. The layout must be exactly the same with `DecoratedInterval`.
 #[repr(C)]
 struct _DecoratedInterval {
     x: Interval,
@@ -86,14 +93,14 @@ struct _DecoratedInterval {
 pub struct TupperInterval {
     x: Interval,
     d: Decoration,
-    g: IntervalBranch,
+    g: BranchMap,
 }
 
 impl TupperInterval {
-    /// Creates a new `TupperInterval` with the given `DecoratedInterval` and `IntervalBranch`.
+    /// Creates a new `TupperInterval` with the given `DecoratedInterval` and `BranchMap`.
     ///
     /// Panics if The interval is NaI.
-    fn new(x: DecoratedInterval, g: IntervalBranch) -> Self {
+    fn new(x: DecoratedInterval, g: BranchMap) -> Self {
         // nai is prohibited.
         assert!(!x.is_nai());
         let x = unsafe { transmute::<_, _DecoratedInterval>(x) };
@@ -182,7 +189,7 @@ impl TupperIntervalSet {
 impl From<DecoratedInterval> for TupperIntervalSet {
     fn from(x: DecoratedInterval) -> Self {
         let mut xs = Self::empty();
-        xs.insert(TupperInterval::new(x, IntervalBranch::new()));
+        xs.insert(TupperInterval::new(x, BranchMap::new()));
         xs
     }
 }
