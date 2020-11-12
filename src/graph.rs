@@ -14,14 +14,17 @@ use std::{
 };
 
 /// The (approximate) maximum amount of memory that the graphing algorithm can use in bytes.
-/// You can set an arbitrary value.
+///
+/// You can pick an arbitrary value.
 const MEM_LIMIT: usize = 1usize << 30; // 1GiB
 
 /// The maximum limit of the width (or height) of an `Image` in pixels.
+///
 /// An arbitrary value that satisfies `MAX_IMAGE_WIDTH * 2^(-MIN_K) < u32::MAX` should be safe.
 const MAX_IMAGE_WIDTH: u32 = 1u32 << 15; // 32768
 
 /// The level of the smallest subpixels.
+///
 /// The current value is chosen so that `STAT_UNCERTAIN` fits in `u32`.
 const MIN_K: i32 = -15;
 
@@ -31,17 +34,20 @@ const MIN_WIDTH: f64 = 1.0 / ((1u32 << -MIN_K) as f64);
 /// The width of the pixels in multiples of `MIN_WIDTH`.
 const PIXEL_ALIGNMENT: u32 = 1u32 << -MIN_K;
 
-const STAT_FALSE: u32 = 0;
-const STAT_UNCERTAIN: u32 = 1u32 << (2 * -MIN_K);
-const STAT_TRUE: u32 = !0u32;
+const C_FALSE: u32 = 0;
+const C_UNCERTAIN: u32 = 1u32 << (2 * -MIN_K);
+const C_TRUE: u32 = !0u32;
 
-/// Each pixel of an `Image` keeps track of the proof status as follows:
+/// Represents a rendering of a graph.
 ///
-///   - `STAT_FALSE`: The relation has no solution within the pixel.
-///   - `1..STAT_UNCERTAIN`: Uncertain, but the relation is known to
-///     have no solution within some parts of the pixel.
-///   - `STAT_UNCERTAIN`: Uncertain.
-///   - `STAT_TRUE`: The relation has at least one solution within the pixel.
+/// Each pixel stores the existence or absence of the solution:
+///
+/// - [`C_FALSE`] : There are no solutions in the pixel.
+/// - `1..C_UNCERTAIN` : Uncertain, but we have shown that there are no solutions
+///   in some parts of the pixel.
+///   `value / C_UNCERTAIN` gives the ratio of the parts remaining uncertain.
+/// - [`C_UNCERTAIN`] : Uncertain.
+/// - [`C_TRUE`] : There is at least one solution in the pixel.
 #[derive(Debug)]
 struct Image {
     width: u32,
@@ -56,7 +62,7 @@ impl Image {
         Self {
             width,
             height,
-            data: vec![STAT_UNCERTAIN; height as usize * width as usize],
+            data: vec![C_UNCERTAIN; height as usize * width as usize],
         }
     }
 
@@ -81,6 +87,7 @@ impl Image {
     }
 }
 
+/// Stores the index of a pixel of an [`Image`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct PixelIndex {
     x: u32,
@@ -99,6 +106,7 @@ impl PixelIndex {
     }
 }
 
+/// Represents a rectangular region of an [`Image`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct ImageBlock {
     /// The horizontal index of the first subpixel in the block.
@@ -160,7 +168,7 @@ impl ImageBlock {
     }
 }
 
-// Represents a rectangular region (subset of ℝ²).
+/// Represents a possibly empty rectangular region of the Cartesian plane.
 #[derive(Debug, Clone)]
 pub struct Region(Interval, Interval);
 
@@ -398,8 +406,8 @@ impl Graph {
         assert!(im.width() == self.im.width && im.height() == self.im.height);
         for (src, dst) in self.im.data.iter().zip(im.pixels_mut()) {
             *dst = match *src {
-                STAT_TRUE => Rgb([0, 0, 0]),
-                STAT_FALSE => Rgb([255, 255, 255]),
+                C_TRUE => Rgb([0, 0, 0]),
+                C_FALSE => Rgb([255, 255, 255]),
                 _ => Rgb([64, 128, 192]),
             }
         }
@@ -412,7 +420,7 @@ impl Graph {
                 .im
                 .data
                 .iter()
-                .filter(|&s| *s == STAT_TRUE || *s == STAT_FALSE)
+                .filter(|&&s| s == C_TRUE || s == C_FALSE)
                 .count(),
             eval_count: self.rel.eval_count(),
             ..self.stats
@@ -482,7 +490,7 @@ impl Graph {
         if is_true || is_false {
             let pixel = b.pixel_index();
             let pixel_width = b.pixel_width();
-            let stat = if is_true { STAT_TRUE } else { STAT_FALSE };
+            let stat = if is_true { C_TRUE } else { C_FALSE };
             for y in pixel.y..(pixel.y + pixel_width).min(self.im.height) {
                 for x in pixel.x..(pixel.x + pixel_width).min(self.im.width) {
                     *self.im.pixel_mut(PixelIndex { x, y }) = stat;
@@ -500,7 +508,7 @@ impl Graph {
         cache_eval_on_point: &mut EvalCache,
     ) -> Result<(), GraphingError> {
         let pixel = b.pixel_index();
-        if self.im.pixel(pixel) == STAT_TRUE {
+        if self.im.pixel(pixel) == C_TRUE {
             // This pixel has already been proven to be true.
             return Ok(());
         }
@@ -520,7 +528,7 @@ impl Graph {
             .eval(&self.forms[..])
         {
             // This pixel is proven to be true.
-            *self.im.pixel_mut(pixel) = STAT_TRUE;
+            *self.im.pixel_mut(pixel) = C_TRUE;
             return Ok(());
         }
         if !r_u_up
@@ -587,7 +595,7 @@ impl Graph {
                     .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
                 {
                     // Found a solution.
-                    *self.im.pixel_mut(pixel) = STAT_TRUE;
+                    *self.im.pixel_mut(pixel) = C_TRUE;
                     return Ok(());
                 }
             }

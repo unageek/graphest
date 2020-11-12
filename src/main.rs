@@ -5,6 +5,7 @@ mod dyn_relation;
 mod eval_result;
 mod graph;
 mod interval_set;
+mod interval_set_ops;
 mod parse;
 mod rel;
 mod visit;

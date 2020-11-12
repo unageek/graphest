@@ -77,6 +77,7 @@ pub enum TermKind {
 }
 
 bitflags! {
+    /// Represents a set of free variables.
     pub struct VarSet: u8 {
         const EMPTY = 0b00;
         const X = 0b01;
@@ -85,6 +86,7 @@ bitflags! {
     }
 }
 
+/// Represents a term.
 #[derive(Clone, Debug)]
 pub struct Term {
     pub id: Cell<TermId>,
@@ -210,6 +212,7 @@ pub enum FormKind {
     Or(Box<Form>, Box<Form>),
 }
 
+/// Represents a formula.
 #[derive(Clone, Debug)]
 pub struct Form {
     pub id: Cell<FormId>,

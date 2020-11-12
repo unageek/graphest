@@ -1,6 +1,6 @@
 use crate::{
     ast::{BinaryOp, Form, FormId, FormKind, Term, TermId, TermKind, UnaryOp, VarSet},
-    interval_set::{Site, MAX_SITE},
+    interval_set::Site,
     rel::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind},
 };
 use inari::const_dec_interval;
@@ -9,6 +9,7 @@ use std::{
     marker::Sized,
 };
 
+/// A type that traverses formulas and terms in depth-first order.
 pub trait Visit<'a>
 where
     Self: Sized,
@@ -49,6 +50,8 @@ fn traverse_form<'a, V: Visit<'a>>(v: &mut V, f: &'a Form) {
     };
 }
 
+/// A type that traverses formulas and terms and possibly modifies them
+/// in depth-first order.
 pub trait VisitMut
 where
     Self: Sized,
@@ -91,6 +94,7 @@ fn traverse_form_mut<V: VisitMut>(v: &mut V, f: &mut Form) {
 
 type SiteMap = HashMap<TermId, Option<Site>>;
 
+/// Transforms terms into more efficient forms.
 pub struct Transform;
 
 impl VisitMut for Transform {
@@ -158,6 +162,7 @@ impl VisitMut for Transform {
     }
 }
 
+/// Performs constant folding.
 pub struct FoldConstant;
 
 // Only fold constants which evaluate to an empty or a single interval
@@ -198,6 +203,7 @@ impl VisitMut for FoldConstant {
     }
 }
 
+/// Calls [`Term::update_metadata`] on each term.
 pub struct UpdateMetadata;
 
 impl VisitMut for UpdateMetadata {
@@ -207,13 +213,11 @@ impl VisitMut for UpdateMetadata {
     }
 }
 
-/// Does the following tasks:
-///
-/// - Assign ids to the terms.
-/// - Assign ids to the atomic formulas so that they can be used as indices for `EvalResult`.
+/// Assigns [`TermId`]s to all of the terms, and assigns [`FormId`]s to the atomic formulas
+/// so that they serve as indices in [`EvalResult`][`crate::eval_result::EvalResult`].
 pub struct AssignIdStage1<'a> {
     next_term_id: TermId,
-    next_site: Site,
+    next_site: u8,
     site_map: SiteMap,
     visited_terms: HashSet<&'a Term>,
     next_form_id: FormId,
@@ -260,8 +264,8 @@ impl<'a> Visit<'a> for AssignIdStage1<'a> {
                 t.id.set(id);
 
                 if let Some(site) = self.site_map.get_mut(&id) {
-                    if site.is_none() && self.next_site <= MAX_SITE {
-                        *site = Some(self.next_site);
+                    if site.is_none() && self.next_site <= Site::MAX {
+                        *site = Some(Site::new(self.next_site));
                         self.next_site += 1;
                     }
                 }
@@ -298,10 +302,8 @@ impl<'a> Visit<'a> for AssignIdStage1<'a> {
     }
 }
 
-/// Does the following tasks:
-///
-/// - Assign sites to the terms.
-/// - Assign ids to the rest of the formulas.
+/// Assigns [`Site`]s to the terms if they are necessary for branch cut tracking,
+/// and assigns [`TermId`]s to the non-atomic formulas.
 pub struct AssignIdStage2<'a> {
     next_term_id: TermId,
     site_map: SiteMap,
@@ -409,7 +411,7 @@ impl<'a> Visit<'a> for CollectStatic {
 }
 
 /// Collects the ids of maximal sub-terms that contain exactly one free variable.
-/// Terms of kind `TermKind::X` and `TermKind::Y` are excluded from collection.
+/// Terms of kind [`TermKind::X`] and [`TermKind::Y`] are excluded from collection.
 pub struct FindMaxima {
     mx: Vec<TermId>,
     my: Vec<TermId>,
