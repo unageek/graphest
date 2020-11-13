@@ -1,5 +1,7 @@
 # inari-graph
 
+[![build](https://img.shields.io/github/workflow/status/mizuno-gsinet/inari-graph/build/master)](https://github.com/mizuno-gsinet/inari-graph/actions?query=branch%3Amaster+workflow%3Abuild)
+
 <p align="center">
   <img src="images/cover.gif"><br>
   The graph of sin(<i>x</i> ± sin <i>y</i>) (sin <i>x</i> ± <i>y</i>) = cos(sin((sin <i>x</i> ± cos <i>y</i>) (sin <i>y</i> ± cos <i>x</i>))) over [4, 6.5] × [2, 4.5].
@@ -126,7 +128,7 @@ You can group a part of an expression or a relation with `(` … `)`.
   ```py
   #!/usr/bin/env python3
   import matplotlib.pyplot as plt
-  
+
   image = plt.imread('graph.png')
   fig, ax = plt.subplots(figsize=(5, 5))
   ax.set_xlabel('x')

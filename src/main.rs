@@ -52,13 +52,9 @@ fn main() {
     let matches = App::new("inari-graph")
         .setting(AppSettings::AllowLeadingHyphen)
         .about("Plots the graph of a relation over the x-y plane.")
+        .arg(Arg::new("relation").index(1).about("Relation to plot."))
         .arg(
-            Arg::with_name("relation")
-                .index(1)
-                .about("Relation to plot."),
-        )
-        .arg(
-            Arg::with_name("bounds")
+            Arg::new("bounds")
                 .short('b')
                 .number_of_values(4)
                 .default_values(&["-10", "10", "-10", "10"])
@@ -66,13 +62,13 @@ fn main() {
                 .about("Bounds of the plot region."),
         )
         .arg(
-            Arg::with_name("output")
+            Arg::new("output")
                 .short('o')
                 .default_value("graph.png")
                 .about("Output file, only .png is supported."),
         )
         .arg(
-            Arg::with_name("size")
+            Arg::new("size")
                 .short('s')
                 .number_of_values(2)
                 .default_values(&["1024", "1024"])
