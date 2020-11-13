@@ -21,10 +21,10 @@ use std::time::Duration;
 
 fn print_statistics_header() {
     println!(
-        "  {:^14}  {:^24}  {:^30}",
-        "Eval. Time (s)", "Area Proven (%)", "# of Evaluations"
+        "  {:>14}  {:>24}  {:>28}",
+        "Eval. Time (s)", "Area Proven (%)", "Number of Evaluations"
     );
-    println!("  {:-^14}  {:-^24}  {:-^30}", "", "", "");
+    println!("  {:->14}  {:->24}  {:->28}", "", "", "");
 }
 
 fn print_statistics(cur: &GraphingStatistics, prev: &GraphingStatistics) {
@@ -38,7 +38,7 @@ fn print_statistics(cur: &GraphingStatistics, prev: &GraphingStatistics) {
     let delta_area = i100 * make_interval((cur.pixels_proven - prev.pixels_proven) as f64) / ipx;
 
     println!(
-        "  {:>14.3}  {:>11}  (+ {:>7})  {:>14}  (+ {:>10})",
+        "  {:>14.3}  {:>11}  (+ {:>7})  {:>13}  (+ {:>9})",
         cur.time_elapsed.as_secs_f64(),
         // Extract the lower bound and remove the minus sign in "-0.000".
         format!("{:7.3}", area)[1..8].replace('-', " "),
