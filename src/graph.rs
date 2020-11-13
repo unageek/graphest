@@ -38,7 +38,7 @@ const C_FALSE: u32 = 0;
 const C_UNCERTAIN: u32 = 1u32 << (2 * -MIN_K);
 const C_TRUE: u32 = !0u32;
 
-/// Represents a rendering of a graph.
+/// A rendering of a graph.
 ///
 /// Each pixel stores the existence or absence of the solution:
 ///
@@ -82,12 +82,12 @@ impl Image {
         &mut self.data[i]
     }
 
-    fn size_in_bytes(&self) -> usize {
+    fn size_in_heap(&self) -> usize {
         self.data.capacity() * size_of::<u32>()
     }
 }
 
-/// Stores the index of a pixel of an [`Image`].
+/// The index of a pixel of an [`Image`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct PixelIndex {
     x: u32,
@@ -106,7 +106,7 @@ impl PixelIndex {
     }
 }
 
-/// Represents a rectangular region of an [`Image`].
+/// A rectangular region of an [`Image`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct ImageBlock {
     /// The horizontal index of the first subpixel in the block.
@@ -168,7 +168,7 @@ impl ImageBlock {
     }
 }
 
-/// Represents a possibly empty rectangular region of the Cartesian plane.
+/// A possibly empty rectangular region of the Cartesian plane.
 #[derive(Debug, Clone)]
 pub struct Region(Interval, Interval);
 
@@ -203,6 +203,10 @@ impl Region {
     }
 }
 
+/// A rectangular region of the Cartesian plane with inexact bounds.
+///
+/// Conceptually, it is a pair of two rectangular regions *inner* and *outer*
+/// that satisfy `inner ⊆ outer`. The inner region can be empty, while the outer one cannot.
 #[derive(Debug)]
 struct InexactRegion {
     l: Interval,
@@ -212,7 +216,7 @@ struct InexactRegion {
 }
 
 impl InexactRegion {
-    /// Returns the inner bounds of the inexact region.
+    /// Returns the inner region.
     fn inner(&self) -> Region {
         Region(
             {
@@ -236,7 +240,7 @@ impl InexactRegion {
         )
     }
 
-    /// Returns the outer bounds of the inexact region.
+    /// Returns the outer region.
     fn outer(&self) -> Region {
         Region(
             interval!(self.l.inf(), self.r.sup()).unwrap(),
@@ -244,8 +248,8 @@ impl InexactRegion {
         )
     }
 
-    /// Returns the bounds of the inexact region,
-    /// assuming that the region is obtained from the given block.
+    /// Returns a subset of the outer region.
+    /// It is assumed that the region is obtained from the given block.
     /// When applied to a set of regions/blocks which form a partition of a pixel,
     /// the results form a partition of the outer boundary of the pixel.
     fn subpixel_outer(&self, blk: ImageBlock) -> Region {
@@ -427,7 +431,7 @@ impl Graph {
         }
     }
 
-    /// Refines the graph.
+    /// Refines the graph for a given amount of time.
     ///
     /// Returns `Ok(true)`/`Ok(false)` if graphing is complete/incomplete after refinement.
     pub fn refine(&mut self, timeout: Duration) -> Result<bool, GraphingError> {
@@ -456,10 +460,10 @@ impl Graph {
                 };
             }
 
-            if self.im.size_in_bytes()
+            if self.im.size_in_heap()
                 + self.bs_to_subdivide.capacity() * size_of::<ImageBlock>()
-                + cache_eval_on_region.size_in_bytes()
-                + cache_eval_on_point.size_in_bytes()
+                + cache_eval_on_region.size_in_heap()
+                + cache_eval_on_point.size_in_heap()
                 > MEM_LIMIT
             {
                 return Err(GraphingError {

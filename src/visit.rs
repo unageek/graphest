@@ -203,7 +203,7 @@ impl VisitMut for FoldConstant {
     }
 }
 
-/// Calls [`Term::update_metadata`] on each term.
+/// Calls [`Term::update_metadata`] on each term in the topological order.
 pub struct UpdateMetadata;
 
 impl VisitMut for UpdateMetadata {
@@ -347,7 +347,7 @@ impl<'a> Visit<'a> for AssignIdStage2<'a> {
     }
 }
 
-/// Collects `StaticTerm`s and `StaticForm`s in the topological order.
+/// Collects [`StaticTerm`]s and [`StaticForm`]s in the topological order.
 pub struct CollectStatic {
     terms: Vec<Option<StaticTerm>>,
     forms: Vec<Option<StaticForm>>,

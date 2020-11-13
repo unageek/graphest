@@ -8,7 +8,7 @@ use std::{
     slice::Iter,
 };
 
-/// Represents a branch cut site.
+/// A branch cut site.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Site(u8);
 
@@ -21,7 +21,7 @@ impl Site {
     }
 }
 
-/// Represents a branch index.
+/// A branch index.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Branch(u8);
 
@@ -34,8 +34,7 @@ impl Branch {
     }
 }
 
-/// Represents a partial function from the set of branch cut sites
-/// to the set of branch indices.
+/// A partial function from the set of branch cut sites to the set of branch indices.
 ///
 /// For example, `BranchMap { cut: 0b00101110, chosen: 0b00001010 }`
 /// represents a function `{1 ↦ 1, 2 ↦ 0, 3 ↦ 1, 5 ↦ 0}`.
@@ -85,17 +84,23 @@ impl BranchMap {
     }
 }
 
-// For type punning. The layout must be exactly the same with `DecoratedInterval`.
+impl Default for BranchMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// Used for type punning. The layout must be exactly the same with `DecoratedInterval`.
 #[repr(C)]
 struct _DecoratedInterval {
     x: Interval,
     d: Decoration,
 }
 
-/// Represents an interval of Tupper interval arithmetic.
+/// An interval with additional properties that are required by Tupper interval arithmetic.
 ///
-/// The decoration system is used instead of the interval properties `def` and `cont`
-/// of the original Tupper IA. Here is the relationship between them:
+/// The decoration system is used instead of the interval properties `def` and `cont`,
+/// introduced by the original Tupper IA. Here is the relationship between them:
 ///
 /// | Decoration   | def            | cont                   |
 /// | ------------ | -------------- | ---------------------- |
@@ -106,8 +111,8 @@ struct _DecoratedInterval {
 /// I'm not 100% certain if the above mapping is correct, but there should be no problem
 /// on implementing the graphing algorithms.
 ///
-/// `Interval` and `Decoration` are stored directly instead of storing `DecoratedInterval`
-/// because the size of the struct would be 48 bytes instead of 32 due to the alignment.
+/// `Interval` and `Decoration` are stored directly rather than through `DecoratedInterval`
+/// to reduce the size of the struct to 32 bytes from 48, which is due to the alignment.
 ///
 /// NOTE: `Hash`, `PartialEq` and `Eq` look only the interval part and ignores
 /// the decoration and the branch map.
@@ -160,10 +165,10 @@ impl Hash for TupperInterval {
 type TupperIntervalVecBackingArray = [TupperInterval; 2];
 type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 
-/// Represents a set of [`TupperInterval`]s.
+/// A set of [`TupperInterval`]s.
 ///
-/// NOTE: `Hash`, `PartialEq` and `Eq` are sensitive to the order by which the intervals are inserted.
-/// See also the note in [`TupperInterval`].
+/// NOTE: `Hash`, `PartialEq` and `Eq` are sensitive to the order by which the intervals
+/// are inserted to. See also the note in [`TupperInterval`].
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct TupperIntervalSet(TupperIntervalVec);
 
@@ -238,7 +243,7 @@ impl<'a> IntoIterator for &'a TupperIntervalSet {
 }
 
 bitflags! {
-    /// Represents a set of signs.
+    /// A set of signs: negative, positive or zero.
     pub struct SignSet: u8 {
         const NEG = 1;
         const ZERO = 2;

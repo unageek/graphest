@@ -93,7 +93,7 @@ impl EvalCache {
         }
     }
 
-    pub fn size_in_bytes(&self) -> usize {
+    pub fn size_in_heap(&self) -> usize {
         // This is the lowest bound, the actual size can be much larger.
         self.size_of_cx + self.size_of_cy + self.size_of_cxy + self.size_of_values_in_heap
     }

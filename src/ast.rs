@@ -77,7 +77,7 @@ pub enum TermKind {
 }
 
 bitflags! {
-    /// Represents a set of free variables.
+    /// A set of free variables: x or y.
     pub struct VarSet: u8 {
         const EMPTY = 0b00;
         const X = 0b01;
@@ -86,13 +86,13 @@ bitflags! {
     }
 }
 
-/// Represents a term.
+/// An AST node for a term.
 #[derive(Clone, Debug)]
 pub struct Term {
     pub id: Cell<TermId>,
     pub site: Cell<Option<Site>>,
     pub kind: TermKind,
-    /// The set of free variables in the term.
+    /// The set of the free variables in the term.
     pub vars: VarSet,
     internal_hash: u64,
 }
@@ -136,7 +136,8 @@ impl Term {
 
     /// Evaluates the term.
     ///
-    /// Panics if the term is not closed or uninitialized.
+    /// Panics if the term contains a sub-term of kind [`TermKind::X`], [`TermKind::Y`]
+    /// or [`TermKind::Uninit`].
     pub fn eval(&self) -> TupperIntervalSet {
         use {BinaryOp::*, TermKind::*, UnaryOp::*};
         match &self.kind {
@@ -212,7 +213,7 @@ pub enum FormKind {
     Or(Box<Form>, Box<Form>),
 }
 
-/// Represents a formula.
+/// An AST node for a formula.
 #[derive(Clone, Debug)]
 pub struct Form {
     pub id: Cell<FormId>,

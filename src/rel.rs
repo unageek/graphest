@@ -13,6 +13,7 @@ pub enum StaticTermKind {
     Pown(TermId, i32),
 }
 
+/// A term in a cache-efficient representation.
 #[derive(Clone, Debug)]
 pub struct StaticTerm {
     pub site: Option<Site>,
@@ -23,7 +24,7 @@ pub struct StaticTerm {
 impl StaticTerm {
     /// Evaluates the term.
     ///
-    /// Panics if the term is of kind `StaticTermKind::X` or `StaticTermKind::Y`.
+    /// Panics if the term is of kind [`StaticTermKind::X`] or [`StaticTermKind::Y`].
     pub fn eval(&self, ts: &[TupperIntervalSet]) -> TupperIntervalSet {
         use {BinaryOp::*, StaticTermKind::*, UnaryOp::*};
         match &self.kind {
@@ -78,6 +79,7 @@ pub enum StaticFormKind {
     Or(FormId, FormId),
 }
 
+/// A formula in a cache-efficient representation.
 #[derive(Clone, Debug)]
 pub struct StaticForm {
     pub kind: StaticFormKind,
@@ -86,7 +88,7 @@ pub struct StaticForm {
 impl StaticForm {
     /// Evaluates the formula.
     ///
-    /// Panics if the formula is non-atomic.
+    /// Panics if the formula is *not* of kind [`StaticFormKind::Atomic`].
     pub fn eval(&self, ts: &[TupperIntervalSet]) -> DecSignSet {
         use {RelOp::*, StaticFormKind::*};
         match &self.kind {

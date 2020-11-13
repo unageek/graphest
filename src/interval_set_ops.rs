@@ -110,7 +110,7 @@ macro_rules! impl_integer_op {
     };
 }
 
-/// Represents the parity of a function.
+/// The parity of a function.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Parity {
     None,

@@ -6,19 +6,11 @@ use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 use smallvec::SmallVec;
 use std::mem::size_of;
 
-/// Stores the evaluation results of atomic formulas.
+/// A sequence of evaluation results of atomic formulas.
 #[derive(Clone, Debug)]
 pub struct EvalResult(pub SmallVec<[DecSignSet; 32]>);
 
 impl EvalResult {
-    pub fn size_in_heap(&self) -> usize {
-        if self.0.spilled() {
-            self.0.capacity() * size_of::<DecSignSet>()
-        } else {
-            0
-        }
-    }
-
     /// Applies the given boolean-valued function on each result.
     pub fn map<F>(&self, f: F) -> EvalResultMask
     where
@@ -26,14 +18,22 @@ impl EvalResult {
     {
         EvalResultMask(self.0.iter().copied().map(f).collect())
     }
+
+    pub fn size_in_heap(&self) -> usize {
+        if self.0.spilled() {
+            self.0.capacity() * size_of::<DecSignSet>()
+        } else {
+            0
+        }
+    }
 }
 
-/// Represents a truth assignment (valuation) for a set of atomic formulas.
+/// A sequence of Boolean values assigned to atomic formulas.
 #[derive(Clone, Debug)]
 pub struct EvalResultMask(pub SmallVec<[bool; 32]>);
 
 impl EvalResultMask {
-    /// Evaluates the last formula to a boolean value.
+    /// Evaluates the last formula to a Boolean value.
     pub fn eval(&self, forms: &[StaticForm]) -> bool {
         Self::eval_impl(&self.0[..], forms, forms.len() - 1)
     }
@@ -53,6 +53,8 @@ impl EvalResultMask {
         }
     }
 
+    /// Returns `true` if the existence of a solution is concluded by the arguments.
+    /// See the actual usage for details.
     pub fn solution_certainly_exists(
         &self,
         forms: &[StaticForm],
