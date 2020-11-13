@@ -26,7 +26,7 @@ const MAX_IMAGE_WIDTH: u32 = 1u32 << 15; // 32768
 /// The level of the smallest subpixels.
 ///
 /// The current value is chosen so that `STAT_UNCERTAIN` fits in `u32`.
-const MIN_K: i32 = -15;
+const MIN_K: i8 = -15;
 
 /// The fractional pixel width of the smallest subpixels.
 const MIN_WIDTH: f64 = 1.0 / ((1u32 << -MIN_K) as f64);
@@ -114,8 +114,8 @@ struct ImageBlock {
     x: u32,
     /// The vertical index of the first subpixel.
     y: u32,
-    kx: i32,
-    ky: i32,
+    kx: i8,
+    ky: i8,
 }
 
 impl ImageBlock {
@@ -396,7 +396,7 @@ impl Graph {
                 time_elapsed: Duration::new(0, 0),
             },
         };
-        let k = (im_width.max(im_height) as f64).log2().ceil() as i32;
+        let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
         g.bs_to_subdivide.push_back(ImageBlock {
             x: 0,
             y: 0,
