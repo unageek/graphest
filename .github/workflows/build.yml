@@ -1,0 +1,32 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          components: clippy, rustfmt
+          profile: minimal
+
+      - name: Run tests
+        run: cargo test --release
+
+      - name: Clippy
+        run: cargo clippy -- -Dwarnings
+
+      - name: Check format
+        run: cargo fmt -- --check
