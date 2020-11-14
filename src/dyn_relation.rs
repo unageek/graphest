@@ -6,7 +6,7 @@ use crate::{
     rel::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind},
     visit::*,
 };
-use inari::{DecoratedInterval, Interval};
+use inari::{DecInterval, Interval};
 use std::{
     collections::{hash_map::Entry, HashMap},
     mem::size_of,
@@ -200,8 +200,8 @@ impl DynRelation {
         for i in 0..self.terms.len() {
             let t = &self.terms[i];
             match t.kind {
-                StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(x)),
-                StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(y)),
+                StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecInterval::new(x)),
+                StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecInterval::new(y)),
                 _ => match t.vars {
                     VarSet::X => {
                         if mx_ts == None {
@@ -253,8 +253,8 @@ impl DynRelation {
             let t = &self.terms[i];
             match t.kind {
                 StaticTermKind::Constant(_) => (),
-                StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(x)),
-                StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecoratedInterval::new(y)),
+                StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecInterval::new(x)),
+                StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecInterval::new(y)),
                 _ => {
                     ts[i] = t.eval(&ts);
                 }

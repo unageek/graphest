@@ -1,8 +1,6 @@
 use crate::interval_set::{Branch, DecSignSet, SignSet, Site, TupperInterval, TupperIntervalSet};
 use hexf::*;
-use inari::{
-    const_dec_interval, const_interval, interval, DecoratedInterval, Decoration, Interval,
-};
+use inari::{const_dec_interval, const_interval, interval, DecInterval, Decoration, Interval};
 use std::{
     convert::From,
     ops::{Add, Mul, Neg, Sub},
@@ -88,14 +86,14 @@ macro_rules! impl_integer_op {
                 let b = y.x.sup();
                 if b - a == 1.0 {
                     rs.insert(TupperInterval::new(
-                        DecoratedInterval::set_dec(interval!(a, a).unwrap(), y.d),
+                        DecInterval::set_dec(interval!(a, a).unwrap(), y.d),
                         match site {
                             Some(site) => y.g.inserted(site, Branch::new(0)),
                             _ => y.g,
                         },
                     ));
                     rs.insert(TupperInterval::new(
-                        DecoratedInterval::set_dec(interval!(b, b).unwrap(), y.d),
+                        DecInterval::set_dec(interval!(b, b).unwrap(), y.d),
                         match site {
                             Some(site) => y.g.inserted(site, Branch::new(1)),
                             _ => y.g,
@@ -133,14 +131,14 @@ impl TupperIntervalSet {
                         let dec = Decoration::Trv;
 
                         rs.insert(TupperInterval::new(
-                            DecoratedInterval::set_dec(-Interval::FRAC_PI_2, dec),
+                            DecInterval::set_dec(-Interval::FRAC_PI_2, dec),
                             match site {
                                 Some(site) => g.inserted(site, Branch::new(0)),
                                 _ => g,
                             },
                         ));
                         rs.insert(TupperInterval::new(
-                            DecoratedInterval::set_dec(Interval::FRAC_PI_2, dec),
+                            DecInterval::set_dec(Interval::FRAC_PI_2, dec),
                             match site {
                                 Some(site) => g.inserted(site, Branch::new(1)),
                                 _ => g,
@@ -157,7 +155,7 @@ impl TupperIntervalSet {
                         let x0 = interval!(b, b).unwrap();
                         let y0 = interval!(c, c).unwrap();
                         rs.insert(TupperInterval::new(
-                            DecoratedInterval::set_dec(
+                            DecInterval::set_dec(
                                 interval!(-Interval::PI.sup(), y0.atan2(x0).sup()).unwrap(),
                                 dec,
                             ),
@@ -171,7 +169,7 @@ impl TupperIntervalSet {
                         let x1 = interval!(a, b).unwrap();
                         let y1 = interval!(0.0, d).unwrap();
                         rs.insert(TupperInterval::new(
-                            DecoratedInterval::set_dec(y1.atan2(x1), dec),
+                            DecInterval::set_dec(y1.atan2(x1), dec),
                             match site {
                                 Some(site) => g.inserted(site, Branch::new(1)),
                                 _ => g,
@@ -198,7 +196,7 @@ impl TupperIntervalSet {
                     let c = y.x.inf();
                     let d = y.x.sup();
                     if c < 0.0 && d > 0.0 {
-                        let y0 = DecoratedInterval::set_dec(interval!(c, 0.0).unwrap(), y.d);
+                        let y0 = DecInterval::set_dec(interval!(c, 0.0).unwrap(), y.d);
                         rs.insert(TupperInterval::new(
                             x.to_dec_interval() / y0,
                             match site {
@@ -206,7 +204,7 @@ impl TupperIntervalSet {
                                 _ => g,
                             },
                         ));
-                        let y1 = DecoratedInterval::set_dec(interval!(0.0, d).unwrap(), y.d);
+                        let y1 = DecInterval::set_dec(interval!(0.0, d).unwrap(), y.d);
                         rs.insert(TupperInterval::new(
                             x.to_dec_interval() / y1,
                             match site {
@@ -321,7 +319,7 @@ impl TupperIntervalSet {
                                 let x = x.x.abs();
                                 let z = x.pow(y.x);
                                 rs.insert(TupperInterval::new(
-                                    DecoratedInterval::set_dec(z.convex_hull(one_or_empty), dec),
+                                    DecInterval::set_dec(z.convex_hull(one_or_empty), dec),
                                     g,
                                 ));
                             }
@@ -339,14 +337,14 @@ impl TupperIntervalSet {
                                 let zp = xp.pow(y.x);
                                 if c < 0.0 {
                                     rs.insert(TupperInterval::new(
-                                        DecoratedInterval::set_dec(zn, dec),
+                                        DecInterval::set_dec(zn, dec),
                                         match site {
                                             Some(site) => g.inserted(site, Branch::new(0)),
                                             _ => g,
                                         },
                                     ));
                                     rs.insert(TupperInterval::new(
-                                        DecoratedInterval::set_dec(zp, dec),
+                                        DecInterval::set_dec(zp, dec),
                                         match site {
                                             Some(site) => g.inserted(site, Branch::new(1)),
                                             _ => g,
@@ -354,10 +352,7 @@ impl TupperIntervalSet {
                                     ));
                                 } else {
                                     let z = zn.convex_hull(zp);
-                                    rs.insert(TupperInterval::new(
-                                        DecoratedInterval::set_dec(z, dec),
-                                        g,
-                                    ));
+                                    rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), g));
                                 }
                             }
                         }
@@ -371,7 +366,7 @@ impl TupperIntervalSet {
                         let x0 = x.x.abs();
                         let z = x0.pow(y.x);
                         rs.insert(TupperInterval::new(
-                            DecoratedInterval::set_dec(z.convex_hull(one_or_empty), dec),
+                            DecInterval::set_dec(z.convex_hull(one_or_empty), dec),
                             match site {
                                 Some(site) => g.inserted(site, Branch::new(0)),
                                 _ => g,
@@ -383,7 +378,7 @@ impl TupperIntervalSet {
                         let x1 = x.x.min(const_interval!(0.0, 0.0));
                         let z = -(-x1).pow(y.x);
                         rs.insert(TupperInterval::new(
-                            DecoratedInterval::set_dec(z, dec),
+                            DecInterval::set_dec(z, dec),
                             match site {
                                 Some(site) => g.inserted(site, Branch::new(1)),
                                 _ => g,
@@ -396,7 +391,7 @@ impl TupperIntervalSet {
                         // In that case, the decoration of z is already `Trv`.
                         let z = x.to_dec_interval().pow(y.to_dec_interval());
                         rs.insert(TupperInterval::new(
-                            DecoratedInterval::set_dec(
+                            DecInterval::set_dec(
                                 z.interval_part().unwrap().convex_hull(one_or_empty),
                                 z.decoration_part(),
                             ),
@@ -415,7 +410,7 @@ impl TupperIntervalSet {
             let a = x.x.inf();
             let b = x.x.sup();
             if rhs < 0 && rhs % 2 == 1 && a < 0.0 && b > 0.0 {
-                let x0 = DecoratedInterval::set_dec(interval!(a, 0.0).unwrap(), x.d);
+                let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.d);
                 rs.insert(TupperInterval::new(
                     x0.pown(rhs),
                     match site {
@@ -423,7 +418,7 @@ impl TupperIntervalSet {
                         _ => x.g,
                     },
                 ));
-                let x1 = DecoratedInterval::set_dec(interval!(0.0, b).unwrap(), x.d);
+                let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.d);
                 rs.insert(TupperInterval::new(
                     x1.pown(rhs),
                     match site {
@@ -444,7 +439,7 @@ impl TupperIntervalSet {
             let a = x.x.inf();
             let b = x.x.sup();
             if a < 0.0 && b > 0.0 {
-                let x0 = DecoratedInterval::set_dec(interval!(a, 0.0).unwrap(), x.d);
+                let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.d);
                 rs.insert(TupperInterval::new(
                     x0.recip(),
                     match site {
@@ -452,7 +447,7 @@ impl TupperIntervalSet {
                         _ => x.g,
                     },
                 ));
-                let x1 = DecoratedInterval::set_dec(interval!(0.0, b).unwrap(), x.d);
+                let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.d);
                 rs.insert(TupperInterval::new(
                     x1.recip(),
                     match site {
@@ -505,7 +500,7 @@ impl TupperIntervalSet {
                 } else {
                     Interval::EMPTY
                 };
-                let y = DecoratedInterval::set_dec(yn.convex_hull(yp), Decoration::Trv);
+                let y = DecInterval::set_dec(yn.convex_hull(yp), Decoration::Trv);
                 rs.insert(TupperInterval::new(y, x.g));
             } else {
                 rs.insert(TupperInterval::new(
@@ -538,7 +533,7 @@ impl TupperIntervalSet {
                 || q == 1.0 && (n < 3.0 || n == 3.0 && cont)
             {
                 rs.insert(TupperInterval::new(
-                    DecoratedInterval::set_dec(
+                    DecInterval::set_dec(
                         interval!(interval!(a, a).unwrap().tan().inf(), f64::INFINITY).unwrap(),
                         Decoration::Trv,
                     ),
@@ -548,7 +543,7 @@ impl TupperIntervalSet {
                     },
                 ));
                 rs.insert(TupperInterval::new(
-                    DecoratedInterval::set_dec(
+                    DecInterval::set_dec(
                         interval!(f64::NEG_INFINITY, interval!(b, b).unwrap().tan().sup()).unwrap(),
                         Decoration::Trv,
                     ),

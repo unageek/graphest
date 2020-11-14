@@ -1,5 +1,5 @@
 use bitflags::*;
-use inari::{DecoratedInterval, Decoration, Interval};
+use inari::{DecInterval, Decoration, Interval};
 use smallvec::SmallVec;
 use std::{
     convert::From,
@@ -90,9 +90,9 @@ impl Default for BranchMap {
     }
 }
 
-// Used for type punning. The layout must be exactly the same with `DecoratedInterval`.
+// Used for type punning. The layout must be exactly the same with `DecInterval`.
 #[repr(C)]
-struct _DecoratedInterval {
+struct _DecInterval {
     x: Interval,
     d: Decoration,
 }
@@ -111,7 +111,7 @@ struct _DecoratedInterval {
 /// I'm not 100% certain if the above mapping is correct, but there should be no problem
 /// on implementing the graphing algorithms.
 ///
-/// `Interval` and `Decoration` are stored directly rather than through `DecoratedInterval`
+/// `Interval` and `Decoration` are stored directly rather than through `DecInterval`
 /// to reduce the size of the struct to 32 bytes from 48, which is due to the alignment.
 ///
 /// NOTE: `Hash`, `PartialEq` and `Eq` look only the interval part and ignores
@@ -127,19 +127,19 @@ pub struct TupperInterval {
 }
 
 impl TupperInterval {
-    /// Creates a new `TupperInterval` with the given `DecoratedInterval` and `BranchMap`.
+    /// Creates a new `TupperInterval` with the given `DecInterval` and `BranchMap`.
     ///
     /// Panics if The interval is NaI.
-    pub fn new(x: DecoratedInterval, g: BranchMap) -> Self {
+    pub fn new(x: DecInterval, g: BranchMap) -> Self {
         assert!(!x.is_nai());
-        let x = unsafe { transmute::<_, _DecoratedInterval>(x) };
+        let x = unsafe { transmute::<_, _DecInterval>(x) };
         Self { x: x.x, d: x.d, g }
     }
 
-    /// Returns the `DecoratedInterval` part of the `TupperInterval`.
-    pub fn to_dec_interval(self) -> DecoratedInterval {
+    /// Returns the `DecInterval` part of the `TupperInterval`.
+    pub fn to_dec_interval(self) -> DecInterval {
         unsafe {
-            transmute(_DecoratedInterval {
+            transmute(_DecInterval {
                 x: self.x,
                 d: self.d,
             })
@@ -216,8 +216,8 @@ impl TupperIntervalSet {
     }
 }
 
-impl From<DecoratedInterval> for TupperIntervalSet {
-    fn from(x: DecoratedInterval) -> Self {
+impl From<DecInterval> for TupperIntervalSet {
+    fn from(x: DecInterval) -> Self {
         let mut xs = Self::empty();
         xs.insert(TupperInterval::new(x, BranchMap::new()));
         xs
@@ -253,7 +253,7 @@ bitflags! {
 
 /// A pair of [`SignSet`] and [`Decoration`].
 ///
-/// It is used as an efficient version of `DecoratedInterval` when only the sign of the interval
+/// It is used as an efficient version of `DecInterval` when only the sign of the interval
 /// is of interest.
 #[derive(Clone, Copy, Debug)]
 pub struct DecSignSet(pub SignSet, pub Decoration);

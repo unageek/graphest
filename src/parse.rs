@@ -2,7 +2,7 @@ use crate::{
     ast::{BinaryOp, Form, FormKind, RelOp, Term, TermKind, UnaryOp},
     interval_set::TupperIntervalSet,
 };
-use inari::{dec_interval, DecoratedInterval};
+use inari::{dec_interval, DecInterval};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -40,11 +40,11 @@ fn primary_term(i: &str) -> ParseResult<Term> {
             Term::new(TermKind::Constant(Box::new(x)))
         }),
         map(alt((keyword("pi"), keyword("π"))), |_| {
-            let x = TupperIntervalSet::from(DecoratedInterval::PI);
+            let x = TupperIntervalSet::from(DecInterval::PI);
             Term::new(TermKind::Constant(Box::new(x)))
         }),
         map(keyword("e"), |_| {
-            let x = TupperIntervalSet::from(DecoratedInterval::E);
+            let x = TupperIntervalSet::from(DecInterval::E);
             Term::new(TermKind::Constant(Box::new(x)))
         }),
         value(Term::new(TermKind::X), keyword("x")),
