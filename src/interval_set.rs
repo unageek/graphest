@@ -50,12 +50,12 @@ pub struct BranchMap {
 }
 
 impl BranchMap {
-    /// Creates an empty `BranchMap`.
+    /// Creates an empty [`BranchMap`].
     pub fn new() -> Self {
         Self { cut: 0, chosen: 0 }
     }
 
-    /// Creates a `BranchMap` defined by `self ∪ {site ↦ branch}`.
+    /// Creates a [`BranchMap`] defined by `self ∪ {site ↦ branch}`.
     ///
     /// Panics if `site ∈ dom(self)`.
     pub fn inserted(self, site: Site, branch: Branch) -> Self {
@@ -111,10 +111,10 @@ struct _DecInterval {
 /// I'm not 100% certain if the above mapping is correct, but there should be no problem
 /// on implementing the graphing algorithms.
 ///
-/// `Interval` and `Decoration` are stored directly rather than through `DecInterval`
+/// [`Interval`] and [`Decoration`] are stored directly rather than through [`DecInterval`]
 /// to reduce the size of the struct to 32 bytes from 48, which is due to the alignment.
 ///
-/// NOTE: `Hash`, `PartialEq` and `Eq` look only the interval part and ignores
+/// NOTE: [`Hash`], [`PartialEq`] and [`Eq`] look only the interval part and ignores
 /// the decoration and the branch map.
 /// This is because these traits are only used for discriminating interval constants,
 /// and those constants always have the maximum decorations and the empty branch maps.
@@ -127,16 +127,16 @@ pub struct TupperInterval {
 }
 
 impl TupperInterval {
-    /// Creates a new `TupperInterval` with the given `DecInterval` and `BranchMap`.
+    /// Creates a new [`TupperInterval`] with the given [`DecInterval`] and [`BranchMap`].
     ///
-    /// Panics if The interval is NaI.
+    /// Panics if the interval is NaI.
     pub fn new(x: DecInterval, g: BranchMap) -> Self {
         assert!(!x.is_nai());
         let x = unsafe { transmute::<_, _DecInterval>(x) };
         Self { x: x.x, d: x.d, g }
     }
 
-    /// Returns the `DecInterval` part of the `TupperInterval`.
+    /// Returns the [`DecInterval`] part of the interval.
     pub fn to_dec_interval(self) -> DecInterval {
         unsafe {
             transmute(_DecInterval {
@@ -167,34 +167,35 @@ type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 
 /// A set of [`TupperInterval`]s.
 ///
-/// NOTE: `Hash`, `PartialEq` and `Eq` are sensitive to the order by which the intervals
+/// NOTE: [`Hash`], [`PartialEq`] and [`Eq`] are sensitive to the order by which the intervals
 /// are inserted to. See also the note in [`TupperInterval`].
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct TupperIntervalSet(TupperIntervalVec);
 
 impl TupperIntervalSet {
-    /// Creates an empty `TupperIntervalSet`.
+    /// Creates an empty [`TupperIntervalSet`].
     pub fn empty() -> Self {
         Self(TupperIntervalVec::new())
     }
 
+    /// Returns an iterator.
     pub fn iter(&self) -> Iter<'_, TupperInterval> {
         self.0.iter()
     }
 
-    /// Returns the number of intervals in `self`.
+    /// Returns the number of intervals in the set.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    /// Inserts an interval to `self`. If the interval is empty, it does nothing.
+    /// Inserts an interval to the set. If the interval is empty, it does nothing.
     pub fn insert(&mut self, x: TupperInterval) {
         if !x.x.is_empty() {
             self.0.push(x);
         }
     }
 
-    /// Returns `true` if `self` is empty.
+    /// Returns `true` if the set is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -253,7 +254,7 @@ bitflags! {
 
 /// A pair of [`SignSet`] and [`Decoration`].
 ///
-/// It is used as an efficient version of `DecInterval` when only the sign of the interval
+/// It is used as an efficient version of [`DecInterval`] when only the sign of the interval
 /// is of interest.
 #[derive(Clone, Copy, Debug)]
 pub struct DecSignSet(pub SignSet, pub Decoration);

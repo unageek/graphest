@@ -300,6 +300,7 @@ fn form(i: &str) -> ParseResult<Form> {
     or_form(i)
 }
 
+/// Parses a formula.
 pub fn parse(i: &str) -> Result<Form, String> {
     match all_consuming(delimited(space0, form, space0))(i) {
         Ok(("", x)) => Ok(x),

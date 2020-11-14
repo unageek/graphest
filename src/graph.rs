@@ -15,23 +15,24 @@ use std::{
 
 /// The (approximate) maximum amount of memory that the graphing algorithm can use in bytes.
 ///
-/// You can pick an arbitrary value.
-const MEM_LIMIT: usize = 1usize << 30; // 1GiB
+/// The current value is 1GiB. You can pick an arbitrary value.
+const MEM_LIMIT: usize = 1usize << 30;
 
-/// The maximum limit of the width (or height) of an `Image` in pixels.
+/// The maximum limit of the width (or height) of an [`Image`] in pixels.
 ///
+/// The current value is 32768.
 /// An arbitrary value that satisfies `MAX_IMAGE_WIDTH * 2^(-MIN_K) < u32::MAX` should be safe.
-const MAX_IMAGE_WIDTH: u32 = 1u32 << 15; // 32768
+const MAX_IMAGE_WIDTH: u32 = 1u32 << 15;
 
 /// The level of the smallest subpixels.
 ///
-/// The current value is chosen so that `STAT_UNCERTAIN` fits in `u32`.
+/// The current value is chosen so that [`C_UNCERTAIN`] fits in `u32`.
 const MIN_K: i8 = -15;
 
 /// The fractional pixel width of the smallest subpixels.
 const MIN_WIDTH: f64 = 1.0 / ((1u32 << -MIN_K) as f64);
 
-/// The width of the pixels in multiples of `MIN_WIDTH`.
+/// The width of the pixels in multiples of [`MIN_WIDTH`].
 const PIXEL_ALIGNMENT: u32 = 1u32 << -MIN_K;
 
 const C_FALSE: u32 = 0;
@@ -56,7 +57,7 @@ struct Image {
 }
 
 impl Image {
-    /// Creates a new `Image` with all pixels set to `STAT_UNCERTAIN`.
+    /// Creates a new [`Image`] with all pixels set to [`C_UNCERTAIN`].
     fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && width <= MAX_IMAGE_WIDTH && height > 0 && height <= MAX_IMAGE_WIDTH);
         Self {
@@ -95,7 +96,7 @@ struct PixelIndex {
 }
 
 impl PixelIndex {
-    /// Returns the `ImageBlock` that represents the same area as the pixel.
+    /// Returns the [`ImageBlock`] that represents the same area as the pixel.
     fn to_block(&self) -> ImageBlock {
         ImageBlock {
             x: self.x << -MIN_K,
@@ -110,7 +111,7 @@ impl PixelIndex {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct ImageBlock {
     /// The horizontal index of the first subpixel in the block.
-    /// The index is represented in multiples of the smallest subpixel (= 2^MIN_K px).
+    /// The index is represented in multiples of [`MIN_WIDTH`].
     x: u32,
     /// The vertical index of the first subpixel.
     y: u32,
@@ -126,7 +127,7 @@ impl ImageBlock {
         1u32 << ((self.kx - MIN_K) + (self.ky - MIN_K))
     }
 
-    /// Returns the height of the block in multiples of `MIN_WIDTH`.
+    /// Returns the height of the block in multiples of [`MIN_WIDTH`].
     fn height(&self) -> u32 {
         1u32 << (self.ky - MIN_K)
     }
@@ -157,12 +158,12 @@ impl ImageBlock {
 
     /// Returns the width of the block in pixels.
     ///
-    /// Precondition: k ≥ 0.
+    /// Precondition: `k ≥ 0`.
     fn pixel_width(&self) -> u32 {
         1u32 << self.kx
     }
 
-    /// Returns the width of the block in multiples of `MIN_WIDTH`.
+    /// Returns the width of the block in multiples of [`MIN_WIDTH`].
     fn width(&self) -> u32 {
         1u32 << (self.kx - MIN_K)
     }
@@ -173,7 +174,7 @@ impl ImageBlock {
 pub struct Region(Interval, Interval);
 
 impl Region {
-    /// Creates a new `Region` with the specified bounds.
+    /// Creates a new [`Region`] with the specified bounds.
     pub fn new(l: f64, r: f64, b: f64, t: f64) -> Self {
         // Regions constructed directly do not need to satisfy these conditions.
         assert!(l < r && b < t && l.is_finite() && r.is_finite() && b.is_finite() && t.is_finite());
@@ -249,6 +250,7 @@ impl InexactRegion {
     }
 
     /// Returns a subset of the outer region.
+    ///
     /// It is assumed that the region is obtained from the given block.
     /// When applied to a set of regions/blocks which form a partition of a pixel,
     /// the results form a partition of the outer boundary of the pixel.
