@@ -161,7 +161,7 @@ impl Term {
     /// Updates `vars` and `internal_hash` fields of `self`.
     ///
     /// Precondition:
-    ///   The function is called on all sub-terms and they have not changed since then.
+    ///   The function is called on all sub-terms and they have not been changed since then.
     pub fn update_metadata(&mut self) {
         self.vars = match &self.kind {
             TermKind::Constant(_) => VarSet::EMPTY,
@@ -218,6 +218,7 @@ pub enum FormKind {
 pub struct Form {
     pub id: Cell<FormId>,
     pub kind: FormKind,
+    internal_hash: u64,
 }
 
 impl Form {
@@ -225,6 +226,19 @@ impl Form {
         Self {
             id: Cell::new(UNINIT_FORM_ID),
             kind,
+            internal_hash: 0,
+        }
+    }
+
+    /// Updates `internal_hash` field of `self`.
+    ///
+    /// Precondition:
+    ///   The function is called on all sub-terms/forms and they have not been changed since then.
+    pub fn update_metadata(&mut self) {
+        self.internal_hash = {
+            let mut hasher = DefaultHasher::new();
+            self.kind.hash(&mut hasher);
+            hasher.finish()
         }
     }
 }

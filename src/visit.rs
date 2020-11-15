@@ -203,13 +203,19 @@ impl VisitMut for FoldConstant {
     }
 }
 
-/// Calls [`Term::update_metadata`] on each term in the topological order.
+/// Calls [`Term::update_metadata`]/[`Form::update_metadata`] on each term/formula
+/// in the topological order.
 pub struct UpdateMetadata;
 
 impl VisitMut for UpdateMetadata {
     fn visit_term_mut(&mut self, t: &mut Term) {
         traverse_term_mut(self, t);
         t.update_metadata();
+    }
+
+    fn visit_form_mut(&mut self, f: &mut Form) {
+        traverse_form_mut(self, f);
+        f.update_metadata();
     }
 }
 
@@ -317,7 +323,7 @@ impl<'a> AssignIdStage2<'a> {
             next_term_id: stage1.next_term_id,
             site_map: stage1.site_map,
             next_form_id: stage1.next_form_id,
-            visited_forms: stage1.visited_forms,
+            visited_forms: HashSet::new(),
         }
     }
 }
@@ -334,14 +340,16 @@ impl<'a> Visit<'a> for AssignIdStage2<'a> {
     fn visit_form(&mut self, f: &'a Form) {
         traverse_form(self, f);
 
-        match self.visited_forms.get(f) {
-            Some(visited) => {
-                f.id.set(visited.id.get());
-            }
-            _ => {
-                f.id.set(self.next_form_id);
-                self.next_form_id += 1;
-                self.visited_forms.insert(f);
+        if !matches!(f.kind, FormKind::Atomic(_, _, _)) {
+            match self.visited_forms.get(f) {
+                Some(visited) => {
+                    f.id.set(visited.id.get());
+                }
+                _ => {
+                    f.id.set(self.next_form_id);
+                    self.next_form_id += 1;
+                    self.visited_forms.insert(f);
+                }
             }
         }
     }
