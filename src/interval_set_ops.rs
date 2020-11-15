@@ -559,6 +559,25 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
+    pub fn x_over_x(&self) -> Self {
+        let mut rs = Self::empty();
+        for x in self {
+            let a = x.x.inf();
+            let b = x.x.sup();
+            if a == 0.0 && b == 0.0 {
+                // empty
+            } else if a <= 0.0 && b >= 0.0 {
+                rs.insert(TupperInterval::new(
+                    DecInterval::set_dec(const_interval!(1.0, 1.0), Decoration::Trv),
+                    x.g,
+                ));
+            } else {
+                rs.insert(TupperInterval::new(const_dec_interval!(1.0, 1.0), x.g));
+            }
+        }
+        rs.normalize()
+    }
+
     // absmax
     impl_no_cut_op!(abs);
     impl_no_cut_op2!(max);

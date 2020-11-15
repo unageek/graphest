@@ -55,6 +55,7 @@ impl StaticTerm {
             Unary(Sqrt, x) => ts[*x as usize].sqrt(),
             Unary(Tan, x) => ts[*x as usize].tan(self.site),
             Unary(Tanh, x) => ts[*x as usize].tanh(),
+            Unary(XOverX, x) => ts[*x as usize].x_over_x(),
             Binary(Add, x, y) => &ts[*x as usize] + &ts[*y as usize],
             Binary(Atan2, x, y) => ts[*x as usize].atan2(&ts[*y as usize], self.site),
             Binary(Div, x, y) => ts[*x as usize].div(&ts[*y as usize], self.site),

@@ -99,28 +99,30 @@ pub struct Transform;
 
 impl VisitMut for Transform {
     fn visit_term_mut(&mut self, t: &mut Term) {
-        use {BinaryOp::*, TermKind::*, UnaryOp::*};
+        use {std::mem::take, BinaryOp::*, TermKind::*, UnaryOp::*};
         traverse_term_mut(self, t);
 
         match &mut t.kind {
             Unary(Neg, x) => {
                 if let Unary(Neg, x) = &mut x.kind {
                     // (Neg (Neg x)) => x
-                    *t = std::mem::take(x);
+                    *t = take(x);
                 }
             }
             Binary(Div, x, y) => {
                 match (&x.kind, &y.kind) {
+                    _ if x == y => {
+                        // (Div x y) => (XOverX x) if x == y
+                        *t = Term::new(Unary(XOverX, take(x)));
+                    }
                     (Unary(Sin, z), _) if z == y => {
                         // (Div (Sin z) y) => (SinXOverX y) if z == y
-                        *t = Term::new(Unary(SinXOverX, std::mem::take(y)));
+                        *t = Term::new(Unary(SinXOverX, take(y)));
                     }
                     (_, Unary(Sin, z)) if z == x => {
                         // (Div x (Sin z)) => (Recip (SinXOverX x)) if z == x
-                        *t = Term::new(Unary(
-                            Recip,
-                            Box::new(Term::new(Unary(SinXOverX, std::mem::take(x)))),
-                        ));
+                        *t =
+                            Term::new(Unary(Recip, Box::new(Term::new(Unary(SinXOverX, take(x))))));
                     }
                     _ => (),
                 };
@@ -130,9 +132,11 @@ impl VisitMut for Transform {
                     if x.len() == 1 {
                         let x = x.iter().next().unwrap().to_dec_interval();
                         if x == const_dec_interval!(2.0, 2.0) {
-                            *t = Term::new(Unary(Exp2, std::mem::take(y)));
+                            // (Pow 2 x) => (Exp2 x)
+                            *t = Term::new(Unary(Exp2, take(y)));
                         } else if x == const_dec_interval!(10.0, 10.0) {
-                            *t = Term::new(Unary(Exp10, std::mem::take(y)));
+                            // (Pow 10 x) => (Exp10 x)
+                            *t = Term::new(Unary(Exp10, take(y)));
                         }
                     }
                 } else if let Constant(y) = &y.kind {
@@ -140,18 +144,23 @@ impl VisitMut for Transform {
                         let y = y.iter().next().unwrap().to_dec_interval();
                         // Do not transform x^0 to 1 as that can discard the decoration (e.g. sqrt(x)^0).
                         if y == const_dec_interval!(-1.0, -1.0) {
-                            *t = Term::new(Unary(Recip, std::mem::take(x)));
+                            // (Pow x -1) => (Recip x)
+                            *t = Term::new(Unary(Recip, take(x)));
                         } else if y == const_dec_interval!(0.5, 0.5) {
-                            *t = Term::new(Unary(Sqrt, std::mem::take(x)));
+                            // (Pow x 1/2) => (Sqrt x)
+                            *t = Term::new(Unary(Sqrt, take(x)));
                         } else if y == const_dec_interval!(1.0, 1.0) {
+                            // (Pow x 1) => x
                             *t = std::mem::take(x);
                         } else if y == const_dec_interval!(2.0, 2.0) {
-                            *t = Term::new(Unary(Sqr, std::mem::take(x)));
+                            // (Pow x 2) => (Sqr x)
+                            *t = Term::new(Unary(Sqr, take(x)));
                         } else if y.is_singleton() {
                             let y = y.inf();
                             let iy = y as i32;
                             if y == iy as f64 {
-                                *t = Term::new(Pown(std::mem::take(x), iy));
+                                // (Pow x y) => (Pown x y) if y ∈ i32
+                                *t = Term::new(Pown(take(x), iy));
                             }
                         }
                     }

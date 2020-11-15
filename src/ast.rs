@@ -40,6 +40,7 @@ pub enum UnaryOp {
     Sqrt,
     Tan,
     Tanh,
+    XOverX,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -142,6 +143,7 @@ impl Term {
             Unary(Sqrt, x) => x.eval().sqrt(),
             Unary(Tan, x) => x.eval().tan(None),
             Unary(Tanh, x) => x.eval().tanh(),
+            Unary(XOverX, x) => x.eval().x_over_x(),
             Binary(Add, x, y) => &x.eval() + &y.eval(),
             Binary(Atan2, x, y) => x.eval().atan2(&y.eval(), None),
             Binary(Div, x, y) => x.eval().div(&y.eval(), None),
