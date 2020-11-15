@@ -126,12 +126,12 @@ impl VisitMut for Transform {
                 if let Constant(x) = &x.kind {
                     if f64(x) == Some(0.0) {
                         // (Add 0 y) => y
-                        *t = std::mem::take(y);
+                        *t = take(y);
                     }
                 } else if let Constant(y) = &y.kind {
                     if f64(y) == Some(0.0) {
                         // (Add x 0) => x
-                        *t = std::mem::take(x);
+                        *t = take(x);
                     }
                 }
             }
@@ -139,12 +139,12 @@ impl VisitMut for Transform {
                 if let Constant(x) = &x.kind {
                     if f64(x) == Some(1.0) {
                         // (Mul 1 y) => y
-                        *t = std::mem::take(y);
+                        *t = take(y);
                     }
                 } else if let Constant(y) = &y.kind {
                     if f64(y) == Some(1.0) {
                         // (Mul x 1) => x
-                        *t = std::mem::take(x);
+                        *t = take(x);
                     }
                 }
             }
@@ -188,7 +188,7 @@ impl VisitMut for Transform {
                             *t = Term::new(Unary(Sqrt, take(x)));
                         } else if y == 1.0 {
                             // (Pow x 1) => x
-                            *t = std::mem::take(x);
+                            *t = take(x);
                         } else if y == 2.0 {
                             // (Pow x 2) => (Sqr x)
                             *t = Term::new(Unary(Sqr, take(x)));
