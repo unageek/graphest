@@ -1,9 +1,9 @@
 use crate::{
     ast::{BinaryOp, Form, FormId, FormKind, Term, TermId, TermKind, UnaryOp, VarSet},
-    interval_set::Site,
+    interval_set::{Site, TupperIntervalSet},
     rel::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind},
 };
-use inari::const_dec_interval;
+use inari::Decoration;
 use std::{
     collections::{HashMap, HashSet},
     marker::Sized,
@@ -97,6 +97,19 @@ type SiteMap = HashMap<TermId, Option<Site>>;
 /// Transforms terms into more efficient forms.
 pub struct Transform;
 
+fn f64(x: &TupperIntervalSet) -> Option<f64> {
+    if x.len() != 1 {
+        return None;
+    }
+
+    let x = x.iter().next().unwrap().to_dec_interval();
+    if x.is_singleton() && x.decoration_part() >= Decoration::Dac {
+        Some(x.inf())
+    } else {
+        None
+    }
+}
+
 impl VisitMut for Transform {
     fn visit_term_mut(&mut self, t: &mut Term) {
         use {std::mem::take, BinaryOp::*, TermKind::*, UnaryOp::*};
@@ -107,6 +120,32 @@ impl VisitMut for Transform {
                 if let Unary(Neg, x) = &mut x.kind {
                     // (Neg (Neg x)) => x
                     *t = take(x);
+                }
+            }
+            Binary(Add, x, y) => {
+                if let Constant(x) = &x.kind {
+                    if f64(x) == Some(0.0) {
+                        // (Add 0 y) => y
+                        *t = std::mem::take(y);
+                    }
+                } else if let Constant(y) = &y.kind {
+                    if f64(y) == Some(0.0) {
+                        // (Add x 0) => x
+                        *t = std::mem::take(x);
+                    }
+                }
+            }
+            Binary(Mul, x, y) => {
+                if let Constant(x) = &x.kind {
+                    if f64(x) == Some(1.0) {
+                        // (Mul 1 y) => y
+                        *t = std::mem::take(y);
+                    }
+                } else if let Constant(y) = &y.kind {
+                    if f64(y) == Some(1.0) {
+                        // (Mul x 1) => x
+                        *t = std::mem::take(x);
+                    }
                 }
             }
             Binary(Div, x, y) => {
@@ -129,39 +168,33 @@ impl VisitMut for Transform {
             }
             Binary(Pow, x, y) => {
                 if let Constant(x) = &x.kind {
-                    if x.len() == 1 {
-                        let x = x.iter().next().unwrap().to_dec_interval();
-                        if x == const_dec_interval!(2.0, 2.0) {
+                    if let Some(x) = f64(x) {
+                        if x == 2.0 {
                             // (Pow 2 x) => (Exp2 x)
                             *t = Term::new(Unary(Exp2, take(y)));
-                        } else if x == const_dec_interval!(10.0, 10.0) {
+                        } else if x == 10.0 {
                             // (Pow 10 x) => (Exp10 x)
                             *t = Term::new(Unary(Exp10, take(y)));
                         }
                     }
                 } else if let Constant(y) = &y.kind {
-                    if y.len() == 1 {
-                        let y = y.iter().next().unwrap().to_dec_interval();
+                    if let Some(y) = f64(y) {
                         // Do not transform x^0 to 1 as that can discard the decoration (e.g. sqrt(x)^0).
-                        if y == const_dec_interval!(-1.0, -1.0) {
+                        if y == -1.0 {
                             // (Pow x -1) => (Recip x)
                             *t = Term::new(Unary(Recip, take(x)));
-                        } else if y == const_dec_interval!(0.5, 0.5) {
+                        } else if y == 0.5 {
                             // (Pow x 1/2) => (Sqrt x)
                             *t = Term::new(Unary(Sqrt, take(x)));
-                        } else if y == const_dec_interval!(1.0, 1.0) {
+                        } else if y == 1.0 {
                             // (Pow x 1) => x
                             *t = std::mem::take(x);
-                        } else if y == const_dec_interval!(2.0, 2.0) {
+                        } else if y == 2.0 {
                             // (Pow x 2) => (Sqr x)
                             *t = Term::new(Unary(Sqr, take(x)));
-                        } else if y.is_singleton() {
-                            let y = y.inf();
-                            let iy = y as i32;
-                            if y == iy as f64 {
-                                // (Pow x y) => (Pown x y) if y ∈ i32
-                                *t = Term::new(Pown(take(x), iy));
-                            }
+                        } else if y == y as i32 as f64 {
+                            // (Pow x y) => (Pown x y) if y ∈ i32
+                            *t = Term::new(Pown(take(x), y as i32));
                         }
                     }
                 }
