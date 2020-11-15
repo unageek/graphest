@@ -97,32 +97,6 @@ pub struct Term {
     internal_hash: u64,
 }
 
-impl Default for Term {
-    fn default() -> Self {
-        Self {
-            id: Cell::new(UNINIT_TERM_ID),
-            site: Cell::new(None),
-            kind: TermKind::Uninit,
-            vars: VarSet::EMPTY,
-            internal_hash: 0,
-        }
-    }
-}
-
-impl PartialEq for Term {
-    fn eq(&self, rhs: &Self) -> bool {
-        self.kind == rhs.kind
-    }
-}
-
-impl Eq for Term {}
-
-impl Hash for Term {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.internal_hash.hash(state);
-    }
-}
-
 impl Term {
     pub fn new(kind: TermKind) -> Self {
         Self {
@@ -206,6 +180,32 @@ impl Term {
     }
 }
 
+impl Default for Term {
+    fn default() -> Self {
+        Self {
+            id: Cell::new(UNINIT_TERM_ID),
+            site: Cell::new(None),
+            kind: TermKind::Uninit,
+            vars: VarSet::EMPTY,
+            internal_hash: 0,
+        }
+    }
+}
+
+impl PartialEq for Term {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.kind == rhs.kind
+    }
+}
+
+impl Eq for Term {}
+
+impl Hash for Term {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.internal_hash.hash(state);
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum FormKind {
     Atomic(RelOp, Box<Term>, Box<Term>),
@@ -220,6 +220,15 @@ pub struct Form {
     pub kind: FormKind,
 }
 
+impl Form {
+    pub fn new(kind: FormKind) -> Self {
+        Self {
+            id: Cell::new(UNINIT_FORM_ID),
+            kind,
+        }
+    }
+}
+
 impl PartialEq for Form {
     fn eq(&self, rhs: &Self) -> bool {
         self.kind == rhs.kind
@@ -231,14 +240,5 @@ impl Eq for Form {}
 impl Hash for Form {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.kind.hash(state);
-    }
-}
-
-impl Form {
-    pub fn new(kind: FormKind) -> Self {
-        Self {
-            id: Cell::new(UNINIT_FORM_ID),
-            kind,
-        }
     }
 }
