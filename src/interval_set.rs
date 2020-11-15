@@ -204,7 +204,8 @@ impl TupperIntervalSet {
     ///
     /// We could merge overlapping intervals, but that almost always results in
     /// a negative impact on performance.
-    pub fn normalize(self) -> Self {
+    #[allow(unused_mut)]
+    pub fn normalize(mut self) -> Self {
         self
     }
 
