@@ -49,7 +49,7 @@ impl StaticTerm {
             Unary(Recip, x) => ts[*x as usize].recip(self.site),
             Unary(Sign, x) => ts[*x as usize].sign(self.site),
             Unary(Sin, x) => ts[*x as usize].sin(),
-            Unary(SinOverX, x) => ts[*x as usize].sin_over_x(),
+            Unary(SinXOverX, x) => ts[*x as usize].sin_x_over_x(),
             Unary(Sinh, x) => ts[*x as usize].sinh(),
             Unary(Sqr, x) => ts[*x as usize].sqr(),
             Unary(Sqrt, x) => ts[*x as usize].sqrt(),

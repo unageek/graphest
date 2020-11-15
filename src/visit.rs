@@ -112,14 +112,14 @@ impl VisitMut for Transform {
             Binary(Div, x, y) => {
                 match (&x.kind, &y.kind) {
                     (Unary(Sin, z), _) if z == y => {
-                        // (Div (Sin z) y) => (SinOverX y) if z == y
-                        *t = Term::new(Unary(SinOverX, std::mem::take(y)));
+                        // (Div (Sin z) y) => (SinXOverX y) if z == y
+                        *t = Term::new(Unary(SinXOverX, std::mem::take(y)));
                     }
                     (_, Unary(Sin, z)) if z == x => {
-                        // (Div x (Sin z)) => (Recip (SinOverX x)) if z == x
+                        // (Div x (Sin z)) => (Recip (SinXOverX x)) if z == x
                         *t = Term::new(Unary(
                             Recip,
-                            Box::new(Term::new(Unary(SinOverX, std::mem::take(x)))),
+                            Box::new(Term::new(Unary(SinXOverX, std::mem::take(x)))),
                         ));
                     }
                     _ => (),
