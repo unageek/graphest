@@ -94,8 +94,38 @@ fn traverse_form_mut<V: VisitMut>(v: &mut V, f: &mut Form) {
 
 type SiteMap = HashMap<TermId, Option<Site>>;
 
+/// Moves constants to left-hand sides of addition/multiplication.
+#[derive(Default)]
+pub struct SortTerms {
+    pub modified: bool,
+}
+
+fn precedes(x: &Term, y: &Term) -> bool {
+    matches!(x.kind, TermKind::Constant(_)) && !matches!(y.kind, TermKind::Constant(_))
+}
+
+impl VisitMut for SortTerms {
+    fn visit_term_mut(&mut self, t: &mut Term) {
+        use std::mem::swap;
+        use {BinaryOp::*, TermKind::*};
+        traverse_term_mut(self, t);
+
+        match &mut t.kind {
+            Binary(Add, x, y) | Binary(Mul, x, y) if precedes(y, x) => {
+                // (op x y) /; y ≺ x → (op y x)
+                swap(x, y);
+                self.modified = true;
+            }
+            _ => (),
+        }
+    }
+}
+
 /// Transforms terms into more efficient forms.
-pub struct Transform;
+#[derive(Default)]
+pub struct Transform {
+    pub modified: bool,
+}
 
 fn f64(x: &TupperIntervalSet) -> Option<f64> {
     if x.len() != 1 {
@@ -112,7 +142,8 @@ fn f64(x: &TupperIntervalSet) -> Option<f64> {
 
 impl VisitMut for Transform {
     fn visit_term_mut(&mut self, t: &mut Term) {
-        use {std::mem::take, BinaryOp::*, TermKind::*, UnaryOp::*};
+        use std::mem::take;
+        use {BinaryOp::*, TermKind::*, UnaryOp::*};
         traverse_term_mut(self, t);
 
         match &mut t.kind {
@@ -120,95 +151,108 @@ impl VisitMut for Transform {
                 if let Unary(Neg, x) = &mut x.kind {
                     // (Neg (Neg x)) → x
                     *t = take(x);
+                    self.modified = true;
                 }
             }
             Binary(Add, x, y) => {
-                match (&x.kind, &y.kind) {
-                    (Constant(x), _) => {
-                        if f64(x) == Some(0.0) {
-                            // (Add 0 y) → y
-                            *t = take(y);
-                        }
+                match (&x.kind, &mut y.kind) {
+                    (Constant(a), _) if f64(a) == Some(0.0) => {
+                        // (Add 0 y) → y
+                        *t = take(y);
+                        self.modified = true;
                     }
-                    (_, Constant(y)) => {
-                        if f64(y) == Some(0.0) {
-                            // (Add x 0) → x
-                            *t = take(x);
-                        }
+                    (_, Binary(Add, y1, y2)) => {
+                        // For constant folding.
+                        // (Add x (Add y1 y2)) → (Add (Add x y1) y2)
+                        *t = Term::new(Binary(
+                            Add,
+                            Box::new(Term::new(Binary(Add, take(x), take(y1)))),
+                            take(y2),
+                        ));
+                        self.modified = true;
                     }
                     _ => (),
                 }
             }
             Binary(Mul, x, y) => {
-                match (&x.kind, &y.kind) {
-                    (Constant(x), _) => {
-                        if f64(x) == Some(1.0) {
-                            // (Mul 1 y) → y
-                            *t = take(y);
-                        }
+                match (&x.kind, &mut y.kind) {
+                    (Constant(a), _) if f64(a) == Some(1.0) => {
+                        // (Mul 1 y) → y
+                        *t = take(y);
+                        self.modified = true;
                     }
-                    (_, Constant(y)) => {
-                        if f64(y) == Some(1.0) {
-                            // (Mul x 1) → x
-                            *t = take(x);
-                        }
-                    }
-                    _ if x == y => {
-                        // (Mul x y) if x = y → (Sqr x)
-                        *t = Term::new(Unary(Sqr, take(x)));
+                    (_, Binary(Mul, y1, y2)) => {
+                        // For constant folding.
+                        // (Mul x (Mul y1 y2)) → (Mul (Mul x y1) y2)
+                        *t = Term::new(Binary(
+                            Mul,
+                            Box::new(Term::new(Binary(Mul, take(x), take(y1)))),
+                            take(y2),
+                        ));
+                        self.modified = true;
                     }
                     _ => (),
                 }
             }
             Binary(Div, x, y) => {
                 match (&x.kind, &y.kind) {
-                    (Unary(Sin, z), _) if z == y => {
-                        // (Div (Sin z) y) /; z = y → (SinXOverX y)
+                    (Unary(Sin, x1), _) if x1 == y => {
+                        // (Div (Sin y) y) → (SinXOverX y)
                         *t = Term::new(Unary(SinXOverX, take(y)));
+                        self.modified = true;
                     }
-                    (_, Unary(Sin, z)) if z == x => {
-                        // (Div x (Sin z)) /; z = x → (Recip (SinXOverX x))
+                    (_, Unary(Sin, y1)) if y1 == x => {
+                        // (Div x (Sin x)) → (Recip (SinXOverX x))
                         *t =
                             Term::new(Unary(Recip, Box::new(Term::new(Unary(SinXOverX, take(x))))));
+                        self.modified = true;
                     }
                     _ if x == y => {
-                        // (Div x y) /; x = y → (XOverX x)
+                        // (Div x x) → (XOverX x)
                         *t = Term::new(Unary(XOverX, take(x)));
+                        self.modified = true;
                     }
                     _ => (),
                 };
             }
             Binary(Pow, x, y) => {
                 match (&x.kind, &y.kind) {
-                    (Constant(x), _) => {
-                        if let Some(x) = f64(x) {
-                            if x == 2.0 {
+                    (Constant(a), _) => {
+                        if let Some(a) = f64(a) {
+                            if a == 2.0 {
                                 // (Pow 2 x) → (Exp2 x)
                                 *t = Term::new(Unary(Exp2, take(y)));
-                            } else if x == 10.0 {
+                                self.modified = true;
+                            } else if a == 10.0 {
                                 // (Pow 10 x) → (Exp10 x)
                                 *t = Term::new(Unary(Exp10, take(y)));
+                                self.modified = true;
                             }
                         }
                     }
-                    (_, Constant(y)) => {
-                        if let Some(y) = f64(y) {
+                    (_, Constant(a)) => {
+                        if let Some(a) = f64(a) {
                             // Do not transform x^0 → 1 as that can discard the decoration (e.g. sqrt(x)^0).
-                            if y == -1.0 {
+                            if a == -1.0 {
                                 // (Pow x -1) → (Recip x)
                                 *t = Term::new(Unary(Recip, take(x)));
-                            } else if y == 0.5 {
+                                self.modified = true;
+                            } else if a == 0.5 {
                                 // (Pow x 1/2) → (Sqrt x)
                                 *t = Term::new(Unary(Sqrt, take(x)));
-                            } else if y == 1.0 {
+                                self.modified = true;
+                            } else if a == 1.0 {
                                 // (Pow x 1) → x
                                 *t = take(x);
-                            } else if y == 2.0 {
+                                self.modified = true;
+                            } else if a == 2.0 {
                                 // (Pow x 2) → (Sqr x)
                                 *t = Term::new(Unary(Sqr, take(x)));
-                            } else if y == y as i32 as f64 {
-                                // (Pow x y) /; y ∈ i32 → (Pown x y)
-                                *t = Term::new(Pown(take(x), y as i32));
+                                self.modified = true;
+                            } else if a == a as i32 as f64 {
+                                // (Pow x a) /; a ∈ i32 → (Pown x a)
+                                *t = Term::new(Pown(take(x), a as i32));
+                                self.modified = true;
                             }
                         }
                     }
@@ -220,44 +264,11 @@ impl VisitMut for Transform {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::parse::parse;
-
-    fn test_transform(input: &str, expected: &str) {
-        let mut f = parse(&format!("{} = 0", input)).unwrap();
-        FoldConstant.visit_form_mut(&mut f);
-        Transform.visit_form_mut(&mut f);
-        assert_eq!(
-            format!("{}", f.dump_structure()),
-            format!("(Eq {} {{...}})", expected)
-        );
-    }
-
-    #[test]
-    fn transform() {
-        test_transform("--x", "X");
-        test_transform("0 + x", "X");
-        test_transform("x + 0", "X");
-        test_transform("1 x", "X");
-        test_transform("x 1", "X");
-        test_transform("x x", "(Sqr X)");
-        test_transform("sin(x)/x", "(SinXOverX X)");
-        test_transform("x/sin(x)", "(Recip (SinXOverX X))");
-        test_transform("x/x", "(XOverX X)");
-        test_transform("2^x", "(Exp2 X)");
-        test_transform("10^x", "(Exp10 X)");
-        test_transform("x^-1", "(Recip X)"); // Needs constant folding
-        test_transform("x^0.5", "(Sqrt X)");
-        test_transform("x^1", "X");
-        test_transform("x^2", "(Sqr X)");
-        test_transform("x^3", "(Pown X 3)");
-    }
-}
-
 /// Performs constant folding.
-pub struct FoldConstant;
+#[derive(Default)]
+pub struct FoldConstant {
+    pub modified: bool,
+}
 
 // Only fold constants which evaluate to an empty or a single interval
 // since the sites are not assigned and branch cut tracking is not possible
@@ -273,6 +284,7 @@ impl VisitMut for FoldConstant {
                     let val = t.eval();
                     if val.len() <= 1 {
                         *t = Term::new(Constant(Box::new(val)));
+                        self.modified = true;
                     }
                 }
             }
@@ -281,6 +293,7 @@ impl VisitMut for FoldConstant {
                     let val = t.eval();
                     if val.len() <= 1 {
                         *t = Term::new(Constant(Box::new(val)));
+                        self.modified = true;
                     }
                 }
             }
@@ -289,6 +302,7 @@ impl VisitMut for FoldConstant {
                     let val = t.eval();
                     if val.len() <= 1 {
                         *t = Term::new(Constant(Box::new(val)));
+                        self.modified = true;
                     }
                 }
             }
@@ -555,5 +569,57 @@ impl<'a> Visit<'a> for FindMaxima {
 
     fn visit_form(&mut self, f: &'a Form) {
         traverse_form(self, f);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse::parse;
+
+    fn test_sort_terms(input: &str, expected: &str) {
+        let mut f = parse(&format!("{} = 0", input)).unwrap();
+        SortTerms::default().visit_form_mut(&mut f);
+        assert_eq!(
+            format!("{}", f.dump_structure()),
+            format!("(Eq {} {{...}})", expected)
+        );
+    }
+
+    #[test]
+    fn sort_terms() {
+        test_sort_terms("1 + x", "(Add {...} X)");
+        test_sort_terms("x + 1", "(Add {...} X)");
+        test_sort_terms("2 x", "(Mul {...} X)");
+        test_sort_terms("x 2", "(Mul {...} X)");
+    }
+
+    fn test_transform(input: &str, expected: &str) {
+        let mut f = parse(&format!("{} = 0", input)).unwrap();
+        FoldConstant::default().visit_form_mut(&mut f);
+        Transform::default().visit_form_mut(&mut f);
+        assert_eq!(
+            format!("{}", f.dump_structure()),
+            format!("(Eq {} {{...}})", expected)
+        );
+    }
+
+    #[test]
+    fn transform() {
+        test_transform("--x", "X");
+        test_transform("0 + x", "X");
+        test_transform("1 + (x + y)", "(Add (Add {...} X) Y)");
+        test_transform("1 x", "X");
+        test_transform("2 (x y)", "(Mul (Mul {...} X) Y)");
+        test_transform("sin(x)/x", "(SinXOverX X)");
+        test_transform("x/sin(x)", "(Recip (SinXOverX X))");
+        test_transform("x/x", "(XOverX X)");
+        test_transform("2^x", "(Exp2 X)");
+        test_transform("10^x", "(Exp10 X)");
+        test_transform("x^-1", "(Recip X)"); // Needs constant folding
+        test_transform("x^0.5", "(Sqrt X)");
+        test_transform("x^1", "X");
+        test_transform("x^2", "(Sqr X)");
+        test_transform("x^3", "(Pown X 3)");
     }
 }

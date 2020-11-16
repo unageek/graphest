@@ -284,10 +284,17 @@ impl FromStr for DynRelation {
 
     fn from_str(s: &str) -> Result<Self, String> {
         let mut form = parse(s)?;
-        Transform.visit_form_mut(&mut form);
-        FoldConstant.visit_form_mut(&mut form);
-        Transform.visit_form_mut(&mut form);
-        FoldConstant.visit_form_mut(&mut form);
+        loop {
+            let mut s = SortTerms::default();
+            s.visit_form_mut(&mut form);
+            let mut t = Transform::default();
+            t.visit_form_mut(&mut form);
+            let mut f = FoldConstant::default();
+            f.visit_form_mut(&mut form);
+            if !s.modified && !t.modified && !f.modified {
+                break;
+            }
+        }
         UpdateMetadata.visit_form_mut(&mut form);
         let mut v = AssignIdStage1::new();
         v.visit_form(&form);
