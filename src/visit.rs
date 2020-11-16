@@ -118,89 +118,141 @@ impl VisitMut for Transform {
         match &mut t.kind {
             Unary(Neg, x) => {
                 if let Unary(Neg, x) = &mut x.kind {
-                    // (Neg (Neg x)) => x
+                    // (Neg (Neg x)) → x
                     *t = take(x);
                 }
             }
             Binary(Add, x, y) => {
-                if let Constant(x) = &x.kind {
-                    if f64(x) == Some(0.0) {
-                        // (Add 0 y) => y
-                        *t = take(y);
+                match (&x.kind, &y.kind) {
+                    (Constant(x), _) => {
+                        if f64(x) == Some(0.0) {
+                            // (Add 0 y) → y
+                            *t = take(y);
+                        }
                     }
-                } else if let Constant(y) = &y.kind {
-                    if f64(y) == Some(0.0) {
-                        // (Add x 0) => x
-                        *t = take(x);
+                    (_, Constant(y)) => {
+                        if f64(y) == Some(0.0) {
+                            // (Add x 0) → x
+                            *t = take(x);
+                        }
                     }
+                    _ => (),
                 }
             }
             Binary(Mul, x, y) => {
-                if let Constant(x) = &x.kind {
-                    if f64(x) == Some(1.0) {
-                        // (Mul 1 y) => y
-                        *t = take(y);
+                match (&x.kind, &y.kind) {
+                    (Constant(x), _) => {
+                        if f64(x) == Some(1.0) {
+                            // (Mul 1 y) → y
+                            *t = take(y);
+                        }
                     }
-                } else if let Constant(y) = &y.kind {
-                    if f64(y) == Some(1.0) {
-                        // (Mul x 1) => x
-                        *t = take(x);
+                    (_, Constant(y)) => {
+                        if f64(y) == Some(1.0) {
+                            // (Mul x 1) → x
+                            *t = take(x);
+                        }
                     }
+                    _ if x == y => {
+                        // (Mul x y) if x = y → (Sqr x)
+                        *t = Term::new(Unary(Sqr, take(x)));
+                    }
+                    _ => (),
                 }
             }
             Binary(Div, x, y) => {
                 match (&x.kind, &y.kind) {
-                    _ if x == y => {
-                        // (Div x y) => (XOverX x) if x == y
-                        *t = Term::new(Unary(XOverX, take(x)));
-                    }
                     (Unary(Sin, z), _) if z == y => {
-                        // (Div (Sin z) y) => (SinXOverX y) if z == y
+                        // (Div (Sin z) y) /; z = y → (SinXOverX y)
                         *t = Term::new(Unary(SinXOverX, take(y)));
                     }
                     (_, Unary(Sin, z)) if z == x => {
-                        // (Div x (Sin z)) => (Recip (SinXOverX x)) if z == x
+                        // (Div x (Sin z)) /; z = x → (Recip (SinXOverX x))
                         *t =
                             Term::new(Unary(Recip, Box::new(Term::new(Unary(SinXOverX, take(x))))));
+                    }
+                    _ if x == y => {
+                        // (Div x y) /; x = y → (XOverX x)
+                        *t = Term::new(Unary(XOverX, take(x)));
                     }
                     _ => (),
                 };
             }
             Binary(Pow, x, y) => {
-                if let Constant(x) = &x.kind {
-                    if let Some(x) = f64(x) {
-                        if x == 2.0 {
-                            // (Pow 2 x) => (Exp2 x)
-                            *t = Term::new(Unary(Exp2, take(y)));
-                        } else if x == 10.0 {
-                            // (Pow 10 x) => (Exp10 x)
-                            *t = Term::new(Unary(Exp10, take(y)));
+                match (&x.kind, &y.kind) {
+                    (Constant(x), _) => {
+                        if let Some(x) = f64(x) {
+                            if x == 2.0 {
+                                // (Pow 2 x) → (Exp2 x)
+                                *t = Term::new(Unary(Exp2, take(y)));
+                            } else if x == 10.0 {
+                                // (Pow 10 x) → (Exp10 x)
+                                *t = Term::new(Unary(Exp10, take(y)));
+                            }
                         }
                     }
-                } else if let Constant(y) = &y.kind {
-                    if let Some(y) = f64(y) {
-                        // Do not transform x^0 to 1 as that can discard the decoration (e.g. sqrt(x)^0).
-                        if y == -1.0 {
-                            // (Pow x -1) => (Recip x)
-                            *t = Term::new(Unary(Recip, take(x)));
-                        } else if y == 0.5 {
-                            // (Pow x 1/2) => (Sqrt x)
-                            *t = Term::new(Unary(Sqrt, take(x)));
-                        } else if y == 1.0 {
-                            // (Pow x 1) => x
-                            *t = take(x);
-                        } else if y == 2.0 {
-                            // (Pow x 2) => (Sqr x)
-                            *t = Term::new(Unary(Sqr, take(x)));
-                        } else if y == y as i32 as f64 {
-                            // (Pow x y) => (Pown x y) if y ∈ i32
-                            *t = Term::new(Pown(take(x), y as i32));
+                    (_, Constant(y)) => {
+                        if let Some(y) = f64(y) {
+                            // Do not transform x^0 → 1 as that can discard the decoration (e.g. sqrt(x)^0).
+                            if y == -1.0 {
+                                // (Pow x -1) → (Recip x)
+                                *t = Term::new(Unary(Recip, take(x)));
+                            } else if y == 0.5 {
+                                // (Pow x 1/2) → (Sqrt x)
+                                *t = Term::new(Unary(Sqrt, take(x)));
+                            } else if y == 1.0 {
+                                // (Pow x 1) → x
+                                *t = take(x);
+                            } else if y == 2.0 {
+                                // (Pow x 2) → (Sqr x)
+                                *t = Term::new(Unary(Sqr, take(x)));
+                            } else if y == y as i32 as f64 {
+                                // (Pow x y) /; y ∈ i32 → (Pown x y)
+                                *t = Term::new(Pown(take(x), y as i32));
+                            }
                         }
                     }
+                    _ => (),
                 }
             }
             _ => (),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse::parse;
+
+    fn test_transform(input: &str, expected: &str) {
+        let mut f = parse(&format!("{} = 0", input)).unwrap();
+        FoldConstant.visit_form_mut(&mut f);
+        Transform.visit_form_mut(&mut f);
+        assert_eq!(
+            format!("{}", f.dump_structure()),
+            format!("(Eq {} {{...}})", expected)
+        );
+    }
+
+    #[test]
+    fn transform() {
+        test_transform("--x", "X");
+        test_transform("0 + x", "X");
+        test_transform("x + 0", "X");
+        test_transform("1 x", "X");
+        test_transform("x 1", "X");
+        test_transform("x x", "(Sqr X)");
+        test_transform("sin(x)/x", "(SinXOverX X)");
+        test_transform("x/sin(x)", "(Recip (SinXOverX X))");
+        test_transform("x/x", "(XOverX X)");
+        test_transform("2^x", "(Exp2 X)");
+        test_transform("10^x", "(Exp10 X)");
+        test_transform("x^-1", "(Recip X)"); // Needs constant folding
+        test_transform("x^0.5", "(Sqrt X)");
+        test_transform("x^1", "X");
+        test_transform("x^2", "(Sqr X)");
+        test_transform("x^3", "(Pown X 3)");
     }
 }
 
@@ -245,8 +297,7 @@ impl VisitMut for FoldConstant {
     }
 }
 
-/// Calls [`Term::update_metadata`]/[`Form::update_metadata`] on each term/formula
-/// in the topological order.
+/// Updates metadata of terms and formulas.
 pub struct UpdateMetadata;
 
 impl VisitMut for UpdateMetadata {

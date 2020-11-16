@@ -3,6 +3,7 @@ use bitflags::*;
 use std::{
     cell::Cell,
     collections::hash_map::DefaultHasher,
+    fmt,
     hash::{Hash, Hasher},
 };
 
@@ -109,6 +110,10 @@ impl Term {
         }
     }
 
+    pub fn dump_structure(&self) -> impl fmt::Display + '_ {
+        DumpTermStructure(self)
+    }
+
     /// Evaluates the term.
     ///
     /// Panics if the term contains a sub-term of kind [`TermKind::X`], [`TermKind::Y`]
@@ -208,6 +213,26 @@ impl Hash for Term {
     }
 }
 
+struct DumpTermStructure<'a>(&'a Term);
+
+impl<'a> fmt::Display for DumpTermStructure<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.0.kind {
+            TermKind::Constant(_) => write!(f, "{{...}}"),
+            TermKind::Unary(op, x) => write!(f, "({:?} {})", op, x.dump_structure()),
+            TermKind::Binary(op, x, y) => write!(
+                f,
+                "({:?} {} {})",
+                op,
+                x.dump_structure(),
+                y.dump_structure()
+            ),
+            TermKind::Pown(x, y) => write!(f, "(Pown {} {})", x.dump_structure(), y),
+            x => write!(f, "{:?}", x),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum FormKind {
     Atomic(RelOp, Box<Term>, Box<Term>),
@@ -230,6 +255,10 @@ impl Form {
             kind,
             internal_hash: 0,
         }
+    }
+
+    pub fn dump_structure(&self) -> impl fmt::Display + '_ {
+        DumpFormStructure(self)
     }
 
     /// Updates `internal_hash` field of `self`.
@@ -256,5 +285,23 @@ impl Eq for Form {}
 impl Hash for Form {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.kind.hash(state);
+    }
+}
+
+struct DumpFormStructure<'a>(&'a Form);
+
+impl<'a> fmt::Display for DumpFormStructure<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.0.kind {
+            FormKind::Atomic(op, x, y) => write!(
+                f,
+                "({:?} {} {})",
+                op,
+                x.dump_structure(),
+                y.dump_structure()
+            ),
+            FormKind::And(x, y) => write!(f, "(And {} {})", x.dump_structure(), y.dump_structure()),
+            FormKind::Or(x, y) => write!(f, "(Or {} {})", x.dump_structure(), y.dump_structure()),
+        }
     }
 }
