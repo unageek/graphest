@@ -92,7 +92,52 @@ fn traverse_form_mut<V: VisitMut>(v: &mut V, f: &mut Form) {
     };
 }
 
-type SiteMap = HashMap<TermId, Option<Site>>;
+/// Replaces a - b with a + (-b) and does some special transformations.
+pub struct PreTransform;
+
+impl VisitMut for PreTransform {
+    fn visit_term_mut(&mut self, t: &mut Term) {
+        use std::mem::take;
+        use {BinaryOp::*, TermKind::*, UnaryOp::*};
+        traverse_term_mut(self, t);
+
+        match &mut t.kind {
+            Binary(Sub, x, y) => {
+                // (Sub x y) → (Add x (Neg y))
+                *t = Term::new(Binary(
+                    Add,
+                    take(x),
+                    Box::new(Term::new(Unary(Neg, take(y)))),
+                ));
+            }
+            // Ad-hoc transformations mainly for demonstrational purposes.
+            Binary(Div, x, y) => {
+                match (&x.kind, &y.kind) {
+                    (Unary(Sin, x1), _) if x1 == y => {
+                        // (Div (Sin y) y) → (Sinc (UndefAt0 y))
+                        *t = Term::new(Unary(Sinc, Box::new(Term::new(Unary(UndefAt0, take(y))))));
+                    }
+                    (_, Unary(Sin, y1)) if y1 == x => {
+                        // (Div x (Sin x)) → (Recip (Sinc (UndefAt0 x)))
+                        *t = Term::new(Unary(
+                            Recip,
+                            Box::new(Term::new(Unary(
+                                Sinc,
+                                Box::new(Term::new(Unary(UndefAt0, take(x)))),
+                            ))),
+                        ));
+                    }
+                    _ if x == y => {
+                        // (Div x x) → (One (UndefAt0 x))
+                        *t = Term::new(Unary(One, Box::new(Term::new(Unary(UndefAt0, take(x))))));
+                    }
+                    _ => (),
+                };
+            }
+            _ => (),
+        }
+    }
+}
 
 /// Moves constants to left-hand sides of addition/multiplication.
 #[derive(Default)]
@@ -121,7 +166,7 @@ impl VisitMut for SortTerms {
     }
 }
 
-/// Transforms terms into more efficient forms.
+/// Transforms terms into simpler forms.
 #[derive(Default)]
 pub struct Transform {
     pub modified: bool,
@@ -148,10 +193,22 @@ impl VisitMut for Transform {
 
         match &mut t.kind {
             Unary(Neg, x) => {
-                if let Unary(Neg, x1) = &mut x.kind {
-                    // (Neg (Neg x1)) → x1
-                    *t = take(x1);
-                    self.modified = true;
+                match &mut x.kind {
+                    Unary(Neg, x1) => {
+                        // (Neg (Neg x1)) → x1
+                        *t = take(x1);
+                        self.modified = true;
+                    }
+                    Binary(Add, x1, x2) => {
+                        // (Neg (Add x1 x2)) → (Add (Neg x1) (Neg x2))
+                        *t = Term::new(Binary(
+                            Add,
+                            Box::new(Term::new(Unary(Neg, take(x1)))),
+                            Box::new(Term::new(Unary(Neg, take(x2)))),
+                        ));
+                        self.modified = true;
+                    }
+                    _ => (),
                 }
             }
             Binary(Add, x, y) => {
@@ -162,7 +219,6 @@ impl VisitMut for Transform {
                         self.modified = true;
                     }
                     (_, Binary(Add, y1, y2)) => {
-                        // For constant folding.
                         // (Add x (Add y1 y2)) → (Add (Add x y1) y2)
                         *t = Term::new(Binary(
                             Add,
@@ -175,14 +231,34 @@ impl VisitMut for Transform {
                 }
             }
             Binary(Mul, x, y) => {
-                match (&x.kind, &mut y.kind) {
+                match (&mut x.kind, &mut y.kind) {
                     (Constant(a), _) if f64(a) == Some(1.0) => {
                         // (Mul 1 y) → y
                         *t = take(y);
                         self.modified = true;
                     }
+                    (Constant(a), _) if f64(a) == Some(-1.0) => {
+                        // (Mul -1 y) → (Neg y)
+                        *t = Term::new(Unary(Neg, take(y)));
+                        self.modified = true;
+                    }
+                    (Unary(Neg, x), _) => {
+                        // (Mul (Neg x) y) → (Neg (Mul x y))
+                        *t = Term::new(Unary(
+                            Neg,
+                            Box::new(Term::new(Binary(Mul, take(x), take(y)))),
+                        ));
+                        self.modified = true;
+                    }
+                    (_, Unary(Neg, y)) => {
+                        // (Mul x (Neg y)) → (Neg (Mul x y))
+                        *t = Term::new(Unary(
+                            Neg,
+                            Box::new(Term::new(Binary(Mul, take(x), take(y)))),
+                        ));
+                        self.modified = true;
+                    }
                     (_, Binary(Mul, y1, y2)) => {
-                        // For constant folding.
                         // (Mul x (Mul y1 y2)) → (Mul (Mul x y1) y2)
                         *t = Term::new(Binary(
                             Mul,
@@ -190,79 +266,6 @@ impl VisitMut for Transform {
                             take(y2),
                         ));
                         self.modified = true;
-                    }
-                    _ => (),
-                }
-            }
-            Binary(Div, x, y) => {
-                match (&x.kind, &y.kind) {
-                    (Unary(Sin, x1), _) if x1 == y => {
-                        // (Div (Sin y) y) → (Sinc (UndefAt0 y))
-                        *t = Term::new(Unary(Sinc, Box::new(Term::new(Unary(UndefAt0, take(y))))));
-                        self.modified = true;
-                    }
-                    (_, Unary(Sin, y1)) if y1 == x => {
-                        // (Div x (Sin x)) → (Recip (Sinc (UndefAt0 x)))
-                        *t = Term::new(Unary(
-                            Recip,
-                            Box::new(Term::new(Unary(
-                                Sinc,
-                                Box::new(Term::new(Unary(UndefAt0, take(x)))),
-                            ))),
-                        ));
-                        self.modified = true;
-                    }
-                    _ if x == y => {
-                        // (Div x x) → (One (UndefAt0 x))
-                        *t = Term::new(Unary(One, Box::new(Term::new(Unary(UndefAt0, take(x))))));
-                        self.modified = true;
-                    }
-                    _ => (),
-                };
-            }
-            Binary(Pow, x, y) => {
-                match (&x.kind, &y.kind) {
-                    (Constant(a), _) => {
-                        if let Some(a) = f64(a) {
-                            if a == 2.0 {
-                                // (Pow 2 x) → (Exp2 x)
-                                *t = Term::new(Unary(Exp2, take(y)));
-                                self.modified = true;
-                            } else if a == 10.0 {
-                                // (Pow 10 x) → (Exp10 x)
-                                *t = Term::new(Unary(Exp10, take(y)));
-                                self.modified = true;
-                            }
-                        }
-                    }
-                    (_, Constant(a)) => {
-                        if let Some(a) = f64(a) {
-                            if a == -1.0 {
-                                // (Pow x -1) → (Recip x)
-                                *t = Term::new(Unary(Recip, take(x)));
-                                self.modified = true;
-                            } else if a == 0.0 {
-                                // (Pow x 0) → (One x)
-                                *t = Term::new(Unary(One, take(x)));
-                                self.modified = true;
-                            } else if a == 0.5 {
-                                // (Pow x 1/2) → (Sqrt x)
-                                *t = Term::new(Unary(Sqrt, take(x)));
-                                self.modified = true;
-                            } else if a == 1.0 {
-                                // (Pow x 1) → x
-                                *t = take(x);
-                                self.modified = true;
-                            } else if a == 2.0 {
-                                // (Pow x 2) → (Sqr x)
-                                *t = Term::new(Unary(Sqr, take(x)));
-                                self.modified = true;
-                            } else if a == a as i32 as f64 {
-                                // (Pow x a) /; a ∈ i32 → (Pown x a)
-                                *t = Term::new(Pown(take(x), a as i32));
-                                self.modified = true;
-                            }
-                        }
                     }
                     _ => (),
                 }
@@ -319,6 +322,57 @@ impl VisitMut for FoldConstant {
     }
 }
 
+/// Substitutes generic exponentiations with specialized functions.
+pub struct PostTransform;
+
+impl VisitMut for PostTransform {
+    fn visit_term_mut(&mut self, t: &mut Term) {
+        use std::mem::take;
+        use {BinaryOp::*, TermKind::*, UnaryOp::*};
+        traverse_term_mut(self, t);
+
+        if let Binary(Pow, x, y) = &mut t.kind {
+            match (&x.kind, &y.kind) {
+                (Constant(a), _) => {
+                    if let Some(a) = f64(a) {
+                        if a == 2.0 {
+                            // (Pow 2 x) → (Exp2 x)
+                            *t = Term::new(Unary(Exp2, take(y)));
+                        } else if a == 10.0 {
+                            // (Pow 10 x) → (Exp10 x)
+                            *t = Term::new(Unary(Exp10, take(y)));
+                        }
+                    }
+                }
+                (_, Constant(a)) => {
+                    if let Some(a) = f64(a) {
+                        if a == -1.0 {
+                            // (Pow x -1) → (Recip x)
+                            *t = Term::new(Unary(Recip, take(x)));
+                        } else if a == 0.0 {
+                            // (Pow x 0) → (One x)
+                            *t = Term::new(Unary(One, take(x)));
+                        } else if a == 0.5 {
+                            // (Pow x 1/2) → (Sqrt x)
+                            *t = Term::new(Unary(Sqrt, take(x)));
+                        } else if a == 1.0 {
+                            // (Pow x 1) → x
+                            *t = take(x);
+                        } else if a == 2.0 {
+                            // (Pow x 2) → (Sqr x)
+                            *t = Term::new(Unary(Sqr, take(x)));
+                        } else if a == a as i32 as f64 {
+                            // (Pow x a) /; a ∈ i32 → (Pown x a)
+                            *t = Term::new(Pown(take(x), a as i32));
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+}
+
 /// Updates metadata of terms and formulas.
 pub struct UpdateMetadata;
 
@@ -333,6 +387,8 @@ impl VisitMut for UpdateMetadata {
         f.update_metadata();
     }
 }
+
+type SiteMap = HashMap<TermId, Option<Site>>;
 
 /// Assigns [`TermId`]s to all of the terms, and assigns [`FormId`]s to the atomic formulas
 /// so that they serve as indices in [`EvalResult`][`crate::eval_result::EvalResult`].
@@ -585,6 +641,23 @@ mod tests {
     use super::*;
     use crate::parse::parse;
 
+    fn test_pre_transform(input: &str, expected: &str) {
+        let mut f = parse(&format!("{} = 0", input)).unwrap();
+        PreTransform.visit_form_mut(&mut f);
+        assert_eq!(
+            format!("{}", f.dump_structure()),
+            format!("(Eq {} {{...}})", expected)
+        );
+    }
+
+    #[test]
+    fn pre_transform() {
+        test_pre_transform("x - y", "(Add X (Neg Y))");
+        test_pre_transform("sin(x)/x", "(Sinc (UndefAt0 X))");
+        test_pre_transform("x/sin(x)", "(Recip (Sinc (UndefAt0 X)))");
+        test_pre_transform("x/x", "(One (UndefAt0 X))");
+    }
+
     fn test_sort_terms(input: &str, expected: &str) {
         let mut f = parse(&format!("{} = 0", input)).unwrap();
         SortTerms::default().visit_form_mut(&mut f);
@@ -615,20 +688,35 @@ mod tests {
     #[test]
     fn transform() {
         test_transform("--x", "X");
+        test_transform("-(x + y)", "(Add (Neg X) (Neg Y))");
         test_transform("0 + x", "X");
         test_transform("1 + (x + y)", "(Add (Add {...} X) Y)");
         test_transform("1 x", "X");
+        test_transform("-1 x", "(Neg X)"); // Needs constant folding
+        test_transform("(-x) y", "(Neg (Mul X Y))");
+        test_transform("x (-y)", "(Neg (Mul X Y))");
         test_transform("2 (x y)", "(Mul (Mul {...} X) Y)");
-        test_transform("sin(x)/x", "(Sinc (UndefAt0 X))");
-        test_transform("x/sin(x)", "(Recip (Sinc (UndefAt0 X)))");
-        test_transform("x/x", "(One (UndefAt0 X))");
-        test_transform("2^x", "(Exp2 X)");
-        test_transform("10^x", "(Exp10 X)");
-        test_transform("x^-1", "(Recip X)"); // Needs constant folding
-        test_transform("x^0", "(One X)");
-        test_transform("x^0.5", "(Sqrt X)");
-        test_transform("x^1", "X");
-        test_transform("x^2", "(Sqr X)");
-        test_transform("x^3", "(Pown X 3)");
+    }
+
+    fn test_post_transform(input: &str, expected: &str) {
+        let mut f = parse(&format!("{} = 0", input)).unwrap();
+        FoldConstant::default().visit_form_mut(&mut f);
+        PostTransform.visit_form_mut(&mut f);
+        assert_eq!(
+            format!("{}", f.dump_structure()),
+            format!("(Eq {} {{...}})", expected)
+        );
+    }
+
+    #[test]
+    fn post_transform() {
+        test_post_transform("2^x", "(Exp2 X)");
+        test_post_transform("10^x", "(Exp10 X)");
+        test_post_transform("x^-1", "(Recip X)"); // Needs constant folding
+        test_post_transform("x^0", "(One X)");
+        test_post_transform("x^0.5", "(Sqrt X)");
+        test_post_transform("x^1", "X");
+        test_post_transform("x^2", "(Sqr X)");
+        test_post_transform("x^3", "(Pown X 3)");
     }
 }

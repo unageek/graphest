@@ -284,6 +284,7 @@ impl FromStr for DynRelation {
 
     fn from_str(s: &str) -> Result<Self, String> {
         let mut form = parse(s)?;
+        PreTransform.visit_form_mut(&mut form);
         loop {
             let mut s = SortTerms::default();
             s.visit_form_mut(&mut form);
@@ -295,6 +296,7 @@ impl FromStr for DynRelation {
                 break;
             }
         }
+        PostTransform.visit_form_mut(&mut form);
         UpdateMetadata.visit_form_mut(&mut form);
         let mut v = AssignIdStage1::new();
         v.visit_form(&form);
