@@ -248,6 +248,18 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
+    // f(x) = 1.
+    pub fn one(&self) -> Self {
+        let mut rs = Self::empty();
+        for x in self {
+            rs.insert(TupperInterval::new(
+                DecInterval::set_dec(const_interval!(1.0, 1.0), x.d),
+                x.g,
+            ));
+        }
+        rs.normalize()
+    }
+
     /// Returns the parity of the function f(x) = x^y.
     ///
     /// Precondition: y is neither ±∞ nor NaN.
@@ -268,14 +280,14 @@ impl TupperIntervalSet {
     }
 
     // - For any integer m and positive odd integer n, we define
-    //     x^(m / n) = surd(x, n)^m,
+    //     x^(m/n) = surd(x, n)^m,
     //   where surd(x, n) is the real-valued nth root of x.
     //   Therefore, for x < 0,
-    //           | (-x)^y     if y = even / odd
+    //           | (-x)^y     if y = (even)/(odd)
     //           |            (x^y is an even function of x),
-    //     x^y = | -(-x)^y    if y = odd / odd
+    //     x^y = | -(-x)^y    if y = (odd)/(odd)
     //           |            (x^y is an odd function of x),
-    //           | undefined  otherwise (y = odd / even or irrational).
+    //           | undefined  otherwise (y = (odd)/(even) or irrational).
     // - We define 0^0 = 1.
     // The original `Interval::pow` is not defined for x < 0 nor x = y = 0.
     #[allow(clippy::many_single_char_names)]
@@ -470,37 +482,28 @@ impl TupperIntervalSet {
             .min(&y)
     }
 
-    // Like the (unnormalized) sinc function, but undefined for 0.
-    // Less precise for an interval near zero but does not contain zero.
-    pub fn sin_x_over_x(&self) -> Self {
+    // f(x) = | sin(x)/x  if x ≠ 0,
+    //        | 1         otherwise.
+    pub fn sinc(&self) -> Self {
+        // argmin_{x ∈ ℝ} sinc(x), rounded down.
         const ARGMIN_RD: f64 = hexf64!("0x4.7e50150d41abp+0");
+        // min_{x ∈ ℝ} sinc(x), rounded down.
         const MIN_RD: f64 = hexf64!("-0x3.79c9f80c234ecp-4");
         let mut rs = Self::empty();
         for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
             if a <= 0.0 && b >= 0.0 {
-                let yn = if a < 0.0 {
-                    if -a < ARGMIN_RD {
-                        let x = interval!(a, a).unwrap();
-                        interval!((x.sin() / x).inf(), 1.0).unwrap()
-                    } else {
-                        interval!(MIN_RD, 1.0).unwrap()
-                    }
+                let b2 = (-a).max(b);
+                let y = if b2 <= ARGMIN_RD {
+                    let x2 = interval!(b2, b2).unwrap();
+                    DecInterval::set_dec(
+                        interval!((x2.sin() / x2).inf().max(MIN_RD).min(1.0), 1.0).unwrap(),
+                        x.d,
+                    )
                 } else {
-                    Interval::EMPTY
+                    DecInterval::set_dec(interval!(MIN_RD, 1.0).unwrap(), x.d)
                 };
-                let yp = if b > 0.0 {
-                    if b < ARGMIN_RD {
-                        let x = interval!(b, b).unwrap();
-                        interval!((x.sin() / x).inf(), 1.0).unwrap()
-                    } else {
-                        interval!(MIN_RD, 1.0).unwrap()
-                    }
-                } else {
-                    Interval::EMPTY
-                };
-                let y = DecInterval::set_dec(yn.convex_hull(yp), Decoration::Trv);
                 rs.insert(TupperInterval::new(y, x.g));
             } else {
                 rs.insert(TupperInterval::new(
@@ -559,20 +562,23 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
-    pub fn x_over_x(&self) -> Self {
+    // f(x) = | x          if x ≠ 0,
+    //        | undefined  otherwise.
+    pub fn undef_at_0(&self) -> Self {
         let mut rs = Self::empty();
         for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
-            if a == 0.0 && b == 0.0 {
-                // empty
-            } else if a <= 0.0 && b >= 0.0 {
-                rs.insert(TupperInterval::new(
-                    DecInterval::set_dec(const_interval!(1.0, 1.0), Decoration::Trv),
-                    x.g,
-                ));
+            if a <= 0.0 && b >= 0.0 {
+                if a < b {
+                    // x ≠ {0}.
+                    rs.insert(TupperInterval::new(
+                        DecInterval::set_dec(x.x, Decoration::Trv),
+                        x.g,
+                    ));
+                }
             } else {
-                rs.insert(TupperInterval::new(const_dec_interval!(1.0, 1.0), x.g));
+                rs.insert(*x);
             }
         }
         rs.normalize()

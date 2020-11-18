@@ -148,9 +148,9 @@ impl VisitMut for Transform {
 
         match &mut t.kind {
             Unary(Neg, x) => {
-                if let Unary(Neg, x) = &mut x.kind {
-                    // (Neg (Neg x)) → x
-                    *t = take(x);
+                if let Unary(Neg, x1) = &mut x.kind {
+                    // (Neg (Neg x1)) → x1
+                    *t = take(x1);
                     self.modified = true;
                 }
             }
@@ -197,19 +197,24 @@ impl VisitMut for Transform {
             Binary(Div, x, y) => {
                 match (&x.kind, &y.kind) {
                     (Unary(Sin, x1), _) if x1 == y => {
-                        // (Div (Sin y) y) → (SinXOverX y)
-                        *t = Term::new(Unary(SinXOverX, take(y)));
+                        // (Div (Sin y) y) → (Sinc (UndefAt0 y))
+                        *t = Term::new(Unary(Sinc, Box::new(Term::new(Unary(UndefAt0, take(y))))));
                         self.modified = true;
                     }
                     (_, Unary(Sin, y1)) if y1 == x => {
-                        // (Div x (Sin x)) → (Recip (SinXOverX x))
-                        *t =
-                            Term::new(Unary(Recip, Box::new(Term::new(Unary(SinXOverX, take(x))))));
+                        // (Div x (Sin x)) → (Recip (Sinc (UndefAt0 x)))
+                        *t = Term::new(Unary(
+                            Recip,
+                            Box::new(Term::new(Unary(
+                                Sinc,
+                                Box::new(Term::new(Unary(UndefAt0, take(x)))),
+                            ))),
+                        ));
                         self.modified = true;
                     }
                     _ if x == y => {
-                        // (Div x x) → (XOverX x)
-                        *t = Term::new(Unary(XOverX, take(x)));
+                        // (Div x x) → (One (UndefAt0 x))
+                        *t = Term::new(Unary(One, Box::new(Term::new(Unary(UndefAt0, take(x))))));
                         self.modified = true;
                     }
                     _ => (),
@@ -232,10 +237,13 @@ impl VisitMut for Transform {
                     }
                     (_, Constant(a)) => {
                         if let Some(a) = f64(a) {
-                            // Do not transform x^0 → 1 as that can discard the decoration (e.g. sqrt(x)^0).
                             if a == -1.0 {
                                 // (Pow x -1) → (Recip x)
                                 *t = Term::new(Unary(Recip, take(x)));
+                                self.modified = true;
+                            } else if a == 0.0 {
+                                // (Pow x 0) → (One x)
+                                *t = Term::new(Unary(One, take(x)));
                                 self.modified = true;
                             } else if a == 0.5 {
                                 // (Pow x 1/2) → (Sqrt x)
@@ -611,12 +619,13 @@ mod tests {
         test_transform("1 + (x + y)", "(Add (Add {...} X) Y)");
         test_transform("1 x", "X");
         test_transform("2 (x y)", "(Mul (Mul {...} X) Y)");
-        test_transform("sin(x)/x", "(SinXOverX X)");
-        test_transform("x/sin(x)", "(Recip (SinXOverX X))");
-        test_transform("x/x", "(XOverX X)");
+        test_transform("sin(x)/x", "(Sinc (UndefAt0 X))");
+        test_transform("x/sin(x)", "(Recip (Sinc (UndefAt0 X)))");
+        test_transform("x/x", "(One (UndefAt0 X))");
         test_transform("2^x", "(Exp2 X)");
         test_transform("10^x", "(Exp10 X)");
         test_transform("x^-1", "(Recip X)"); // Needs constant folding
+        test_transform("x^0", "(One X)");
         test_transform("x^0.5", "(Sqrt X)");
         test_transform("x^1", "X");
         test_transform("x^2", "(Sqr X)");
