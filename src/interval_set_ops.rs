@@ -1,5 +1,4 @@
 use crate::interval_set::{Branch, DecSignSet, SignSet, Site, TupperInterval, TupperIntervalSet};
-use hexf::*;
 use inari::{const_dec_interval, const_interval, interval, DecInterval, Decoration, Interval};
 use std::{
     convert::From,
@@ -404,8 +403,8 @@ impl TupperIntervalSet {
                         let z = x.to_dec_interval().pow(y.to_dec_interval());
                         rs.insert(TupperInterval::new(
                             DecInterval::set_dec(
-                                z.interval_part().unwrap().convex_hull(one_or_empty),
-                                z.decoration_part(),
+                                z.interval().unwrap().convex_hull(one_or_empty),
+                                z.decoration(),
                             ),
                             g,
                         ));
@@ -486,9 +485,9 @@ impl TupperIntervalSet {
     //        | 1         otherwise.
     pub fn sinc(&self) -> Self {
         // argmin_{x ∈ ℝ} sinc(x), rounded down.
-        const ARGMIN_RD: f64 = hexf64!("0x4.7e50150d41abp+0");
+        const ARGMIN_RD: f64 = 4.493409457909063;
         // min_{x ∈ ℝ} sinc(x), rounded down.
-        const MIN_RD: f64 = hexf64!("-0x3.79c9f80c234ecp-4");
+        const MIN_RD: f64 = -0.21723362821122166;
         let mut rs = Self::empty();
         for x in self {
             let a = x.x.inf();
@@ -615,7 +614,7 @@ impl TupperIntervalSet {
     // integer
     impl_integer_op!(ceil);
     impl_integer_op!(floor);
-    impl_integer_op!(round_ties_to_away);
+    impl_integer_op!(round);
     impl_integer_op!(round_ties_to_even);
     impl_integer_op!(sign);
     impl_integer_op!(trunc);

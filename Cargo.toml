@@ -11,10 +11,9 @@ lto = true
 
 [dependencies]
 bitflags = "1.2"
-hexf = "0.1"
-inari = "0.7"
+inari = "0.8"
 nom = "6.0"
-smallvec = "1.4"
+smallvec = "1.5"
 static_assertions = "1.1"
 
 [dependencies.clap]

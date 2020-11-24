@@ -178,7 +178,7 @@ fn f64(x: &TupperIntervalSet) -> Option<f64> {
     }
 
     let x = x.iter().next().unwrap().to_dec_interval();
-    if x.is_singleton() && x.decoration_part() >= Decoration::Dac {
+    if x.is_singleton() && x.decoration() >= Decoration::Dac {
         Some(x.inf())
     } else {
         None
