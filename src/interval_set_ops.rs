@@ -1,5 +1,7 @@
 use crate::interval_set::{Branch, DecSignSet, SignSet, Site, TupperInterval, TupperIntervalSet};
+use gmp_mpfr_sys::mpfr;
 use inari::{const_dec_interval, const_interval, interval, DecInterval, Decoration, Interval};
+use rug::Float;
 use std::{
     convert::From,
     ops::{Add, Mul, Neg, Sub},
@@ -218,6 +220,69 @@ impl TupperIntervalSet {
                         ));
                     }
                 }
+            }
+        }
+        rs.normalize()
+    }
+
+    pub fn gamma(&self, site: Option<Site>) -> Self {
+        // argmin_{x > 0} Γ(x), rounded down/up.
+        const ARGMIN_RD: f64 = 1.4616321449683622;
+        const ARGMIN_RU: f64 = 1.4616321449683625;
+        // min_{x > 0} Γ(x), rounded down.
+        const MIN_RD: f64 = 0.8856031944108886;
+        let mut rs = Self::empty();
+        for x in self {
+            let mut a = x.x.inf();
+            let b = x.x.sup();
+            if a == 0.0 && b == 0.0 {
+                // empty.
+            } else if a >= 0.0 {
+                let dec = if a == 0.0 { Decoration::Trv } else { x.d };
+
+                if a == 0.0 {
+                    // gamma_rd/ru(±0.0) returns ±∞.
+                    a = 0.0;
+                }
+
+                let y = if b <= ARGMIN_RD {
+                    // b < x0, where x0 = argmin_{x > 0} Γ(x).
+                    interval!(gamma_rd(b), gamma_rd(a)).unwrap()
+                } else if a >= ARGMIN_RU {
+                    // x0 < a.
+                    interval!(gamma_rd(a), gamma_rd(b)).unwrap()
+                } else {
+                    // a < x0 < b.
+                    interval!(MIN_RD, gamma_ru(a).max(gamma_ru(b))).unwrap()
+                };
+                rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
+            } else if b <= 0.0 {
+                // Γ(x) = π / (sin(π x) Γ(1 - x)).
+                let one = TupperIntervalSet::from(const_dec_interval!(1.0, 1.0));
+                let pi = TupperIntervalSet::from(DecInterval::PI);
+                let mut xs = Self::empty();
+                xs.insert(*x);
+                rs = pi.div(&(&(&pi * &xs).sin() * &(&one - &xs).gamma(None)), site);
+            } else {
+                // a < 0 < b.
+                let dec = Decoration::Trv;
+
+                let mut xs = Self::empty();
+                xs.insert(TupperInterval::new(
+                    DecInterval::set_dec(interval!(a, 0.0).unwrap(), dec),
+                    match site {
+                        Some(site) => x.g.inserted(site, Branch::new(0)),
+                        _ => x.g,
+                    },
+                ));
+                xs.insert(TupperInterval::new(
+                    DecInterval::set_dec(interval!(0.0, b).unwrap(), dec),
+                    match site {
+                        Some(site) => x.g.inserted(site, Branch::new(1)),
+                        _ => x.g,
+                    },
+                ));
+                rs = xs.gamma(None);
             }
         }
         rs.normalize()
@@ -484,9 +549,9 @@ impl TupperIntervalSet {
     // f(x) = | sin(x)/x  if x ≠ 0,
     //        | 1         otherwise.
     pub fn sinc(&self) -> Self {
-        // argmin_{x ∈ ℝ} sinc(x), rounded down.
+        // argmin_{x > 0} sinc(x), rounded down.
         const ARGMIN_RD: f64 = 4.493409457909063;
-        // min_{x ∈ ℝ} sinc(x), rounded down.
+        // min_{x > 0} sinc(x), rounded down.
         const MIN_RD: f64 = -0.21723362821122166;
         let mut rs = Self::empty();
         for x in self {
@@ -659,3 +724,31 @@ impl TupperIntervalSet {
     impl_rel_op!(le, SignSet::ZERO, SignSet::ZERO, SignSet::POS);
     impl_rel_op!(lt, SignSet::ZERO, SignSet::POS, SignSet::POS);
 }
+
+// Copy-paste from inari/src/elementary.rs
+
+fn mpfr_fn(
+    f: unsafe extern "C" fn(*mut mpfr::mpfr_t, *const mpfr::mpfr_t, mpfr::rnd_t) -> i32,
+    x: f64,
+    rnd: mpfr::rnd_t,
+) -> f64 {
+    let mut x = Float::with_val(f64::MANTISSA_DIGITS, x);
+    unsafe {
+        f(x.as_raw_mut(), x.as_raw(), rnd);
+        mpfr::get_d(x.as_raw(), rnd)
+    }
+}
+
+macro_rules! mpfr_fn {
+    ($mpfr_f:ident, $f_rd:ident, $f_ru:ident) => {
+        fn $f_rd(x: f64) -> f64 {
+            mpfr_fn(mpfr::$mpfr_f, x, mpfr::rnd_t::RNDD)
+        }
+
+        fn $f_ru(x: f64) -> f64 {
+            mpfr_fn(mpfr::$mpfr_f, x, mpfr::rnd_t::RNDU)
+        }
+    };
+}
+
+mpfr_fn!(gamma, gamma_rd, gamma_ru);

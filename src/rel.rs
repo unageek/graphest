@@ -43,6 +43,7 @@ impl StaticTerm {
             Unary(Exp10, x) => ts[*x as usize].exp10(),
             Unary(Exp2, x) => ts[*x as usize].exp2(),
             Unary(Floor, x) => ts[*x as usize].floor(self.site),
+            Unary(Gamma, x) => ts[*x as usize].gamma(self.site),
             Unary(Ln, x) => ts[*x as usize].ln(),
             Unary(Log10, x) => ts[*x as usize].log10(),
             Unary(Neg, x) => -&ts[*x as usize],

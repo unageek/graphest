@@ -94,6 +94,8 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
         value(UnaryOp::Cosh, keyword("cosh")),
         value(UnaryOp::Exp, keyword("exp")),
         value(UnaryOp::Floor, keyword("floor")),
+        value(UnaryOp::Gamma, keyword("Gamma")),
+        value(UnaryOp::Gamma, keyword("Γ")),
         value(UnaryOp::Ln, keyword("ln")),
         value(UnaryOp::Log10, keyword("log")),
         value(UnaryOp::Sign, keyword("sign")),

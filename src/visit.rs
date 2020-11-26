@@ -419,6 +419,7 @@ impl<'a> AssignIdStage1<'a> {
         matches!(kind,
             Unary(Ceil, _)
             | Unary(Floor, _)
+            | Unary(Gamma, _)
             | Unary(Recip, _)
             | Unary(Sign, _)
             | Unary(Tan, _)
