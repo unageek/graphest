@@ -247,10 +247,10 @@ impl TupperIntervalSet {
 
                 let y = if b <= ARGMIN_RD {
                     // b < x0, where x0 = argmin_{x > 0} Γ(x).
-                    interval!(gamma_rd(b), gamma_rd(a)).unwrap()
+                    interval!(gamma_rd(b), gamma_ru(a)).unwrap()
                 } else if a >= ARGMIN_RU {
                     // x0 < a.
-                    interval!(gamma_rd(a), gamma_rd(b)).unwrap()
+                    interval!(gamma_rd(a), gamma_ru(b)).unwrap()
                 } else {
                     // a < x0 < b.
                     interval!(MIN_RD, gamma_ru(a).max(gamma_ru(b))).unwrap()
