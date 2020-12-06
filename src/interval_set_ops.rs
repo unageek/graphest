@@ -46,69 +46,6 @@ impl_arith_op!(Add, add);
 impl_arith_op!(Sub, sub);
 impl_arith_op!(Mul, mul);
 
-macro_rules! impl_no_cut_op {
-    ($op:ident) => {
-        pub fn $op(&self) -> Self {
-            let mut rs = Self::empty();
-            for x in self {
-                rs.insert(TupperInterval::new(x.to_dec_interval().$op(), x.g));
-            }
-            rs.normalize()
-        }
-    };
-}
-
-macro_rules! impl_no_cut_op2 {
-    ($op:ident) => {
-        pub fn $op(&self, rhs: &Self) -> Self {
-            let mut rs = Self::empty();
-            for x in self {
-                for y in rhs {
-                    if let Some(g) = x.g.union(y.g) {
-                        rs.insert(TupperInterval::new(
-                            x.to_dec_interval().$op(y.to_dec_interval()),
-                            g,
-                        ));
-                    }
-                }
-            }
-            rs.normalize()
-        }
-    };
-}
-
-macro_rules! impl_integer_op {
-    ($op:ident) => {
-        pub fn $op(&self, site: Option<Site>) -> Self {
-            let mut rs = Self::empty();
-            for x in self {
-                let y = TupperInterval::new(x.to_dec_interval().$op(), x.g);
-                let a = y.x.inf();
-                let b = y.x.sup();
-                if b - a == 1.0 {
-                    rs.insert(TupperInterval::new(
-                        DecInterval::set_dec(interval!(a, a).unwrap(), y.d),
-                        match site {
-                            Some(site) => y.g.inserted(site, Branch::new(0)),
-                            _ => y.g,
-                        },
-                    ));
-                    rs.insert(TupperInterval::new(
-                        DecInterval::set_dec(interval!(b, b).unwrap(), y.d),
-                        match site {
-                            Some(site) => y.g.inserted(site, Branch::new(1)),
-                            _ => y.g,
-                        },
-                    ));
-                } else {
-                    rs.insert(y);
-                }
-            }
-            rs.normalize()
-        }
-    };
-}
-
 /// The parity of a function.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Parity {
@@ -223,6 +160,34 @@ impl TupperIntervalSet {
             }
         }
         rs.normalize()
+    }
+
+    #[cfg(not(feature = "arb"))]
+    pub fn erf(&self) -> Self {
+        let mut rs = Self::empty();
+        for x in self {
+            let a = x.x.inf();
+            let b = x.x.sup();
+            rs.insert(TupperInterval::new(
+                DecInterval::set_dec(interval!(erf_rd(a), erf_ru(b)).unwrap(), x.d),
+                x.g,
+            ));
+        }
+        rs
+    }
+
+    #[cfg(not(feature = "arb"))]
+    pub fn erfc(&self) -> Self {
+        let mut rs = Self::empty();
+        for x in self {
+            let a = x.x.inf();
+            let b = x.x.sup();
+            rs.insert(TupperInterval::new(
+                DecInterval::set_dec(interval!(erfc_rd(b), erfc_ru(a)).unwrap(), x.d),
+                x.g,
+            ));
+        }
+        rs
     }
 
     pub fn gamma(&self, site: Option<Site>) -> Self {
@@ -548,6 +513,7 @@ impl TupperIntervalSet {
 
     // f(x) = | sin(x)/x  if x ≠ 0,
     //        | 1         otherwise.
+    #[cfg(not(feature = "arb"))]
     pub fn sinc(&self) -> Self {
         // argmin_{x > 0} sinc(x), rounded down.
         const ARGMIN_RD: f64 = 4.493409457909063;
@@ -647,7 +613,99 @@ impl TupperIntervalSet {
         }
         rs.normalize()
     }
+}
 
+macro_rules! impl_no_cut_op {
+    ($op:ident) => {
+        pub fn $op(&self) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                rs.insert(TupperInterval::new(x.to_dec_interval().$op(), x.g));
+            }
+            rs.normalize()
+        }
+    };
+}
+
+macro_rules! impl_no_cut_op2 {
+    ($op:ident) => {
+        pub fn $op(&self, rhs: &Self) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                for y in rhs {
+                    if let Some(g) = x.g.union(y.g) {
+                        rs.insert(TupperInterval::new(
+                            x.to_dec_interval().$op(y.to_dec_interval()),
+                            g,
+                        ));
+                    }
+                }
+            }
+            rs.normalize()
+        }
+    };
+}
+
+macro_rules! impl_integer_op {
+    ($op:ident) => {
+        pub fn $op(&self, site: Option<Site>) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                let y = TupperInterval::new(x.to_dec_interval().$op(), x.g);
+                let a = y.x.inf();
+                let b = y.x.sup();
+                if b - a == 1.0 {
+                    rs.insert(TupperInterval::new(
+                        DecInterval::set_dec(interval!(a, a).unwrap(), y.d),
+                        match site {
+                            Some(site) => y.g.inserted(site, Branch::new(0)),
+                            _ => y.g,
+                        },
+                    ));
+                    rs.insert(TupperInterval::new(
+                        DecInterval::set_dec(interval!(b, b).unwrap(), y.d),
+                        match site {
+                            Some(site) => y.g.inserted(site, Branch::new(1)),
+                            _ => y.g,
+                        },
+                    ));
+                } else {
+                    rs.insert(y);
+                }
+            }
+            rs.normalize()
+        }
+    };
+}
+
+#[cfg(not(feature = "arb"))]
+macro_rules! requires_arb {
+    ($op:ident) => {
+        pub fn $op(&self) -> Self {
+            panic!("some of the functions are only available when the `arb` feature is enabled")
+        }
+    };
+}
+
+macro_rules! impl_arb_op {
+    ($op:ident, $arb_op:ident) => {
+        #[cfg(feature = "arb")]
+        pub fn $op(&self) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                if !x.x.is_empty() {
+                    rs.insert(TupperInterval::new(
+                        DecInterval::set_dec($arb_op(x.x), x.d),
+                        x.g,
+                    ));
+                }
+            }
+            rs.normalize()
+        }
+    };
+}
+
+impl TupperIntervalSet {
     // absmax
     impl_no_cut_op!(abs);
     impl_no_cut_op2!(max);
@@ -664,6 +722,7 @@ impl TupperIntervalSet {
     impl_no_cut_op!(asinh);
     impl_no_cut_op!(atan);
     impl_no_cut_op!(atanh);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(cos);
     impl_no_cut_op!(cosh);
     impl_no_cut_op!(exp);
@@ -672,6 +731,7 @@ impl TupperIntervalSet {
     impl_no_cut_op!(ln);
     impl_no_cut_op!(log10);
     impl_no_cut_op!(log2);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(sin);
     impl_no_cut_op!(sinh);
     impl_no_cut_op!(tanh);
@@ -683,6 +743,21 @@ impl TupperIntervalSet {
     impl_integer_op!(round_ties_to_even);
     impl_integer_op!(sign);
     impl_integer_op!(trunc);
+
+    #[cfg(not(feature = "arb"))]
+    requires_arb!(fresnel_c);
+    #[cfg(not(feature = "arb"))]
+    requires_arb!(fresnel_s);
+
+    // Use Arb for bounded functions for the moment,
+    // since half-bounded intervals cannot be represented by mid-rad IA that Arb uses.
+    impl_arb_op!(cos, arb_cos);
+    impl_arb_op!(erf, arb_erf);
+    impl_arb_op!(erfc, arb_erfc);
+    impl_arb_op!(fresnel_c, arb_fresnel_c);
+    impl_arb_op!(fresnel_s, arb_fresnel_s);
+    impl_arb_op!(sin, arb_sin);
+    impl_arb_op!(sinc, arb_sinc);
 }
 
 macro_rules! impl_rel_op {
@@ -751,4 +826,34 @@ macro_rules! mpfr_fn {
     };
 }
 
+#[cfg(not(feature = "arb"))]
+mpfr_fn!(erf, erf_rd, erf_ru);
+#[cfg(not(feature = "arb"))]
+mpfr_fn!(erfc, erfc_rd, erfc_ru);
 mpfr_fn!(gamma, gamma_rd, gamma_ru);
+
+macro_rules! arb_fn {
+    ($f:ident($x:ident $(,$y:ident)*), $arb_f:ident($($args:expr),*)) => {
+        #[cfg(feature = "arb")]
+        fn $f($x: Interval, $($y: Interval,)*) -> Interval {
+            let mut $x = crate::arb::Arb::from_interval($x);
+            $(let mut $y = crate::arb::Arb::from_interval($y);)*
+            unsafe {
+                #[allow(unused_imports)]
+                use std::ptr::null_mut as null;
+                let $x = $x.as_raw_mut();
+                $(let $y = $y.as_raw_mut();)*
+                crate::arb_sys::$arb_f($($args,)* f64::MANTISSA_DIGITS.into());
+            }
+            $x.to_interval()
+        }
+    };
+}
+
+arb_fn!(arb_cos(x), arb_cos(x, x));
+arb_fn!(arb_erf(x), arb_hypgeom_erf(x, x));
+arb_fn!(arb_erfc(x), arb_hypgeom_erfc(x, x));
+arb_fn!(arb_fresnel_c(x), arb_hypgeom_fresnel(null(), x, x, 1));
+arb_fn!(arb_fresnel_s(x), arb_hypgeom_fresnel(x, null(), x, 1));
+arb_fn!(arb_sin(x), arb_sin(x, x));
+arb_fn!(arb_sinc(x), arb_sinc(x, x));

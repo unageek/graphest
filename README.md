@@ -100,6 +100,8 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `acosh(x)`                             | cosh<sup>−1</sup> *x*                                        | Undefined for *x* < 1.<br />The range is [0, ∞).             |
 | `atanh(x)`                             | tanh<sup>−1</sup> *x*                                        | Undefined for *x* ≤ −1 and *x* ≥ 1.                          |
 | `Gamma(x)`<br />`Γ(x)`                 | Γ(*x*)                                                       | The [gamma function](https://en.wikipedia.org/wiki/Gamma_function).<br />Undefined for *x* = 0, −1, −2, … |
+| `erf(x)`                               | erf(*x*)                                                     | The [error function](https://en.wikipedia.org/wiki/Error_function) and the complementary error function. |
+| `erfc(x)`                              | erfc(*x*)                                                    | The [complementary error function](https://en.wikipedia.org/wiki/Error_function). |
 | `\|x\|`                                | \|*x*\|                                                      |                                                              |
 | `min(x, y)`                            | min {*x*, *y*}                                               |                                                              |
 | `max(x, y)`                            | max {*x*, *y*}                                               |                                                              |

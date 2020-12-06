@@ -1,5 +1,9 @@
 #![allow(clippy::float_cmp)]
 
+#[cfg(feature = "arb")]
+mod arb;
+#[cfg(feature = "arb")]
+mod arb_sys;
 mod ast;
 mod dyn_relation;
 mod eval_result;

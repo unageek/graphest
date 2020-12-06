@@ -9,6 +9,10 @@ publish = false
 [profile.release]
 lto = true
 
+[features]
+default = []
+arb = []
+
 [dependencies]
 bitflags = "1.2"
 inari = "0.8"
@@ -35,3 +39,6 @@ features = ["png"]
 version = "1.11"
 default-features = false
 features = ["float"]
+
+[build-dependencies]
+bindgen = "*"
