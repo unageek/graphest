@@ -438,7 +438,12 @@ impl Graph {
     /// Returns `Ok(true)`/`Ok(false)` if graphing is complete/incomplete after refinement.
     pub fn refine(&mut self, timeout: Duration) -> Result<bool, GraphingError> {
         let now = Instant::now();
+        let result = self.refine_impl(timeout, &now);
+        self.stats.time_elapsed += now.elapsed();
+        result
+    }
 
+    fn refine_impl(&mut self, timeout: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = Vec::<ImageBlock>::new();
         // The blocks are queued in the Morton order. Thus, the cache should work effectively.
         let mut cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
@@ -478,7 +483,6 @@ impl Graph {
             }
         }
 
-        self.stats.time_elapsed += now.elapsed();
         Ok(self.bs_to_subdivide.is_empty())
     }
 
