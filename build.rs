@@ -1,4 +1,3 @@
-use bindgen;
 use std::{
     env::var_os,
     ffi::OsString,
