@@ -114,7 +114,7 @@ mod tests {
     use inari::{const_interval, Interval};
 
     #[test]
-    fn inclusion() {
+    fn inclusion_property() {
         let xs = [
             Interval::EMPTY,
             const_interval!(1.0, 1.0),
