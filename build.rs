@@ -35,7 +35,12 @@ fn main() {
         makeflags: var_os("CARGO_MAKEFLAGS").unwrap(),
         out_dir: out_dir.clone(),
     };
-    create_dir_all(&env.build_dir).unwrap();
+    create_dir_all(&env.build_dir).unwrap_or_else(|_| {
+        panic!(
+            "failed to create a directory: {}",
+            env.build_dir.to_string_lossy()
+        )
+    });
 
     build_flint(&env);
     build_arb(&env);
@@ -151,7 +156,8 @@ fn build_arb(env: &Environment) {
 }
 
 fn run_bindgen(env: &Environment) {
-    if env.out_dir.join("arb_sys.rs").exists() {
+    let binding_file = env.out_dir.join("arb_sys.rs");
+    if binding_file.exists() {
         return;
     }
     bindgen::Builder::default()
@@ -168,9 +174,14 @@ fn run_bindgen(env: &Environment) {
             env.gmp_dir.join("include").to_str().unwrap(),
         ])
         .generate()
-        .unwrap()
-        .write_to_file(env.out_dir.join("arb_sys.rs"))
-        .unwrap();
+        .expect("failed to generate bindings")
+        .write_to_file(binding_file.clone())
+        .unwrap_or_else(|_| {
+            panic!(
+                "failed to write to a file: {}",
+                binding_file.to_string_lossy()
+            )
+        });
 }
 
 fn write_link_info(env: &Environment) {
@@ -192,5 +203,5 @@ fn execute(cmd: &mut Command, descr: &str) {
     cmd.stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
-        .expect(format!("failed to {}", descr).as_str());
+        .unwrap_or_else(|_| panic!("failed to {}", descr));
 }
