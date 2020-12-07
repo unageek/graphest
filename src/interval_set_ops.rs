@@ -833,7 +833,7 @@ mpfr_fn!(erfc, erfc_rd, erfc_ru);
 mpfr_fn!(gamma, gamma_rd, gamma_ru);
 
 macro_rules! arb_fn {
-    ($f:ident($x:ident $(,$y:ident)*), $arb_f:ident($($args:expr),*)) => {
+    ($f:ident($x:ident $(,$y:ident)*), $arb_f:ident($($args:expr),*), $range:expr) => {
         #[cfg(feature = "arb")]
         fn $f($x: Interval, $($y: Interval,)*) -> Interval {
             use crate::arb::Arb;
@@ -846,15 +846,35 @@ macro_rules! arb_fn {
                 $(let $y = $y.as_raw_mut();)*
                 crate::arb_sys::$arb_f($($args,)* f64::MANTISSA_DIGITS.into());
             }
-            $x.to_interval()
+            $x.to_interval().intersection($range)
         }
     };
 }
 
-arb_fn!(arb_cos(x), arb_cos(x, x));
-arb_fn!(arb_erf(x), arb_hypgeom_erf(x, x));
-arb_fn!(arb_erfc(x), arb_hypgeom_erfc(x, x));
-arb_fn!(arb_fresnel_c(x), arb_hypgeom_fresnel(null(), x, x, 1));
-arb_fn!(arb_fresnel_s(x), arb_hypgeom_fresnel(x, null(), x, 1));
-arb_fn!(arb_sin(x), arb_sin(x, x));
-arb_fn!(arb_sinc(x), arb_sinc(x, x));
+arb_fn!(arb_cos(x), arb_cos(x, x), const_interval!(-1.0, 1.0));
+arb_fn!(
+    arb_erf(x),
+    arb_hypgeom_erf(x, x),
+    const_interval!(-1.0, 1.0)
+);
+arb_fn!(
+    arb_erfc(x),
+    arb_hypgeom_erfc(x, x),
+    const_interval!(0.0, 2.0)
+);
+arb_fn!(
+    arb_fresnel_c(x),
+    arb_hypgeom_fresnel(null(), x, x, 1),
+    const_interval!(-0.7798934003768229, 0.7798934003768229)
+);
+arb_fn!(
+    arb_fresnel_s(x),
+    arb_hypgeom_fresnel(x, null(), x, 1),
+    const_interval!(-0.7139722140219397, 0.7139722140219397)
+);
+arb_fn!(arb_sin(x), arb_sin(x, x), const_interval!(-1.0, 1.0));
+arb_fn!(
+    arb_sinc(x),
+    arb_sinc(x, x),
+    const_interval!(-0.21723362821122166, 1.0)
+);
