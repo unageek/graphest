@@ -836,8 +836,9 @@ macro_rules! arb_fn {
     ($f:ident($x:ident $(,$y:ident)*), $arb_f:ident($($args:expr),*)) => {
         #[cfg(feature = "arb")]
         fn $f($x: Interval, $($y: Interval,)*) -> Interval {
-            let mut $x = crate::arb::Arb::from_interval($x);
-            $(let mut $y = crate::arb::Arb::from_interval($y);)*
+            use crate::arb::Arb;
+            let mut $x = Arb::from_interval($x);
+            $(let mut $y = Arb::from_interval($y);)*
             unsafe {
                 #[allow(unused_imports)]
                 use std::ptr::null_mut as null;

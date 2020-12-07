@@ -21,10 +21,19 @@ impl Arf {
         }
     }
 
+    pub fn with_val(val: f64) -> Self {
+        let mut x = Self::new();
+        unsafe {
+            arf_set_d(x.as_raw_mut(), val);
+        }
+        x
+    }
+
     pub fn as_raw_mut(&mut self) -> arf_ptr {
         &mut self.0 as arf_ptr
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_f64_round(&mut self, round: Round) -> f64 {
         unsafe { arf_get_d(self.as_raw_mut(), round as i32) }
     }
@@ -54,17 +63,27 @@ impl Arb {
     }
 
     pub fn from_interval(x: Interval) -> Self {
-        assert!(!x.is_empty());
-        let mid = x.mid();
-        let rad = x.rad();
-        let mut x = Self::new();
-        unsafe {
-            arf_set_d(&mut x.0.mid as arf_ptr, mid);
-            mag_set_d(&mut x.0.rad as mag_ptr, rad);
+        let mut y = Self::new();
+        if !x.is_common_interval() {
+            unsafe {
+                arb_zero_pm_inf(y.as_raw_mut());
+            }
+        } else {
+            let mut a = Arf::with_val(x.inf());
+            let mut b = Arf::with_val(x.sup());
+            unsafe {
+                arb_set_interval_arf(
+                    y.as_raw_mut(),
+                    a.as_raw_mut(),
+                    b.as_raw_mut(),
+                    f64::MANTISSA_DIGITS.into(),
+                );
+            }
         }
-        x
+        y
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_interval(&mut self) -> Interval {
         let mut a = Arf::new();
         let mut b = Arf::new();
@@ -95,10 +114,12 @@ mod tests {
     use inari::{const_interval, Interval};
 
     #[test]
-    fn conversion() {
+    fn inclusion() {
         let xs = [
+            Interval::EMPTY,
             const_interval!(1.0, 1.0),
             Interval::PI,
+            const_interval!(0.0, 1.0),
             const_interval!(0.0, f64::INFINITY),
             const_interval!(f64::NEG_INFINITY, 0.0),
             Interval::ENTIRE,

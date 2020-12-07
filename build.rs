@@ -26,16 +26,16 @@ fn main() {
 
     let out_dir = PathBuf::from(var_os("OUT_DIR").unwrap());
     let env = Environment {
-        arb_branch: var_os("ARB_BRANCH").unwrap_or("master".into()),
+        arb_branch: var_os("ARB_BRANCH").unwrap_or_else(|| "master".into()),
         build_dir: out_dir.join("build"),
-        flint_branch: var_os("FLINT_BRANCH").unwrap_or("trunk".into()),
+        flint_branch: var_os("FLINT_BRANCH").unwrap_or_else(|| "trunk".into()),
         gmp_dir: PathBuf::from(var_os("DEP_GMP_OUT_DIR").unwrap()),
         include_dir: out_dir.join("include"),
         lib_dir: out_dir.join("lib"),
         makeflags: var_os("CARGO_MAKEFLAGS").unwrap(),
         out_dir: out_dir.clone(),
     };
-    create_dir_all(&env.build_dir.clone()).unwrap();
+    create_dir_all(&env.build_dir).unwrap();
 
     build_flint(&env);
     build_arb(&env);
