@@ -152,17 +152,16 @@ mod tests {
             const_interval!(0.0, f64::INFINITY),
             const_interval!(f64::NEG_INFINITY, 0.0),
             Interval::ENTIRE,
-
             // The case where rounding up the interval radius (`mag_t`) produces a carry:
             // As opposed to `f64`, the hidden bit is not used in the mantissa of a `mag_t`.
             //         a =  0.0₂
-            //         b =  0.111...111 1₂ × 2^0
+            //         b =  0.111...111 1₂ × 2^1
             //                ^^^^^^^^^^^ 31 1's (1-bit larger than what can fit in the mantissa)
-            // (b - a)/2 =  0.111...111 1₂ × 2^-1
-            //       rad =  1.000...00₂    × 2^-1  <- Round the mantissa of (b - a)/2 up to
-            //           =  0.100...000₂   × 2^0      the nearest 30-bit number. (produces a carry)
+            // (b - a)/2 =  0.111...111 1₂ × 2^0
+            //       rad =  1.000...00₂    × 2^0  <- Round the mantissa of (b - a)/2 up to
+            //           =  0.100...000₂   × 2^1     the nearest 30-bit number. (produces a carry)
             //                ^^^^^^^^^ the mantissa of a `mag_t` (30-bit)
-            const_interval!(0.0, 0.9999999995343387),
+            const_interval!(0.0, 1.9999999990686774),
         ];
         for x in xs.iter().copied() {
             let y = Arb::from_interval(x).to_interval();
