@@ -2,6 +2,8 @@ use crate::arb_sys::*;
 use inari::{interval, Interval};
 use std::{mem::MaybeUninit, ops::Drop};
 
+const MAG_BITS: u32 = 30;
+
 pub enum Round {
     // Down = 0,
     // Up = 1,
@@ -19,14 +21,6 @@ impl Arf {
             arf_init(x.as_mut_ptr());
             Self(x.assume_init())
         }
-    }
-
-    pub fn with_val(val: f64) -> Self {
-        let mut x = Self::new();
-        unsafe {
-            arf_set_d(x.as_raw_mut(), val);
-        }
-        x
     }
 
     pub fn as_raw_mut(&mut self) -> arf_ptr {
@@ -69,15 +63,27 @@ impl Arb {
                 arb_zero_pm_inf(y.as_raw_mut());
             }
         } else {
-            let mut a = Arf::with_val(x.inf());
-            let mut b = Arf::with_val(x.sup());
+            // Construct an `Arb` interval faster and more precisely than
+            // using `arb_set_interval_arf`.
+
+            let mid = x.mid();
             unsafe {
-                arb_set_interval_arf(
-                    y.as_raw_mut(),
-                    a.as_raw_mut(),
-                    b.as_raw_mut(),
-                    f64::MANTISSA_DIGITS.into(),
-                );
+                arf_set_d(&mut y.0.mid as arf_ptr, mid);
+            }
+
+            let rad = x.rad();
+            if rad != 0.0 {
+                let (man, mut exp) = frexp(rad);
+                let mut man = (man * (1 << MAG_BITS) as f64).ceil() as u32;
+                if man == 1 << MAG_BITS {
+                    // Restrict the mantissa to 30 bits.
+                    man = 1 << (MAG_BITS - 1);
+                    exp += 1;
+                }
+                // For safer construction, see `mag_set_ui_2exp_si`.
+                // https://github.com/fredrik-johansson/arb/blob/master/mag/set_ui_2exp_si.c
+                y.0.rad.exp = exp.into();
+                y.0.rad.man = man.into();
             }
         }
         y
@@ -108,6 +114,28 @@ impl Drop for Arb {
     }
 }
 
+// A copy-paste of https://github.com/rust-lang/libm/blob/master/src/math/frexp.rs
+fn frexp(x: f64) -> (f64, i32) {
+    let mut y = x.to_bits();
+    let ee = ((y >> 52) & 0x7ff) as i32;
+
+    if ee == 0 {
+        if x != 0.0 {
+            let x1p64 = f64::from_bits(0x43f0000000000000);
+            let (x, e) = frexp(x * x1p64);
+            return (x, e - 64);
+        }
+        return (x, 0);
+    } else if ee == 0x7ff {
+        return (x, 0);
+    }
+
+    let e = ee - 0x3fe;
+    y &= 0x800fffffffffffff;
+    y |= 0x3fe0000000000000;
+    (f64::from_bits(y), e)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,15 +145,18 @@ mod tests {
     fn inclusion_property() {
         let xs = [
             Interval::EMPTY,
+            const_interval!(0.0, 0.0),
             const_interval!(1.0, 1.0),
+            // The mantissa of the radius = 0.999... carries.
+            const_interval!(1.0, 1.9999999999999996),
             Interval::PI,
-            const_interval!(0.0, 1.0),
             const_interval!(0.0, f64::INFINITY),
             const_interval!(f64::NEG_INFINITY, 0.0),
             Interval::ENTIRE,
         ];
         for x in xs.iter().copied() {
-            assert!(x.subset(Arb::from_interval(x).to_interval()));
+            let y = Arb::from_interval(x).to_interval();
+            assert!(x.subset(y));
         }
     }
 }
