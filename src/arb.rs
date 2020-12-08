@@ -76,7 +76,8 @@ impl Arb {
                 let (man, mut exp) = frexp(rad);
                 let mut man = (man * (1 << MAG_BITS) as f64).ceil() as u32;
                 if man == 1 << MAG_BITS {
-                    // Restrict the mantissa to 30 bits.
+                    // Restrict the mantissa within 30 bits:
+                    //   100...000 ≤ `man` ≤ 111...111 (30 1's).
                     man = 1 << (MAG_BITS - 1);
                     exp += 1;
                 }
@@ -147,12 +148,21 @@ mod tests {
             Interval::EMPTY,
             const_interval!(0.0, 0.0),
             const_interval!(1.0, 1.0),
-            // The mantissa of the radius = 0.999... carries.
-            const_interval!(1.0, 1.9999999999999996),
             Interval::PI,
             const_interval!(0.0, f64::INFINITY),
             const_interval!(f64::NEG_INFINITY, 0.0),
             Interval::ENTIRE,
+
+            // The case where rounding up the interval radius (`mag_t`) produces a carry:
+            // As opposed to `f64`, the hidden bit is not used in the mantissa of a `mag_t`.
+            //         a =  0.0₂
+            //         b =  0.111...111 1₂ × 2^0
+            //                ^^^^^^^^^^^ 31 1's (1-bit larger than what can fit in the mantissa)
+            // (b - a)/2 =  0.111...111 1₂ × 2^-1
+            //       rad =  1.000...00₂    × 2^-1  <- Round the mantissa of (b - a)/2 up to
+            //           =  0.100...000₂   × 2^0      the nearest 30-bit number. (produces a carry)
+            //                ^^^^^^^^^ the mantissa of a `mag_t` (30-bit)
+            const_interval!(0.0, 0.9999999995343387),
         ];
         for x in xs.iter().copied() {
             let y = Arb::from_interval(x).to_interval();
