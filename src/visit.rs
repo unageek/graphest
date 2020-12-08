@@ -416,19 +416,21 @@ impl<'a> AssignIdStage1<'a> {
     /// Returns `true` if the term can perform branch cut on evaluation.
     fn term_can_perform_cut(kind: &TermKind) -> bool {
         use {BinaryOp::*, TermKind::*, UnaryOp::*};
-        matches!(kind,
+        matches!(
+            kind,
             Unary(Ceil, _)
-            | Unary(Floor, _)
-            | Unary(Gamma, _)
-            | Unary(Recip, _)
-            | Unary(Sign, _)
-            | Unary(Tan, _)
-            | Binary(Atan2, _, _)
-            | Binary(Div, _, _)
-            | Binary(Log, _, _)
-            | Binary(Mod, _, _)
-            | Binary(Pow, _, _)
-            | Pown(_, _))
+                | Unary(Floor, _)
+                | Unary(Gamma, _)
+                | Unary(Recip, _)
+                | Unary(Sign, _)
+                | Unary(Tan, _)
+                | Binary(Atan2, _, _)
+                | Binary(Div, _, _)
+                | Binary(Log, _, _)
+                | Binary(Mod, _, _)
+                | Binary(Pow, _, _)
+                | Pown(_, _)
+        )
     }
 }
 
