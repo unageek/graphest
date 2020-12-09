@@ -658,7 +658,11 @@ macro_rules! impl_integer_op {
 macro_rules! requires_arb {
     ($op:ident) => {
         pub fn $op(&self) -> Self {
-            panic!("some of the functions are only available when the `arb` feature is enabled")
+            panic!(concat!(
+                "function `",
+                stringify!($op),
+                "` is only available when the feature `arb` is enabled"
+            ))
         }
     };
 }
@@ -732,7 +736,7 @@ impl TupperIntervalSet {
     requires_arb!(fresnel_s);
 
     // Use Arb for bounded functions for the moment,
-    // since half-bounded intervals cannot be represented by mid-rad IA that Arb uses.
+    // since half-bounded intervals cannot be represented by mid-rad IA that Arb provides.
     impl_arb_op!(atan, arb_atan, x, !x.is_common_interval(), x.atan());
     impl_arb_op!(cos, arb_cos);
     impl_arb_op!(erf, arb_erf, x, !x.is_common_interval(), erf(x));
