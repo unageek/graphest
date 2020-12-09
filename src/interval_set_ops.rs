@@ -693,12 +693,10 @@ macro_rules! impl_arb_op {
         pub fn $op(&self) -> Self {
             let mut rs = Self::empty();
             for x in self {
-                if !x.x.is_empty() {
-                    rs.insert(TupperInterval::new(
-                        DecInterval::set_dec($arb_op(x.x), x.d),
-                        x.g,
-                    ));
-                }
+                rs.insert(TupperInterval::new(
+                    DecInterval::set_dec($arb_op(x.x), x.d),
+                    x.g,
+                ));
             }
             rs.normalize()
         }
