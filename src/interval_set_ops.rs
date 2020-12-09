@@ -166,10 +166,8 @@ impl TupperIntervalSet {
     pub fn erf(&self) -> Self {
         let mut rs = Self::empty();
         for x in self {
-            let a = x.x.inf();
-            let b = x.x.sup();
             rs.insert(TupperInterval::new(
-                DecInterval::set_dec(interval!(erf_rd(a), erf_ru(b)).unwrap(), x.d),
+                DecInterval::set_dec(erf(x.x), x.d),
                 x.g,
             ));
         }
@@ -180,10 +178,8 @@ impl TupperIntervalSet {
     pub fn erfc(&self) -> Self {
         let mut rs = Self::empty();
         for x in self {
-            let a = x.x.inf();
-            let b = x.x.sup();
             rs.insert(TupperInterval::new(
-                DecInterval::set_dec(interval!(erfc_rd(b), erfc_ru(a)).unwrap(), x.d),
+                DecInterval::set_dec(erfc(x.x), x.d),
                 x.g,
             ));
         }
@@ -515,34 +511,14 @@ impl TupperIntervalSet {
     //        | 1         otherwise.
     #[cfg(not(feature = "arb"))]
     pub fn sinc(&self) -> Self {
-        // argmin_{x > 0} sinc(x), rounded down.
-        const ARGMIN_RD: f64 = 4.493409457909063;
-        // min_{x > 0} sinc(x), rounded down.
-        const MIN_RD: f64 = -0.21723362821122166;
         let mut rs = Self::empty();
         for x in self {
-            let a = x.x.inf();
-            let b = x.x.sup();
-            if a <= 0.0 && b >= 0.0 {
-                let b2 = (-a).max(b);
-                let y = if b2 <= ARGMIN_RD {
-                    let x2 = interval!(b2, b2).unwrap();
-                    DecInterval::set_dec(
-                        interval!((x2.sin() / x2).inf().max(MIN_RD).min(1.0), 1.0).unwrap(),
-                        x.d,
-                    )
-                } else {
-                    DecInterval::set_dec(interval!(MIN_RD, 1.0).unwrap(), x.d)
-                };
-                rs.insert(TupperInterval::new(y, x.g));
-            } else {
-                rs.insert(TupperInterval::new(
-                    x.to_dec_interval().sin() / x.to_dec_interval(),
-                    x.g,
-                ));
-            }
+            rs.insert(TupperInterval::new(
+                DecInterval::set_dec(sinc(x.x), x.d),
+                x.g,
+            ));
         }
-        rs.normalize()
+        rs
     }
 
     pub fn tan(&self, site: Option<Site>) -> Self {
@@ -688,18 +664,25 @@ macro_rules! requires_arb {
 }
 
 macro_rules! impl_arb_op {
-    ($op:ident, $arb_op:ident) => {
+    ($op:ident, $arb_op:ident, $x:ident, $fallback_cond:expr, $fallback:expr) => {
         #[cfg(feature = "arb")]
         pub fn $op(&self) -> Self {
             let mut rs = Self::empty();
             for x in self {
-                rs.insert(TupperInterval::new(
-                    DecInterval::set_dec($arb_op(x.x), x.d),
-                    x.g,
-                ));
+                let $x = x.x;
+                let y = if $fallback_cond {
+                    $fallback
+                } else {
+                    $arb_op($x)
+                };
+                rs.insert(TupperInterval::new(DecInterval::set_dec(y, x.d), x.g));
             }
             rs.normalize()
         }
+    };
+
+    ($op:ident, $arb_op:ident) => {
+        impl_arb_op!($op, $arb_op, x, false, panic!());
     };
 }
 
@@ -718,6 +701,7 @@ impl TupperIntervalSet {
     impl_no_cut_op!(acosh);
     impl_no_cut_op!(asin);
     impl_no_cut_op!(asinh);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(atan);
     impl_no_cut_op!(atanh);
     #[cfg(not(feature = "arb"))]
@@ -749,13 +733,14 @@ impl TupperIntervalSet {
 
     // Use Arb for bounded functions for the moment,
     // since half-bounded intervals cannot be represented by mid-rad IA that Arb uses.
+    impl_arb_op!(atan, arb_atan, x, !x.is_common_interval(), x.atan());
     impl_arb_op!(cos, arb_cos);
-    impl_arb_op!(erf, arb_erf);
-    impl_arb_op!(erfc, arb_erfc);
+    impl_arb_op!(erf, arb_erf, x, !x.is_common_interval(), erf(x));
+    impl_arb_op!(erfc, arb_erfc, x, !x.is_common_interval(), erfc(x));
     impl_arb_op!(fresnel_c, arb_fresnel_c);
     impl_arb_op!(fresnel_s, arb_fresnel_s);
     impl_arb_op!(sin, arb_sin);
-    impl_arb_op!(sinc, arb_sinc);
+    impl_arb_op!(sinc, arb_sinc, x, !x.is_common_interval(), sinc(x));
 }
 
 macro_rules! impl_rel_op {
@@ -824,11 +809,40 @@ macro_rules! mpfr_fn {
     };
 }
 
-#[cfg(not(feature = "arb"))]
 mpfr_fn!(erf, erf_rd, erf_ru);
-#[cfg(not(feature = "arb"))]
 mpfr_fn!(erfc, erfc_rd, erfc_ru);
 mpfr_fn!(gamma, gamma_rd, gamma_ru);
+
+/// `x` must be nonempty.
+fn erf(x: Interval) -> Interval {
+    interval!(erf_rd(x.inf()), erf_ru(x.sup())).unwrap()
+}
+
+/// `x` must be nonempty.
+fn erfc(x: Interval) -> Interval {
+    interval!(erfc_rd(x.sup()), erfc_ru(x.inf())).unwrap()
+}
+
+/// `x` must be nonempty.
+fn sinc(x: Interval) -> Interval {
+    // argmin_{x > 0} sinc(x), rounded down.
+    const ARGMIN_RD: f64 = 4.493409457909063;
+    // min_{x > 0} sinc(x), rounded down.
+    const MIN_RD: f64 = -0.21723362821122166;
+    let a = x.inf();
+    let b = x.sup();
+    if a <= 0.0 && b >= 0.0 {
+        let b2 = (-a).max(b);
+        if b2 <= ARGMIN_RD {
+            let x2 = interval!(b2, b2).unwrap();
+            interval!((x2.sin() / x2).inf().max(MIN_RD).min(1.0), 1.0).unwrap()
+        } else {
+            interval!(MIN_RD, 1.0).unwrap()
+        }
+    } else {
+        x.sin() / x
+    }
+}
 
 macro_rules! arb_fn {
     ($f:ident($x:ident $(,$y:ident)*), $arb_f:ident($($args:expr),*), $range:expr) => {
@@ -849,6 +863,11 @@ macro_rules! arb_fn {
     };
 }
 
+arb_fn!(
+    arb_atan(x),
+    arb_atan(x, x),
+    const_interval!(-1.5707963267948968, 1.5707963267948968)
+);
 arb_fn!(arb_cos(x), arb_cos(x, x), const_interval!(-1.0, 1.0));
 arb_fn!(
     arb_erf(x),
