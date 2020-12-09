@@ -28,6 +28,12 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
    cargo build --release
    ```
 
+   You can optionally supply `--features "arb"` option to boost plotting performance. In this case, the build can take a long time (~10 minutes).
+
+   ```bash
+   cargo build --release --features "arb"
+   ```
+
 1. Run
 
    ```bash
@@ -36,7 +42,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 
    The plot will be saved to `graph.png` in the current directory.
 
-   Try plotting some [example relations](Examples.md) or your own one.
+   Try plotting some [example relations](Examples.md) or your own ones.
 
    Use `-h` option to show help:
 
