@@ -860,7 +860,7 @@ macro_rules! arb_fn {
                 use std::ptr::null_mut as null;
                 let $x = $x.as_raw_mut();
                 $(let $y = $y.as_raw_mut();)*
-                crate::arb_sys::$arb_f($($args,)* f64::MANTISSA_DIGITS.into());
+                crate::arb_sys::$arb_f($($args),*);
             }
             $x.to_interval().intersection($range)
         }
@@ -869,33 +869,43 @@ macro_rules! arb_fn {
 
 arb_fn!(
     arb_atan(x),
-    arb_atan(x, x),
+    arb_atan(x, x, f64::MANTISSA_DIGITS.into()),
     const_interval!(-1.5707963267948968, 1.5707963267948968)
 );
-arb_fn!(arb_cos(x), arb_cos(x, x), const_interval!(-1.0, 1.0));
+arb_fn!(
+    arb_cos(x),
+    arb_cos(x, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-1.0, 1.0)
+);
 arb_fn!(
     arb_erf(x),
-    arb_hypgeom_erf(x, x),
+    // `+ 3` completes the graphing of "y = erf(1/x^21)".
+    arb_hypgeom_erf(x, x, (f64::MANTISSA_DIGITS + 3).into()),
     const_interval!(-1.0, 1.0)
 );
 arb_fn!(
     arb_erfc(x),
-    arb_hypgeom_erfc(x, x),
+    // `+ 3` completes the graphing of "y = erfc(1/x^21) + 1".
+    arb_hypgeom_erfc(x, x, (f64::MANTISSA_DIGITS + 3).into()),
     const_interval!(0.0, 2.0)
 );
 arb_fn!(
     arb_fresnel_c(x),
-    arb_hypgeom_fresnel(null(), x, x, 1),
+    arb_hypgeom_fresnel(null(), x, x, 1, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.7798934003768229, 0.7798934003768229)
 );
 arb_fn!(
     arb_fresnel_s(x),
-    arb_hypgeom_fresnel(x, null(), x, 1),
+    arb_hypgeom_fresnel(x, null(), x, 1, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.7139722140219397, 0.7139722140219397)
 );
-arb_fn!(arb_sin(x), arb_sin(x, x), const_interval!(-1.0, 1.0));
+arb_fn!(
+    arb_sin(x),
+    arb_sin(x, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-1.0, 1.0)
+);
 arb_fn!(
     arb_sinc(x),
-    arb_sinc(x, x),
+    arb_sinc(x, x, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.21723362821122166, 1.0)
 );
