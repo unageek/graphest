@@ -82,6 +82,7 @@ fn primary_term(i: &str) -> ParseResult<Term> {
 }
 
 fn fn1(i: &str) -> ParseResult<UnaryOp> {
+    // `alt` takes a tuple with 21 elements at most.
     alt((
         value(UnaryOp::Acos, keyword("acos")),
         value(UnaryOp::Acosh, keyword("acosh")),
@@ -92,18 +93,24 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
         value(UnaryOp::Ceil, keyword("ceil")),
         value(UnaryOp::Cos, keyword("cos")),
         value(UnaryOp::Cosh, keyword("cosh")),
+        value(UnaryOp::Erf, keyword("erf")),
+        value(UnaryOp::Erfc, keyword("erfc")),
         value(UnaryOp::Exp, keyword("exp")),
         value(UnaryOp::Floor, keyword("floor")),
+        value(UnaryOp::FresnelC, keyword("C")),
+        value(UnaryOp::FresnelS, keyword("S")),
         value(UnaryOp::Gamma, keyword("Gamma")),
         value(UnaryOp::Gamma, keyword("Γ")),
         value(UnaryOp::Ln, keyword("ln")),
         value(UnaryOp::Log10, keyword("log")),
         value(UnaryOp::Sign, keyword("sign")),
-        value(UnaryOp::Sin, keyword("sin")),
-        value(UnaryOp::Sinh, keyword("sinh")),
-        value(UnaryOp::Sqrt, keyword("sqrt")),
-        value(UnaryOp::Tan, keyword("tan")),
-        value(UnaryOp::Tanh, keyword("tanh")),
+        alt((
+            value(UnaryOp::Sin, keyword("sin")),
+            value(UnaryOp::Sinh, keyword("sinh")),
+            value(UnaryOp::Sqrt, keyword("sqrt")),
+            value(UnaryOp::Tan, keyword("tan")),
+            value(UnaryOp::Tanh, keyword("tanh")),
+        )),
     ))(i)
 }
 
