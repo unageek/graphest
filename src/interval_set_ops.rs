@@ -654,9 +654,9 @@ macro_rules! impl_integer_op {
     };
 }
 
-#[cfg(not(feature = "arb"))]
 macro_rules! requires_arb {
     ($op:ident) => {
+        #[cfg(not(feature = "arb"))]
         pub fn $op(&self) -> Self {
             panic!(concat!(
                 "function `",
@@ -726,13 +726,19 @@ impl TupperIntervalSet {
     impl_integer_op!(sign);
     impl_integer_op!(trunc);
 
-    #[cfg(not(feature = "arb"))]
+    requires_arb!(airy_ai);
+    requires_arb!(airy_ai_prime);
+    requires_arb!(airy_bi);
+    requires_arb!(airy_bi_prime);
     requires_arb!(fresnel_c);
-    #[cfg(not(feature = "arb"))]
     requires_arb!(fresnel_s);
 
-    // Use Arb for bounded functions for the moment,
-    // since half-bounded intervals cannot be represented by mid-rad IA that Arb provides.
+    // Mid-rad IA, which is used by Arb, cannot represent half-bounded intervals.
+    // So we use Arb for bounded functions and functions that are not provided by MPFR, for the moment.
+    impl_arb_op!(airy_ai(x), arb_airy_ai(x));
+    impl_arb_op!(airy_ai_prime(x), arb_airy_ai_prime(x));
+    impl_arb_op!(airy_bi(x), arb_airy_bi(x));
+    impl_arb_op!(airy_bi_prime(x), arb_airy_bi_prime(x));
     impl_arb_op!(atan(x), arb_atan(x), !x.is_common_interval(), x.atan());
     impl_arb_op!(cos(x), arb_cos(x));
     impl_arb_op!(erf(x), arb_erf(x), !x.is_common_interval(), erf(x));
@@ -863,6 +869,26 @@ macro_rules! arb_fn {
     };
 }
 
+arb_fn!(
+    arb_airy_ai(x),
+    arb_hypgeom_airy(x, null(), null(), null(), x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-0.419015478032564, 0.5356566560156999)
+);
+arb_fn!(
+    arb_airy_ai_prime(x),
+    arb_hypgeom_airy(null(), x, null(), null(), x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
+    arb_airy_bi(x),
+    arb_hypgeom_airy(null(), null(), x, null(), x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-0.4549443836396574, f64::INFINITY)
+);
+arb_fn!(
+    arb_airy_bi_prime(x),
+    arb_hypgeom_airy(null(), null(), null(), x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
 arb_fn!(
     arb_atan(x),
     arb_atan(x, x, f64::MANTISSA_DIGITS.into()),

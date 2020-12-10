@@ -28,7 +28,9 @@ fn decimal_literal(i: &str) -> ParseResult<&str> {
 fn keyword<'a>(kw: &'a str) -> impl FnMut(&'a str) -> ParseResult<'a, &'a str> {
     terminated(
         tag(kw),
-        not(verify(peek(anychar), |c| c.is_alphanumeric() || *c == '_')),
+        not(verify(peek(anychar), |c| {
+            c.is_alphanumeric() || *c == '_' || *c == '\''
+        })),
     )
 }
 
@@ -86,6 +88,10 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
     alt((
         value(UnaryOp::Acos, keyword("acos")),
         value(UnaryOp::Acosh, keyword("acosh")),
+        value(UnaryOp::AiryAi, keyword("Ai")),
+        value(UnaryOp::AiryAiPrime, keyword("Ai'")),
+        value(UnaryOp::AiryBi, keyword("Bi")),
+        value(UnaryOp::AiryBiPrime, keyword("Bi'")),
         value(UnaryOp::Asin, keyword("asin")),
         value(UnaryOp::Asinh, keyword("asinh")),
         value(UnaryOp::Atan, keyword("atan")),
@@ -100,11 +106,11 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
         value(UnaryOp::FresnelC, keyword("C")),
         value(UnaryOp::FresnelS, keyword("S")),
         value(UnaryOp::Gamma, keyword("Gamma")),
-        value(UnaryOp::Gamma, keyword("Γ")),
-        value(UnaryOp::Ln, keyword("ln")),
-        value(UnaryOp::Log10, keyword("log")),
-        value(UnaryOp::Sign, keyword("sign")),
         alt((
+            value(UnaryOp::Gamma, keyword("Γ")),
+            value(UnaryOp::Ln, keyword("ln")),
+            value(UnaryOp::Log10, keyword("log")),
+            value(UnaryOp::Sign, keyword("sign")),
             value(UnaryOp::Sin, keyword("sin")),
             value(UnaryOp::Sinh, keyword("sinh")),
             value(UnaryOp::Sqrt, keyword("sqrt")),
