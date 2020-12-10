@@ -45,6 +45,7 @@ impl StaticTerm {
             Unary(Cosh, x) => ts[*x as usize].cosh(),
             Unary(Erf, x) => ts[*x as usize].erf(),
             Unary(Erfc, x) => ts[*x as usize].erfc(),
+            Unary(Erfi, x) => ts[*x as usize].erfi(),
             Unary(Exp, x) => ts[*x as usize].exp(),
             Unary(Exp10, x) => ts[*x as usize].exp10(),
             Unary(Exp2, x) => ts[*x as usize].exp2(),

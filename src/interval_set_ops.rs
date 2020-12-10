@@ -730,6 +730,7 @@ impl TupperIntervalSet {
     requires_arb!(airy_ai_prime);
     requires_arb!(airy_bi);
     requires_arb!(airy_bi_prime);
+    requires_arb!(erfi);
     requires_arb!(fresnel_c);
     requires_arb!(fresnel_s);
 
@@ -743,6 +744,7 @@ impl TupperIntervalSet {
     impl_arb_op!(cos(x), arb_cos(x));
     impl_arb_op!(erf(x), arb_erf(x), !x.is_common_interval(), erf(x));
     impl_arb_op!(erfc(x), arb_erfc(x), !x.is_common_interval(), erfc(x));
+    impl_arb_op!(erfi(x), arb_erfi(x));
     impl_arb_op!(fresnel_c(x), arb_fresnel_c(x));
     impl_arb_op!(fresnel_s(x), arb_fresnel_s(x));
     impl_arb_op!(sin(x), arb_sin(x));
@@ -910,6 +912,11 @@ arb_fn!(
     // `+ 3` completes the graphing of "y = erfc(1/x^21) + 1".
     arb_hypgeom_erfc(x, x, (f64::MANTISSA_DIGITS + 3).into()),
     const_interval!(0.0, 2.0)
+);
+arb_fn!(
+    arb_erfi(x),
+    arb_hypgeom_erfi(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
 );
 arb_fn!(
     arb_fresnel_c(x),
