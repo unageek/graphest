@@ -667,43 +667,6 @@ macro_rules! requires_arb {
     };
 }
 
-macro_rules! impl_arb_op {
-    ($op:ident($x:ident), $main:expr, $fallback_cond:expr, $fallback:expr) => {
-        #[cfg(feature = "arb")]
-        pub fn $op(&self) -> Self {
-            let mut rs = Self::empty();
-            for x in self {
-                let $x = x.x;
-                let y = if $fallback_cond { $fallback } else { $main };
-                rs.insert(TupperInterval::new(DecInterval::set_dec(y, x.d), x.g));
-            }
-            rs.normalize()
-        }
-    };
-
-    ($op:ident($x:ident), $main:expr) => {
-        impl_arb_op!($op($x), $main, false, panic!());
-    };
-}
-
-macro_rules! impl_arb_partial_op {
-    ($op:ident($x:ident), $main:expr, [$possibly_def:expr, $certainly_def:expr]) => {
-        #[cfg(feature = "arb")]
-        pub fn $op(&self) -> Self {
-            let mut rs = Self::empty();
-            for x in self {
-                let $x = x.x;
-                if $possibly_def {
-                    let y = $main;
-                    let dec = if $certainly_def { x.d } else { Decoration::Trv };
-                    rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
-                }
-            }
-            rs.normalize()
-        }
-    };
-}
-
 impl TupperIntervalSet {
     // absmax
     impl_no_cut_op!(abs);
@@ -715,25 +678,39 @@ impl TupperIntervalSet {
     impl_no_cut_op!(sqrt);
 
     // elementary
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(acos);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(acosh);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(asin);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(asinh);
     #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(atan);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(atanh);
     #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(cos);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(cosh);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(exp);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(exp10);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(exp2);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(ln);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(log10);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(log2);
     #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(sin);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(sinh);
+    #[cfg(not(feature = "arb"))]
     impl_no_cut_op!(tanh);
 
     // integer
@@ -755,34 +732,218 @@ impl TupperIntervalSet {
     requires_arb!(fresnel_s);
     requires_arb!(shi);
     requires_arb!(si);
+}
 
+macro_rules! impl_arb_op {
+    ($op:ident($x:ident), $result:expr, [$possibly_def:expr, $certainly_def:expr]) => {
+        #[cfg(feature = "arb")]
+        pub fn $op(&self) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                let $x = x.x;
+                if $possibly_def {
+                    let y = $result;
+                    let dec = if $certainly_def { x.d } else { Decoration::Trv };
+                    rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
+                }
+            }
+            rs.normalize()
+        }
+    };
+
+    ($op:ident($x:ident), $result:expr) => {
+        impl_arb_op!($op($x), $result, [true, true]);
+    };
+}
+
+#[allow(dead_code)]
+const MONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
+#[allow(dead_code)]
+const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
+#[allow(dead_code)]
+const ZERO_TO_INF: Interval = const_interval!(0.0, f64::INFINITY);
+
+impl TupperIntervalSet {
     // Mid-rad IA, which is used by Arb, cannot represent half-bounded intervals.
     // So we use Arb for bounded functions and functions that are not provided by MPFR, for the moment.
+    impl_arb_op!(
+        acos(x),
+        if x.interior(MONE_TO_ONE) {
+            arb_acos(x)
+        } else {
+            x.acos()
+        },
+        [!x.disjoint(MONE_TO_ONE), x.subset(MONE_TO_ONE)]
+    );
     impl_arb_op!(airy_ai(x), arb_airy_ai(x));
     impl_arb_op!(airy_ai_prime(x), arb_airy_ai_prime(x));
     impl_arb_op!(airy_bi(x), arb_airy_bi(x));
     impl_arb_op!(airy_bi_prime(x), arb_airy_bi_prime(x));
-    impl_arb_op!(atan(x), arb_atan(x), !x.is_common_interval(), x.atan());
-    impl_arb_partial_op!(
+    impl_arb_op!(
+        acosh(x),
+        if x.inf() > 1.0 && x.sup() < f64::INFINITY {
+            arb_acosh(x)
+        } else {
+            x.acosh()
+        },
+        [!x.disjoint(ONE_TO_INF), x.subset(ONE_TO_INF)]
+    );
+    impl_arb_op!(
+        asin(x),
+        if x.interior(MONE_TO_ONE) {
+            arb_asin(x)
+        } else {
+            x.asin()
+        },
+        [!x.disjoint(MONE_TO_ONE), x.subset(MONE_TO_ONE)]
+    );
+    impl_arb_op!(
+        asinh(x),
+        if x.is_common_interval() {
+            arb_asinh(x)
+        } else {
+            x.asinh()
+        }
+    );
+    impl_arb_op!(
+        atan(x),
+        if x.is_common_interval() {
+            arb_atan(x)
+        } else {
+            x.atan()
+        }
+    );
+    impl_arb_op!(
+        atanh(x),
+        if x.interior(MONE_TO_ONE) {
+            arb_atanh(x)
+        } else {
+            x.atanh()
+        },
+        [
+            {
+                let x = x.intersection(MONE_TO_ONE);
+                !x.is_empty() && x.sup() > -1.0 && x.inf() < 1.0
+            },
+            x.interior(MONE_TO_ONE)
+        ]
+    );
+    impl_arb_op!(
         chi(x),
-        arb_chi(x.intersection(const_interval!(0.0, f64::INFINITY))),
+        arb_chi(x.intersection(ZERO_TO_INF)),
         [x.sup() > 0.0, x.inf() > 0.0]
     );
-    impl_arb_partial_op!(
+    impl_arb_op!(
         ci(x),
-        arb_ci(x.intersection(const_interval!(0.0, f64::INFINITY))),
+        arb_ci(x.intersection(ZERO_TO_INF)),
         [x.sup() > 0.0, x.inf() > 0.0]
     );
     impl_arb_op!(cos(x), arb_cos(x));
-    impl_arb_op!(erf(x), arb_erf(x), !x.is_common_interval(), erf(x));
-    impl_arb_op!(erfc(x), arb_erfc(x), !x.is_common_interval(), erfc(x));
+    impl_arb_op!(
+        cosh(x),
+        if x.is_common_interval() {
+            arb_cosh(x)
+        } else {
+            x.cosh()
+        }
+    );
+    impl_arb_op!(
+        erf(x),
+        if x.is_common_interval() {
+            arb_erf(x)
+        } else {
+            erf(x)
+        }
+    );
+    impl_arb_op!(
+        erfc(x),
+        if x.is_common_interval() {
+            arb_erfc(x)
+        } else {
+            erfc(x)
+        }
+    );
     impl_arb_op!(erfi(x), arb_erfi(x));
+    impl_arb_op!(
+        exp(x),
+        if x.is_common_interval() {
+            arb_exp(x)
+        } else {
+            x.exp()
+        }
+    );
+    impl_arb_op!(
+        exp10(x),
+        if x.is_common_interval() {
+            arb_exp10(x)
+        } else {
+            x.exp10()
+        }
+    );
+    impl_arb_op!(
+        exp2(x),
+        if x.is_common_interval() {
+            arb_exp2(x)
+        } else {
+            x.exp2()
+        }
+    );
     impl_arb_op!(fresnel_c(x), arb_fresnel_c(x));
     impl_arb_op!(fresnel_s(x), arb_fresnel_s(x));
+    impl_arb_op!(
+        ln(x),
+        if x.inf() > 0.0 && x.sup() < f64::INFINITY {
+            arb_ln(x)
+        } else {
+            x.ln()
+        },
+        [x.sup() > 0.0, x.inf() > 0.0]
+    );
+    impl_arb_op!(
+        log10(x),
+        if x.inf() > 0.0 && x.sup() < f64::INFINITY {
+            arb_log10(x)
+        } else {
+            x.log10()
+        },
+        [x.sup() > 0.0, x.inf() > 0.0]
+    );
+    impl_arb_op!(
+        log2(x),
+        if x.inf() > 0.0 && x.sup() < f64::INFINITY {
+            arb_log2(x)
+        } else {
+            x.log2()
+        },
+        [x.sup() > 0.0, x.inf() > 0.0]
+    );
     impl_arb_op!(shi(x), arb_shi(x));
     impl_arb_op!(si(x), arb_si(x));
     impl_arb_op!(sin(x), arb_sin(x));
-    impl_arb_op!(sinc(x), arb_sinc(x), !x.is_common_interval(), sinc(x));
+    impl_arb_op!(
+        sinc(x),
+        if x.is_common_interval() {
+            arb_sinc(x)
+        } else {
+            sinc(x)
+        }
+    );
+    impl_arb_op!(
+        sinh(x),
+        if x.is_common_interval() {
+            arb_sinh(x)
+        } else {
+            x.sinh()
+        }
+    );
+    impl_arb_op!(
+        tanh(x),
+        if x.is_common_interval() {
+            arb_tanh(x)
+        } else {
+            x.tanh()
+        }
+    );
 }
 
 macro_rules! impl_rel_op {
@@ -906,6 +1067,16 @@ macro_rules! arb_fn {
 }
 
 arb_fn!(
+    arb_acos(x),
+    arb_acos(x, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(0.0, 3.1415926535897936) // [0, π]
+);
+arb_fn!(
+    arb_acosh(x),
+    arb_acosh(x, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(0.0, f64::INFINITY)
+);
+arb_fn!(
     arb_airy_ai(x),
     arb_hypgeom_airy(x, null(), null(), null(), x, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.419015478032564, 0.5356566560156999)
@@ -926,9 +1097,24 @@ arb_fn!(
     Interval::ENTIRE
 );
 arb_fn!(
+    arb_asin(x),
+    arb_asin(x, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-1.5707963267948968, 1.5707963267948968) // [-π/2, π/2]
+);
+arb_fn!(
+    arb_asinh(x),
+    arb_asinh(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
     arb_atan(x),
     arb_atan(x, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(-1.5707963267948968, 1.5707963267948968)
+    const_interval!(-1.5707963267948968, 1.5707963267948968) // [-π/2, π/2]
+);
+arb_fn!(
+    arb_atanh(x),
+    arb_atanh(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
 );
 arb_fn!(
     arb_chi(x),
@@ -944,6 +1130,11 @@ arb_fn!(
     arb_cos(x),
     arb_cos(x, x, f64::MANTISSA_DIGITS.into()),
     const_interval!(-1.0, 1.0)
+);
+arb_fn!(
+    arb_cosh(x),
+    arb_cosh(x, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(1.0, f64::INFINITY)
 );
 arb_fn!(
     arb_erf(x),
@@ -963,6 +1154,31 @@ arb_fn!(
     Interval::ENTIRE
 );
 arb_fn!(
+    arb_exp(x),
+    arb_exp(x, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(0.0, f64::INFINITY)
+);
+arb_fn!(
+    arb_exp10(x),
+    arb_pow(
+        x,
+        Arb::from_f64(10.0).as_raw_mut(), // TODO: lazy_static
+        x,
+        f64::MANTISSA_DIGITS.into()
+    ),
+    const_interval!(0.0, f64::INFINITY)
+);
+arb_fn!(
+    arb_exp2(x),
+    arb_pow(
+        x,
+        Arb::from_f64(2.0).as_raw_mut(), // TODO: lazy_static
+        x,
+        f64::MANTISSA_DIGITS.into()
+    ),
+    const_interval!(0.0, f64::INFINITY)
+);
+arb_fn!(
     arb_fresnel_c(x),
     arb_hypgeom_fresnel(null(), x, x, 1, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.7798934003768229, 0.7798934003768229)
@@ -971,6 +1187,21 @@ arb_fn!(
     arb_fresnel_s(x),
     arb_hypgeom_fresnel(x, null(), x, 1, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.7139722140219397, 0.7139722140219397)
+);
+arb_fn!(
+    arb_ln(x),
+    arb_log(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
+    arb_log10(x),
+    arb_log_base_ui(x, x, 10, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
+    arb_log2(x),
+    arb_log_base_ui(x, x, 2, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
 );
 arb_fn!(
     arb_shi(x),
@@ -991,4 +1222,14 @@ arb_fn!(
     arb_sinc(x),
     arb_sinc(x, x, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.21723362821122166, 1.0)
+);
+arb_fn!(
+    arb_sinh(x),
+    arb_sinh(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
+    arb_tanh(x),
+    arb_tanh(x, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-1.0, 1.0)
 );
