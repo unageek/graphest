@@ -56,6 +56,14 @@ impl Arb {
         &mut self.0 as arb_ptr
     }
 
+    pub fn from_f64(x: f64) -> Self {
+        let mut y = Self::new();
+        unsafe {
+            arb_set_d(y.as_raw_mut(), x);
+        }
+        y
+    }
+
     pub fn from_interval(x: Interval) -> Self {
         let mut y = Self::new();
         if !x.is_common_interval() {
