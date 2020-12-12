@@ -2,6 +2,7 @@ use crate::arb_sys::*;
 use inari::{interval, Interval};
 use std::{mem::MaybeUninit, ops::Drop};
 
+/// The size of the mantissa of `mag_t`.
 const MAG_BITS: u32 = 30;
 
 pub enum Round {
@@ -12,9 +13,11 @@ pub enum Round {
     // Near = 4,
 }
 
+/// A wrapper for `arf_t`.
 pub struct Arf(arf_struct);
 
 impl Arf {
+    /// Creates an `Arf` value initialized to be zero.
     pub fn new() -> Self {
         unsafe {
             let mut x = MaybeUninit::uninit();
@@ -27,6 +30,7 @@ impl Arf {
         &mut self.0 as arf_ptr
     }
 
+    /// Rounds `self` to a `f64` value with the given rounding mode.
     #[allow(clippy::wrong_self_convention)]
     pub fn to_f64_round(&mut self, round: Round) -> f64 {
         unsafe { arf_get_d(self.as_raw_mut(), round as i32) }
@@ -41,9 +45,11 @@ impl Drop for Arf {
     }
 }
 
+/// A wrapper for `arb_t`.
 pub struct Arb(arb_struct);
 
 impl Arb {
+    /// Creates an `Arb` interval initialized to be `[0.0 ± 0.0]`.
     pub fn new() -> Self {
         unsafe {
             let mut x = MaybeUninit::uninit();
@@ -56,6 +62,7 @@ impl Arb {
         &mut self.0 as arb_ptr
     }
 
+    /// Creates an `Arb` interval `[x ± 0.0]`.
     pub fn from_f64(x: f64) -> Self {
         let mut y = Self::new();
         unsafe {
@@ -64,6 +71,7 @@ impl Arb {
         y
     }
 
+    /// Creates an `Arb` interval that encloses `x`.
     pub fn from_interval(x: Interval) -> Self {
         let mut y = Self::new();
         if !x.is_common_interval() {
@@ -98,6 +106,7 @@ impl Arb {
         y
     }
 
+    /// Returns an `Interval` that encloses `self`.
     #[allow(clippy::wrong_self_convention)]
     pub fn to_interval(&mut self) -> Interval {
         let mut a = Arf::new();

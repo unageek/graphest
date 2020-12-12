@@ -765,7 +765,7 @@ const ZERO_TO_INF: Interval = const_interval!(0.0, f64::INFINITY);
 
 impl TupperIntervalSet {
     // Mid-rad IA, which is used by Arb, cannot represent half-bounded intervals.
-    // So we use Arb for bounded functions and functions that are not provided by MPFR, for the moment.
+    // So we need to handle such inputs and unbounded functions explicitly.
     impl_arb_op!(
         acos(x),
         if x.interior(MONE_TO_ONE) {
@@ -775,10 +775,50 @@ impl TupperIntervalSet {
         },
         [!x.disjoint(MONE_TO_ONE), x.subset(MONE_TO_ONE)]
     );
-    impl_arb_op!(airy_ai(x), arb_airy_ai(x));
-    impl_arb_op!(airy_ai_prime(x), arb_airy_ai_prime(x));
-    impl_arb_op!(airy_bi(x), arb_airy_bi(x));
-    impl_arb_op!(airy_bi_prime(x), arb_airy_bi_prime(x));
+    impl_arb_op!(airy_ai(x), {
+        let a = x.inf();
+        let b = x.sup();
+        if a >= 0.0 && b == f64::INFINITY {
+            // [0, Ai(a)]
+            interval!(0.0, arb_airy_ai(interval!(a, a).unwrap()).sup()).unwrap()
+        } else {
+            arb_airy_ai(x)
+        }
+    });
+    impl_arb_op!(airy_ai_prime(x), {
+        let a = x.inf();
+        let b = x.sup();
+        if a >= 0.0 && b == f64::INFINITY {
+            // [Ai'(a), 0]
+            interval!(arb_airy_ai_prime(interval!(a, a).unwrap()).inf(), 0.0).unwrap()
+        } else {
+            arb_airy_ai_prime(x)
+        }
+    });
+    impl_arb_op!(airy_bi(x), {
+        let a = x.inf();
+        let b = x.sup();
+        if a >= 0.0 && b == f64::INFINITY {
+            // [Bi(a), +∞]
+            interval!(arb_airy_bi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
+        } else {
+            arb_airy_bi(x)
+        }
+    });
+    impl_arb_op!(airy_bi_prime(x), {
+        let a = x.inf();
+        let b = x.sup();
+        if a >= 0.0 && b == f64::INFINITY {
+            // [Bi'(a), +∞]
+            interval!(
+                arb_airy_bi_prime(interval!(a, a).unwrap()).inf(),
+                f64::INFINITY
+            )
+            .unwrap()
+        } else {
+            arb_airy_bi_prime(x)
+        }
+    });
     impl_arb_op!(
         acosh(x),
         if x.inf() > 1.0 && x.sup() < f64::INFINITY {
@@ -830,12 +870,38 @@ impl TupperIntervalSet {
     );
     impl_arb_op!(
         chi(x),
-        arb_chi(x.intersection(ZERO_TO_INF)),
+        {
+            let x = x.intersection(ZERO_TO_INF);
+            let a = x.inf();
+            let b = x.sup();
+            if a == 0.0 {
+                // [-∞, Chi(b)]
+                interval!(f64::NEG_INFINITY, arb_chi(interval!(b, b).unwrap()).sup()).unwrap()
+            } else if b == f64::INFINITY {
+                // [Chi(a), +∞]
+                interval!(arb_chi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
+            } else {
+                arb_chi(x)
+            }
+        },
         [x.sup() > 0.0, x.inf() > 0.0]
     );
     impl_arb_op!(
         ci(x),
-        arb_ci(x.intersection(ZERO_TO_INF)),
+        {
+            let x = x.intersection(ZERO_TO_INF);
+            let a = x.inf();
+            let b = x.sup();
+            if a == 0.0 && b <= Interval::FRAC_PI_2.inf() {
+                // [-∞, Ci(b)]
+                interval!(f64::NEG_INFINITY, arb_ci(interval!(b, b).unwrap()).sup()).unwrap()
+            } else if b == f64::INFINITY {
+                // Ci([a, a + 2π])
+                arb_ci(interval!(a, (interval!(a, a).unwrap() + Interval::TAU).sup()).unwrap())
+            } else {
+                arb_ci(x)
+            }
+        },
         [x.sup() > 0.0, x.inf() > 0.0]
     );
     impl_arb_op!(cos(x), arb_cos(x));
@@ -863,7 +929,19 @@ impl TupperIntervalSet {
             erfc(x)
         }
     );
-    impl_arb_op!(erfi(x), arb_erfi(x));
+    impl_arb_op!(erfi(x), {
+        let a = x.inf();
+        let b = x.sup();
+        if a == f64::NEG_INFINITY {
+            // [-∞, erfi(b)]
+            interval!(f64::NEG_INFINITY, arb_erfi(interval!(b, b).unwrap()).sup()).unwrap()
+        } else if b == f64::INFINITY {
+            // [erfi(a), +∞]
+            interval!(arb_erfi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
+        } else {
+            arb_erfi(x)
+        }
+    });
     impl_arb_op!(
         exp(x),
         if x.is_common_interval() {
@@ -917,8 +995,32 @@ impl TupperIntervalSet {
         },
         [x.sup() > 0.0, x.inf() > 0.0]
     );
-    impl_arb_op!(shi(x), arb_shi(x));
-    impl_arb_op!(si(x), arb_si(x));
+    impl_arb_op!(shi(x), {
+        let a = x.inf();
+        let b = x.sup();
+        if a == f64::NEG_INFINITY {
+            // [-∞, Shi(b)]
+            interval!(f64::NEG_INFINITY, arb_shi(interval!(b, b).unwrap()).sup()).unwrap()
+        } else if b == f64::INFINITY {
+            // [Shi(a), +∞]
+            interval!(arb_shi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
+        } else {
+            arb_shi(x)
+        }
+    });
+    impl_arb_op!(si(x), {
+        let a = x.inf();
+        let b = x.sup();
+        if a == f64::NEG_INFINITY {
+            // Si([b - 2π, b])
+            arb_si(interval!((interval!(b, b).unwrap() - Interval::TAU).inf(), b).unwrap())
+        } else if b == f64::INFINITY {
+            // Si([a, a + 2π])
+            arb_si(interval!(a, (interval!(a, a).unwrap() + Interval::TAU).sup()).unwrap())
+        } else {
+            arb_si(x)
+        }
+    });
     impl_arb_op!(sin(x), arb_sin(x));
     impl_arb_op!(
         sinc(x),
@@ -1124,7 +1226,7 @@ arb_fn!(
 arb_fn!(
     arb_ci(x),
     arb_hypgeom_ci(x, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(f64::NEG_INFINITY, 0.47200065143956865)
+    const_interval!(f64::NEG_INFINITY, 0.47200065143956865) // [-∞, Ci(π/2)]
 );
 arb_fn!(
     arb_cos(x),
@@ -1181,12 +1283,12 @@ arb_fn!(
 arb_fn!(
     arb_fresnel_c(x),
     arb_hypgeom_fresnel(null(), x, x, 1, f64::MANTISSA_DIGITS.into()),
-    const_interval!(-0.7798934003768229, 0.7798934003768229)
+    const_interval!(-0.7798934003768229, 0.7798934003768229) // [C(-1), C(1)]
 );
 arb_fn!(
     arb_fresnel_s(x),
     arb_hypgeom_fresnel(x, null(), x, 1, f64::MANTISSA_DIGITS.into()),
-    const_interval!(-0.7139722140219397, 0.7139722140219397)
+    const_interval!(-0.7139722140219397, 0.7139722140219397) // [S(-√2), S(√2)]
 );
 arb_fn!(
     arb_ln(x),
@@ -1211,7 +1313,7 @@ arb_fn!(
 arb_fn!(
     arb_si(x),
     arb_hypgeom_si(x, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(-1.8519370519824663, 1.8519370519824663)
+    const_interval!(-1.8519370519824663, 1.8519370519824663) // [Si(-π), Si(π)]
 );
 arb_fn!(
     arb_sin(x),
