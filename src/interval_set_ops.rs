@@ -907,7 +907,12 @@ impl TupperIntervalSet {
             let b = x.sup();
             if a == 0.0 {
                 // [-∞, Chi(b)]
-                interval!(f64::NEG_INFINITY, arb_chi(interval!(b, b).unwrap()).sup()).unwrap()
+                let sup = if b == f64::INFINITY {
+                    f64::INFINITY
+                } else {
+                    arb_chi(interval!(b, b).unwrap()).sup()
+                };
+                interval!(f64::NEG_INFINITY, sup).unwrap()
             } else if b == f64::INFINITY {
                 // [Chi(a), +∞]
                 interval!(arb_chi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
@@ -925,12 +930,12 @@ impl TupperIntervalSet {
             let b = x.sup();
             if a == 0.0 && b <= Interval::FRAC_PI_2.inf() {
                 // [-∞, Ci(b)]
-                interval!(f64::NEG_INFINITY, arb_ci(interval!(b, b).unwrap()).sup()).unwrap()
-            } else if b == f64::INFINITY {
-                // Ci([a, a + 2π])
-                arb_ci(interval!(a, (interval!(a, a).unwrap() + Interval::TAU).sup()).unwrap())
+                let sup = arb_ci(interval!(b, b).unwrap()).sup();
+                interval!(f64::NEG_INFINITY, sup).unwrap()
             } else {
-                arb_ci(x)
+                // Ci([a, min(a + 2π, b)])
+                let x0 = (interval!(a, a).unwrap() + Interval::TAU).sup();
+                arb_ci(interval!(a, x0.min(b)).unwrap())
             }
         },
         [x.sup() > 0.0, x.inf() > 0.0]
@@ -993,7 +998,11 @@ impl TupperIntervalSet {
             let b = x.sup();
             let na = n.inf();
             let nb = n.sup();
-            let inf = arb_en(interval!(nb, nb).unwrap(), interval!(b, b).unwrap()).inf();
+            let inf = if b == f64::INFINITY {
+                0.0
+            } else {
+                arb_en(interval!(nb, nb).unwrap(), interval!(b, b).unwrap()).inf()
+            };
             let sup = arb_en(interval!(na, na).unwrap(), interval!(a, a).unwrap()).sup();
             interval!(inf, sup).unwrap()
         },
@@ -1021,7 +1030,9 @@ impl TupperIntervalSet {
     impl_arb_op!(erfi(x), {
         let a = x.inf();
         let b = x.sup();
-        if a == f64::NEG_INFINITY {
+        if x.is_entire() {
+            x
+        } else if a == f64::NEG_INFINITY {
             // [-∞, erfi(b)]
             interval!(f64::NEG_INFINITY, arb_erfi(interval!(b, b).unwrap()).sup()).unwrap()
         } else if b == f64::INFINITY {
@@ -1059,23 +1070,7 @@ impl TupperIntervalSet {
         const ONE: Interval = const_interval!(1.0, 1.0);
         let a = x.inf();
         let b = x.sup();
-        if a >= 0.0 && b == f64::INFINITY {
-            let a2 = interval!(a, a).unwrap().sqr();
-
-            // The first local max point x0 ≥ a is
-            //   x0 = √(4n + 1),
-            //   n = ceil((a^2 - 1)/4).
-            let _4n = 4.0 * ((a2 - ONE).sup() / 4.0).ceil();
-            let x0 = (interval!(_4n, _4n).unwrap() + ONE).sqrt().sup();
-
-            // The first local min point x1 ≥ a is
-            //   x1 = √(4n - 1),
-            //   n = ceil((a^2 + 1)/4).
-            let _4n = 4.0 * ((a2 + ONE).sup() / 4.0).ceil();
-            let x1 = (interval!(_4n, _4n).unwrap() - ONE).sqrt().sup();
-
-            arb_fresnel_c(interval!(a, x0.max(x1)).unwrap())
-        } else if a == f64::NEG_INFINITY && b <= 0.0 {
+        if b <= 0.0 {
             let b2 = interval!(b, b).unwrap().sqr();
 
             // The first local max point x0 ≤ b is
@@ -1090,7 +1085,23 @@ impl TupperIntervalSet {
             let _4n = 4.0 * ((b2 - ONE).sup() / 4.0).ceil();
             let x1 = -(interval!(_4n, _4n).unwrap() + ONE).sqrt().sup();
 
-            arb_fresnel_c(interval!(x0.min(x1), b).unwrap())
+            arb_fresnel_c(interval!(x0.min(x1).max(a), b).unwrap())
+        } else if a >= 0.0 {
+            let a2 = interval!(a, a).unwrap().sqr();
+
+            // The first local max point x0 ≥ a is
+            //   x0 = √(4n + 1),
+            //   n = ceil((a^2 - 1)/4).
+            let _4n = 4.0 * ((a2 - ONE).sup() / 4.0).ceil();
+            let x0 = (interval!(_4n, _4n).unwrap() + ONE).sqrt().sup();
+
+            // The first local min point x1 ≥ a is
+            //   x1 = √(4n - 1),
+            //   n = ceil((a^2 + 1)/4).
+            let _4n = 4.0 * ((a2 + ONE).sup() / 4.0).ceil();
+            let x1 = (interval!(_4n, _4n).unwrap() - ONE).sqrt().sup();
+
+            arb_fresnel_c(interval!(a, x0.max(x1).min(b)).unwrap())
         } else {
             arb_fresnel_c(x)
         }
@@ -1099,23 +1110,7 @@ impl TupperIntervalSet {
         const TWO: Interval = const_interval!(2.0, 2.0);
         let a = x.inf();
         let b = x.sup();
-        if a >= 0.0 && b == f64::INFINITY {
-            let a2 = interval!(a, a).unwrap().sqr();
-
-            // The first local max point x0 ≥ a is
-            //   x0 = √(4n + 2),
-            //   n = ceil((a^2 - 2/)4).
-            let _4n = 4.0 * ((a2 - TWO).sup() / 4.0).ceil();
-            let x0 = (interval!(_4n, _4n).unwrap() + TWO).sqrt().sup();
-
-            // The first local min point x1 ≥ a is
-            //   x1 = √(4n),
-            //   n = ceil(a^2/4).
-            let _4n = 4.0 * (a2.sup() / 4.0).ceil();
-            let x1 = (interval!(_4n, _4n).unwrap()).sqrt().sup();
-
-            arb_fresnel_s(interval!(a, x0.max(x1)).unwrap())
-        } else if a == f64::NEG_INFINITY && b <= 0.0 {
+        if b <= 0.0 {
             let b2 = interval!(b, b).unwrap().sqr();
 
             // The first local max point x0 ≤ b is
@@ -1130,7 +1125,23 @@ impl TupperIntervalSet {
             let _4n = 4.0 * ((b2 - TWO).sup() / 4.0).ceil();
             let x1 = -(interval!(_4n, _4n).unwrap() + TWO).sqrt().sup();
 
-            arb_fresnel_s(interval!(x0.min(x1), b).unwrap())
+            arb_fresnel_s(interval!(x0.min(x1).max(a), b).unwrap())
+        } else if a >= 0.0 {
+            let a2 = interval!(a, a).unwrap().sqr();
+
+            // The first local max point x0 ≥ a is
+            //   x0 = √(4n + 2),
+            //   n = ceil((a^2 - 2/)4).
+            let _4n = 4.0 * ((a2 - TWO).sup() / 4.0).ceil();
+            let x0 = (interval!(_4n, _4n).unwrap() + TWO).sqrt().sup();
+
+            // The first local min point x1 ≥ a is
+            //   x1 = √(4n),
+            //   n = ceil(a^2/4).
+            let _4n = 4.0 * (a2.sup() / 4.0).ceil();
+            let x1 = (interval!(_4n, _4n).unwrap()).sqrt().sup();
+
+            arb_fresnel_s(interval!(a, x0.max(x1).min(b)).unwrap())
         } else {
             arb_fresnel_s(x)
         }
@@ -1198,10 +1209,10 @@ impl TupperIntervalSet {
     impl_arb_op!(shi(x), {
         let a = x.inf();
         let b = x.sup();
-        if a == f64::NEG_INFINITY {
+        if a == f64::NEG_INFINITY && b <= 0.0 {
             // [-∞, Shi(b)]
             interval!(f64::NEG_INFINITY, arb_shi(interval!(b, b).unwrap()).sup()).unwrap()
-        } else if b == f64::INFINITY {
+        } else if a >= 0.0 && b == f64::INFINITY {
             // [Shi(a), +∞]
             interval!(arb_shi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
         } else {
@@ -1211,12 +1222,14 @@ impl TupperIntervalSet {
     impl_arb_op!(si(x), {
         let a = x.inf();
         let b = x.sup();
-        if a == f64::NEG_INFINITY {
-            // Si([b - 2π, b])
-            arb_si(interval!((interval!(b, b).unwrap() - Interval::TAU).inf(), b).unwrap())
-        } else if b == f64::INFINITY {
-            // Si([a, a + 2π])
-            arb_si(interval!(a, (interval!(a, a).unwrap() + Interval::TAU).sup()).unwrap())
+        if b <= 0.0 {
+            // Si([max(b - 2π, a), b])
+            let x0 = (interval!(b, b).unwrap() - Interval::TAU).inf();
+            arb_si(interval!(x0.max(a), b).unwrap())
+        } else if a >= 0.0 {
+            // Si([a, min(a + 2π, b)])
+            let x0 = (interval!(a, a).unwrap() + Interval::TAU).sup();
+            arb_si(interval!(a, x0.min(b)).unwrap())
         } else {
             arb_si(x)
         }
