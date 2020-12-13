@@ -1055,8 +1055,86 @@ impl TupperIntervalSet {
             x.exp2()
         }
     );
-    impl_arb_op!(fresnel_c(x), arb_fresnel_c(x));
-    impl_arb_op!(fresnel_s(x), arb_fresnel_s(x));
+    impl_arb_op!(fresnel_c(x), {
+        const ONE: Interval = const_interval!(1.0, 1.0);
+        let a = x.inf();
+        let b = x.sup();
+        if a >= 0.0 && b == f64::INFINITY {
+            let a2 = interval!(a, a).unwrap().sqr();
+
+            // The first local max point x0 ≥ a is
+            //   x0 = √(4n + 1),
+            //   n = ceil((a^2 - 1)/4).
+            let _4n = 4.0 * ((a2 - ONE).sup() / 4.0).ceil();
+            let x0 = (interval!(_4n, _4n).unwrap() + ONE).sqrt().sup();
+
+            // The first local min point x1 ≥ a is
+            //   x1 = √(4n - 1),
+            //   n = ceil((a^2 + 1)/4).
+            let _4n = 4.0 * ((a2 + ONE).sup() / 4.0).ceil();
+            let x1 = (interval!(_4n, _4n).unwrap() - ONE).sqrt().sup();
+
+            arb_fresnel_c(interval!(a, x0.max(x1)).unwrap())
+        } else if a == f64::NEG_INFINITY && b <= 0.0 {
+            let b2 = interval!(b, b).unwrap().sqr();
+
+            // The first local max point x0 ≤ b is
+            //   x0 = -√(4n - 1),
+            //   n = ceil((b^2 + 1)/4).
+            let _4n = 4.0 * ((b2 + ONE).sup() / 4.0).ceil();
+            let x0 = -(interval!(_4n, _4n).unwrap() - ONE).sqrt().sup();
+
+            // The first local min point x1 ≤ b is
+            //   x1 = -√(4n + 1),
+            //   n = ceil((b^2 - 1)/4).
+            let _4n = 4.0 * ((b2 - ONE).sup() / 4.0).ceil();
+            let x1 = -(interval!(_4n, _4n).unwrap() + ONE).sqrt().sup();
+
+            arb_fresnel_c(interval!(x0.min(x1), b).unwrap())
+        } else {
+            arb_fresnel_c(x)
+        }
+    });
+    impl_arb_op!(fresnel_s(x), {
+        const TWO: Interval = const_interval!(2.0, 2.0);
+        let a = x.inf();
+        let b = x.sup();
+        if a >= 0.0 && b == f64::INFINITY {
+            let a2 = interval!(a, a).unwrap().sqr();
+
+            // The first local max point x0 ≥ a is
+            //   x0 = √(4n + 2),
+            //   n = ceil((a^2 - 2/)4).
+            let _4n = 4.0 * ((a2 - TWO).sup() / 4.0).ceil();
+            let x0 = (interval!(_4n, _4n).unwrap() + TWO).sqrt().sup();
+
+            // The first local min point x1 ≥ a is
+            //   x1 = √(4n),
+            //   n = ceil(a^2/4).
+            let _4n = 4.0 * (a2.sup() / 4.0).ceil();
+            let x1 = (interval!(_4n, _4n).unwrap()).sqrt().sup();
+
+            arb_fresnel_s(interval!(a, x0.max(x1)).unwrap())
+        } else if a == f64::NEG_INFINITY && b <= 0.0 {
+            let b2 = interval!(b, b).unwrap().sqr();
+
+            // The first local max point x0 ≤ b is
+            //   x0 = -√(4n),
+            //   n = ceil(b^2/4).
+            let _4n = 4.0 * (b2.sup() / 4.0).ceil();
+            let x0 = -(interval!(_4n, _4n).unwrap()).sqrt().sup();
+
+            // The first local min point x1 ≤ b is
+            //   x1 = -√(4n + 2),
+            //   n = ceil((b^2 - 2)/4).
+            let _4n = 4.0 * ((b2 - TWO).sup() / 4.0).ceil();
+            let x1 = -(interval!(_4n, _4n).unwrap() + TWO).sqrt().sup();
+
+            arb_fresnel_s(interval!(x0.min(x1), b).unwrap())
+        } else {
+            arb_fresnel_s(x)
+        }
+    });
     impl_arb_op!(
         li(x),
         {
