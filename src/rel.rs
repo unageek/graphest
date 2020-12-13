@@ -45,6 +45,7 @@ impl StaticTerm {
             Unary(Ci, x) => ts[*x as usize].ci(),
             Unary(Cos, x) => ts[*x as usize].cos(),
             Unary(Cosh, x) => ts[*x as usize].cosh(),
+            Unary(Ei, x) => ts[*x as usize].ei(),
             Unary(Erf, x) => ts[*x as usize].erf(),
             Unary(Erfc, x) => ts[*x as usize].erfc(),
             Unary(Erfi, x) => ts[*x as usize].erfi(),
@@ -55,6 +56,7 @@ impl StaticTerm {
             Unary(FresnelC, x) => ts[*x as usize].fresnel_c(),
             Unary(FresnelS, x) => ts[*x as usize].fresnel_s(),
             Unary(Gamma, x) => ts[*x as usize].gamma(self.site),
+            Unary(Li, x) => ts[*x as usize].li(),
             Unary(Ln, x) => ts[*x as usize].ln(),
             Unary(Log10, x) => ts[*x as usize].log10(),
             Unary(Neg, x) => -&ts[*x as usize],
@@ -74,6 +76,7 @@ impl StaticTerm {
             Binary(Add, x, y) => &ts[*x as usize] + &ts[*y as usize],
             Binary(Atan2, x, y) => ts[*x as usize].atan2(&ts[*y as usize], self.site),
             Binary(Div, x, y) => ts[*x as usize].div(&ts[*y as usize], self.site),
+            Binary(En, x, y) => ts[*x as usize].en(&ts[*y as usize]),
             // Beware the order of arguments.
             Binary(Log, b, x) => ts[*x as usize].log(&ts[*b as usize], self.site),
             Binary(Max, x, y) => ts[*x as usize].max(&ts[*y as usize]),

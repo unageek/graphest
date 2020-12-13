@@ -655,9 +655,10 @@ macro_rules! impl_integer_op {
 }
 
 macro_rules! requires_arb {
-    ($op:ident) => {
+    ($op:ident($x:ident $(,$y:ident)*)) => {
         #[cfg(not(feature = "arb"))]
-        pub fn $op(&self) -> Self {
+        #[allow(unused_variables)]
+        pub fn $op(&self $(,$y: &Self)*) -> Self {
             panic!(concat!(
                 "function `",
                 stringify!($op),
@@ -721,17 +722,20 @@ impl TupperIntervalSet {
     impl_integer_op!(sign);
     impl_integer_op!(trunc);
 
-    requires_arb!(airy_ai);
-    requires_arb!(airy_ai_prime);
-    requires_arb!(airy_bi);
-    requires_arb!(airy_bi_prime);
-    requires_arb!(chi);
-    requires_arb!(ci);
-    requires_arb!(erfi);
-    requires_arb!(fresnel_c);
-    requires_arb!(fresnel_s);
-    requires_arb!(shi);
-    requires_arb!(si);
+    requires_arb!(airy_ai(x));
+    requires_arb!(airy_ai_prime(x));
+    requires_arb!(airy_bi(x));
+    requires_arb!(airy_bi_prime(x));
+    requires_arb!(chi(x));
+    requires_arb!(ci(x));
+    requires_arb!(ei(x));
+    requires_arb!(en(n, x));
+    requires_arb!(erfi(x));
+    requires_arb!(fresnel_c(x));
+    requires_arb!(fresnel_s(x));
+    requires_arb!(li(x));
+    requires_arb!(shi(x));
+    requires_arb!(si(x));
 }
 
 macro_rules! impl_arb_op {
@@ -742,9 +746,8 @@ macro_rules! impl_arb_op {
             for x in self {
                 let $x = x.x;
                 if $possibly_def {
-                    let y = $result;
                     let dec = if $certainly_def { x.d } else { Decoration::Trv };
-                    rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
+                    rs.insert(TupperInterval::new(DecInterval::set_dec($result, dec), x.g));
                 }
             }
             rs.normalize()
@@ -754,12 +757,40 @@ macro_rules! impl_arb_op {
     ($op:ident($x:ident), $result:expr) => {
         impl_arb_op!($op($x), $result, [true, true]);
     };
+
+    ($op:ident($x:ident, $y:ident), $result:expr, [$possibly_def:expr, $certainly_def:expr]) => {
+        #[cfg(feature = "arb")]
+        pub fn $op(&self, rhs: &Self) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                for y in rhs {
+                    if let Some(g) = x.g.union(y.g) {
+                        let $x = x.x;
+                        let $y = y.x;
+                        if $possibly_def {
+                            let dec = if $certainly_def {
+                                x.d.min(y.d)
+                            } else {
+                                Decoration::Trv
+                            };
+                            rs.insert(TupperInterval::new(DecInterval::set_dec($result, dec), g));
+                        }
+                    }
+                }
+            }
+            rs.normalize()
+        }
+    };
 }
 
 #[allow(dead_code)]
 const MONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
 #[allow(dead_code)]
+const ONE: Interval = const_interval!(1.0, 1.0);
+#[allow(dead_code)]
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
+#[allow(dead_code)]
+const ZERO: Interval = const_interval!(0.0, 0.0);
 #[allow(dead_code)]
 const ZERO_TO_INF: Interval = const_interval!(0.0, f64::INFINITY);
 
@@ -914,6 +945,64 @@ impl TupperIntervalSet {
         }
     );
     impl_arb_op!(
+        ei(x),
+        {
+            let a = x.inf();
+            let b = x.sup();
+            if b <= 0.0 {
+                // [Ei(b), Ei(a)]
+                // When b = 0, inf(arb_ei([b, b])) = inf([-∞, +∞]) = -∞.
+                let inf = arb_ei(interval!(b, b).unwrap()).inf();
+                let sup = if a == f64::NEG_INFINITY {
+                    0.0
+                } else {
+                    arb_ei(interval!(a, a).unwrap()).sup()
+                };
+                interval!(inf, sup).unwrap()
+            } else if a >= 0.0 {
+                // [Ei(a), Ei(b)]
+                let inf = arb_ei(interval!(a, a).unwrap()).inf();
+                let sup = if b == f64::INFINITY {
+                    f64::INFINITY
+                } else {
+                    arb_ei(interval!(b, b).unwrap()).sup()
+                };
+                interval!(inf, sup).unwrap()
+            } else {
+                // [-∞, max(Ei(a), Ei(b))]
+                let sup0 = if a == f64::NEG_INFINITY {
+                    0.0
+                } else {
+                    arb_ei(interval!(a, a).unwrap()).sup()
+                };
+                let sup1 = if b == f64::INFINITY {
+                    f64::INFINITY
+                } else {
+                    arb_ei(interval!(b, b).unwrap()).sup()
+                };
+                interval!(f64::NEG_INFINITY, sup0.max(sup1)).unwrap()
+            }
+        },
+        [x != ZERO, !ZERO.subset(x)]
+    );
+    impl_arb_op!(
+        en(n, x),
+        {
+            let x = x.intersection(ZERO_TO_INF);
+            let a = x.inf();
+            let b = x.sup();
+            let na = n.inf();
+            let nb = n.sup();
+            let inf = arb_en(interval!(nb, nb).unwrap(), interval!(b, b).unwrap()).inf();
+            let sup = arb_en(interval!(na, na).unwrap(), interval!(a, a).unwrap()).sup();
+            interval!(inf, sup).unwrap()
+        },
+        [
+            (x.sup() > 0.0) || (n.sup() > 1.0 && x.sup() >= 0.0),
+            (x.inf() > 0.0) || (n.inf() > 1.0 && x.inf() >= 0.0)
+        ]
+    );
+    impl_arb_op!(
         erf(x),
         if x.is_common_interval() {
             arb_erf(x)
@@ -968,6 +1057,39 @@ impl TupperIntervalSet {
     );
     impl_arb_op!(fresnel_c(x), arb_fresnel_c(x));
     impl_arb_op!(fresnel_s(x), arb_fresnel_s(x));
+    impl_arb_op!(
+        li(x),
+        {
+            let x = x.intersection(ZERO_TO_INF);
+            let a = x.inf();
+            let b = x.sup();
+            if b <= 1.0 {
+                // [li(b), li(a)]
+                let inf = arb_li(interval!(b, b).unwrap()).inf();
+                let sup = arb_li(interval!(a, a).unwrap()).sup();
+                interval!(inf, sup).unwrap()
+            } else if a >= 1.0 {
+                // [li(a), li(b)]
+                let inf = arb_li(interval!(a, a).unwrap()).inf();
+                let sup = if b == f64::INFINITY {
+                    f64::INFINITY
+                } else {
+                    arb_li(interval!(b, b).unwrap()).sup()
+                };
+                interval!(inf, sup).unwrap()
+            } else {
+                // [-∞, max(li(a), li(b))]
+                let sup0 = arb_li(interval!(a, a).unwrap()).sup();
+                let sup1 = if b == f64::INFINITY {
+                    f64::INFINITY
+                } else {
+                    arb_li(interval!(b, b).unwrap()).sup()
+                };
+                interval!(f64::NEG_INFINITY, sup0.max(sup1)).unwrap()
+            }
+        },
+        [x.sup() >= 0.0 && x != ONE, x.inf() >= 0.0 && !ONE.subset(x)]
+    );
     impl_arb_op!(
         ln(x),
         if x.inf() > 0.0 && x.sup() < f64::INFINITY {
@@ -1239,6 +1361,16 @@ arb_fn!(
     const_interval!(1.0, f64::INFINITY)
 );
 arb_fn!(
+    arb_ei(x),
+    arb_hypgeom_ei(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
+    arb_en(n, x),
+    arb_hypgeom_expint(n, n, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(0.0, f64::INFINITY)
+);
+arb_fn!(
     arb_erf(x),
     // `+ 3` completes the graphing of "y = erf(1/x^21)".
     arb_hypgeom_erf(x, x, (f64::MANTISSA_DIGITS + 3).into()),
@@ -1289,6 +1421,11 @@ arb_fn!(
     arb_fresnel_s(x),
     arb_hypgeom_fresnel(x, null(), x, 1, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.7139722140219397, 0.7139722140219397) // [S(-√2), S(√2)]
+);
+arb_fn!(
+    arb_li(x),
+    arb_hypgeom_li(x, x, 0, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
 );
 arb_fn!(
     arb_ln(x),

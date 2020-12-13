@@ -101,16 +101,18 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
         value(UnaryOp::Ci, keyword("Ci")),
         value(UnaryOp::Cos, keyword("cos")),
         value(UnaryOp::Cosh, keyword("cosh")),
+        value(UnaryOp::Ei, keyword("Ei")),
         value(UnaryOp::Erf, keyword("erf")),
         value(UnaryOp::Erfc, keyword("erfc")),
         value(UnaryOp::Erfi, keyword("erfi")),
         value(UnaryOp::Exp, keyword("exp")),
-        value(UnaryOp::Floor, keyword("floor")),
         alt((
+            value(UnaryOp::Floor, keyword("floor")),
             value(UnaryOp::FresnelC, keyword("C")),
             value(UnaryOp::FresnelS, keyword("S")),
             value(UnaryOp::Gamma, keyword("Gamma")),
             value(UnaryOp::Gamma, keyword("Γ")),
+            value(UnaryOp::Li, keyword("li")),
             value(UnaryOp::Ln, keyword("ln")),
             value(UnaryOp::Log10, keyword("log")),
             value(UnaryOp::Shi, keyword("Shi")),
@@ -128,6 +130,7 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
 fn fn2(i: &str) -> ParseResult<BinaryOp> {
     alt((
         value(BinaryOp::Atan2, keyword("atan2")),
+        value(BinaryOp::En, keyword("En")),
         value(BinaryOp::Log, keyword("log")),
         value(BinaryOp::Max, keyword("max")),
         value(BinaryOp::Min, keyword("min")),
