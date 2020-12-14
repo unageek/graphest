@@ -729,7 +729,6 @@ impl TupperIntervalSet {
     requires_arb!(chi(x));
     requires_arb!(ci(x));
     requires_arb!(ei(x));
-    requires_arb!(en(n, x));
     requires_arb!(erfi(x));
     requires_arb!(fresnel_c(x));
     requires_arb!(fresnel_s(x));
