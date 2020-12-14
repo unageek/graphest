@@ -66,7 +66,6 @@ pub enum BinaryOp {
     Add,
     Atan2,
     Div,
-    En,
     Log,
     Max,
     Min,
@@ -187,7 +186,6 @@ impl Term {
             Binary(Add, x, y) => &x.eval() + &y.eval(),
             Binary(Atan2, x, y) => x.eval().atan2(&y.eval(), None),
             Binary(Div, x, y) => x.eval().div(&y.eval(), None),
-            Binary(En, x, y) => x.eval().en(&y.eval()),
             // Beware the order of arguments.
             Binary(Log, b, x) => x.eval().log(&b.eval(), None),
             Binary(Max, x, y) => x.eval().max(&y.eval()),

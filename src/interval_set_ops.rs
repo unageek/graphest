@@ -991,27 +991,6 @@ impl TupperIntervalSet {
         [x != ZERO, !ZERO.subset(x)]
     );
     impl_arb_op!(
-        en(n, x),
-        {
-            let x = x.intersection(ZERO_TO_INF);
-            let a = x.inf();
-            let b = x.sup();
-            let na = n.inf();
-            let nb = n.sup();
-            let inf = if b == f64::INFINITY {
-                0.0
-            } else {
-                arb_en(interval!(nb, nb).unwrap(), interval!(b, b).unwrap()).inf()
-            };
-            let sup = arb_en(interval!(na, na).unwrap(), interval!(a, a).unwrap()).sup();
-            interval!(inf, sup).unwrap()
-        },
-        [
-            (x.sup() > 0.0) || (n.sup() > 1.0 && x.sup() >= 0.0),
-            (x.inf() > 0.0) || (n.inf() > 1.0 && x.inf() >= 0.0)
-        ]
-    );
-    impl_arb_op!(
         erf(x),
         if x.is_common_interval() {
             arb_erf(x)
@@ -1455,11 +1434,6 @@ arb_fn!(
     arb_ei(x),
     arb_hypgeom_ei(x, x, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE
-);
-arb_fn!(
-    arb_en(n, x),
-    arb_hypgeom_expint(n, n, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(0.0, f64::INFINITY)
 );
 arb_fn!(
     arb_erf(x),
