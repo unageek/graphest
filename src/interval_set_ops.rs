@@ -816,9 +816,17 @@ impl TupperIntervalSet {
         [!x.disjoint(ONE_TO_INF), x.subset(ONE_TO_INF)]
     );
     impl_arb_op!(airy_ai(x), {
+        // The 1st zero, rounded down.
+        const FIRST_ZERO_RD: f64 = -2.3381074104597674;
+        // The distance between the 1st and 3rd zeros, rounded up.
+        const PERIOD_RU: f64 = 3.1824524176357842;
         let a = x.inf();
         let b = x.sup();
-        if a >= 0.0 && b == f64::INFINITY {
+        if b <= FIRST_ZERO_RD {
+            // Ai([max(b - PERIOD, a), b])
+            let x0 = (interval!(b, b).unwrap() - const_interval!(PERIOD_RU, PERIOD_RU)).inf();
+            arb_airy_ai(interval!(x0.max(a), b).unwrap())
+        } else if a >= 0.0 && b == f64::INFINITY {
             // [0, Ai(a)]
             interval!(0.0, arb_airy_ai(interval!(a, a).unwrap()).sup()).unwrap()
         } else {
@@ -836,9 +844,17 @@ impl TupperIntervalSet {
         }
     });
     impl_arb_op!(airy_bi(x), {
+        // The 1st zero, rounded down.
+        const FIRST_ZERO_RD: f64 = -1.173713222709128;
+        // The distance between the 1st and 3rd zeros, rounded up.
+        const PERIOD_RU: f64 = 3.6570246189528883;
         let a = x.inf();
         let b = x.sup();
-        if a >= 0.0 && b == f64::INFINITY {
+        if b <= FIRST_ZERO_RD {
+            // Bi([max(b - PERIOD, a), b])
+            let x0 = (interval!(b, b).unwrap() - const_interval!(PERIOD_RU, PERIOD_RU)).inf();
+            arb_airy_bi(interval!(x0.max(a), b).unwrap())
+        } else if a >= 0.0 && b == f64::INFINITY {
             // [Bi(a), +∞]
             interval!(arb_airy_bi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
         } else {
