@@ -24,7 +24,7 @@ macro_rules! impl_arb_op {
     };
 }
 
-const MONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
+const M_ONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
 const ONE: Interval = const_interval!(1.0, 1.0);
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
 const ZERO: Interval = const_interval!(0.0, 0.0);
@@ -35,12 +35,12 @@ impl TupperIntervalSet {
     // So we need to handle such inputs and unbounded functions explicitly.
     impl_arb_op!(
         acos(x),
-        if x.interior(MONE_TO_ONE) {
+        if x.interior(M_ONE_TO_ONE) {
             arb_acos(x)
         } else {
             x.acos()
         },
-        [!x.disjoint(MONE_TO_ONE), x.subset(MONE_TO_ONE)]
+        [!x.disjoint(M_ONE_TO_ONE), x.subset(M_ONE_TO_ONE)]
     );
     impl_arb_op!(
         acosh(x),
@@ -113,12 +113,12 @@ impl TupperIntervalSet {
     });
     impl_arb_op!(
         asin(x),
-        if x.interior(MONE_TO_ONE) {
+        if x.interior(M_ONE_TO_ONE) {
             arb_asin(x)
         } else {
             x.asin()
         },
-        [!x.disjoint(MONE_TO_ONE), x.subset(MONE_TO_ONE)]
+        [!x.disjoint(M_ONE_TO_ONE), x.subset(M_ONE_TO_ONE)]
     );
     impl_arb_op!(
         asinh(x),
@@ -138,17 +138,17 @@ impl TupperIntervalSet {
     );
     impl_arb_op!(
         atanh(x),
-        if x.interior(MONE_TO_ONE) {
+        if x.interior(M_ONE_TO_ONE) {
             arb_atanh(x)
         } else {
             x.atanh()
         },
         [
             {
-                let x = x.intersection(MONE_TO_ONE);
+                let x = x.intersection(M_ONE_TO_ONE);
                 !x.is_empty() && x.sup() > -1.0 && x.inf() < 1.0
             },
-            x.interior(MONE_TO_ONE)
+            x.interior(M_ONE_TO_ONE)
         ]
     );
     impl_arb_op!(
@@ -295,7 +295,6 @@ impl TupperIntervalSet {
         }
     );
     impl_arb_op!(fresnel_c(x), {
-        const ONE: Interval = const_interval!(1.0, 1.0);
         let a = x.inf();
         let b = x.sup();
         if b <= 0.0 {
@@ -517,7 +516,7 @@ arb_fn!(
 arb_fn!(
     arb_acosh(x),
     arb_acosh(x, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(0.0, f64::INFINITY)
+    ZERO_TO_INF
 );
 arb_fn!(
     arb_airy_ai(x),
@@ -572,12 +571,12 @@ arb_fn!(
 arb_fn!(
     arb_cos(x),
     arb_cos(x, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(-1.0, 1.0)
+    M_ONE_TO_ONE
 );
 arb_fn!(
     arb_cosh(x),
     arb_cosh(x, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(1.0, f64::INFINITY)
+    ONE_TO_INF
 );
 arb_fn!(
     arb_ei(x),
@@ -588,7 +587,7 @@ arb_fn!(
     arb_erf(x),
     // `+ 3` completes the graphing of "y = erf(1/x^21)".
     arb_hypgeom_erf(x, x, (f64::MANTISSA_DIGITS + 3).into()),
-    const_interval!(-1.0, 1.0)
+    M_ONE_TO_ONE
 );
 arb_fn!(
     arb_erfc(x),
@@ -604,7 +603,7 @@ arb_fn!(
 arb_fn!(
     arb_exp(x),
     arb_exp(x, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(0.0, f64::INFINITY)
+    ZERO_TO_INF
 );
 arb_fn!(
     arb_exp10(x),
@@ -614,7 +613,7 @@ arb_fn!(
         x,
         f64::MANTISSA_DIGITS.into()
     ),
-    const_interval!(0.0, f64::INFINITY)
+    ZERO_TO_INF
 );
 arb_fn!(
     arb_exp2(x),
@@ -624,7 +623,7 @@ arb_fn!(
         x,
         f64::MANTISSA_DIGITS.into()
     ),
-    const_interval!(0.0, f64::INFINITY)
+    ZERO_TO_INF
 );
 arb_fn!(
     arb_fresnel_c(x),
@@ -669,7 +668,7 @@ arb_fn!(
 arb_fn!(
     arb_sin(x),
     arb_sin(x, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(-1.0, 1.0)
+    M_ONE_TO_ONE
 );
 arb_fn!(
     arb_sinc(x),
@@ -684,7 +683,7 @@ arb_fn!(
 arb_fn!(
     arb_tanh(x),
     arb_tanh(x, x, f64::MANTISSA_DIGITS.into()),
-    const_interval!(-1.0, 1.0)
+    M_ONE_TO_ONE
 );
 
 #[cfg(test)]
