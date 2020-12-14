@@ -806,6 +806,15 @@ impl TupperIntervalSet {
         },
         [!x.disjoint(MONE_TO_ONE), x.subset(MONE_TO_ONE)]
     );
+    impl_arb_op!(
+        acosh(x),
+        if x.inf() > 1.0 && x.sup() < f64::INFINITY {
+            arb_acosh(x)
+        } else {
+            x.acosh()
+        },
+        [!x.disjoint(ONE_TO_INF), x.subset(ONE_TO_INF)]
+    );
     impl_arb_op!(airy_ai(x), {
         let a = x.inf();
         let b = x.sup();
@@ -850,15 +859,6 @@ impl TupperIntervalSet {
             arb_airy_bi_prime(x)
         }
     });
-    impl_arb_op!(
-        acosh(x),
-        if x.inf() > 1.0 && x.sup() < f64::INFINITY {
-            arb_acosh(x)
-        } else {
-            x.acosh()
-        },
-        [!x.disjoint(ONE_TO_INF), x.subset(ONE_TO_INF)]
-    );
     impl_arb_op!(
         asin(x),
         if x.interior(MONE_TO_ONE) {
