@@ -905,14 +905,11 @@ impl TupperIntervalSet {
             let x = x.intersection(ZERO_TO_INF);
             let a = x.inf();
             let b = x.sup();
-            if a == 0.0 {
+            if x == ZERO_TO_INF {
+                Interval::ENTIRE
+            } else if a == 0.0 {
                 // [-∞, Chi(b)]
-                let sup = if b == f64::INFINITY {
-                    f64::INFINITY
-                } else {
-                    arb_chi(interval!(b, b).unwrap()).sup()
-                };
-                interval!(f64::NEG_INFINITY, sup).unwrap()
+                interval!(f64::NEG_INFINITY, arb_chi(interval!(b, b).unwrap()).sup()).unwrap()
             } else if b == f64::INFINITY {
                 // [Chi(a), +∞]
                 interval!(arb_chi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
@@ -1188,10 +1185,12 @@ impl TupperIntervalSet {
     impl_arb_op!(shi(x), {
         let a = x.inf();
         let b = x.sup();
-        if a == f64::NEG_INFINITY && b <= 0.0 {
+        if x.is_entire() {
+            x
+        } else if a == f64::NEG_INFINITY {
             // [-∞, Shi(b)]
             interval!(f64::NEG_INFINITY, arb_shi(interval!(b, b).unwrap()).sup()).unwrap()
-        } else if a >= 0.0 && b == f64::INFINITY {
+        } else if b == f64::INFINITY {
             // [Shi(a), +∞]
             interval!(arb_shi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
         } else {
@@ -1537,3 +1536,59 @@ arb_fn!(
     arb_tanh(x, x, f64::MANTISSA_DIGITS.into()),
     const_interval!(-1.0, 1.0)
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "arb")]
+    #[test]
+    fn arb_ops_sanity() {
+        // Just check that arb ops don't panic due to invalid construction of an interval.
+        let xs = [
+            TupperIntervalSet::from(const_dec_interval!(f64::NEG_INFINITY, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(0.0, f64::INFINITY)),
+            TupperIntervalSet::from(DecInterval::ENTIRE),
+        ];
+        let fs = [
+            TupperIntervalSet::acos,
+            TupperIntervalSet::acosh,
+            TupperIntervalSet::airy_ai,
+            TupperIntervalSet::airy_ai_prime,
+            TupperIntervalSet::airy_bi,
+            TupperIntervalSet::airy_bi_prime,
+            TupperIntervalSet::asin,
+            TupperIntervalSet::asinh,
+            TupperIntervalSet::atan,
+            TupperIntervalSet::atanh,
+            TupperIntervalSet::chi,
+            TupperIntervalSet::ci,
+            TupperIntervalSet::cos,
+            TupperIntervalSet::cosh,
+            TupperIntervalSet::ei,
+            TupperIntervalSet::erf,
+            TupperIntervalSet::erfc,
+            TupperIntervalSet::erfi,
+            TupperIntervalSet::exp,
+            TupperIntervalSet::exp10,
+            TupperIntervalSet::exp2,
+            TupperIntervalSet::fresnel_c,
+            TupperIntervalSet::fresnel_s,
+            TupperIntervalSet::li,
+            TupperIntervalSet::ln,
+            TupperIntervalSet::log10,
+            TupperIntervalSet::log2,
+            TupperIntervalSet::shi,
+            TupperIntervalSet::si,
+            TupperIntervalSet::sin,
+            TupperIntervalSet::sinc,
+            TupperIntervalSet::sinh,
+            TupperIntervalSet::tanh,
+        ];
+        for f in fs.iter() {
+            for x in xs.iter() {
+                f(x);
+            }
+        }
+    }
+}
