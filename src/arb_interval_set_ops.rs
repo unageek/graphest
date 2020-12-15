@@ -143,13 +143,7 @@ impl TupperIntervalSet {
         } else {
             x.atanh()
         },
-        [
-            {
-                let x = x.intersection(M_ONE_TO_ONE);
-                !x.is_empty() && x.sup() > -1.0 && x.inf() < 1.0
-            },
-            x.interior(M_ONE_TO_ONE)
-        ]
+        [x.sup() > -1.0 && x.inf() < 1.0, x.interior(M_ONE_TO_ONE)]
     );
     impl_arb_op!(
         chi(x),

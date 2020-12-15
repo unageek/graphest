@@ -27,7 +27,7 @@ impl Arf {
     }
 
     pub fn as_raw_mut(&mut self) -> arf_ptr {
-        &mut self.0 as arf_ptr
+        &mut self.0
     }
 
     /// Rounds `self` to a `f64` value with the given rounding mode.
@@ -59,7 +59,7 @@ impl Arb {
     }
 
     pub fn as_raw_mut(&mut self) -> arb_ptr {
-        &mut self.0 as arb_ptr
+        &mut self.0
     }
 
     /// Creates an `Arb` interval `[x ± 0.0]`.
@@ -84,7 +84,7 @@ impl Arb {
 
             let mid = x.mid();
             unsafe {
-                arf_set_d(&mut y.0.mid as arf_ptr, mid);
+                arf_set_d(&mut y.0.mid, mid);
             }
 
             let rad = x.rad();
