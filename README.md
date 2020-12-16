@@ -78,9 +78,9 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 
 ### Expression
 
-| Input                                  | Interpreted as                                               | Notes                                                        |
+| Input                                  | Interpreted as                                               | Details                                                      |
 | -------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `123`<br />`123.5`<br />`.5`           | 123<br />123.5<br />0.5                                      | A decimal constant.                                          |
+| `123`<br />`123.5`<br />`.5`           | 123<br />123.5<br />0.5                                      |                                                              |
 | `e`                                    | e                                                            | The base of natural logarithms.                              |
 | `pi`<br />`π`                          | π                                                            |                                                              |
 | `-x`                                   | −*x*                                                         |                                                              |
@@ -92,22 +92,6 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `x ^ y`                                | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
 | `exp(x)`                               | e<sup>*x*</sup>                                              |                                                              |
 | `ln(x)`<br />`log(x)`<br />`log(b, x)` | log<sub>e</sub> *x*<br />log<sub>10</sub> *x*<br />log<sub>*b*</sub> *x* | Undefined for *x* ≤ 0, *b* ≤ 0 and *b* = 1.                  |
-| `sin(x)`                               | sin *x*                                                      |                                                              |
-| `cos(x)`                               | cos *x*                                                      |                                                              |
-| `tan(x)`                               | tan *x*                                                      | Undefined for *x* = (*n* + 1/2)π for all integer *n*.        |
-| `asin(x)`                              | sin<sup>−1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [−π/2, π/2]. |
-| `acox(x)`                              | cos<sup>−1</sup> *x*                                         | Undefined for *x* < −1 and *x* > 1.<br />The range is [0, π]. |
-| `atan(x)`                              | tan<sup>−1</sup> *x*                                         | The range is (−π/2, π/2).                                    |
-| `atan2(y, x)`                          | tan<sup>−1</sup>(*y* / *x*)                                  | The [two-argument arctangent](https://en.wikipedia.org/wiki/Atan2).<br />Undefined for (*x*, *y*) = (0, 0).<br />The range is (−π, π]. |
-| `sinh(x)`                              | sinh *x*                                                     |                                                              |
-| `cosh(x)`                              | cosh *x*                                                     |                                                              |
-| `tanh(x)`                              | tanh *x*                                                     |                                                              |
-| `asinh(x)`                             | sinh<sup>−1</sup> *x*                                        |                                                              |
-| `acosh(x)`                             | cosh<sup>−1</sup> *x*                                        | Undefined for *x* < 1.<br />The range is [0, ∞).             |
-| `atanh(x)`                             | tanh<sup>−1</sup> *x*                                        | Undefined for *x* ≤ −1 and *x* ≥ 1.                          |
-| `Gamma(x)`<br />`Γ(x)`                 | Γ(*x*)                                                       | The [gamma function](https://en.wikipedia.org/wiki/Gamma_function).<br />Undefined for *x* = 0, −1, −2, … |
-| `erf(x)`                               | erf(*x*)                                                     | The [error function](https://en.wikipedia.org/wiki/Error_function) and the complementary error function. |
-| `erfc(x)`                              | erfc(*x*)                                                    | The [complementary error function](https://en.wikipedia.org/wiki/Error_function). |
 | `\|x\|`                                | \|*x*\|                                                      |                                                              |
 | `min(x, y)`                            | min {*x*, *y*}                                               |                                                              |
 | `max(x, y)`                            | max {*x*, *y*}                                               |                                                              |
@@ -116,9 +100,11 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `sign(x)`                              | sgn(*x*)                                                     | The [sign function](https://en.wikipedia.org/wiki/Sign_function). |
 | `mod(x, y)`                            | *x* mod *y*                                                  | The [modulo operation](https://en.wikipedia.org/wiki/Modulo_operation).<br />The result is nonnegative, i.e., 0 ≤ *x* mod *y* < \|*y*\|. |
 
+See also [Trigonometric Functions](#trigonometric-functions) and [Special Functions](#special-functions).
+
 ### Relation
 
-| Input                 | Interpreted as | Notes                                                        |
+| Input                 | Interpreted as | Details                                                      |
 | --------------------- | -------------- | ------------------------------------------------------------ |
 | `x = y`               | *x* = *y*      |                                                              |
 | `x < y`               | *x* < *y*      |                                                              |
@@ -173,8 +159,52 @@ To be consistent with GrafEq, the following definitions of exponentiation is imp
   - *x*<sup>±*m* / *n*</sup> is an even (odd) function of *x* if *m* is even (odd).
 - 0<sup>0</sup> := 1.
 
+## Function Reference
+
+### Trigonometric Functions
+
+| Input         | Interpreted as              | Details                                                      |
+| ------------- | --------------------------- | ------------------------------------------------------------ |
+| `sin(x)`      | sin *x*                     |                                                              |
+| `cos(x)`      | cos *x*                     |                                                              |
+| `tan(x)`      | tan *x*                     | Undefined for *x* = (*n* + 1/2)π for all integers *n*.       |
+| `asin(x)`     | sin<sup>−1</sup> *x*        | Undefined for *x* < −1 and *x* > 1.<br />The range is [−π/2, π/2]. |
+| `acox(x)`     | cos<sup>−1</sup> *x*        | Undefined for *x* < −1 and *x* > 1.<br />The range is [0, π]. |
+| `atan(x)`     | tan<sup>−1</sup> *x*        | The range is (−π/2, π/2).                                    |
+| `atan2(y, x)` | tan<sup>−1</sup>(*y* / *x*) | The [two-argument arctangent](https://en.wikipedia.org/wiki/Atan2).<br />Undefined for (*x*, *y*) = (0, 0).<br />The range is (−π, π]. |
+| `sinh(x)`     | sinh *x*                    |                                                              |
+| `cosh(x)`     | cosh *x*                    |                                                              |
+| `tanh(x)`     | tanh *x*                    |                                                              |
+| `asinh(x)`    | sinh<sup>−1</sup> *x*       |                                                              |
+| `acosh(x)`    | cosh<sup>−1</sup> *x*       | Undefined for *x* < 1.<br />The range is [0, ∞).             |
+| `atanh(x)`    | tanh<sup>−1</sup> *x*       | Undefined for *x* ≤ −1 and *x* ≥ 1.                          |
+
+### Special Functions
+
+| Input                  | Interpreted as | Details                                                      |
+| ---------------------- | -------------- | ------------------------------------------------------------ |
+| `Gamma(x)`<br />`Γ(x)` | Γ(*x*)         | The [gamma function](https://en.wikipedia.org/wiki/Gamma_function).<br />Undefined for *x* = 0, −1, −2, … |
+| `erf(x)`               | erf(*x*)       | The [error function](https://en.wikipedia.org/wiki/Error_function). |
+| `erfc(x)`              | erfc(*x*)      | The [complementary error function](https://en.wikipedia.org/wiki/Error_function). |
+
+Functions that require building with `--features "arb"` option:
+
+| Input                  | Interpreted as         | Details                                |
+| ---------------------- | ---------------------- | -------------------------------------- |
+| `erfi(x)`              | erfi(*x*)              | The imaginary error function.          |
+| `Ei(x)`                | Ei(*x*)                | The exponential integral.              |
+| `li(x)`                | li(*x*)                | The logarithmic integral.              |
+| `Si(x)`                | Si(*x*)                | The sine integral.                     |
+| `Ci(x)`                | Ci(*x*)                | The cosine integral.                   |
+| `Shi(x)`               | Shi(*x*)               | The hyperbolic sine integral.          |
+| `Chi(x)`               | Chi(*x*)               | The hyperbolic cosine integral.        |
+| `S(x)`<br />`C(x)`     | S(*x*)<br />C(*x*)     | The Fresnel integrals.                 |
+| `Ai(x)`<br />`Bi(x)`   | Ai(*x*)<br />Bi(*x*)   | The Airy functions.                    |
+| `Ai'(x)`<br />`Bi'(x)` | Ai′(*x*)<br />Bi′(*x*) | The derivatives of the Airy functions. |
+
 ## References
 
 - [Ped] Pedagoguery Software Inc. GrafEq™. http://www.peda.com/grafeq
 - [Tup96] Jeffrey Allen Tupper. *Graphing Equations with Generalized Interval Arithmetic.* Master's thesis, University of Toronto, 1996. http://www.dgp.toronto.edu/~mooncake/thesis.pdf
 - [Tup01] Jeff Tupper. *Reliable Two-Dimensional Graphing Methods for Mathematical Formulae with Two Free Variables.* SIGGRAPH 2001 Conference Proceedings, 2001. http://www.dgp.toronto.edu/~mooncake/papers/SIGGRAPH2001_Tupper.pdf
+
