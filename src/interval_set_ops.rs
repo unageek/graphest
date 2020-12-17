@@ -666,6 +666,18 @@ macro_rules! requires_arb {
             ))
         }
     };
+
+    ($op:ident($x:ident $(,$y:ident)*), cut) => {
+        #[cfg(not(feature = "arb"))]
+        #[allow(unused_variables)]
+        pub fn $op(&self $(,$y: &Self)*, site: Option<Site>) -> Self {
+            panic!(concat!(
+                "function `",
+                stringify!($op),
+                "` is only available when the feature `arb` is enabled"
+            ))
+        }
+    };
 }
 
 impl TupperIntervalSet {
@@ -729,6 +741,7 @@ impl TupperIntervalSet {
     requires_arb!(chi(x));
     requires_arb!(ci(x));
     requires_arb!(ei(x));
+    requires_arb!(en(n, x), cut);
     requires_arb!(erfi(x));
     requires_arb!(fresnel_c(x));
     requires_arb!(fresnel_s(x));

@@ -1,5 +1,5 @@
 use crate::{
-    interval_set::{TupperInterval, TupperIntervalSet},
+    interval_set::{Branch, Site, TupperInterval, TupperIntervalSet},
     interval_set_ops,
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
@@ -96,6 +96,44 @@ macro_rules! impl_arb_op {
 
     ($op:ident($x:ident), $result:expr) => {
         impl_arb_op!($op($x), $result, BoolInterval::new(true, true));
+    };
+
+    ($op:ident($x:ident, $y:ident), $result:expr, $def:expr) => {
+        pub fn $op(&self, rhs: &Self, site: Option<Site>) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                for y in rhs {
+                    if let Some(g) = x.g.union(y.g) {
+                        let $x = x.x;
+                        let $y = y.x;
+                        let def = $def;
+                        if def.possibly() {
+                            let dec = if def.certainly() {
+                                x.d.min(y.d)
+                            } else {
+                                Decoration::Trv
+                            };
+                            let result = $result;
+                            rs.insert(TupperInterval::new(
+                                DecInterval::set_dec(result.0, dec),
+                                match site {
+                                    Some(site) => g.inserted(site, Branch::new(0)),
+                                    _ => g,
+                                },
+                            ));
+                            rs.insert(TupperInterval::new(
+                                DecInterval::set_dec(result.1, dec),
+                                match site {
+                                    Some(site) => g.inserted(site, Branch::new(1)),
+                                    _ => g,
+                                },
+                            ));
+                        }
+                    }
+                }
+            }
+            rs.normalize()
+        }
     };
 }
 
@@ -306,6 +344,76 @@ impl TupperIntervalSet {
             }
         },
         ne!(x, 0.0)
+    );
+    impl_arb_op!(
+        en(n, x),
+        {
+            const M_ONE_TO_ZERO: Interval = const_interval!(-1.0, 0.0);
+            const N_INF_TO_M_ONE: Interval = const_interval!(f64::NEG_INFINITY, -1.0);
+            const N_INF_TO_ZERO: Interval = const_interval!(f64::NEG_INFINITY, 0.0);
+            let yp = {
+                let x = x.intersection(ZERO_TO_INF);
+                if x.is_empty() || x.sup() == 0.0 {
+                    Interval::EMPTY
+                } else {
+                    let a = x.inf();
+                    let b = x.sup();
+                    let inf = if b == f64::INFINITY {
+                        0.0
+                    } else {
+                        arb_en(n, interval!(b, b).unwrap()).inf()
+                    };
+                    let sup = arb_en(n, interval!(a, a).unwrap()).sup();
+                    interval!(inf, sup).unwrap()
+                }
+            };
+            let na = n.inf();
+            if na <= 0.0 && n == n.trunc() {
+                if na % 2.0 == 0.0 {
+                    let x0 = x.intersection(N_INF_TO_M_ONE);
+                    let y0 = if x0.is_empty() { x0 } else { arb_en(n, x0) };
+                    let x1 = x.intersection(M_ONE_TO_ZERO);
+                    let y1 = if x1.is_empty() || x1.inf() == 0.0 {
+                        Interval::EMPTY
+                    } else {
+                        let a = x1.inf();
+                        let b = x1.sup();
+                        let inf = arb_en(n, interval!(b, b).unwrap()).inf();
+                        let sup = arb_en(n, interval!(a, a).unwrap()).sup();
+                        interval!(inf, sup).unwrap()
+                    };
+                    (y0.convex_hull(y1), yp)
+                } else {
+                    let x0 = x.intersection(N_INF_TO_ZERO);
+                    let y0 = if x0.is_empty() || x0.inf() == 0.0 {
+                        Interval::EMPTY
+                    } else {
+                        let a = x0.inf();
+                        let b = x0.sup();
+                        let inf = arb_en(n, interval!(a, a).unwrap()).inf();
+                        let sup = arb_en(n, interval!(b, b).unwrap()).sup();
+                        interval!(inf, sup).unwrap()
+                    };
+                    (y0.convex_hull(yp), Interval::EMPTY)
+                }
+            } else {
+                (yp, Interval::EMPTY)
+            }
+        },
+        {
+            if !n.is_singleton() {
+                panic!("`en(n, x)` is not implemented for non-exact numbers `n`");
+            }
+            let n = n.inf();
+            if n <= 0.0 && n == n.trunc() {
+                // n = 0, -1, -2, …
+                ne!(x, 0.0)
+            } else if n <= 1.0 {
+                gt!(x, 0.0)
+            } else {
+                ge!(x, 0.0)
+            }
+        }
     );
     impl_arb_op!(
         erf(x),
@@ -692,6 +800,11 @@ arb_fn!(
         f64::MANTISSA_DIGITS.into()
     ),
     ZERO_TO_INF
+);
+arb_fn!(
+    arb_en(n, x),
+    arb_hypgeom_expint(n, n, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
 );
 arb_fn!(
     arb_fresnel_c(x),

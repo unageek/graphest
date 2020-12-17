@@ -426,6 +426,7 @@ impl<'a> AssignIdStage1<'a> {
                 | Unary(Tan, _)
                 | Binary(Atan2, _, _)
                 | Binary(Div, _, _)
+                | Binary(En, _, _)
                 | Binary(Log, _, _)
                 | Binary(Mod, _, _)
                 | Binary(Pow, _, _)
