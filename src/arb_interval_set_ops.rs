@@ -3,15 +3,90 @@ use crate::{
     interval_set_ops,
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
+use std::ops::{BitAnd, BitOr};
+
+#[derive(Clone, Copy, Eq, Debug, PartialEq)]
+struct BoolInterval(bool, bool);
+
+impl BoolInterval {
+    pub fn new(a: bool, b: bool) -> Self {
+        assert!(!a || b); // a → b
+        Self(a, b)
+    }
+
+    pub fn certainly(self) -> bool {
+        self.0
+    }
+
+    pub fn possibly(self) -> bool {
+        self.1
+    }
+}
+
+macro_rules! ge {
+    ($x:expr, $y:expr) => {{
+        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        BoolInterval::new($x.inf() >= $y, $x.sup() >= $y)
+    }};
+}
+
+macro_rules! gt {
+    ($x:expr, $y:expr) => {{
+        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        BoolInterval::new($x.inf() > $y, $x.sup() > $y)
+    }};
+}
+
+macro_rules! le {
+    ($x:expr, $y:expr) => {{
+        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        BoolInterval::new($x.sup() <= $y, $x.inf() <= $y)
+    }};
+}
+
+macro_rules! lt {
+    ($x:expr, $y:expr) => {{
+        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        BoolInterval::new($x.sup() < $y, $x.inf() < $y)
+    }};
+}
+
+macro_rules! ne {
+    ($x:expr, $y:expr) => {{
+        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        BoolInterval::new(!$x.contains($y), $x != const_interval!($y, $y))
+    }};
+}
+
+impl BitAnd for BoolInterval {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self::new(self.0 && rhs.0, self.1 && rhs.1)
+    }
+}
+
+impl BitOr for BoolInterval {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self::new(self.0 || rhs.0, self.1 || rhs.1)
+    }
+}
 
 macro_rules! impl_arb_op {
-    ($op:ident($x:ident), $result:expr, [$possibly_def:expr, $certainly_def:expr]) => {
+    ($op:ident($x:ident), $result:expr, $def:expr) => {
         pub fn $op(&self) -> Self {
             let mut rs = Self::empty();
             for x in self {
                 let $x = x.x;
-                if $possibly_def {
-                    let dec = if $certainly_def { x.d } else { Decoration::Trv };
+                let def = $def;
+                if def.possibly() {
+                    let dec = if def.certainly() {
+                        x.d
+                    } else {
+                        Decoration::Trv
+                    };
                     rs.insert(TupperInterval::new(DecInterval::set_dec($result, dec), x.g));
                 }
             }
@@ -20,14 +95,13 @@ macro_rules! impl_arb_op {
     };
 
     ($op:ident($x:ident), $result:expr) => {
-        impl_arb_op!($op($x), $result, [true, true]);
+        impl_arb_op!($op($x), $result, BoolInterval::new(true, true));
     };
 }
 
 const M_ONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
 const ONE: Interval = const_interval!(1.0, 1.0);
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
-const ZERO: Interval = const_interval!(0.0, 0.0);
 const ZERO_TO_INF: Interval = const_interval!(0.0, f64::INFINITY);
 
 impl TupperIntervalSet {
@@ -40,7 +114,7 @@ impl TupperIntervalSet {
         } else {
             x.acos()
         },
-        [!x.disjoint(M_ONE_TO_ONE), x.subset(M_ONE_TO_ONE)]
+        ge!(x, -1.0) & le!(x, 1.0)
     );
     impl_arb_op!(
         acosh(x),
@@ -49,7 +123,7 @@ impl TupperIntervalSet {
         } else {
             x.acosh()
         },
-        [!x.disjoint(ONE_TO_INF), x.subset(ONE_TO_INF)]
+        ge!(x, 1.0)
     );
     impl_arb_op!(airy_ai(x), {
         // The 1st zero, rounded down.
@@ -118,7 +192,7 @@ impl TupperIntervalSet {
         } else {
             x.asin()
         },
-        [!x.disjoint(M_ONE_TO_ONE), x.subset(M_ONE_TO_ONE)]
+        ge!(x, -1.0) & le!(x, 1.0)
     );
     impl_arb_op!(
         asinh(x),
@@ -143,7 +217,7 @@ impl TupperIntervalSet {
         } else {
             x.atanh()
         },
-        [x.sup() > -1.0 && x.inf() < 1.0, x.interior(M_ONE_TO_ONE)]
+        gt!(x, -1.0) & lt!(x, 1.0)
     );
     impl_arb_op!(
         chi(x),
@@ -163,7 +237,7 @@ impl TupperIntervalSet {
                 arb_chi(x)
             }
         },
-        [x.sup() > 0.0, x.inf() > 0.0]
+        gt!(x, 0.0)
     );
     impl_arb_op!(
         ci(x),
@@ -181,7 +255,7 @@ impl TupperIntervalSet {
                 arb_ci(interval!(a, x0.min(b)).unwrap())
             }
         },
-        [x.sup() > 0.0, x.inf() > 0.0]
+        gt!(x, 0.0)
     );
     impl_arb_op!(cos(x), arb_cos(x));
     impl_arb_op!(
@@ -231,7 +305,7 @@ impl TupperIntervalSet {
                 interval!(f64::NEG_INFINITY, sup0.max(sup1)).unwrap()
             }
         },
-        [x != ZERO, !ZERO.subset(x)]
+        ne!(x, 0.0)
     );
     impl_arb_op!(
         erf(x),
@@ -398,7 +472,7 @@ impl TupperIntervalSet {
                 interval!(f64::NEG_INFINITY, sup0.max(sup1)).unwrap()
             }
         },
-        [x.sup() >= 0.0 && x != ONE, x.inf() >= 0.0 && !ONE.subset(x)]
+        ge!(x, 0.0) & ne!(x, 1.0)
     );
     impl_arb_op!(
         ln(x),
@@ -407,7 +481,7 @@ impl TupperIntervalSet {
         } else {
             x.ln()
         },
-        [x.sup() > 0.0, x.inf() > 0.0]
+        gt!(x, 0.0)
     );
     impl_arb_op!(
         log10(x),
@@ -416,7 +490,7 @@ impl TupperIntervalSet {
         } else {
             x.log10()
         },
-        [x.sup() > 0.0, x.inf() > 0.0]
+        gt!(x, 0.0)
     );
     impl_arb_op!(
         log2(x),
@@ -425,7 +499,7 @@ impl TupperIntervalSet {
         } else {
             x.log2()
         },
-        [x.sup() > 0.0, x.inf() > 0.0]
+        gt!(x, 0.0)
     );
     impl_arb_op!(shi(x), {
         let a = x.inf();
