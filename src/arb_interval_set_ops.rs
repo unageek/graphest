@@ -140,6 +140,7 @@ macro_rules! impl_arb_op {
 const M_ONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
 const ONE: Interval = const_interval!(1.0, 1.0);
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
+const ZERO: Interval = const_interval!(0.0, 0.0);
 const ZERO_TO_INF: Interval = const_interval!(0.0, f64::INFINITY);
 
 impl TupperIntervalSet {
@@ -351,9 +352,11 @@ impl TupperIntervalSet {
             const M_ONE_TO_ZERO: Interval = const_interval!(-1.0, 0.0);
             const N_INF_TO_M_ONE: Interval = const_interval!(f64::NEG_INFINITY, -1.0);
             const N_INF_TO_ZERO: Interval = const_interval!(f64::NEG_INFINITY, 0.0);
-            let yp = {
+
+            let na = n.inf();
+            let y0 = {
                 let x = x.intersection(ZERO_TO_INF);
-                if x.is_empty() || x.sup() == 0.0 {
+                if x.is_empty() || na <= 1.0 && x == ZERO {
                     Interval::EMPTY
                 } else {
                     let a = x.inf();
@@ -367,37 +370,51 @@ impl TupperIntervalSet {
                     interval!(inf, sup).unwrap()
                 }
             };
-            let na = n.inf();
-            if na <= 0.0 && n == n.trunc() {
+
+            if na <= 0.0 && na == na.trunc() {
                 if na % 2.0 == 0.0 {
-                    let x0 = x.intersection(N_INF_TO_M_ONE);
-                    let y0 = if x0.is_empty() { x0 } else { arb_en(n, x0) };
-                    let x1 = x.intersection(M_ONE_TO_ZERO);
-                    let y1 = if x1.is_empty() || x1.inf() == 0.0 {
-                        Interval::EMPTY
-                    } else {
-                        let a = x1.inf();
-                        let b = x1.sup();
-                        let inf = arb_en(n, interval!(b, b).unwrap()).inf();
-                        let sup = arb_en(n, interval!(a, a).unwrap()).sup();
-                        interval!(inf, sup).unwrap()
+                    // Non-positive, odd n.
+                    let y1 = {
+                        let x = x.intersection(N_INF_TO_M_ONE);
+                        if x.is_empty() {
+                            Interval::EMPTY
+                        } else {
+                            arb_en(n, x)
+                        }
                     };
-                    (y0.convex_hull(y1), yp)
+                    let y2 = {
+                        let x = x.intersection(M_ONE_TO_ZERO);
+                        if x.is_empty() || x == ZERO {
+                            Interval::EMPTY
+                        } else {
+                            let a = x.inf();
+                            let b = x.sup();
+                            let inf = arb_en(n, interval!(b, b).unwrap()).inf();
+                            let sup = arb_en(n, interval!(a, a).unwrap()).sup();
+                            interval!(inf, sup).unwrap()
+                        }
+                    };
+                    (y0, y1.convex_hull(y2))
                 } else {
-                    let x0 = x.intersection(N_INF_TO_ZERO);
-                    let y0 = if x0.is_empty() || x0.inf() == 0.0 {
+                    // Non-positive, even n.
+                    let x = x.intersection(N_INF_TO_ZERO);
+                    let y1 = if x.is_empty() || x == ZERO {
                         Interval::EMPTY
                     } else {
-                        let a = x0.inf();
-                        let b = x0.sup();
-                        let inf = arb_en(n, interval!(a, a).unwrap()).inf();
+                        let a = x.inf();
+                        let b = x.sup();
+                        let inf = if a == f64::NEG_INFINITY {
+                            f64::NEG_INFINITY
+                        } else {
+                            arb_en(n, interval!(a, a).unwrap()).inf()
+                        };
                         let sup = arb_en(n, interval!(b, b).unwrap()).sup();
                         interval!(inf, sup).unwrap()
                     };
-                    (y0.convex_hull(yp), Interval::EMPTY)
+                    (y0.convex_hull(y1), Interval::EMPTY)
                 }
             } else {
-                (yp, Interval::EMPTY)
+                (y0, Interval::EMPTY)
             }
         },
         {
@@ -918,6 +935,13 @@ mod tests {
         for f in fs.iter() {
             for x in xs.iter() {
                 f(x);
+            }
+        }
+
+        let fs = [TupperIntervalSet::en];
+        for f in fs.iter() {
+            for (x, y) in xs.iter().zip(xs.iter()) {
+                f(x, y);
             }
         }
     }
