@@ -100,7 +100,7 @@ macro_rules! impl_arb_op {
 }
 
 const M_ONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
-const ONE: Interval = const_interval!(1.0, 1.0);
+const ONE_HALF: Interval = const_interval!(0.5, 0.5);
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
 const ZERO_TO_INF: Interval = const_interval!(0.0, f64::INFINITY);
 
@@ -126,21 +126,13 @@ impl TupperIntervalSet {
         ge!(x, 1.0)
     );
     impl_arb_op!(airy_ai(x), {
-        // The 1st zero, rounded down.
-        const FIRST_ZERO_RD: f64 = -2.3381074104597674;
-        // The distance between the 1st and 3rd zeros, rounded up.
-        const PERIOD_RU: f64 = 3.1824524176357842;
         let a = x.inf();
         let b = x.sup();
-        if b <= FIRST_ZERO_RD {
-            // Ai([max(b - PERIOD, a), b])
-            let x0 = (interval!(b, b).unwrap() - const_interval!(PERIOD_RU, PERIOD_RU)).inf();
-            arb_airy_ai(interval!(x0.max(a), b).unwrap())
-        } else if a >= 0.0 && b == f64::INFINITY {
+        if a >= 0.0 && b == f64::INFINITY {
             // [0, Ai(a)]
             interval!(0.0, arb_airy_ai(interval!(a, a).unwrap()).sup()).unwrap()
         } else {
-            arb_airy_ai(x)
+            arb_airy_ai(x).intersection(airy_envelope(x))
         }
     });
     impl_arb_op!(airy_ai_prime(x), {
@@ -154,21 +146,13 @@ impl TupperIntervalSet {
         }
     });
     impl_arb_op!(airy_bi(x), {
-        // The 1st zero, rounded down.
-        const FIRST_ZERO_RD: f64 = -1.173713222709128;
-        // The distance between the 1st and 3rd zeros, rounded up.
-        const PERIOD_RU: f64 = 3.6570246189528883;
         let a = x.inf();
         let b = x.sup();
-        if b <= FIRST_ZERO_RD {
-            // Bi([max(b - PERIOD, a), b])
-            let x0 = (interval!(b, b).unwrap() - const_interval!(PERIOD_RU, PERIOD_RU)).inf();
-            arb_airy_bi(interval!(x0.max(a), b).unwrap())
-        } else if a >= 0.0 && b == f64::INFINITY {
+        if a >= 0.0 && b == f64::INFINITY {
             // [Bi(a), +∞]
             interval!(arb_airy_bi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
         } else {
-            arb_airy_bi(x)
+            arb_airy_bi(x).intersection(airy_envelope(x))
         }
     });
     impl_arb_op!(airy_bi_prime(x), {
@@ -250,9 +234,7 @@ impl TupperIntervalSet {
                 let sup = arb_ci(interval!(b, b).unwrap()).sup();
                 interval!(f64::NEG_INFINITY, sup).unwrap()
             } else {
-                // Ci([a, min(a + 2π, b)])
-                let x0 = (interval!(a, a).unwrap() + Interval::TAU).sup();
-                arb_ci(interval!(a, x0.min(b)).unwrap())
+                arb_ci(x).intersection(ci_envelope(x))
             }
         },
         gt!(x, 0.0)
@@ -366,77 +348,20 @@ impl TupperIntervalSet {
         let a = x.inf();
         let b = x.sup();
         if b <= 0.0 {
-            let b2 = interval!(b, b).unwrap().sqr();
-
-            // The first local max point x0 ≤ b is
-            //   x0 = -√(4n - 1),
-            //   n = ceil((b^2 + 1)/4).
-            let _4n = 4.0 * ((b2 + ONE).sup() / 4.0).ceil();
-            let x0 = -(interval!(_4n, _4n).unwrap() - ONE).sqrt().sup();
-
-            // The first local min point x1 ≤ b is
-            //   x1 = -√(4n + 1),
-            //   n = ceil((b^2 - 1)/4).
-            let _4n = 4.0 * ((b2 - ONE).sup() / 4.0).ceil();
-            let x1 = -(interval!(_4n, _4n).unwrap() + ONE).sqrt().sup();
-
-            arb_fresnel_c(interval!(x0.min(x1).max(a), b).unwrap())
+            arb_fresnel_c(x).intersection(fresnel_envelope_centered(-x) - ONE_HALF)
         } else if a >= 0.0 {
-            let a2 = interval!(a, a).unwrap().sqr();
-
-            // The first local max point x0 ≥ a is
-            //   x0 = √(4n + 1),
-            //   n = ceil((a^2 - 1)/4).
-            let _4n = 4.0 * ((a2 - ONE).sup() / 4.0).ceil();
-            let x0 = (interval!(_4n, _4n).unwrap() + ONE).sqrt().sup();
-
-            // The first local min point x1 ≥ a is
-            //   x1 = √(4n - 1),
-            //   n = ceil((a^2 + 1)/4).
-            let _4n = 4.0 * ((a2 + ONE).sup() / 4.0).ceil();
-            let x1 = (interval!(_4n, _4n).unwrap() - ONE).sqrt().sup();
-
-            arb_fresnel_c(interval!(a, x0.max(x1).min(b)).unwrap())
+            arb_fresnel_c(x).intersection(fresnel_envelope_centered(x) + ONE_HALF)
         } else {
             arb_fresnel_c(x)
         }
     });
     impl_arb_op!(fresnel_s(x), {
-        const TWO: Interval = const_interval!(2.0, 2.0);
         let a = x.inf();
         let b = x.sup();
         if b <= 0.0 {
-            let b2 = interval!(b, b).unwrap().sqr();
-
-            // The first local max point x0 ≤ b is
-            //   x0 = -√(4n),
-            //   n = ceil(b^2/4).
-            let _4n = 4.0 * (b2.sup() / 4.0).ceil();
-            let x0 = -(interval!(_4n, _4n).unwrap()).sqrt().sup();
-
-            // The first local min point x1 ≤ b is
-            //   x1 = -√(4n + 2),
-            //   n = ceil((b^2 - 2)/4).
-            let _4n = 4.0 * ((b2 - TWO).sup() / 4.0).ceil();
-            let x1 = -(interval!(_4n, _4n).unwrap() + TWO).sqrt().sup();
-
-            arb_fresnel_s(interval!(x0.min(x1).max(a), b).unwrap())
+            arb_fresnel_s(x).intersection(fresnel_envelope_centered(-x) - ONE_HALF)
         } else if a >= 0.0 {
-            let a2 = interval!(a, a).unwrap().sqr();
-
-            // The first local max point x0 ≥ a is
-            //   x0 = √(4n + 2),
-            //   n = ceil((a^2 - 2/)4).
-            let _4n = 4.0 * ((a2 - TWO).sup() / 4.0).ceil();
-            let x0 = (interval!(_4n, _4n).unwrap() + TWO).sqrt().sup();
-
-            // The first local min point x1 ≥ a is
-            //   x1 = √(4n),
-            //   n = ceil(a^2/4).
-            let _4n = 4.0 * (a2.sup() / 4.0).ceil();
-            let x1 = (interval!(_4n, _4n).unwrap()).sqrt().sup();
-
-            arb_fresnel_s(interval!(a, x0.max(x1).min(b)).unwrap())
+            arb_fresnel_s(x).intersection(fresnel_envelope_centered(x) + ONE_HALF)
         } else {
             arb_fresnel_s(x)
         }
@@ -520,13 +445,9 @@ impl TupperIntervalSet {
         let a = x.inf();
         let b = x.sup();
         if b <= 0.0 {
-            // Si([max(b - 2π, a), b])
-            let x0 = (interval!(b, b).unwrap() - Interval::TAU).inf();
-            arb_si(interval!(x0.max(a), b).unwrap())
+            arb_si(x).intersection(ci_envelope(-x) - Interval::FRAC_PI_2)
         } else if a >= 0.0 {
-            // Si([a, min(a + 2π, b)])
-            let x0 = (interval!(a, a).unwrap() + Interval::TAU).sup();
-            arb_si(interval!(a, x0.min(b)).unwrap())
+            arb_si(x).intersection(ci_envelope(x) + Interval::FRAC_PI_2)
         } else {
             arb_si(x)
         }
@@ -753,6 +674,35 @@ arb_fn!(
     arb_tanh(x, x, f64::MANTISSA_DIGITS.into()),
     M_ONE_TO_ONE
 );
+
+// Envelope functions
+fn hypot(x: Interval, y: Interval) -> Interval {
+    (x.sqr() + y.sqr()).sqrt()
+}
+fn airy_envelope(x: Interval) -> Interval {
+    let b = x.sup();
+    let env = if b == f64::INFINITY {
+        f64::INFINITY
+    } else {
+        let b = interval!(b, b).unwrap();
+        hypot(arb_airy_ai(b), arb_airy_bi(b)).sup()
+    };
+    interval!(-env, env).unwrap()
+}
+fn ci_envelope(x: Interval) -> Interval {
+    let a = x.inf();
+    assert!(a >= 0.0);
+    let a = interval!(a, a).unwrap();
+    let env = hypot(arb_ci(a), arb_si(a) - Interval::FRAC_PI_2).sup();
+    interval!(-env, env).unwrap()
+}
+fn fresnel_envelope_centered(x: Interval) -> Interval {
+    let a = x.inf();
+    assert!(a >= 0.0);
+    let a = interval!(a, a).unwrap();
+    let env = hypot(arb_fresnel_c(a) - ONE_HALF, arb_fresnel_s(a) - ONE_HALF).sup();
+    interval!(-env, env).unwrap()
+}
 
 #[cfg(test)]
 mod tests {

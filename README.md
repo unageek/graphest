@@ -28,7 +28,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
    cargo build --release
    ```
 
-   You can optionally supply `--features "arb"` option to boost plotting performance. In this case, the build can take a long time (~10 minutes).
+   You can optionally supply `--features "arb"` option to boost plotting performance and enable [additional functions](#special-functions). In this case, the build can take a long time (~10 minutes).
 
    ```bash
    cargo build --release --features "arb"
@@ -185,22 +185,21 @@ To be consistent with GrafEq, the following definitions of exponentiation is imp
 | ---------------------- | -------------- | ------------------------------------------------------------ |
 | `Gamma(x)`<br />`Γ(x)` | Γ(*x*)         | The [gamma function](https://en.wikipedia.org/wiki/Gamma_function).<br />Undefined for *x* = 0, −1, −2, … |
 | `erf(x)`               | erf(*x*)       | The [error function](https://en.wikipedia.org/wiki/Error_function). |
-| `erfc(x)`              | erfc(*x*)      | The [complementary error function](https://en.wikipedia.org/wiki/Error_function). |
+| `erfc(x)`              | erfc(*x*)      | The complementary error function.                            |
 
 Functions that require building with `--features "arb"` option:
 
-| Input                  | Interpreted as         | Details                                |
-| ---------------------- | ---------------------- | -------------------------------------- |
-| `erfi(x)`              | erfi(*x*)              | The imaginary error function.          |
-| `Ei(x)`                | Ei(*x*)                | The exponential integral.              |
-| `li(x)`                | li(*x*)                | The logarithmic integral.              |
-| `Si(x)`                | Si(*x*)                | The sine integral.                     |
-| `Ci(x)`                | Ci(*x*)                | The cosine integral.                   |
-| `Shi(x)`               | Shi(*x*)               | The hyperbolic sine integral.          |
-| `Chi(x)`               | Chi(*x*)               | The hyperbolic cosine integral.        |
-| `S(x)`<br />`C(x)`     | S(*x*)<br />C(*x*)     | The Fresnel integrals.                 |
-| `Ai(x)`<br />`Bi(x)`   | Ai(*x*)<br />Bi(*x*)   | The Airy functions.                    |
-| `Ai'(x)`<br />`Bi'(x)` | Ai′(*x*)<br />Bi′(*x*) | The derivatives of the Airy functions. |
+| Input                                            | Interpreted as                                   | Details                                                      |
+| ------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------ |
+| `erfi(x)`                                        | erfi(*x*)                                        | The imaginary error function.                                |
+| `Ei(x)`                                          | Ei(*x*)                                          | The [exponential integral](https://en.wikipedia.org/wiki/Exponential_integral). |
+| `li(x)`                                          | li(*x*)                                          | The [logarithmic integral](https://en.wikipedia.org/wiki/Logarithmic_integral_function). |
+| `Si(x)`                                          | Si(*x*)                                          | The [sine integral](https://en.wikipedia.org/wiki/Trigonometric_integral). |
+| `Ci(x)`                                          | Ci(*x*)                                          | The cosine integral.                                         |
+| `Shi(x)`                                         | Shi(*x*)                                         | The hyperbolic sine integral.                                |
+| `Chi(x)`                                         | Chi(*x*)                                         | The hyperbolic cosine integral.                              |
+| `S(x)`<br />`C(x)`                               | S(*x*)<br />C(*x*)                               | The [Fresnel integrals](https://en.wikipedia.org/wiki/Fresnel_integral). |
+| `Ai(x)`<br />`Bi(x)`<br />`Ai'(x)`<br />`Bi'(x)` | Ai(*x*)<br />Bi(*x*)<br />Ai′(*x*)<br />Bi′(*x*) | The [Airy functions](https://en.wikipedia.org/wiki/Airy_function) and their derivatives. |
 
 ## References
 
