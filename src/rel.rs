@@ -75,6 +75,8 @@ impl StaticTerm {
             Unary(UndefAt0, x) => ts[*x as usize].undef_at_0(),
             Binary(Add, x, y) => &ts[*x as usize] + &ts[*y as usize],
             Binary(Atan2, x, y) => ts[*x as usize].atan2(&ts[*y as usize], self.site),
+            Binary(BesselJ, n, x) => ts[*n as usize].bessel_j(&ts[*x as usize]),
+            Binary(BesselY, n, x) => ts[*n as usize].bessel_y(&ts[*x as usize]),
             Binary(Div, x, y) => ts[*x as usize].div(&ts[*y as usize], self.site),
             // Beware the order of arguments.
             Binary(Log, b, x) => ts[*x as usize].log(&ts[*b as usize], self.site),

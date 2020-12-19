@@ -130,6 +130,8 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
 fn fn2(i: &str) -> ParseResult<BinaryOp> {
     alt((
         value(BinaryOp::Atan2, keyword("atan2")),
+        value(BinaryOp::BesselJ, keyword("J")),
+        value(BinaryOp::BesselY, keyword("Y")),
         value(BinaryOp::Log, keyword("log")),
         value(BinaryOp::Max, keyword("max")),
         value(BinaryOp::Min, keyword("min")),

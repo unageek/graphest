@@ -97,12 +97,37 @@ macro_rules! impl_arb_op {
     ($op:ident($x:ident), $result:expr) => {
         impl_arb_op!($op($x), $result, BoolInterval::new(true, true));
     };
+
+    ($op:ident($x:ident, $y:ident), $result:expr, $def:expr) => {
+        pub fn $op(&self, rhs: &Self) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                for y in rhs {
+                    if let Some(g) = x.g.union(y.g) {
+                        let $x = x.x;
+                        let $y = y.x;
+                        let def = $def;
+                        if def.possibly() {
+                            let dec = if def.certainly() {
+                                x.d.min(y.d)
+                            } else {
+                                Decoration::Trv
+                            };
+                            rs.insert(TupperInterval::new(DecInterval::set_dec($result, dec), g));
+                        }
+                    }
+                }
+            }
+            rs.normalize()
+        }
+    };
 }
 
 const M_ONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
 const ONE_HALF: Interval = const_interval!(0.5, 0.5);
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
 const ZERO_TO_INF: Interval = const_interval!(0.0, f64::INFINITY);
+const ZERO_TO_ONE: Interval = const_interval!(0.0, 1.0);
 
 impl TupperIntervalSet {
     // Mid-rad IA, which is used by Arb, cannot represent half-bounded intervals.
@@ -202,6 +227,58 @@ impl TupperIntervalSet {
             x.atanh()
         },
         gt!(x, -1.0) & lt!(x, 1.0)
+    );
+    impl_arb_op!(
+        bessel_j(n, x),
+        arb_bessel_j(n, x).intersection(bessel_envelope(n, x)),
+        {
+            if !(n.is_singleton() && n.inf().fract() == 0.0) {
+                panic!("Bessel functions of non-integer orders are not supprted");
+            }
+            BoolInterval::new(true, true)
+        }
+    );
+    impl_arb_op!(
+        bessel_y(n, x),
+        {
+            //              | -∞  if n ≥ 0 ∨ n ∈ (-1/2, 0] ∪ (-5/2, -3/2) ∪ (-9/2, -7/2) ∪ …,
+            // lim Y_n(x) = | +∞  if n ∈ (-3/2, -1/2) ∪ (-7/2, -5/2) ∪ (-11/2, 9/2) ∪ …,
+            // x→0⁺         | 0   otherwise (n = -1/2, -3/2, …).
+
+            // Bisection at 1 is only valid for integer orders.
+            // The inflection point can be arbitrarily close to 0 for general orders.
+            let y0 = {
+                let x = x.intersection(ZERO_TO_ONE);
+                if x.is_empty() {
+                    x
+                } else {
+                    let a = x.inf();
+                    let b = x.sup();
+                    let a = interval!(a, a).unwrap();
+                    let b = interval!(b, b).unwrap();
+                    if n.inf() >= 0.0 || n.inf() % 2.0 == 0.0 {
+                        interval!(arb_bessel_y(n, a).inf(), arb_bessel_y(n, b).sup()).unwrap()
+                    } else {
+                        interval!(arb_bessel_y(n, b).inf(), arb_bessel_y(n, a).sup()).unwrap()
+                    }
+                }
+            };
+            let y1 = {
+                let x = x.intersection(ONE_TO_INF);
+                if x.is_empty() {
+                    x
+                } else {
+                    arb_bessel_y(n, x).intersection(bessel_envelope(n, x))
+                }
+            };
+            y0.convex_hull(y1)
+        },
+        {
+            if !(n.is_singleton() && n.inf().fract() == 0.0) {
+                panic!("Bessel functions of non-integer orders are not supprted");
+            }
+            gt!(x, 0.0)
+        }
     );
     impl_arb_op!(
         chi(x),
@@ -548,6 +625,16 @@ arb_fn!(
     Interval::ENTIRE
 );
 arb_fn!(
+    arb_bessel_j(n, x),
+    arb_hypgeom_bessel_j(n, n, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
+    arb_bessel_y(n, x),
+    arb_hypgeom_bessel_y(n, n, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
     arb_chi(x),
     arb_hypgeom_chi(x, x, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE
@@ -689,6 +776,12 @@ fn airy_envelope(x: Interval) -> Interval {
     };
     interval!(-env, env).unwrap()
 }
+fn bessel_envelope(n: Interval, x: Interval) -> Interval {
+    let a = x.abs().inf();
+    let a = interval!(a, a).unwrap();
+    let env = hypot(arb_bessel_j(n, a), arb_bessel_y(n, a)).sup();
+    interval!(-env, env).unwrap()
+}
 fn ci_envelope(x: Interval) -> Interval {
     let a = x.inf();
     assert!(a >= 0.0);
@@ -717,6 +810,7 @@ mod tests {
             TupperIntervalSet::from(const_dec_interval!(0.0, f64::INFINITY)),
             TupperIntervalSet::from(DecInterval::ENTIRE),
         ];
+
         let fs = [
             TupperIntervalSet::acos,
             TupperIntervalSet::acosh,
@@ -755,6 +849,16 @@ mod tests {
         for f in fs.iter() {
             for x in xs.iter() {
                 f(x);
+            }
+        }
+
+        let fs = [TupperIntervalSet::bessel_j, TupperIntervalSet::bessel_y];
+        let ns = (-2..=2)
+            .map(|n| TupperIntervalSet::from(dec_interval!(n as f64, n as f64).unwrap()))
+            .collect::<Vec<_>>();
+        for f in fs.iter() {
+            for (n, x) in ns.iter().zip(xs.iter()) {
+                f(n, x);
             }
         }
     }
