@@ -128,6 +128,7 @@ const ONE_HALF: Interval = const_interval!(0.5, 0.5);
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
 const ZERO_TO_INF: Interval = const_interval!(0.0, f64::INFINITY);
 const ZERO_TO_ONE: Interval = const_interval!(0.0, 1.0);
+const ZERO: Interval = const_interval!(0.0, 0.0);
 
 impl TupperIntervalSet {
     // Mid-rad IA, which is used by Arb, cannot represent half-bounded intervals.
@@ -230,43 +231,104 @@ impl TupperIntervalSet {
     );
     impl_arb_op!(
         bessel_j(n, x),
-        arb_bessel_j(n, x).intersection(bessel_envelope(n, x)),
         {
-            if !(n.is_singleton() && n.inf().fract() == 0.0) {
-                panic!("Bessel functions of non-integer orders are not supprted");
+            if n.inf() % 1.0 == 0.0 {
+                // n ∈ ℤ
+                arb_bessel_j(n, x).intersection(bessel_envelope(n, x))
+            } else {
+                // Bisection at 1 is only valid for integer/half-integer orders.
+                // The first extremum point can get arbitrarily close to the origin in a general order.
+                // The same applies to `bessel_y`.
+                let y0 = {
+                    let x = x.intersection(ZERO_TO_ONE);
+                    if x.is_empty() || x == ZERO {
+                        Interval::EMPTY
+                    } else {
+                        let a = x.inf();
+                        let b = x.sup();
+                        let a = interval!(a, a).unwrap();
+                        let b = interval!(b, b).unwrap();
+                        if n.inf() > 0.0 {
+                            // n ∈ (0, +∞)⧵ℤ
+                            let inf = if a.inf() == 0.0 {
+                                0.0
+                            } else {
+                                arb_bessel_j(n, a).inf()
+                            };
+                            interval!(inf, arb_bessel_j(n, b).sup()).unwrap()
+                        } else if n.inf() % 2.0 > -1.0 {
+                            // n ∈ (-1, 0) ∪ (-3, -2) ∪ …
+                            interval!(arb_bessel_j(n, b).inf(), arb_bessel_j(n, a).sup()).unwrap()
+                        } else {
+                            // n = (-2, -1) ∪ (-4, -3) ∪ …
+                            interval!(arb_bessel_j(n, a).inf(), arb_bessel_j(n, b).sup()).unwrap()
+                        }
+                    }
+                };
+                let y1 = {
+                    let x = x.intersection(ONE_TO_INF);
+                    if x.is_empty() {
+                        Interval::EMPTY
+                    } else {
+                        arb_bessel_j(n, x).intersection(bessel_envelope(n, x))
+                    }
+                };
+                y0.convex_hull(y1)
             }
-            BoolInterval::new(true, true)
+        },
+        {
+            if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
+                panic!("Bessel functions are only defined for integer and half-integer orders");
+            }
+            if n.inf() % 1.0 == 0.0 {
+                BoolInterval::new(true, true)
+            } else {
+                gt!(x, 0.0)
+            }
         }
     );
     impl_arb_op!(
         bessel_y(n, x),
         {
-            //              | -∞  if n ≥ 0 ∨ n ∈ (-1/2, 0] ∪ (-5/2, -3/2) ∪ (-9/2, -7/2) ∪ …,
-            // lim Y_n(x) = | +∞  if n ∈ (-3/2, -1/2) ∪ (-7/2, -5/2) ∪ (-11/2, 9/2) ∪ …,
-            // x→0⁺         | 0   otherwise (n = -1/2, -3/2, …).
-
-            // Bisection at 1 is only valid for integer orders.
-            // The inflection point can be arbitrarily close to 0 for general orders.
             let y0 = {
                 let x = x.intersection(ZERO_TO_ONE);
-                if x.is_empty() {
-                    x
+                if x.is_empty() || x == ZERO {
+                    Interval::EMPTY
                 } else {
                     let a = x.inf();
                     let b = x.sup();
                     let a = interval!(a, a).unwrap();
                     let b = interval!(b, b).unwrap();
-                    if n.inf() >= 0.0 || n.inf() % 2.0 == 0.0 {
-                        interval!(arb_bessel_y(n, a).inf(), arb_bessel_y(n, b).sup()).unwrap()
-                    } else {
+                    let n_rem_2 = n.inf() % 2.0;
+                    if n_rem_2 == -0.5 {
+                        // n = -1/2, -5/2, …
+                        let inf = if a.inf() == 0.0 {
+                            0.0
+                        } else {
+                            arb_bessel_y(n, a).inf()
+                        };
+                        interval!(inf, arb_bessel_y(n, b).sup()).unwrap()
+                    } else if n_rem_2 == -1.5 {
+                        // n = -3/2, -7/2, …
+                        let sup = if a.inf() == 0.0 {
+                            0.0
+                        } else {
+                            arb_bessel_y(n, a).sup()
+                        };
+                        interval!(arb_bessel_y(n, b).inf(), sup).unwrap()
+                    } else if n_rem_2 > -1.5 && n_rem_2 < -0.5 {
+                        // n ∈ (-3/2, -1/2) ∪ (-7/2, -5/2) ∪ …
                         interval!(arb_bessel_y(n, b).inf(), arb_bessel_y(n, a).sup()).unwrap()
+                    } else {
+                        // n ∈ (-1/2, +∞) ∪ (-5/2, -3/2) ∪ (-9/2, -7/2) ∪ …
+                        interval!(arb_bessel_y(n, a).inf(), arb_bessel_y(n, b).sup()).unwrap()
                     }
                 }
             };
             let y1 = {
                 let x = x.intersection(ONE_TO_INF);
                 if x.is_empty() {
-                    x
+                    Interval::EMPTY
                 } else {
                     arb_bessel_y(n, x).intersection(bessel_envelope(n, x))
                 }
@@ -274,8 +336,8 @@ impl TupperIntervalSet {
             y0.convex_hull(y1)
         },
         {
-            if !(n.is_singleton() && n.inf().fract() == 0.0) {
-                panic!("Bessel functions of non-integer orders are not supprted");
+            if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
+                panic!("Bessel functions are only defined for integer and half-integer orders");
             }
             gt!(x, 0.0)
         }
