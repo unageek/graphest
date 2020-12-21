@@ -726,7 +726,9 @@ impl TupperIntervalSet {
     requires_arb!(airy_ai_prime(x));
     requires_arb!(airy_bi(x));
     requires_arb!(airy_bi_prime(x));
+    requires_arb!(bessel_i(n, x));
     requires_arb!(bessel_j(n, x));
+    requires_arb!(bessel_k(n, x));
     requires_arb!(bessel_y(n, x));
     requires_arb!(chi(x));
     requires_arb!(ci(x));

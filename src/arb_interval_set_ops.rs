@@ -123,6 +123,10 @@ macro_rules! impl_arb_op {
     };
 }
 
+fn i(x: f64) -> Interval {
+    interval!(x, x).unwrap()
+}
+
 const M_ONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
 const ONE_HALF: Interval = const_interval!(0.5, 0.5);
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
@@ -156,7 +160,7 @@ impl TupperIntervalSet {
         let b = x.sup();
         if a >= 0.0 && b == f64::INFINITY {
             // [0, Ai(a)]
-            interval!(0.0, arb_airy_ai(interval!(a, a).unwrap()).sup()).unwrap()
+            interval!(0.0, arb_airy_ai(i(a)).sup()).unwrap()
         } else {
             arb_airy_ai(x).intersection(airy_envelope(x))
         }
@@ -166,7 +170,7 @@ impl TupperIntervalSet {
         let b = x.sup();
         if a >= 0.0 && b == f64::INFINITY {
             // [Ai'(a), 0]
-            interval!(arb_airy_ai_prime(interval!(a, a).unwrap()).inf(), 0.0).unwrap()
+            interval!(arb_airy_ai_prime(i(a)).inf(), 0.0).unwrap()
         } else {
             arb_airy_ai_prime(x)
         }
@@ -176,7 +180,7 @@ impl TupperIntervalSet {
         let b = x.sup();
         if a >= 0.0 && b == f64::INFINITY {
             // [Bi(a), +∞]
-            interval!(arb_airy_bi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
+            interval!(arb_airy_bi(i(a)).inf(), f64::INFINITY).unwrap()
         } else {
             arb_airy_bi(x).intersection(airy_envelope(x))
         }
@@ -186,11 +190,7 @@ impl TupperIntervalSet {
         let b = x.sup();
         if a >= 0.0 && b == f64::INFINITY {
             // [Bi'(a), +∞]
-            interval!(
-                arb_airy_bi_prime(interval!(a, a).unwrap()).inf(),
-                f64::INFINITY
-            )
-            .unwrap()
+            interval!(arb_airy_bi_prime(i(a)).inf(), f64::INFINITY).unwrap()
         } else {
             arb_airy_bi_prime(x)
         }
@@ -230,6 +230,106 @@ impl TupperIntervalSet {
         gt!(x, -1.0) & lt!(x, 1.0)
     );
     impl_arb_op!(
+        bessel_i(n, x),
+        {
+            if n.inf() % 2.0 == 0.0 {
+                // n ∈ 2ℤ
+                let x = x.abs();
+                let a = x.inf();
+                let b = x.sup();
+                let inf = arb_bessel_i(n, i(a)).inf();
+                let sup = if b == f64::INFINITY {
+                    b
+                } else {
+                    arb_bessel_i(n, i(b)).sup()
+                };
+                interval!(inf, sup).unwrap()
+            } else if n.inf() % 1.0 == 0.0 {
+                // n ∈ 2ℤ + 1
+                let a = x.inf();
+                let b = x.sup();
+                let inf = if a == f64::NEG_INFINITY {
+                    a
+                } else {
+                    arb_bessel_i(n, i(a)).inf()
+                };
+                let sup = if b == f64::INFINITY {
+                    b
+                } else {
+                    arb_bessel_i(n, i(b)).sup()
+                };
+                interval!(inf, sup).unwrap()
+            } else if n.inf() > 0.0 {
+                // n ∈ (0, +∞) ⧵ ℤ
+                let x = x.intersection(ZERO_TO_INF);
+                if x.is_empty() || x == ZERO {
+                    Interval::EMPTY
+                } else {
+                    let a = x.inf();
+                    let b = x.sup();
+                    let inf = if a == 0.0 {
+                        0.0
+                    } else {
+                        arb_bessel_i(n, i(a)).inf()
+                    };
+                    let sup = if b == f64::INFINITY {
+                        b
+                    } else {
+                        arb_bessel_i(n, i(b)).sup()
+                    };
+                    interval!(inf, sup).unwrap()
+                }
+            } else if n.inf() % 2.0 > -1.0 {
+                // n ∈ (-1, 0) ∪ (-3, -2) ∪ …
+                let y0 = {
+                    let x = x.intersection(const_interval!(0.0, 0.5));
+                    if x.is_empty() || x == ZERO {
+                        Interval::EMPTY
+                    } else {
+                        let a = x.inf();
+                        let b = x.sup();
+                        interval!(arb_bessel_i(n, i(b)).inf(), arb_bessel_i(n, i(a)).sup()).unwrap()
+                    }
+                };
+                let y1 = {
+                    let x = x.intersection(const_interval!(0.5, f64::INFINITY));
+                    if x.is_empty() {
+                        Interval::EMPTY
+                    } else {
+                        arb_bessel_i(n, x)
+                    }
+                };
+                y0.convex_hull(y1)
+            } else {
+                // n ∈ (-2, -1) ∪ (-4, -3) ∪ …
+                let x = x.intersection(ZERO_TO_INF);
+                if x.is_empty() || x == ZERO {
+                    Interval::EMPTY
+                } else {
+                    let a = x.inf();
+                    let b = x.sup();
+                    let inf = arb_bessel_i(n, i(a)).inf();
+                    let sup = if b == f64::INFINITY {
+                        b
+                    } else {
+                        arb_bessel_i(n, i(b)).sup()
+                    };
+                    interval!(inf, sup).unwrap()
+                }
+            }
+        },
+        {
+            if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
+                panic!("Bessel functions are only defined for integer and half-integer orders");
+            }
+            if n.inf() % 1.0 == 0.0 {
+                BoolInterval::new(true, true)
+            } else {
+                gt!(x, 0.0)
+            }
+        }
+    );
+    impl_arb_op!(
         bessel_j(n, x),
         {
             if n.inf() % 1.0 == 0.0 {
@@ -238,7 +338,7 @@ impl TupperIntervalSet {
             } else {
                 // Bisection at 1 is only valid for integer/half-integer orders.
                 // The first extremum point can get arbitrarily close to the origin in a general order.
-                // The same applies to `bessel_y`.
+                // The same note applies to `bessel_y` and `bessel_i`.
                 let y0 = {
                     let x = x.intersection(ZERO_TO_ONE);
                     if x.is_empty() || x == ZERO {
@@ -246,22 +346,22 @@ impl TupperIntervalSet {
                     } else {
                         let a = x.inf();
                         let b = x.sup();
-                        let a = interval!(a, a).unwrap();
-                        let b = interval!(b, b).unwrap();
                         if n.inf() > 0.0 {
-                            // n ∈ (0, +∞)⧵ℤ
-                            let inf = if a.inf() == 0.0 {
+                            // n ∈ (0, +∞) ⧵ ℤ
+                            let inf = if a == 0.0 {
                                 0.0
                             } else {
-                                arb_bessel_j(n, a).inf()
+                                arb_bessel_j(n, i(a)).inf()
                             };
-                            interval!(inf, arb_bessel_j(n, b).sup()).unwrap()
+                            interval!(inf, arb_bessel_j(n, i(b)).sup()).unwrap()
                         } else if n.inf() % 2.0 > -1.0 {
                             // n ∈ (-1, 0) ∪ (-3, -2) ∪ …
-                            interval!(arb_bessel_j(n, b).inf(), arb_bessel_j(n, a).sup()).unwrap()
+                            interval!(arb_bessel_j(n, i(b)).inf(), arb_bessel_j(n, i(a)).sup())
+                                .unwrap()
                         } else {
                             // n = (-2, -1) ∪ (-4, -3) ∪ …
-                            interval!(arb_bessel_j(n, a).inf(), arb_bessel_j(n, b).sup()).unwrap()
+                            interval!(arb_bessel_j(n, i(a)).inf(), arb_bessel_j(n, i(b)).sup())
+                                .unwrap()
                         }
                     }
                 };
@@ -288,6 +388,27 @@ impl TupperIntervalSet {
         }
     );
     impl_arb_op!(
+        bessel_k(n, x),
+        {
+            let x = x.intersection(ZERO_TO_INF);
+            let a = x.inf();
+            let b = x.sup();
+            let inf = if b == f64::INFINITY {
+                0.0
+            } else {
+                arb_bessel_k(n, i(b)).inf()
+            };
+            let sup = arb_bessel_k(n, i(a)).sup();
+            interval!(inf, sup).unwrap()
+        },
+        {
+            if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
+                panic!("Bessel functions are only defined for integer and half-integer orders");
+            }
+            gt!(x, 0.0)
+        }
+    );
+    impl_arb_op!(
         bessel_y(n, x),
         {
             let y0 = {
@@ -297,31 +418,29 @@ impl TupperIntervalSet {
                 } else {
                     let a = x.inf();
                     let b = x.sup();
-                    let a = interval!(a, a).unwrap();
-                    let b = interval!(b, b).unwrap();
                     let n_rem_2 = n.inf() % 2.0;
                     if n_rem_2 == -0.5 {
                         // n = -1/2, -5/2, …
-                        let inf = if a.inf() == 0.0 {
+                        let inf = if a == 0.0 {
                             0.0
                         } else {
-                            arb_bessel_y(n, a).inf()
+                            arb_bessel_y(n, i(a)).inf()
                         };
-                        interval!(inf, arb_bessel_y(n, b).sup()).unwrap()
+                        interval!(inf, arb_bessel_y(n, i(b)).sup()).unwrap()
                     } else if n_rem_2 == -1.5 {
                         // n = -3/2, -7/2, …
-                        let sup = if a.inf() == 0.0 {
+                        let sup = if a == 0.0 {
                             0.0
                         } else {
-                            arb_bessel_y(n, a).sup()
+                            arb_bessel_y(n, i(a)).sup()
                         };
-                        interval!(arb_bessel_y(n, b).inf(), sup).unwrap()
+                        interval!(arb_bessel_y(n, i(b)).inf(), sup).unwrap()
                     } else if n_rem_2 > -1.5 && n_rem_2 < -0.5 {
                         // n ∈ (-3/2, -1/2) ∪ (-7/2, -5/2) ∪ …
-                        interval!(arb_bessel_y(n, b).inf(), arb_bessel_y(n, a).sup()).unwrap()
+                        interval!(arb_bessel_y(n, i(b)).inf(), arb_bessel_y(n, i(a)).sup()).unwrap()
                     } else {
                         // n ∈ (-1/2, +∞) ∪ (-5/2, -3/2) ∪ (-9/2, -7/2) ∪ …
-                        interval!(arb_bessel_y(n, a).inf(), arb_bessel_y(n, b).sup()).unwrap()
+                        interval!(arb_bessel_y(n, i(a)).inf(), arb_bessel_y(n, i(b)).sup()).unwrap()
                     }
                 }
             };
@@ -352,10 +471,10 @@ impl TupperIntervalSet {
                 Interval::ENTIRE
             } else if a == 0.0 {
                 // [-∞, Chi(b)]
-                interval!(f64::NEG_INFINITY, arb_chi(interval!(b, b).unwrap()).sup()).unwrap()
+                interval!(f64::NEG_INFINITY, arb_chi(i(b)).sup()).unwrap()
             } else if b == f64::INFINITY {
                 // [Chi(a), +∞]
-                interval!(arb_chi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
+                interval!(arb_chi(i(a)).inf(), f64::INFINITY).unwrap()
             } else {
                 arb_chi(x)
             }
@@ -370,7 +489,7 @@ impl TupperIntervalSet {
             let b = x.sup();
             if a == 0.0 && b <= Interval::FRAC_PI_2.inf() {
                 // [-∞, Ci(b)]
-                let sup = arb_ci(interval!(b, b).unwrap()).sup();
+                let sup = arb_ci(i(b)).sup();
                 interval!(f64::NEG_INFINITY, sup).unwrap()
             } else {
                 arb_ci(x).intersection(ci_envelope(x))
@@ -395,20 +514,20 @@ impl TupperIntervalSet {
             if b <= 0.0 {
                 // [Ei(b), Ei(a)]
                 // When b = 0, inf(arb_ei([b, b])) = inf([-∞, +∞]) = -∞.
-                let inf = arb_ei(interval!(b, b).unwrap()).inf();
+                let inf = arb_ei(i(b)).inf();
                 let sup = if a == f64::NEG_INFINITY {
                     0.0
                 } else {
-                    arb_ei(interval!(a, a).unwrap()).sup()
+                    arb_ei(i(a)).sup()
                 };
                 interval!(inf, sup).unwrap()
             } else if a >= 0.0 {
                 // [Ei(a), Ei(b)]
-                let inf = arb_ei(interval!(a, a).unwrap()).inf();
+                let inf = arb_ei(i(a)).inf();
                 let sup = if b == f64::INFINITY {
                     f64::INFINITY
                 } else {
-                    arb_ei(interval!(b, b).unwrap()).sup()
+                    arb_ei(i(b)).sup()
                 };
                 interval!(inf, sup).unwrap()
             } else {
@@ -416,12 +535,12 @@ impl TupperIntervalSet {
                 let sup0 = if a == f64::NEG_INFINITY {
                     0.0
                 } else {
-                    arb_ei(interval!(a, a).unwrap()).sup()
+                    arb_ei(i(a)).sup()
                 };
                 let sup1 = if b == f64::INFINITY {
                     f64::INFINITY
                 } else {
-                    arb_ei(interval!(b, b).unwrap()).sup()
+                    arb_ei(i(b)).sup()
                 };
                 interval!(f64::NEG_INFINITY, sup0.max(sup1)).unwrap()
             }
@@ -451,10 +570,10 @@ impl TupperIntervalSet {
             x
         } else if a == f64::NEG_INFINITY {
             // [-∞, erfi(b)]
-            interval!(f64::NEG_INFINITY, arb_erfi(interval!(b, b).unwrap()).sup()).unwrap()
+            interval!(f64::NEG_INFINITY, arb_erfi(i(b)).sup()).unwrap()
         } else if b == f64::INFINITY {
             // [erfi(a), +∞]
-            interval!(arb_erfi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
+            interval!(arb_erfi(i(a)).inf(), f64::INFINITY).unwrap()
         } else {
             arb_erfi(x)
         }
@@ -513,25 +632,23 @@ impl TupperIntervalSet {
             let b = x.sup();
             if b <= 1.0 {
                 // [li(b), li(a)]
-                let inf = arb_li(interval!(b, b).unwrap()).inf();
-                let sup = arb_li(interval!(a, a).unwrap()).sup();
-                interval!(inf, sup).unwrap()
+                interval!(arb_li(i(b)).inf(), arb_li(i(a)).sup()).unwrap()
             } else if a >= 1.0 {
                 // [li(a), li(b)]
-                let inf = arb_li(interval!(a, a).unwrap()).inf();
+                let inf = arb_li(i(a)).inf();
                 let sup = if b == f64::INFINITY {
                     f64::INFINITY
                 } else {
-                    arb_li(interval!(b, b).unwrap()).sup()
+                    arb_li(i(b)).sup()
                 };
                 interval!(inf, sup).unwrap()
             } else {
                 // [-∞, max(li(a), li(b))]
-                let sup0 = arb_li(interval!(a, a).unwrap()).sup();
+                let sup0 = arb_li(i(a)).sup();
                 let sup1 = if b == f64::INFINITY {
                     f64::INFINITY
                 } else {
-                    arb_li(interval!(b, b).unwrap()).sup()
+                    arb_li(i(b)).sup()
                 };
                 interval!(f64::NEG_INFINITY, sup0.max(sup1)).unwrap()
             }
@@ -572,10 +689,10 @@ impl TupperIntervalSet {
             x
         } else if a == f64::NEG_INFINITY {
             // [-∞, Shi(b)]
-            interval!(f64::NEG_INFINITY, arb_shi(interval!(b, b).unwrap()).sup()).unwrap()
+            interval!(f64::NEG_INFINITY, arb_shi(i(b)).sup()).unwrap()
         } else if b == f64::INFINITY {
             // [Shi(a), +∞]
-            interval!(arb_shi(interval!(a, a).unwrap()).inf(), f64::INFINITY).unwrap()
+            interval!(arb_shi(i(a)).inf(), f64::INFINITY).unwrap()
         } else {
             arb_shi(x)
         }
@@ -687,9 +804,19 @@ arb_fn!(
     Interval::ENTIRE
 );
 arb_fn!(
+    arb_bessel_i(n, x),
+    arb_hypgeom_bessel_i(n, n, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
     arb_bessel_j(n, x),
     arb_hypgeom_bessel_j(n, n, x, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE
+);
+arb_fn!(
+    arb_bessel_k(n, x),
+    arb_hypgeom_bessel_k(n, n, x, f64::MANTISSA_DIGITS.into()),
+    ZERO_TO_INF
 );
 arb_fn!(
     arb_bessel_y(n, x),
@@ -868,6 +995,7 @@ mod tests {
     fn arb_ops_sanity() {
         // Just check that arb ops don't panic due to invalid construction of an interval.
         let xs = [
+            TupperIntervalSet::from(const_dec_interval!(0.0, 0.0)),
             TupperIntervalSet::from(const_dec_interval!(f64::NEG_INFINITY, 0.0)),
             TupperIntervalSet::from(const_dec_interval!(0.0, f64::INFINITY)),
             TupperIntervalSet::from(DecInterval::ENTIRE),
@@ -914,13 +1042,21 @@ mod tests {
             }
         }
 
-        let fs = [TupperIntervalSet::bessel_j, TupperIntervalSet::bessel_y];
-        let ns = (-2..=2)
-            .map(|n| TupperIntervalSet::from(dec_interval!(n as f64, n as f64).unwrap()))
+        let fs = [
+            TupperIntervalSet::bessel_i,
+            TupperIntervalSet::bessel_j,
+            TupperIntervalSet::bessel_k,
+            TupperIntervalSet::bessel_y,
+        ];
+        let ns = vec![-2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]
+            .into_iter()
+            .map(|n| TupperIntervalSet::from(dec_interval!(n, n).unwrap()))
             .collect::<Vec<_>>();
         for f in fs.iter() {
-            for (n, x) in ns.iter().zip(xs.iter()) {
-                f(n, x);
+            for n in ns.iter() {
+                for x in xs.iter() {
+                    f(n, x);
+                }
             }
         }
     }
