@@ -65,6 +65,10 @@ pub enum UnaryOp {
 pub enum BinaryOp {
     Add,
     Atan2,
+    BesselI,
+    BesselJ,
+    BesselK,
+    BesselY,
     Div,
     Log,
     Max,
@@ -185,6 +189,10 @@ impl Term {
             Unary(UndefAt0, x) => x.eval().undef_at_0(),
             Binary(Add, x, y) => &x.eval() + &y.eval(),
             Binary(Atan2, x, y) => x.eval().atan2(&y.eval(), None),
+            Binary(BesselI, n, x) => n.eval().bessel_i(&x.eval()),
+            Binary(BesselJ, n, x) => n.eval().bessel_j(&x.eval()),
+            Binary(BesselK, n, x) => n.eval().bessel_k(&x.eval()),
+            Binary(BesselY, n, x) => n.eval().bessel_y(&x.eval()),
             Binary(Div, x, y) => x.eval().div(&y.eval(), None),
             // Beware the order of arguments.
             Binary(Log, b, x) => x.eval().log(&b.eval(), None),

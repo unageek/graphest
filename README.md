@@ -199,6 +199,8 @@ Functions that require building with `--features "arb"` option:
 | `Shi(x)`                                         | Shi(*x*)                                         | The hyperbolic sine integral.                                |
 | `Chi(x)`                                         | Chi(*x*)                                         | The hyperbolic cosine integral.                              |
 | `S(x)`<br />`C(x)`                               | S(*x*)<br />C(*x*)                               | The [Fresnel integrals](https://en.wikipedia.org/wiki/Fresnel_integral). |
+| `J(n, x)`<br />`Y(n, x)`                         | J<sub>*n*</sub>(*x*)<br />Y<sub>*n*</sub>(*x*)   | The [Bessel functions](https://en.wikipedia.org/wiki/Bessel_function).<br />*n* must be an integer or a half-integer. |
+| `I(n, x)`<br />`K(n, x)`                         | I<sub>*n*</sub>(*x*)<br />K<sub>*n*</sub>(*x*)   | The modified Bessel functions.<br />*n* must be an integer or a half-integer. |
 | `Ai(x)`<br />`Bi(x)`<br />`Ai'(x)`<br />`Bi'(x)` | Ai(*x*)<br />Bi(*x*)<br />Ai′(*x*)<br />Bi′(*x*) | The [Airy functions](https://en.wikipedia.org/wiki/Airy_function) and their derivatives. |
 
 ## References
