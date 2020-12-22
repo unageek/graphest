@@ -191,6 +191,7 @@ Functions that require building with `--features "arb"` option:
 
 | Input                                            | Interpreted as                                   | Details                                                      |
 | ------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------ |
+| `Gamma(a, x)`<br />`Γ(a, x)`                     | Γ(*a*, *x*)                                      | The [upper incomplete gamma function](https://en.wikipedia.org/wiki/Incomplete_gamma_function).<br />*a* must be an exact number. |
 | `erfi(x)`                                        | erfi(*x*)                                        | The imaginary error function.                                |
 | `Ei(x)`                                          | Ei(*x*)                                          | The [exponential integral](https://en.wikipedia.org/wiki/Exponential_integral). |
 | `li(x)`                                          | li(*x*)                                          | The [logarithmic integral](https://en.wikipedia.org/wiki/Logarithmic_integral_function). |
