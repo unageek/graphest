@@ -83,7 +83,8 @@ macro_rules! impl_arb_op {
                 let def = $def;
                 if def.possibly() {
                     let dec = if def.certainly() {
-                        x.d
+                        // Assuming the restriction of f to x is continuous.
+                        Decoration::Dac.min(x.d)
                     } else {
                         Decoration::Trv
                     };
@@ -109,7 +110,8 @@ macro_rules! impl_arb_op {
                         let def = $def;
                         if def.possibly() {
                             let dec = if def.certainly() {
-                                x.d.min(y.d)
+                                // Assuming the restriction of f to x × y is continuous.
+                                Decoration::Dac.min(x.d).min(y.d)
                             } else {
                                 Decoration::Trv
                             };
