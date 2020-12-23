@@ -54,137 +54,181 @@ enum Parity {
     Odd,
 }
 
+macro_rules! impl_op {
+    ($op:ident($x:ident), $result:expr) => {
+        pub fn $op(&self) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                let $x = x.to_dec_interval();
+                rs.insert(TupperInterval::new($result, x.g));
+            }
+            rs.normalize()
+        }
+    };
+
+    ($op:ident($x:ident, $y:ident), $result:expr) => {
+        pub fn $op(&self, rhs: &Self) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                for y in rhs {
+                    if let Some(g) = x.g.union(y.g) {
+                        let $x = x.to_dec_interval();
+                        let $y = y.to_dec_interval();
+                        rs.insert(TupperInterval::new($result, g));
+                    }
+                }
+            }
+            rs.normalize()
+        }
+    };
+}
+
+macro_rules! impl_op_cut {
+    ($op:ident($x:ident), $result:expr) => {
+        pub fn $op(&self, site: Option<Site>) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                let $x = x.to_dec_interval();
+                let r = $result;
+                rs.insert(TupperInterval::new(
+                    r.0,
+                    match site {
+                        Some(site) => x.g.inserted(site, Branch::new(0)),
+                        _ => x.g,
+                    },
+                ));
+                rs.insert(TupperInterval::new(
+                    r.1,
+                    match site {
+                        Some(site) => x.g.inserted(site, Branch::new(1)),
+                        _ => x.g,
+                    },
+                ));
+            }
+            rs.normalize()
+        }
+    };
+
+    ($op:ident($x:ident, $y:ident), $result:expr) => {
+        pub fn $op(&self, rhs: &Self, site: Option<Site>) -> Self {
+            let mut rs = Self::empty();
+            for x in self {
+                for y in rhs {
+                    if let Some(g) = x.g.union(y.g) {
+                        let $x = x.to_dec_interval();
+                        let $y = y.to_dec_interval();
+                        let r = $result;
+                        rs.insert(TupperInterval::new(
+                            r.0,
+                            match site {
+                                Some(site) => g.inserted(site, Branch::new(0)),
+                                _ => g,
+                            },
+                        ));
+                        rs.insert(TupperInterval::new(
+                            r.1,
+                            match site {
+                                Some(site) => g.inserted(site, Branch::new(1)),
+                                _ => g,
+                            },
+                        ));
+                    }
+                }
+            }
+            rs.normalize()
+        }
+    };
+}
+
 impl TupperIntervalSet {
-    pub fn atan2(&self, rhs: &Self, site: Option<Site>) -> Self {
-        let mut rs = Self::empty();
-        for y in self {
-            for x in rhs {
-                if let Some(g) = x.g.union(y.g) {
-                    let a = x.x.inf();
-                    let b = x.x.sup();
-                    let c = y.x.inf();
-                    let d = y.x.sup();
-
-                    if a == 0.0 && b == 0.0 && c < 0.0 && d > 0.0 {
-                        let dec = Decoration::Trv;
-
-                        rs.insert(TupperInterval::new(
-                            DecInterval::set_dec(-Interval::FRAC_PI_2, dec),
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(0)),
-                                _ => g,
-                            },
-                        ));
-                        rs.insert(TupperInterval::new(
-                            DecInterval::set_dec(Interval::FRAC_PI_2, dec),
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(1)),
-                                _ => g,
-                            },
-                        ));
-                    } else if a < 0.0 && b <= 0.0 && c < 0.0 && d >= 0.0 {
-                        let dec = if b == 0.0 {
-                            Decoration::Trv
-                        } else {
-                            Decoration::Def.min(x.d).min(y.d)
-                        };
-
-                        // y < 0 (thus z < 0) part.
-                        let x0 = interval!(b, b).unwrap();
-                        let y0 = interval!(c, c).unwrap();
-                        rs.insert(TupperInterval::new(
-                            DecInterval::set_dec(
-                                interval!(-Interval::PI.sup(), y0.atan2(x0).sup()).unwrap(),
-                                dec,
-                            ),
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(0)),
-                                _ => g,
-                            },
-                        ));
-
-                        // y ≥ 0 (thus z > 0) part.
-                        let x1 = interval!(a, b).unwrap();
-                        let y1 = interval!(0.0, d).unwrap();
-                        rs.insert(TupperInterval::new(
-                            DecInterval::set_dec(y1.atan2(x1), dec),
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(1)),
-                                _ => g,
-                            },
-                        ));
-                    } else {
-                        // a = b = c = d = 0 goes here.
-                        rs.insert(TupperInterval::new(
-                            y.to_dec_interval().atan2(x.to_dec_interval()),
-                            g,
-                        ));
-                    }
-                }
-            }
-        }
-        rs.normalize()
-    }
-
-    pub fn div(&self, rhs: &Self, site: Option<Site>) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            for y in rhs {
-                if let Some(g) = x.g.union(y.g) {
-                    let c = y.x.inf();
-                    let d = y.x.sup();
-                    if c < 0.0 && d > 0.0 {
-                        let y0 = DecInterval::set_dec(interval!(c, 0.0).unwrap(), y.d);
-                        rs.insert(TupperInterval::new(
-                            x.to_dec_interval() / y0,
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(0)),
-                                _ => g,
-                            },
-                        ));
-                        let y1 = DecInterval::set_dec(interval!(0.0, d).unwrap(), y.d);
-                        rs.insert(TupperInterval::new(
-                            x.to_dec_interval() / y1,
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(1)),
-                                _ => g,
-                            },
-                        ));
-                    } else {
-                        rs.insert(TupperInterval::new(
-                            x.to_dec_interval() / y.to_dec_interval(),
-                            g,
-                        ));
-                    }
-                }
-            }
-        }
-        rs.normalize()
-    }
+    impl_op!(abs(x), x.abs());
 
     #[cfg(not(feature = "arb"))]
-    pub fn erf(&self) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            rs.insert(TupperInterval::new(
-                DecInterval::set_dec(erf(x.x), x.d),
-                x.g,
-            ));
-        }
-        rs
-    }
+    impl_op!(acos(x), x.acos());
 
     #[cfg(not(feature = "arb"))]
-    pub fn erfc(&self) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            rs.insert(TupperInterval::new(
-                DecInterval::set_dec(erfc(x.x), x.d),
-                x.g,
-            ));
+    impl_op!(acosh(x), x.acosh());
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(asin(x), x.asin());
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(asinh(x), x.asinh());
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(atan(x), x.atan());
+
+    impl_op_cut!(atan2(x, y), {
+        let a = x.inf();
+        let b = x.sup();
+        let c = y.inf();
+        let d = y.sup();
+        if a == 0.0 && b == 0.0 && c < 0.0 && d > 0.0 {
+            let dec = Decoration::Trv;
+            (
+                DecInterval::set_dec(-Interval::FRAC_PI_2, dec),
+                DecInterval::set_dec(Interval::FRAC_PI_2, dec),
+            )
+        } else if a < 0.0 && b <= 0.0 && c < 0.0 && d >= 0.0 {
+            let dec = if b == 0.0 {
+                Decoration::Trv
+            } else {
+                Decoration::Def.min(x.decoration()).min(y.decoration())
+            };
+            // y < 0 (thus z < 0) part.
+            let x0 = interval!(b, b).unwrap();
+            let y0 = interval!(c, c).unwrap();
+            let z0 = interval!(-Interval::PI.sup(), y0.atan2(x0).sup()).unwrap();
+            // y ≥ 0 (thus z > 0) part.
+            let x1 = interval!(a, b).unwrap();
+            let y1 = interval!(0.0, d).unwrap();
+            let z1 = y1.atan2(x1);
+            (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
+        } else {
+            // a = b = c = d = 0 goes here.
+            (y.atan2(x), DecInterval::EMPTY)
         }
-        rs
-    }
+    });
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(atanh(x), x.atanh());
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(cos(x), x.cos());
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(cosh(x), x.cosh());
+
+    impl_op_cut!(div(x, y), {
+        let c = y.inf();
+        let d = y.sup();
+        if c < 0.0 && d > 0.0 {
+            let y0 = DecInterval::set_dec(interval!(c, 0.0).unwrap(), y.decoration());
+            let y1 = DecInterval::set_dec(interval!(0.0, d).unwrap(), y.decoration());
+            (x / y0, x / y1)
+        } else {
+            (x / y, DecInterval::EMPTY)
+        }
+    });
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(erf(x), {
+        DecInterval::set_dec(erf(x.interval().unwrap()), x.decoration())
+    });
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(erfc(x), {
+        DecInterval::set_dec(erfc(x.interval().unwrap()), x.decoration())
+    });
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(exp(x), x.exp());
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(exp10(x), x.exp10());
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(exp2(x), x.exp2());
 
     pub fn gamma(&self, site: Option<Site>) -> Self {
         // argmin_{x > 0} Γ(x), rounded down/up.
@@ -249,9 +293,22 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
+    #[cfg(not(feature = "arb"))]
+    impl_op!(ln(x), x.ln());
+
     pub fn log(&self, rhs: &Self, site: Option<Site>) -> Self {
         self.log2().div(&rhs.log2(), site)
     }
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(log10(x), x.log10());
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(log2(x), x.log2());
+
+    impl_op!(max(x, y), x.max(y));
+
+    impl_op!(min(x, y), x.min(y));
 
     pub fn mul_add(&self, rhs: &Self, addend: &Self) -> Self {
         let mut rs = Self::empty();
@@ -274,16 +331,9 @@ impl TupperIntervalSet {
     }
 
     // f(x) = 1.
-    pub fn one(&self) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            rs.insert(TupperInterval::new(
-                DecInterval::set_dec(const_interval!(1.0, 1.0), x.d),
-                x.g,
-            ));
-        }
-        rs.normalize()
-    }
+    impl_op!(one(x), {
+        DecInterval::set_dec(const_interval!(1.0, 1.0), x.decoration())
+    });
 
     /// Returns the parity of the function f(x) = x^y.
     ///
@@ -315,131 +365,91 @@ impl TupperIntervalSet {
     //           | undefined  otherwise (y = (odd)/(even) or irrational).
     // - We define 0^0 = 1.
     // The original `Interval::pow` is not defined for x < 0 nor x = y = 0.
-    #[allow(clippy::many_single_char_names)]
-    pub fn pow(&self, rhs: &Self, site: Option<Site>) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            for y in rhs {
-                if let Some(g) = x.g.union(y.g) {
-                    let a = x.x.inf();
-                    let b = x.x.sup();
-                    let c = y.x.inf();
-                    let d = y.x.sup();
+    impl_op_cut!(pow(x, y), {
+        let a = x.inf();
+        let c = y.inf();
 
-                    // | {1}  if (0, 0) ∈ x × y,
-                    // | ∅    otherwise.
-                    let one_or_empty = if a <= 0.0 && b >= 0.0 && c <= 0.0 && d >= 0.0 {
-                        const_interval!(1.0, 1.0)
+        // | {1}  if (0, 0) ∈ x × y,
+        // | ∅    otherwise.
+        let one_or_empty = if x.contains(0.0) && y.contains(0.0) {
+            const_interval!(1.0, 1.0)
+        } else {
+            Interval::EMPTY
+        };
+
+        if y.is_singleton() {
+            match Self::exponentiation_parity(c) {
+                Parity::None => (x.pow(y), DecInterval::EMPTY),
+                Parity::Even => {
+                    // If `x` contains a negative value and `z.decoration()` is `Com`,
+                    // the decoration must be demoted to `Dac`.
+                    // But that does not matter in graphing, so we just ignore that.
+                    let z = x.abs().pow(y);
+                    (
+                        DecInterval::set_dec(
+                            z.interval().unwrap().convex_hull(one_or_empty),
+                            z.decoration(),
+                        ),
+                        DecInterval::EMPTY,
+                    )
+                }
+                Parity::Odd => {
+                    let dec = if x.contains(0.0) && c < 0.0 {
+                        Decoration::Trv
                     } else {
-                        Interval::EMPTY
+                        Decoration::Dac.min(x.decoration()).min(y.decoration())
                     };
 
-                    if c == d {
-                        // y is a singleton.
-                        match Self::exponentiation_parity(c) {
-                            Parity::None => {
-                                rs.insert(TupperInterval::new(
-                                    x.to_dec_interval().pow(y.to_dec_interval()),
-                                    g,
-                                ));
-                            }
-                            Parity::Even => {
-                                let dec = if a <= 0.0 && b >= 0.0 && c < 0.0 {
-                                    // Undefined for x = 0.
-                                    Decoration::Trv
-                                } else {
-                                    // The restriction is continuous, thus `Dac`.
-                                    // It can be `Com`, but that does not matter for graphing.
-                                    Decoration::Dac.min(x.d).min(y.d)
-                                };
-
-                                let x = x.x.abs();
-                                let z = x.pow(y.x);
-                                rs.insert(TupperInterval::new(
-                                    DecInterval::set_dec(z.convex_hull(one_or_empty), dec),
-                                    g,
-                                ));
-                            }
-                            Parity::Odd => {
-                                let dec = if a <= 0.0 && b >= 0.0 && c < 0.0 {
-                                    Decoration::Trv
-                                } else {
-                                    Decoration::Dac.min(x.d).min(y.d)
-                                };
-
-                                // xn or xp can be empty.
-                                let xn = x.x.intersection(const_interval!(f64::NEG_INFINITY, 0.0));
-                                let zn = -(-xn).pow(y.x);
-                                let xp = x.x.intersection(const_interval!(0.0, f64::INFINITY));
-                                let zp = xp.pow(y.x);
-                                if c < 0.0 {
-                                    rs.insert(TupperInterval::new(
-                                        DecInterval::set_dec(zn, dec),
-                                        match site {
-                                            Some(site) => g.inserted(site, Branch::new(0)),
-                                            _ => g,
-                                        },
-                                    ));
-                                    rs.insert(TupperInterval::new(
-                                        DecInterval::set_dec(zp, dec),
-                                        match site {
-                                            Some(site) => g.inserted(site, Branch::new(1)),
-                                            _ => g,
-                                        },
-                                    ));
-                                } else {
-                                    let z = zn.convex_hull(zp);
-                                    rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), g));
-                                }
-                            }
-                        }
-                    } else if a < 0.0 {
-                        // a < 0.
-                        let dec = Decoration::Trv;
-
-                        // x^y ≥ 0 part from
-                        //   x ≥ 0 (incl. 0^0), and
-                        //   x < 0 for those ys where f(x) = x^y is an even function.
-                        let x0 = x.x.abs();
-                        let z = x0.pow(y.x);
-                        rs.insert(TupperInterval::new(
-                            DecInterval::set_dec(z.convex_hull(one_or_empty), dec),
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(0)),
-                                _ => g,
-                            },
-                        ));
-
-                        // x^y < 0 part from
-                        //   x < 0 for those ys where f(x) = x^y is an odd function.
-                        let x1 = x.x.min(const_interval!(0.0, 0.0));
-                        let z = -(-x1).pow(y.x);
-                        rs.insert(TupperInterval::new(
-                            DecInterval::set_dec(z, dec),
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(1)),
-                                _ => g,
-                            },
-                        ));
+                    let x = x.interval().unwrap();
+                    let y = y.interval().unwrap();
+                    // Either x0 or x1 can be empty.
+                    let x0 = x.intersection(const_interval!(f64::NEG_INFINITY, 0.0));
+                    let z0 = -(-x0).pow(y);
+                    let x1 = x.intersection(const_interval!(0.0, f64::INFINITY));
+                    let z1 = x1.pow(y);
+                    if c < 0.0 {
+                        (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
                     } else {
-                        // a ≥ 0.
-
-                        // If a = b = 0 ∧ c ≤ 0 ≤ d, we need to add {1} to z manually.
-                        // In that case, the decoration of z is already `Trv`.
-                        let z = x.to_dec_interval().pow(y.to_dec_interval());
-                        rs.insert(TupperInterval::new(
-                            DecInterval::set_dec(
-                                z.interval().unwrap().convex_hull(one_or_empty),
-                                z.decoration(),
-                            ),
-                            g,
-                        ));
+                        (
+                            DecInterval::set_dec(z0.convex_hull(z1), dec),
+                            DecInterval::EMPTY,
+                        )
                     }
                 }
             }
+        } else if a < 0.0 {
+            // a < 0.
+            let dec = Decoration::Trv;
+
+            let x = x.interval().unwrap();
+            let y = y.interval().unwrap();
+
+            // x^y ≥ 0 part from
+            //   x ≥ 0 (incl. 0^0), and
+            //   x < 0 for those ys where f(x) = x^y is an even function.
+            let z0 = x.abs().pow(y).convex_hull(one_or_empty);
+
+            // x^y < 0 part from
+            //   x < 0 for those ys where f(x) = x^y is an odd function.
+            let x1 = x.min(const_interval!(0.0, 0.0));
+            let z1 = -(-x1).pow(y);
+
+            (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
+        } else {
+            // a ≥ 0.
+
+            // If 0 ∈ x ∧ c ≤ 0 ≤ d, we need to add {1} to z manually.
+            // In that case, the decoration of z is already `Trv`.
+            let z = x.pow(y);
+            (
+                DecInterval::set_dec(
+                    z.interval().unwrap().convex_hull(one_or_empty),
+                    z.decoration(),
+                ),
+                DecInterval::EMPTY,
+            )
         }
-        rs.normalize()
-    }
+    });
 
     pub fn pown(&self, rhs: i32, site: Option<Site>) -> Self {
         let mut rs = Self::empty();
@@ -470,34 +480,17 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
-    pub fn recip(&self, site: Option<Site>) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            let a = x.x.inf();
-            let b = x.x.sup();
-            if a < 0.0 && b > 0.0 {
-                let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.d);
-                rs.insert(TupperInterval::new(
-                    x0.recip(),
-                    match site {
-                        Some(site) => x.g.inserted(site, Branch::new(0)),
-                        _ => x.g,
-                    },
-                ));
-                let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.d);
-                rs.insert(TupperInterval::new(
-                    x1.recip(),
-                    match site {
-                        Some(site) => x.g.inserted(site, Branch::new(1)),
-                        _ => x.g,
-                    },
-                ));
-            } else {
-                rs.insert(TupperInterval::new(x.to_dec_interval().recip(), x.g));
-            }
+    impl_op_cut!(recip(x), {
+        let a = x.inf();
+        let b = x.sup();
+        if a < 0.0 && b > 0.0 {
+            let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.decoration());
+            let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.decoration());
+            (x0.recip(), x1.recip())
+        } else {
+            (x.recip(), DecInterval::EMPTY)
         }
-        rs.normalize()
-    }
+    });
 
     pub fn rem_euclid(&self, rhs: &Self, site: Option<Site>) -> Self {
         let zero = TupperIntervalSet::from(const_dec_interval!(0.0, 0.0));
@@ -507,151 +500,94 @@ impl TupperIntervalSet {
             .min(&y)
     }
 
+    #[cfg(not(feature = "arb"))]
+    impl_op!(sin(x), x.sin());
+
     // f(x) = | sin(x)/x  if x ≠ 0,
     //        | 1         otherwise.
     #[cfg(not(feature = "arb"))]
-    pub fn sinc(&self) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            rs.insert(TupperInterval::new(
-                DecInterval::set_dec(sinc(x.x), x.d),
-                x.g,
-            ));
-        }
-        rs
-    }
+    impl_op!(sinc(x), {
+        DecInterval::set_dec(sinc(x.interval().unwrap()), x.decoration())
+    });
 
-    pub fn tan(&self, site: Option<Site>) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            let a = x.x.inf();
-            let b = x.x.sup();
-            let q_nowrap = (x.x / Interval::FRAC_PI_2).floor();
-            let qa = q_nowrap.inf();
-            let qb = q_nowrap.sup();
-            let n = if a == b { 0.0 } else { qb - qa };
-            let q = qa.rem_euclid(2.0);
+    #[cfg(not(feature = "arb"))]
+    impl_op!(sinh(x), x.sinh());
 
-            let cont = qb != f64::INFINITY
-                && b <= (interval!(qb, qb).unwrap() * Interval::FRAC_PI_2).inf();
-            if q == 0.0 && (n < 1.0 || n == 1.0 && cont)
-                || q == 1.0 && (n < 2.0 || n == 2.0 && cont)
-            {
-                rs.insert(TupperInterval::new(x.to_dec_interval().tan(), x.g));
-            } else if q == 0.0 && (n < 2.0 || n == 2.0 && cont)
-                || q == 1.0 && (n < 3.0 || n == 3.0 && cont)
-            {
-                rs.insert(TupperInterval::new(
-                    DecInterval::set_dec(
-                        interval!(interval!(a, a).unwrap().tan().inf(), f64::INFINITY).unwrap(),
-                        Decoration::Trv,
-                    ),
-                    match site {
-                        Some(site) => x.g.inserted(site, Branch::new(0)),
-                        _ => x.g,
-                    },
-                ));
-                rs.insert(TupperInterval::new(
-                    DecInterval::set_dec(
-                        interval!(f64::NEG_INFINITY, interval!(b, b).unwrap().tan().sup()).unwrap(),
-                        Decoration::Trv,
-                    ),
-                    match site {
-                        Some(site) => x.g.inserted(site, Branch::new(1)),
-                        _ => x.g,
-                    },
-                ));
-            } else {
-                rs.insert(TupperInterval::new(x.to_dec_interval().tan(), x.g));
-            }
+    impl_op!(sqr(x), x.sqr());
+
+    impl_op!(sqrt(x), x.sqrt());
+
+    impl_op_cut!(tan(x), {
+        let a = x.inf();
+        let b = x.sup();
+        let q_nowrap = (x.interval().unwrap() / Interval::FRAC_PI_2).floor();
+        let qa = q_nowrap.inf();
+        let qb = q_nowrap.sup();
+        let n = if a == b { 0.0 } else { qb - qa };
+        let q = qa.rem_euclid(2.0);
+
+        let cont =
+            qb != f64::INFINITY && b <= (interval!(qb, qb).unwrap() * Interval::FRAC_PI_2).inf();
+        if q == 0.0 && (n < 1.0 || n == 1.0 && cont) || q == 1.0 && (n < 2.0 || n == 2.0 && cont) {
+            (x.tan(), DecInterval::EMPTY)
+        } else if q == 0.0 && (n < 2.0 || n == 2.0 && cont)
+            || q == 1.0 && (n < 3.0 || n == 3.0 && cont)
+        {
+            let dec = Decoration::Trv;
+            let y0 = interval!(interval!(a, a).unwrap().tan().inf(), f64::INFINITY).unwrap();
+            let y1 = interval!(f64::NEG_INFINITY, interval!(b, b).unwrap().tan().sup()).unwrap();
+            (DecInterval::set_dec(y0, dec), DecInterval::set_dec(y1, dec))
+        } else {
+            (x.tan(), DecInterval::EMPTY)
         }
-        rs.normalize()
-    }
+    });
+
+    #[cfg(not(feature = "arb"))]
+    impl_op!(tanh(x), x.tanh());
 
     // f(x) = | x          if x ≠ 0,
     //        | undefined  otherwise.
-    pub fn undef_at_0(&self) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            let a = x.x.inf();
-            let b = x.x.sup();
-            if a <= 0.0 && b >= 0.0 {
-                if a < b {
-                    // x ≠ {0}.
-                    rs.insert(TupperInterval::new(
-                        DecInterval::set_dec(x.x, Decoration::Trv),
-                        x.g,
-                    ));
-                }
+    impl_op!(undef_at_0(x), {
+        if x.contains(0.0) {
+            if x.is_singleton() {
+                // x = {0}.
+                DecInterval::EMPTY
             } else {
-                rs.insert(*x);
+                DecInterval::set_dec(x.interval().unwrap(), Decoration::Trv)
             }
+        } else {
+            x
         }
-        rs.normalize()
-    }
-}
-
-macro_rules! impl_no_cut_op {
-    ($op:ident) => {
-        pub fn $op(&self) -> Self {
-            let mut rs = Self::empty();
-            for x in self {
-                rs.insert(TupperInterval::new(x.to_dec_interval().$op(), x.g));
-            }
-            rs.normalize()
-        }
-    };
-}
-
-macro_rules! impl_no_cut_op2 {
-    ($op:ident) => {
-        pub fn $op(&self, rhs: &Self) -> Self {
-            let mut rs = Self::empty();
-            for x in self {
-                for y in rhs {
-                    if let Some(g) = x.g.union(y.g) {
-                        rs.insert(TupperInterval::new(
-                            x.to_dec_interval().$op(y.to_dec_interval()),
-                            g,
-                        ));
-                    }
-                }
-            }
-            rs.normalize()
-        }
-    };
+    });
 }
 
 macro_rules! impl_integer_op {
     ($op:ident) => {
-        pub fn $op(&self, site: Option<Site>) -> Self {
-            let mut rs = Self::empty();
-            for x in self {
-                let y = TupperInterval::new(x.to_dec_interval().$op(), x.g);
-                let a = y.x.inf();
-                let b = y.x.sup();
-                if b - a == 1.0 {
-                    rs.insert(TupperInterval::new(
-                        DecInterval::set_dec(interval!(a, a).unwrap(), y.d),
-                        match site {
-                            Some(site) => y.g.inserted(site, Branch::new(0)),
-                            _ => y.g,
-                        },
-                    ));
-                    rs.insert(TupperInterval::new(
-                        DecInterval::set_dec(interval!(b, b).unwrap(), y.d),
-                        match site {
-                            Some(site) => y.g.inserted(site, Branch::new(1)),
-                            _ => y.g,
-                        },
-                    ));
-                } else {
-                    rs.insert(y);
-                }
+        impl_op_cut!($op(x), {
+            let y = x.$op();
+            let a = y.inf();
+            let b = y.sup();
+            if b - a == 1.0 {
+                let y0 = interval!(a, a).unwrap();
+                let y1 = interval!(b, b).unwrap();
+                (
+                    DecInterval::set_dec(y0, y.decoration()),
+                    DecInterval::set_dec(y1, y.decoration()),
+                )
+            } else {
+                (y, DecInterval::EMPTY)
             }
-            rs.normalize()
-        }
+        });
     };
+}
+
+impl TupperIntervalSet {
+    impl_integer_op!(ceil);
+    impl_integer_op!(floor);
+    impl_integer_op!(round);
+    impl_integer_op!(round_ties_to_even);
+    impl_integer_op!(sign);
+    impl_integer_op!(trunc);
 }
 
 macro_rules! requires_arb {
@@ -669,59 +605,6 @@ macro_rules! requires_arb {
 }
 
 impl TupperIntervalSet {
-    // absmax
-    impl_no_cut_op!(abs);
-    impl_no_cut_op2!(max);
-    impl_no_cut_op2!(min);
-
-    // basic
-    impl_no_cut_op!(sqr);
-    impl_no_cut_op!(sqrt);
-
-    // elementary
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(acos);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(acosh);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(asin);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(asinh);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(atan);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(atanh);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(cos);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(cosh);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(exp);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(exp10);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(exp2);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(ln);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(log10);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(log2);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(sin);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(sinh);
-    #[cfg(not(feature = "arb"))]
-    impl_no_cut_op!(tanh);
-
-    // integer
-    impl_integer_op!(ceil);
-    impl_integer_op!(floor);
-    impl_integer_op!(round);
-    impl_integer_op!(round_ties_to_even);
-    impl_integer_op!(sign);
-    impl_integer_op!(trunc);
-
     requires_arb!(airy_ai(x));
     requires_arb!(airy_ai_prime(x));
     requires_arb!(airy_bi(x));
