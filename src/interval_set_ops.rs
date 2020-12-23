@@ -381,14 +381,12 @@ impl TupperIntervalSet {
             match Self::exponentiation_parity(c) {
                 Parity::None => (x.pow(y), DecInterval::EMPTY),
                 Parity::Even => {
-                    // If `x` contains a negative value and `z.decoration()` is `Com`,
-                    // the decoration must be demoted to `Dac`.
-                    // But that does not matter in graphing, so we just ignore that.
                     let z = x.abs().pow(y);
                     (
                         DecInterval::set_dec(
                             z.interval().unwrap().convex_hull(one_or_empty),
-                            z.decoration(),
+                            // It could be `Com`, but that does not matter in graphing.
+                            Decoration::Dac.min(z.decoration()),
                         ),
                         DecInterval::EMPTY,
                     )
@@ -410,10 +408,8 @@ impl TupperIntervalSet {
                     if c < 0.0 {
                         (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
                     } else {
-                        (
-                            DecInterval::set_dec(z0.convex_hull(z1), dec),
-                            DecInterval::EMPTY,
-                        )
+                        let z = z0.convex_hull(z1);
+                        (DecInterval::set_dec(z, dec), DecInterval::EMPTY)
                     }
                 }
             }
@@ -424,15 +420,15 @@ impl TupperIntervalSet {
             let x = x.interval().unwrap();
             let y = y.interval().unwrap();
 
+            // x^y < 0 part from
+            //   x < 0 for those ys where f(x) = x^y is an odd function.
+            let x0 = x.min(const_interval!(0.0, 0.0));
+            let z0 = -(-x0).pow(y);
+
             // x^y ≥ 0 part from
             //   x ≥ 0 (incl. 0^0), and
             //   x < 0 for those ys where f(x) = x^y is an even function.
-            let z0 = x.abs().pow(y).convex_hull(one_or_empty);
-
-            // x^y < 0 part from
-            //   x < 0 for those ys where f(x) = x^y is an odd function.
-            let x1 = x.min(const_interval!(0.0, 0.0));
-            let z1 = -(-x1).pow(y);
+            let z1 = x.abs().pow(y).convex_hull(one_or_empty);
 
             (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
         } else {
