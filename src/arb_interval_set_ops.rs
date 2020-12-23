@@ -325,7 +325,7 @@ impl TupperIntervalSet {
         },
         {
             if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("Bessel functions are only defined for integer and half-integer orders");
+                panic!("`I(n, x)` only permits integers and half-integers for `n`");
             }
             if n.inf() % 1.0 == 0.0 {
                 BoolInterval::TRUE
@@ -383,7 +383,7 @@ impl TupperIntervalSet {
         },
         {
             if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("Bessel functions are only defined for integer and half-integer orders");
+                panic!("`J(n, x)` only permits integers and half-integers for `n`");
             }
             if n.inf() % 1.0 == 0.0 {
                 BoolInterval::TRUE
@@ -408,7 +408,7 @@ impl TupperIntervalSet {
         },
         {
             if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("Bessel functions are only defined for integer and half-integer orders");
+                panic!("`K(n, x)` only permits integers and half-integers for `n`");
             }
             gt!(x, 0.0)
         }
@@ -461,7 +461,7 @@ impl TupperIntervalSet {
         },
         {
             if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("Bessel functions are only defined for integer and half-integer orders");
+                panic!("`Y(n, x)` only permits integers and half-integers for `n`");
             }
             gt!(x, 0.0)
         }
@@ -686,7 +686,7 @@ impl TupperIntervalSet {
         },
         {
             if !s.is_singleton() {
-                panic!("incomplete gamma function is only defined for exact numbers `a`");
+                panic!("`Gamma(a, x)` only permits exact numbers for `a`");
             }
             let s = s.inf();
             if s > 0.0 && s % 1.0 == 0.0 {

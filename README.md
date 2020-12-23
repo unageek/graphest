@@ -191,7 +191,7 @@ Functions that require building with `--features "arb"` option:
 
 | Input                                            | Interpreted as                                   | Details                                                      |
 | ------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------ |
-| `Gamma(a, x)`<br />`Γ(a, x)`                     | Γ(*a*, *x*)                                      | The [upper incomplete gamma function](https://en.wikipedia.org/wiki/Incomplete_gamma_function).<br />*a* must be an exact number. |
+| `Gamma(a, x)`<br />`Γ(a, x)`                     | Γ(*a*, *x*)                                      | The [upper incomplete gamma function](https://en.wikipedia.org/wiki/Incomplete_gamma_function).<br />*a* must be an exact number.<sup>1</sup> |
 | `erfi(x)`                                        | erfi(*x*)                                        | The imaginary error function.                                |
 | `Ei(x)`                                          | Ei(*x*)                                          | The [exponential integral](https://en.wikipedia.org/wiki/Exponential_integral). |
 | `li(x)`                                          | li(*x*)                                          | The [logarithmic integral](https://en.wikipedia.org/wiki/Logarithmic_integral_function). |
@@ -203,6 +203,8 @@ Functions that require building with `--features "arb"` option:
 | `J(n, x)`<br />`Y(n, x)`                         | J<sub>*n*</sub>(*x*)<br />Y<sub>*n*</sub>(*x*)   | The [Bessel functions](https://en.wikipedia.org/wiki/Bessel_function).<br />*n* must be an integer or a half-integer. |
 | `I(n, x)`<br />`K(n, x)`                         | I<sub>*n*</sub>(*x*)<br />K<sub>*n*</sub>(*x*)   | The modified Bessel functions.<br />*n* must be an integer or a half-integer. |
 | `Ai(x)`<br />`Bi(x)`<br />`Ai'(x)`<br />`Bi'(x)` | Ai(*x*)<br />Bi(*x*)<br />Ai′(*x*)<br />Bi′(*x*) | The [Airy functions](https://en.wikipedia.org/wiki/Airy_function) and their derivatives. |
+
+<sup>1.</sup> A number that can be represented as a double-precision floating-point number, such as 1.5 or −3.0625.
 
 ## References
 
