@@ -9,6 +9,8 @@ use std::ops::{BitAnd, BitOr};
 struct BoolInterval(bool, bool);
 
 impl BoolInterval {
+    pub const TRUE: Self = Self(true, true);
+
     pub fn new(a: bool, b: bool) -> Self {
         assert!(!a || b); // a → b
         Self(a, b)
@@ -96,7 +98,7 @@ macro_rules! impl_arb_op {
     };
 
     ($op:ident($x:ident), $result:expr) => {
-        impl_arb_op!($op($x), $result, BoolInterval::new(true, true));
+        impl_arb_op!($op($x), $result, BoolInterval::TRUE);
     };
 
     ($op:ident($x:ident, $y:ident), $result:expr, $def:expr) => {
@@ -130,11 +132,12 @@ fn i(x: f64) -> Interval {
 }
 
 const M_ONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
+const N_INF_TO_ZERO: Interval = const_interval!(f64::NEG_INFINITY, 0.0);
 const ONE_HALF: Interval = const_interval!(0.5, 0.5);
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
+const ZERO: Interval = const_interval!(0.0, 0.0);
 const ZERO_TO_INF: Interval = const_interval!(0.0, f64::INFINITY);
 const ZERO_TO_ONE: Interval = const_interval!(0.0, 1.0);
-const ZERO: Interval = const_interval!(0.0, 0.0);
 
 impl TupperIntervalSet {
     // Mid-rad IA, which is used by Arb, cannot represent half-bounded intervals.
@@ -322,10 +325,10 @@ impl TupperIntervalSet {
         },
         {
             if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("Bessel functions are only defined for integer and half-integer orders");
+                panic!("`I(n, x)` only permits integers and half-integers for `n`");
             }
             if n.inf() % 1.0 == 0.0 {
-                BoolInterval::new(true, true)
+                BoolInterval::TRUE
             } else {
                 gt!(x, 0.0)
             }
@@ -380,10 +383,10 @@ impl TupperIntervalSet {
         },
         {
             if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("Bessel functions are only defined for integer and half-integer orders");
+                panic!("`J(n, x)` only permits integers and half-integers for `n`");
             }
             if n.inf() % 1.0 == 0.0 {
-                BoolInterval::new(true, true)
+                BoolInterval::TRUE
             } else {
                 gt!(x, 0.0)
             }
@@ -405,7 +408,7 @@ impl TupperIntervalSet {
         },
         {
             if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("Bessel functions are only defined for integer and half-integer orders");
+                panic!("`K(n, x)` only permits integers and half-integers for `n`");
             }
             gt!(x, 0.0)
         }
@@ -458,7 +461,7 @@ impl TupperIntervalSet {
         },
         {
             if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("Bessel functions are only defined for integer and half-integer orders");
+                panic!("`Y(n, x)` only permits integers and half-integers for `n`");
             }
             gt!(x, 0.0)
         }
@@ -626,6 +629,73 @@ impl TupperIntervalSet {
             arb_fresnel_s(x)
         }
     });
+    impl_arb_op!(
+        gamma_inc(s, x),
+        if s.inf() % 2.0 == 1.0 {
+            // n = 1, 3, …
+            let a = x.inf();
+            let b = x.sup();
+            let inf = if b == f64::INFINITY {
+                0.0
+            } else {
+                arb_gamma_inc(s, i(b)).inf()
+            };
+            let sup = if a == f64::NEG_INFINITY {
+                f64::INFINITY
+            } else {
+                arb_gamma_inc(s, i(a)).sup()
+            };
+            interval!(inf, sup).unwrap()
+        } else {
+            // n ≠ 1, 3, …
+            let y0 = if s.inf() > 0.0 && s.inf() % 2.0 == 0.0 {
+                // n = 2, 4, …
+                let x = x.intersection(N_INF_TO_ZERO);
+                if x.is_empty() {
+                    Interval::EMPTY
+                } else {
+                    let a = x.inf();
+                    let b = x.sup();
+                    let inf = if a == f64::NEG_INFINITY {
+                        a
+                    } else {
+                        arb_gamma_inc(s, i(a)).inf()
+                    };
+                    interval!(inf, arb_gamma_inc(s, i(b)).sup()).unwrap()
+                }
+            } else {
+                // n ≠ 1, 2, …
+                Interval::EMPTY
+            };
+            let y1 = {
+                let x = x.intersection(ZERO_TO_INF);
+                if x.is_empty() || s.inf() <= 0.0 && x == ZERO {
+                    Interval::EMPTY
+                } else {
+                    let a = x.inf();
+                    let b = x.sup();
+                    let inf = if b == f64::INFINITY {
+                        0.0
+                    } else {
+                        arb_gamma_inc(s, i(b)).inf()
+                    };
+                    interval!(inf, arb_gamma_inc(s, i(a)).sup()).unwrap()
+                }
+            };
+            y0.convex_hull(y1)
+        },
+        {
+            if !s.is_singleton() {
+                panic!("`Gamma(a, x)` only permits exact numbers for `a`");
+            }
+            let s = s.inf();
+            if s > 0.0 && s % 1.0 == 0.0 {
+                BoolInterval::TRUE
+            } else {
+                gt!(x, 0.0)
+            }
+        }
+    );
     impl_arb_op!(
         li(x),
         {
@@ -903,6 +973,11 @@ arb_fn!(
     const_interval!(-0.7139722140219397, 0.7139722140219397) // [S(-√2), S(√2)]
 );
 arb_fn!(
+    arb_gamma_inc(a, x),
+    arb_hypgeom_gamma_upper(a, a, x, 0, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
     arb_li(x),
     arb_hypgeom_li(x, x, 0, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE
@@ -1049,6 +1124,7 @@ mod tests {
             TupperIntervalSet::bessel_j,
             TupperIntervalSet::bessel_k,
             TupperIntervalSet::bessel_y,
+            TupperIntervalSet::gamma_inc,
         ];
         let ns = vec![-2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]
             .into_iter()
