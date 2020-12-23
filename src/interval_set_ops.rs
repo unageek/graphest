@@ -109,7 +109,8 @@ macro_rules! impl_op_cut {
         }
     };
 
-    ($op:ident($x:ident, $y:ident), $result:expr) => {
+    ($(#[$meta:meta])* $op:ident($x:ident, $y:ident), $result:expr) => {
+        $(#[$meta])*
         pub fn $op(&self, rhs: &Self, site: Option<Site>) -> Self {
             let mut rs = Self::empty();
             for x in self {
@@ -365,87 +366,91 @@ impl TupperIntervalSet {
     //           | undefined  otherwise (y = (odd)/(even) or irrational).
     // - We define 0^0 = 1.
     // The original `Interval::pow` is not defined for x < 0 nor x = y = 0.
-    impl_op_cut!(pow(x, y), {
-        let a = x.inf();
-        let c = y.inf();
+    impl_op_cut!(
+        #[allow(clippy::many_single_char_names)]
+        pow(x, y),
+        {
+            let a = x.inf();
+            let c = y.inf();
 
-        // | {1}  if (0, 0) ∈ x × y,
-        // | ∅    otherwise.
-        let one_or_empty = if x.contains(0.0) && y.contains(0.0) {
-            const_interval!(1.0, 1.0)
-        } else {
-            Interval::EMPTY
-        };
+            // | {1}  if (0, 0) ∈ x × y,
+            // | ∅    otherwise.
+            let one_or_empty = if x.contains(0.0) && y.contains(0.0) {
+                const_interval!(1.0, 1.0)
+            } else {
+                Interval::EMPTY
+            };
 
-        if y.is_singleton() {
-            match Self::exponentiation_parity(c) {
-                Parity::None => (x.pow(y), DecInterval::EMPTY),
-                Parity::Even => {
-                    let z = x.abs().pow(y);
-                    (
-                        DecInterval::set_dec(
-                            z.interval().unwrap().convex_hull(one_or_empty),
-                            // It could be `Com`, but that does not matter in graphing.
-                            Decoration::Dac.min(z.decoration()),
-                        ),
-                        DecInterval::EMPTY,
-                    )
-                }
-                Parity::Odd => {
-                    let dec = if x.contains(0.0) && c < 0.0 {
-                        Decoration::Trv
-                    } else {
-                        Decoration::Dac.min(x.decoration()).min(y.decoration())
-                    };
+            if y.is_singleton() {
+                match Self::exponentiation_parity(c) {
+                    Parity::None => (x.pow(y), DecInterval::EMPTY),
+                    Parity::Even => {
+                        let z = x.abs().pow(y);
+                        (
+                            DecInterval::set_dec(
+                                z.interval().unwrap().convex_hull(one_or_empty),
+                                // It could be `Com`, but that does not matter in graphing.
+                                Decoration::Dac.min(z.decoration()),
+                            ),
+                            DecInterval::EMPTY,
+                        )
+                    }
+                    Parity::Odd => {
+                        let dec = if x.contains(0.0) && c < 0.0 {
+                            Decoration::Trv
+                        } else {
+                            Decoration::Dac.min(x.decoration()).min(y.decoration())
+                        };
 
-                    let x = x.interval().unwrap();
-                    let y = y.interval().unwrap();
-                    // Either x0 or x1 can be empty.
-                    let x0 = x.intersection(const_interval!(f64::NEG_INFINITY, 0.0));
-                    let z0 = -(-x0).pow(y);
-                    let x1 = x.intersection(const_interval!(0.0, f64::INFINITY));
-                    let z1 = x1.pow(y);
-                    if c < 0.0 {
-                        (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
-                    } else {
-                        let z = z0.convex_hull(z1);
-                        (DecInterval::set_dec(z, dec), DecInterval::EMPTY)
+                        let x = x.interval().unwrap();
+                        let y = y.interval().unwrap();
+                        // Either x0 or x1 can be empty.
+                        let x0 = x.intersection(const_interval!(f64::NEG_INFINITY, 0.0));
+                        let z0 = -(-x0).pow(y);
+                        let x1 = x.intersection(const_interval!(0.0, f64::INFINITY));
+                        let z1 = x1.pow(y);
+                        if c < 0.0 {
+                            (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
+                        } else {
+                            let z = z0.convex_hull(z1);
+                            (DecInterval::set_dec(z, dec), DecInterval::EMPTY)
+                        }
                     }
                 }
+            } else if a < 0.0 {
+                // a < 0.
+                let dec = Decoration::Trv;
+
+                let x = x.interval().unwrap();
+                let y = y.interval().unwrap();
+
+                // x^y < 0 part from
+                //   x < 0 for those ys where f(x) = x^y is an odd function.
+                let x0 = x.min(const_interval!(0.0, 0.0));
+                let z0 = -(-x0).pow(y);
+
+                // x^y ≥ 0 part from
+                //   x ≥ 0 (incl. 0^0), and
+                //   x < 0 for those ys where f(x) = x^y is an even function.
+                let z1 = x.abs().pow(y).convex_hull(one_or_empty);
+
+                (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
+            } else {
+                // a ≥ 0.
+
+                // If 0 ∈ x ∧ c ≤ 0 ≤ d, we need to add {1} to z manually.
+                // In that case, the decoration of z is already `Trv`.
+                let z = x.pow(y);
+                (
+                    DecInterval::set_dec(
+                        z.interval().unwrap().convex_hull(one_or_empty),
+                        z.decoration(),
+                    ),
+                    DecInterval::EMPTY,
+                )
             }
-        } else if a < 0.0 {
-            // a < 0.
-            let dec = Decoration::Trv;
-
-            let x = x.interval().unwrap();
-            let y = y.interval().unwrap();
-
-            // x^y < 0 part from
-            //   x < 0 for those ys where f(x) = x^y is an odd function.
-            let x0 = x.min(const_interval!(0.0, 0.0));
-            let z0 = -(-x0).pow(y);
-
-            // x^y ≥ 0 part from
-            //   x ≥ 0 (incl. 0^0), and
-            //   x < 0 for those ys where f(x) = x^y is an even function.
-            let z1 = x.abs().pow(y).convex_hull(one_or_empty);
-
-            (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
-        } else {
-            // a ≥ 0.
-
-            // If 0 ∈ x ∧ c ≤ 0 ≤ d, we need to add {1} to z manually.
-            // In that case, the decoration of z is already `Trv`.
-            let z = x.pow(y);
-            (
-                DecInterval::set_dec(
-                    z.interval().unwrap().convex_hull(one_or_empty),
-                    z.decoration(),
-                ),
-                DecInterval::EMPTY,
-            )
         }
-    });
+    );
 
     pub fn pown(&self, rhs: i32, site: Option<Site>) -> Self {
         let mut rs = Self::empty();
