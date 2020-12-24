@@ -268,7 +268,9 @@ impl TupperIntervalSet {
                 let pi = TupperIntervalSet::from(DecInterval::PI);
                 let mut xs = Self::empty();
                 xs.insert(*x);
-                rs = pi.div(&(&(&pi * &xs).sin() * &(&one - &xs).gamma(None)), site);
+                for y in pi.div(&(&(&pi * &xs).sin() * &(&one - &xs).gamma(None)), site) {
+                    rs.insert(y);
+                }
             } else {
                 // a < 0 < b.
                 let dec = Decoration::Trv;
@@ -288,7 +290,9 @@ impl TupperIntervalSet {
                         _ => x.g,
                     },
                 ));
-                rs = xs.gamma(None);
+                for y in xs.gamma(None) {
+                    rs.insert(y);
+                }
             }
         }
         rs.normalize()
