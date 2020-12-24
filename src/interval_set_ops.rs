@@ -159,7 +159,7 @@ impl TupperIntervalSet {
     #[cfg(not(feature = "arb"))]
     impl_op!(atan(x), x.atan());
 
-    impl_op_cut!(atan2(x, y), {
+    impl_op_cut!(atan2(y, x), {
         let a = x.inf();
         let b = x.sup();
         let c = y.inf();

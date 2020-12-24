@@ -189,7 +189,7 @@ impl Term {
             Unary(Tanh, x) => x.eval().tanh(),
             Unary(UndefAt0, x) => x.eval().undef_at_0(),
             Binary(Add, x, y) => &x.eval() + &y.eval(),
-            Binary(Atan2, x, y) => x.eval().atan2(&y.eval(), None),
+            Binary(Atan2, y, x) => y.eval().atan2(&x.eval(), None),
             Binary(BesselI, n, x) => n.eval().bessel_i(&x.eval()),
             Binary(BesselJ, n, x) => n.eval().bessel_j(&x.eval()),
             Binary(BesselK, n, x) => n.eval().bessel_k(&x.eval()),
