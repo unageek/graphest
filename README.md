@@ -98,7 +98,9 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `floor(x)`<br />`⌊x⌋`                  | ⌊*x*⌋                                                        | The [floor function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `ceil(x)`<br />`⌈x⌉`                   | ⌈*x*⌉                                                        | The [ceiling function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `sign(x)`                              | sgn(*x*)                                                     | The [sign function](https://en.wikipedia.org/wiki/Sign_function). |
-| `mod(x, y)`                            | *x* mod *y*                                                  | The [modulo operation](https://en.wikipedia.org/wiki/Modulo_operation).<br />The result is nonnegative, i.e., 0 ≤ *x* mod *y* < \|*y*\|. |
+| `mod(x, y)`                            | *x* mod *y*                                                  | The nonnegative remainder of *x*/*y* ([modulo operation](https://en.wikipedia.org/wiki/Modulo_operation)).<br />0 ≤ *x* mod *y* < \|*y*\|. |
+| `gcd(x, y)`                            | gcd(*x*, *y*)                                                | The [greatest common divisor](https://en.wikipedia.org/wiki/Greatest_common_divisor) of *x* and *y*. |
+| `lcm(x, y)`                            | lcm(*x*, *y*)                                                | The [least common multiple](https://en.wikipedia.org/wiki/Least_common_multiple) of *x* and *y*. |
 
 See also [Trigonometric Functions](#trigonometric-functions) and [Special Functions](#special-functions).
 
