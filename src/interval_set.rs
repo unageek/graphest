@@ -200,17 +200,24 @@ impl TupperIntervalSet {
         self.0.is_empty()
     }
 
-    // TODO: Sort?
     pub fn normalize(self) -> Self {
         if self.len() < 4 {
             return self;
         }
 
+        let mut slf = self.0.into_vec();
+        slf.sort_by(|x, y| {
+            ((x.d as u8).cmp(&(y.d as u8)))
+                .then(x.g.cut.cmp(&y.g.cut))
+                .then(x.g.chosen.cmp(&y.g.chosen))
+                .then(x.x.inf().partial_cmp(&y.x.inf()).unwrap())
+        });
+
         let mut rs = Self::empty();
         let mut hull = Interval::EMPTY;
         let mut d = Decoration::Trv;
         let mut g = BranchMap::new();
-        for x in self {
+        for x in slf {
             if x.d == d && x.g == g && !x.x.disjoint(hull) {
                 hull = hull.convex_hull(x.x);
             } else {
