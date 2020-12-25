@@ -71,6 +71,8 @@ pub enum BinaryOp {
     BesselY,
     Div,
     GammaInc,
+    Gcd,
+    Lcm,
     Log,
     Max,
     Min,
@@ -196,6 +198,8 @@ impl Term {
             Binary(BesselY, n, x) => n.eval().bessel_y(&x.eval()),
             Binary(Div, x, y) => x.eval().div(&y.eval(), None),
             Binary(GammaInc, a, x) => a.eval().gamma_inc(&x.eval()),
+            Binary(Gcd, x, y) => x.eval().gcd(&y.eval(), None),
+            Binary(Lcm, x, y) => x.eval().lcm(&y.eval(), None),
             // Beware the order of arguments.
             Binary(Log, b, x) => x.eval().log(&b.eval(), None),
             Binary(Max, x, y) => x.eval().max(&y.eval()),

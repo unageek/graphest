@@ -298,6 +298,54 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
+    // TODO: Implement branch cut tracking.
+    pub fn gcd(&self, rhs: &Self, _site: Option<Site>) -> Self {
+        const ZERO: Interval = const_interval!(0.0, 0.0);
+        let mut rs = Self::empty();
+        let slf = &self.abs();
+        let rhs = &rhs.abs();
+        for x in slf {
+            for y in rhs {
+                if let Some(g) = x.g.union(y.g) {
+                    let x = x.to_dec_interval();
+                    let y = y.to_dec_interval();
+                    let mut xs = TupperIntervalSet::from(TupperInterval::new(x.min(y), g));
+                    let mut ys = TupperIntervalSet::from(TupperInterval::new(x.max(y), g));
+                    loop {
+                        let mut ys_rem_xs = TupperIntervalSet::empty();
+                        for x in xs.iter() {
+                            let ys_rem_x = ys.rem_euclid(&TupperIntervalSet::from(*x), None);
+                            if ys_rem_x.iter().any(|rm| rm.x.contains(0.0)) {
+                                rs.insert(*x);
+                            }
+                            for rm in ys_rem_x.into_iter().filter(|rm| rm.x != ZERO) {
+                                ys_rem_xs.insert(rm);
+                            }
+                        }
+                        // TODO: Can we just test `(ys_rem_xs, xs) == (xs, ys)`?
+                        if ys_rem_xs.iter().all(|a| xs.iter().any(|b| a.x == b.x))
+                            && xs.iter().all(|a| ys.iter().any(|b| a.x == b.x))
+                        {
+                            // Reached the fixed point.
+                            break;
+                        }
+                        let xs_bak = xs;
+                        xs = ys_rem_xs;
+                        ys = xs_bak;
+                    }
+                    for x in xs.into_iter() {
+                        rs.insert(x);
+                    }
+                }
+            }
+        }
+        rs.normalize()
+    }
+
+    pub fn lcm(&self, rhs: &Self, site: Option<Site>) -> Self {
+        (self * rhs).abs().div(&self.gcd(rhs, site), None)
+    }
+
     #[cfg(not(feature = "arb"))]
     impl_op!(ln(x), x.ln());
 

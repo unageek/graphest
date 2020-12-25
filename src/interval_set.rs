@@ -200,13 +200,28 @@ impl TupperIntervalSet {
         self.0.is_empty()
     }
 
-    /// Expected to be called after modifying `self`. It is no-op for the moment.
-    ///
-    /// We could merge overlapping intervals, but that almost always results in
-    /// a negative impact on performance.
-    #[allow(unused_mut)]
-    pub fn normalize(mut self) -> Self {
-        self
+    // TODO: Sort?
+    pub fn normalize(self) -> Self {
+        if self.len() < 4 {
+            return self;
+        }
+
+        let mut rs = Self::empty();
+        let mut hull = Interval::EMPTY;
+        let mut d = Decoration::Trv;
+        let mut g = BranchMap::new();
+        for x in self {
+            if x.d == d && x.g == g && !x.x.disjoint(hull) {
+                hull = hull.convex_hull(x.x);
+            } else {
+                rs.insert(TupperInterval::new(DecInterval::set_dec(hull, d), g));
+                hull = x.x;
+                d = x.d;
+                g = x.g;
+            }
+        }
+        rs.insert(TupperInterval::new(DecInterval::set_dec(hull, d), g));
+        rs
     }
 
     pub fn size_in_heap(&self) -> usize {
@@ -222,6 +237,14 @@ impl From<DecInterval> for TupperIntervalSet {
     fn from(x: DecInterval) -> Self {
         let mut xs = Self::empty();
         xs.insert(TupperInterval::new(x, BranchMap::new()));
+        xs
+    }
+}
+
+impl From<TupperInterval> for TupperIntervalSet {
+    fn from(x: TupperInterval) -> Self {
+        let mut xs = Self::empty();
+        xs.insert(x);
         xs
     }
 }
