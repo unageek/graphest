@@ -302,10 +302,10 @@ impl TupperIntervalSet {
     pub fn gcd(&self, rhs: &Self, _site: Option<Site>) -> Self {
         const ZERO: Interval = const_interval!(0.0, 0.0);
         let mut rs = Self::empty();
-        let slf = &self.abs();
-        let rhs = &rhs.abs();
-        for x in slf {
-            for y in rhs {
+        let xs = &self.abs();
+        let ys = &rhs.abs();
+        for x in xs {
+            for y in ys {
                 if let Some(g) = x.g.union(y.g) {
                     let x = x.to_dec_interval();
                     let y = y.to_dec_interval();
@@ -316,20 +316,23 @@ impl TupperIntervalSet {
                         for x in &xs {
                             let ys_rem_x = ys.rem_euclid(&TupperIntervalSet::from(*x), None);
                             if ys_rem_x.iter().any(|rm| rm.x.contains(0.0)) {
+                                // If 0 ∈ rm, x possibly contains gcd(x, ys).
                                 rs.insert(*x);
                             }
                             for rm in ys_rem_x.into_iter().filter(|rm| rm.x != ZERO) {
+                                // If rm = {0}, it will not contribute to the remainder
+                                // in the next iteration.
                                 ys_rem_xs.insert(rm);
                             }
                         }
-                        // It seems that we cannot just test `ys_rem_xs == xs && xs == ys`
-                        // because of the decorations.
-                        if ys_rem_xs.iter().all(|a| xs.iter().any(|b| a.x == b.x))
-                            && xs.iter().all(|a| ys.iter().any(|b| a.x == b.x))
-                        {
-                            // Reached the fixed point.
+                        ys_rem_xs = ys_rem_xs.normalize();
+
+                        if ys_rem_xs == ys {
+                            // Reached the fixed point (obtained all possible values).
                             break;
                         }
+
+                        // (xs, ys) = (ys_rem_xs, xs)
                         let xs_bak = xs;
                         xs = ys_rem_xs;
                         ys = xs_bak;
