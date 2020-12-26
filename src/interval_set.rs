@@ -205,8 +205,8 @@ impl TupperIntervalSet {
             return self;
         }
 
-        let mut slf = self.0.into_vec();
-        slf.sort_by(|x, y| {
+        let mut xs = self.0.into_vec();
+        xs.sort_by(|x, y| {
             ((x.d as u8).cmp(&(y.d as u8)))
                 .then(x.g.cut.cmp(&y.g.cut))
                 .then(x.g.chosen.cmp(&y.g.chosen))
@@ -217,7 +217,7 @@ impl TupperIntervalSet {
         let mut hull = Interval::EMPTY;
         let mut d = Decoration::Trv;
         let mut g = BranchMap::new();
-        for x in slf {
+        for x in xs {
             if x.d == d && x.g == g && !x.x.disjoint(hull) {
                 hull = hull.convex_hull(x.x);
             } else {

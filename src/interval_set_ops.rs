@@ -313,7 +313,7 @@ impl TupperIntervalSet {
                     let mut ys = TupperIntervalSet::from(TupperInterval::new(x.max(y), g));
                     loop {
                         let mut ys_rem_xs = TupperIntervalSet::empty();
-                        for x in xs.iter() {
+                        for x in &xs {
                             let ys_rem_x = ys.rem_euclid(&TupperIntervalSet::from(*x), None);
                             if ys_rem_x.iter().any(|rm| rm.x.contains(0.0)) {
                                 rs.insert(*x);
@@ -322,7 +322,8 @@ impl TupperIntervalSet {
                                 ys_rem_xs.insert(rm);
                             }
                         }
-                        // TODO: Can we just test `(ys_rem_xs, xs) == (xs, ys)`?
+                        // It seems that we cannot just test `ys_rem_xs == xs && xs == ys`
+                        // because of the decorations.
                         if ys_rem_xs.iter().all(|a| xs.iter().any(|b| a.x == b.x))
                             && xs.iter().all(|a| ys.iter().any(|b| a.x == b.x))
                         {
@@ -333,7 +334,7 @@ impl TupperIntervalSet {
                         xs = ys_rem_xs;
                         ys = xs_bak;
                     }
-                    for x in xs.into_iter() {
+                    for x in xs {
                         rs.insert(x);
                     }
                 }
@@ -545,13 +546,20 @@ impl TupperIntervalSet {
         }
     });
 
-    pub fn rem_euclid(&self, rhs: &Self, site: Option<Site>) -> Self {
-        let zero = TupperIntervalSet::from(const_dec_interval!(0.0, 0.0));
-        let y = rhs.abs();
-        (self - &(&y * &self.div(&y, None).floor(site)))
-            .max(&zero)
-            .min(&y)
-    }
+    impl_op_cut!(rem_euclid(x, y), {
+        const ZERO: DecInterval = const_dec_interval!(0.0, 0.0);
+        let y = y.abs(); // Take abs, normalize, then iterate would be better.
+        let q = (x / y).floor();
+        let a = q.inf();
+        let b = q.sup();
+        if b - a == 1.0 {
+            let q0 = DecInterval::set_dec(interval!(a, a).unwrap(), q.decoration());
+            let q1 = DecInterval::set_dec(interval!(b, b).unwrap(), q.decoration());
+            ((x - y * q0).max(ZERO).min(y), (x - y * q1).max(ZERO).min(y))
+        } else {
+            ((x - y * q).max(ZERO).min(y), DecInterval::EMPTY)
+        }
+    });
 
     #[cfg(not(feature = "arb"))]
     impl_op!(sin(x), x.sin());
