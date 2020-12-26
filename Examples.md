@@ -36,10 +36,22 @@
 
 - 📂 Single Relation/Abstract/Simple/
 
+  - 📄 Irrationally Contin.gqs
+
+    ```test
+    "y = gcd(x, 1)" -b 0 2 -0.5 1.5
+    ```
+
   - 📄 Parabolic Waves.gqs
 
     ```text
     "|sin(sqrt(x^2 + y^2))| = |cos(x)|"
+    ```
+
+  - 📄 Prime Bars.gqs
+
+    ```text
+    "gcd(⌊x⌋, Γ(⌊sqrt(2⌊x⌋) + 1/2⌋)) ≤ 1 < x - 1" -b 0 40 -20 20
     ```
 
   - 📄 Pythagorean Pairs.gqs
@@ -52,6 +64,12 @@
 
     ```text
     "⌊x⌋^2 + ⌊y⌋^2 = 25"
+    ```
+
+  - 📄 Rational Beams.gqs
+
+    ```text
+    "gcd(x, y) > 1" -b 0 10 0 10
     ```
 
 - 📂 Single Relation/Abstract/Traditionally Difficult/
