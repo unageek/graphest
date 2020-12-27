@@ -94,7 +94,7 @@ impl EvalCache {
     }
 
     pub fn size_in_heap(&self) -> usize {
-        // This is the lowest bound, the actual size can be much larger.
+        // This is a lowest bound, the actual size can be much larger.
         self.size_of_cx + self.size_of_cy + self.size_of_cxy + self.size_of_values_in_heap
     }
 }
@@ -203,20 +203,16 @@ impl DynRelation {
                 StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecInterval::new(x)),
                 StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecInterval::new(y)),
                 _ => match t.vars {
-                    VarSet::X => {
-                        if mx_ts == None {
-                            ts[i] = t.eval(&ts);
-                        }
+                    VarSet::X if mx_ts == None => {
+                        ts[i] = t.eval(&ts);
                     }
-                    VarSet::Y => {
-                        if my_ts == None {
-                            ts[i] = t.eval(&ts);
-                        }
+                    VarSet::Y if my_ts == None => {
+                        ts[i] = t.eval(&ts);
                     }
                     VarSet::XY => {
                         ts[i] = t.eval(&ts);
                     }
-                    _ => (),
+                    _ => (), // Constant or cached subexpression.
                 },
             }
         }
@@ -252,12 +248,12 @@ impl DynRelation {
         for i in 0..self.terms.len() {
             let t = &self.terms[i];
             match t.kind {
-                StaticTermKind::Constant(_) => (),
                 StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecInterval::new(x)),
                 StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecInterval::new(y)),
-                _ => {
-                    ts[i] = t.eval(&ts);
-                }
+                _ => match t.vars {
+                    VarSet::EMPTY => (), // Constant subexpression.
+                    _ => ts[i] = t.eval(&ts),
+                },
             }
         }
 
@@ -272,7 +268,9 @@ impl DynRelation {
     fn initialize(&mut self) {
         for i in 0..self.terms.len() {
             let t = &self.terms[i];
-            if let StaticTermKind::Constant(_) = t.kind {
+            // This condition is different from `let StaticTermKind::Constant(_) = t.kind`,
+            // as not all constant subexpressions are folded. See the comment on [`FoldConstant`].
+            if t.vars == VarSet::EMPTY {
                 self.ts[i] = t.eval(&self.ts);
             }
         }
