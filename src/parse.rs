@@ -136,6 +136,8 @@ fn fn2(i: &str) -> ParseResult<BinaryOp> {
         value(BinaryOp::BesselY, keyword("Y")),
         value(BinaryOp::GammaInc, keyword("Gamma")),
         value(BinaryOp::GammaInc, keyword("Γ")),
+        value(BinaryOp::Gcd, keyword("gcd")),
+        value(BinaryOp::Lcm, keyword("lcm")),
         value(BinaryOp::Log, keyword("log")),
         value(BinaryOp::Max, keyword("max")),
         value(BinaryOp::Min, keyword("min")),

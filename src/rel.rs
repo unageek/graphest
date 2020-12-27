@@ -81,6 +81,8 @@ impl StaticTerm {
             Binary(BesselY, n, x) => ts[*n as usize].bessel_y(&ts[*x as usize]),
             Binary(Div, x, y) => ts[*x as usize].div(&ts[*y as usize], self.site),
             Binary(GammaInc, a, x) => ts[*a as usize].gamma_inc(&ts[*x as usize]),
+            Binary(Gcd, x, y) => ts[*x as usize].gcd(&ts[*y as usize], self.site),
+            Binary(Lcm, x, y) => ts[*x as usize].lcm(&ts[*y as usize], self.site),
             // Beware the order of arguments.
             Binary(Log, b, x) => ts[*x as usize].log(&ts[*b as usize], self.site),
             Binary(Max, x, y) => ts[*x as usize].max(&ts[*y as usize]),

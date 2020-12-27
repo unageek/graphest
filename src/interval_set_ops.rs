@@ -298,6 +298,58 @@ impl TupperIntervalSet {
         rs.normalize()
     }
 
+    // TODO: Implement branch cut tracking.
+    pub fn gcd(&self, rhs: &Self, _site: Option<Site>) -> Self {
+        const ZERO: Interval = const_interval!(0.0, 0.0);
+        let mut rs = Self::empty();
+        let xs = &self.abs();
+        let ys = &rhs.abs();
+        for x in xs {
+            for y in ys {
+                if let Some(g) = x.g.union(y.g) {
+                    let x = x.to_dec_interval();
+                    let y = y.to_dec_interval();
+                    let mut xs = TupperIntervalSet::from(TupperInterval::new(x.min(y), g));
+                    let mut ys = TupperIntervalSet::from(TupperInterval::new(x.max(y), g));
+                    loop {
+                        let mut ys_rem_xs = TupperIntervalSet::empty();
+                        for x in &xs {
+                            let ys_rem_x = ys.rem_euclid(&TupperIntervalSet::from(*x), None);
+                            if ys_rem_x.iter().any(|rm| rm.x.contains(0.0)) {
+                                // If 0 ∈ rm, x possibly contains gcd(x, ys).
+                                rs.insert(*x);
+                            }
+                            for rm in ys_rem_x.into_iter().filter(|rm| rm.x != ZERO) {
+                                // If rm = {0}, it will not contribute to the remainder
+                                // in the next iteration.
+                                ys_rem_xs.insert(rm);
+                            }
+                        }
+                        ys_rem_xs = ys_rem_xs.normalize();
+
+                        if ys_rem_xs == ys {
+                            // Reached the fixed point (obtained all possible values).
+                            break;
+                        }
+
+                        // (xs, ys) = (ys_rem_xs, xs)
+                        let xs_bak = xs;
+                        xs = ys_rem_xs;
+                        ys = xs_bak;
+                    }
+                    for x in xs {
+                        rs.insert(x);
+                    }
+                }
+            }
+        }
+        rs.normalize()
+    }
+
+    pub fn lcm(&self, rhs: &Self, site: Option<Site>) -> Self {
+        (self * rhs).abs().div(&self.gcd(rhs, site), None)
+    }
+
     #[cfg(not(feature = "arb"))]
     impl_op!(ln(x), x.ln());
 
@@ -497,13 +549,20 @@ impl TupperIntervalSet {
         }
     });
 
-    pub fn rem_euclid(&self, rhs: &Self, site: Option<Site>) -> Self {
-        let zero = TupperIntervalSet::from(const_dec_interval!(0.0, 0.0));
-        let y = rhs.abs();
-        (self - &(&y * &self.div(&y, None).floor(site)))
-            .max(&zero)
-            .min(&y)
-    }
+    impl_op_cut!(rem_euclid(x, y), {
+        const ZERO: DecInterval = const_dec_interval!(0.0, 0.0);
+        let y = y.abs(); // Take abs, normalize, then iterate would be better.
+        let q = (x / y).floor();
+        let a = q.inf();
+        let b = q.sup();
+        if b - a == 1.0 {
+            let q0 = DecInterval::set_dec(interval!(a, a).unwrap(), q.decoration());
+            let q1 = DecInterval::set_dec(interval!(b, b).unwrap(), q.decoration());
+            ((x - y * q0).max(ZERO).min(y), (x - y * q1).max(ZERO).min(y))
+        } else {
+            ((x - y * q).max(ZERO).min(y), DecInterval::EMPTY)
+        }
+    });
 
     #[cfg(not(feature = "arb"))]
     impl_op!(sin(x), x.sin());
