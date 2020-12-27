@@ -119,7 +119,7 @@ impl BitAnd for &EvalResultMask {
             self.0
                 .iter()
                 .zip(rhs.0.iter())
-                .map(|(x, y)| *x && *y)
+                .map(|(&x, &y)| x && y)
                 .collect(),
         )
     }
@@ -140,7 +140,7 @@ impl BitOr for &EvalResultMask {
             self.0
                 .iter()
                 .zip(rhs.0.iter())
-                .map(|(x, y)| *x || *y)
+                .map(|(&x, &y)| x || y)
                 .collect(),
         )
     }

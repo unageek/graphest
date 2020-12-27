@@ -180,8 +180,8 @@ mod tests {
             //                ^^^^^^^^^ the mantissa of a `mag_t` (30-bit)
             const_interval!(0.0, 1.9999999990686774),
         ];
-        for x in xs.iter().copied() {
-            let y = Arb::from_interval(x).to_interval();
+        for x in &xs {
+            let y = Arb::from_interval(*x).to_interval();
             assert!(x.subset(y));
         }
     }

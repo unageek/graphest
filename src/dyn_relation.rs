@@ -226,18 +226,10 @@ impl DynRelation {
 
         let ts = &self.ts;
         cache.insert_x_with(kx, || {
-            self.mx
-                .iter()
-                .copied()
-                .map(|i| ts[i as usize].clone())
-                .collect()
+            self.mx.iter().map(|&i| ts[i as usize].clone()).collect()
         });
         cache.insert_y_with(ky, || {
-            self.my
-                .iter()
-                .copied()
-                .map(|i| ts[i as usize].clone())
-                .collect()
+            self.my.iter().map(|&i| ts[i as usize].clone()).collect()
         });
         cache.insert_xy_with(kxy, || r.clone());
         r

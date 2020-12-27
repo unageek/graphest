@@ -1113,8 +1113,8 @@ mod tests {
             TupperIntervalSet::sinh,
             TupperIntervalSet::tanh,
         ];
-        for f in fs.iter() {
-            for x in xs.iter() {
+        for f in &fs {
+            for x in &xs {
                 f(x);
             }
         }
@@ -1130,9 +1130,9 @@ mod tests {
             .into_iter()
             .map(|n| TupperIntervalSet::from(dec_interval!(n, n).unwrap()))
             .collect::<Vec<_>>();
-        for f in fs.iter() {
-            for n in ns.iter() {
-                for x in xs.iter() {
+        for f in &fs {
+            for n in &ns {
+                for x in &xs {
                     f(n, x);
                 }
             }
