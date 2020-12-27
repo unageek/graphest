@@ -200,6 +200,8 @@ impl TupperIntervalSet {
         self.0.is_empty()
     }
 
+    /// Sorts intervals in a consistent order, takes the least decoration
+    /// and merges overlapping intervals with the same branch maps.
     pub fn normalize(self) -> Self {
         if self.len() < 4 {
             return self;
@@ -207,27 +209,25 @@ impl TupperIntervalSet {
 
         let mut xs = self.0.into_vec();
         xs.sort_by(|x, y| {
-            ((x.d as u8).cmp(&(y.d as u8)))
-                .then(x.g.cut.cmp(&y.g.cut))
+            (x.g.cut.cmp(&y.g.cut))
                 .then(x.g.chosen.cmp(&y.g.chosen))
                 .then(x.x.inf().partial_cmp(&y.x.inf()).unwrap())
         });
+        let dec = xs.iter().map(|x| x.d).min().unwrap();
 
         let mut rs = Self::empty();
         let mut hull = Interval::EMPTY;
-        let mut d = Decoration::Trv;
         let mut g = BranchMap::new();
         for x in xs {
-            if x.d == d && x.g == g && !x.x.disjoint(hull) {
+            if x.g == g && !x.x.disjoint(hull) {
                 hull = hull.convex_hull(x.x);
             } else {
-                rs.insert(TupperInterval::new(DecInterval::set_dec(hull, d), g));
+                rs.insert(TupperInterval::new(DecInterval::set_dec(hull, dec), g));
                 hull = x.x;
-                d = x.d;
                 g = x.g;
             }
         }
-        rs.insert(TupperInterval::new(DecInterval::set_dec(hull, d), g));
+        rs.insert(TupperInterval::new(DecInterval::set_dec(hull, dec), g));
         rs
     }
 
