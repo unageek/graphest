@@ -1,4 +1,6 @@
-use crate::interval_set::{Branch, DecSignSet, SignSet, Site, TupperInterval, TupperIntervalSet};
+use crate::interval_set::{
+    Branch, BranchMap, DecSignSet, SignSet, Site, TupperInterval, TupperIntervalSet,
+};
 use gmp_mpfr_sys::mpfr;
 use inari::{const_dec_interval, const_interval, interval, DecInterval, Decoration, Interval};
 use rug::Float;
@@ -15,7 +17,7 @@ impl Neg for &TupperIntervalSet {
         for x in self {
             rs.insert(TupperInterval::new(-x.to_dec_interval(), x.g));
         }
-        rs.normalize()
+        rs // Skip normalization since negation does not produce new overlapping intervals.
     }
 }
 
@@ -83,27 +85,49 @@ macro_rules! impl_op {
     };
 }
 
+fn insert_intervals(
+    rs: &mut TupperIntervalSet,
+    r: (DecInterval, DecInterval),
+    g: BranchMap,
+    site: Option<Site>,
+) {
+    if r.0.is_empty() {
+        rs.insert(TupperInterval::new(r.1, g));
+    } else if r.1.is_empty() {
+        rs.insert(TupperInterval::new(r.0, g));
+    } else if !r.0.disjoint(r.1) {
+        rs.insert(TupperInterval::new(
+            DecInterval::set_dec(
+                r.0.interval().unwrap().convex_hull(r.1.interval().unwrap()),
+                r.0.decoration().min(r.1.decoration()),
+            ),
+            g,
+        ));
+    } else {
+        rs.insert(TupperInterval::new(
+            r.0,
+            match site {
+                Some(site) => g.inserted(site, Branch::new(0)),
+                _ => g,
+            },
+        ));
+        rs.insert(TupperInterval::new(
+            r.1,
+            match site {
+                Some(site) => g.inserted(site, Branch::new(1)),
+                _ => g,
+            },
+        ));
+    }
+}
+
 macro_rules! impl_op_cut {
     ($op:ident($x:ident), $result:expr) => {
         pub fn $op(&self, site: Option<Site>) -> Self {
             let mut rs = Self::empty();
             for x in self {
                 let $x = x.to_dec_interval();
-                let r = $result;
-                rs.insert(TupperInterval::new(
-                    r.0,
-                    match site {
-                        Some(site) => x.g.inserted(site, Branch::new(0)),
-                        _ => x.g,
-                    },
-                ));
-                rs.insert(TupperInterval::new(
-                    r.1,
-                    match site {
-                        Some(site) => x.g.inserted(site, Branch::new(1)),
-                        _ => x.g,
-                    },
-                ));
+                insert_intervals(&mut rs, $result, x.g, site);
             }
             rs.normalize()
         }
@@ -118,21 +142,7 @@ macro_rules! impl_op_cut {
                     if let Some(g) = x.g.union(y.g) {
                         let $x = x.to_dec_interval();
                         let $y = y.to_dec_interval();
-                        let r = $result;
-                        rs.insert(TupperInterval::new(
-                            r.0,
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(0)),
-                                _ => g,
-                            },
-                        ));
-                        rs.insert(TupperInterval::new(
-                            r.1,
-                            match site {
-                                Some(site) => g.inserted(site, Branch::new(1)),
-                                _ => g,
-                            },
-                        ));
+                        insert_intervals(&mut rs, $result, g, site);
                     }
                 }
             }
@@ -515,21 +525,8 @@ impl TupperIntervalSet {
             let b = x.x.sup();
             if rhs < 0 && rhs % 2 == 1 && a < 0.0 && b > 0.0 {
                 let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.d);
-                rs.insert(TupperInterval::new(
-                    x0.pown(rhs),
-                    match site {
-                        Some(site) => x.g.inserted(site, Branch::new(0)),
-                        _ => x.g,
-                    },
-                ));
                 let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.d);
-                rs.insert(TupperInterval::new(
-                    x1.pown(rhs),
-                    match site {
-                        Some(site) => x.g.inserted(site, Branch::new(1)),
-                        _ => x.g,
-                    },
-                ));
+                insert_intervals(&mut rs, (x0.pown(rhs), x1.pown(rhs)), x.g, site);
             } else {
                 rs.insert(TupperInterval::new(x.to_dec_interval().pown(rhs), x.g));
             }
