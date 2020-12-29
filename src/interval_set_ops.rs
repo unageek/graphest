@@ -122,11 +122,7 @@ fn insert_intervals(
 }
 
 macro_rules! impl_op_cut {
-    ($op:ident($x:ident), $result:expr) => {
-        impl_op_cut!($op($x |), $result);
-    };
-
-    ($op:ident($x:ident | $($p:ident: $pt:ty),*), $result:expr) => {
+    ($op:ident($x:ident $(,$p:ident: $pt:ty)*), $result:expr) => {
         pub fn $op(&self, $($p: $pt,)* site: Option<Site>) -> Self {
             let mut rs = Self::empty();
             for x in self {
@@ -522,7 +518,7 @@ impl TupperIntervalSet {
         }
     );
 
-    impl_op_cut!(pown(x | n: i32), {
+    impl_op_cut!(pown(x, n: i32), {
         let a = x.inf();
         let b = x.sup();
         if n < 0 && n % 2 == 1 && a < 0.0 && b > 0.0 {
