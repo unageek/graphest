@@ -123,7 +123,11 @@ fn insert_intervals(
 
 macro_rules! impl_op_cut {
     ($op:ident($x:ident), $result:expr) => {
-        pub fn $op(&self, site: Option<Site>) -> Self {
+        impl_op_cut!($op($x |), $result);
+    };
+
+    ($op:ident($x:ident | $($p:ident: $pt:ty),*), $result:expr) => {
+        pub fn $op(&self, $($p: $pt,)* site: Option<Site>) -> Self {
             let mut rs = Self::empty();
             for x in self {
                 let $x = x.to_dec_interval();
@@ -518,21 +522,17 @@ impl TupperIntervalSet {
         }
     );
 
-    pub fn pown(&self, rhs: i32, site: Option<Site>) -> Self {
-        let mut rs = Self::empty();
-        for x in self {
-            let a = x.x.inf();
-            let b = x.x.sup();
-            if rhs < 0 && rhs % 2 == 1 && a < 0.0 && b > 0.0 {
-                let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.d);
-                let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.d);
-                insert_intervals(&mut rs, (x0.pown(rhs), x1.pown(rhs)), x.g, site);
-            } else {
-                rs.insert(TupperInterval::new(x.to_dec_interval().pown(rhs), x.g));
-            }
+    impl_op_cut!(pown(x | n: i32), {
+        let a = x.inf();
+        let b = x.sup();
+        if n < 0 && n % 2 == 1 && a < 0.0 && b > 0.0 {
+            let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.decoration());
+            let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.decoration());
+            (x0.pown(n), x1.pown(n))
+        } else {
+            (x.pown(n), DecInterval::EMPTY)
         }
-        rs.normalize()
-    }
+    });
 
     impl_op_cut!(recip(x), {
         let a = x.inf();
