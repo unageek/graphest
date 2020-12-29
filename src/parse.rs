@@ -13,6 +13,7 @@ use nom::{
     sequence::{delimited, pair, preceded, separated_pair, terminated},
     Err as NomErr, IResult,
 };
+use std::collections::VecDeque;
 
 type ParseResult<'a, O> = IResult<&'a str, O, VerboseError<&'a str>>;
 
@@ -136,13 +137,33 @@ fn fn2(i: &str) -> ParseResult<BinaryOp> {
         value(BinaryOp::BesselY, keyword("Y")),
         value(BinaryOp::GammaInc, keyword("Gamma")),
         value(BinaryOp::GammaInc, keyword("Γ")),
-        value(BinaryOp::Gcd, keyword("gcd")),
-        value(BinaryOp::Lcm, keyword("lcm")),
         value(BinaryOp::Log, keyword("log")),
-        value(BinaryOp::Max, keyword("max")),
-        value(BinaryOp::Min, keyword("min")),
         value(BinaryOp::Mod, keyword("mod")),
     ))(i)
+}
+
+fn fn_flat(i: &str) -> ParseResult<BinaryOp> {
+    alt((
+        value(BinaryOp::Gcd, keyword("gcd")),
+        value(BinaryOp::Lcm, keyword("lcm")),
+        value(BinaryOp::Max, keyword("max")),
+        value(BinaryOp::Min, keyword("min")),
+    ))(i)
+}
+
+fn term_list(i: &str) -> ParseResult<VecDeque<Term>> {
+    let (i, x) = term(i)?;
+
+    let mut xs = VecDeque::new();
+    xs.push_back(x);
+    fold_many0(
+        preceded(delimited(space0, char(','), space0), term),
+        xs,
+        |mut xs, x| {
+            xs.push_back(x);
+            xs
+        },
+    )(i)
 }
 
 fn postfix_term(i: &str) -> ParseResult<Term> {
@@ -168,6 +189,22 @@ fn postfix_term(i: &str) -> ParseResult<Term> {
                 ),
             ),
             |(f, (x, y))| Term::new(TermKind::Binary(f, Box::new(x), Box::new(y))),
+        ),
+        map(
+            pair(
+                fn_flat,
+                delimited(
+                    delimited(space0, char('('), space0),
+                    term_list,
+                    preceded(space0, char(')')),
+                ),
+            ),
+            |(f, mut xs)| {
+                let head = xs.pop_front().unwrap();
+                xs.into_iter().fold(head, |t, x| {
+                    Term::new(TermKind::Binary(f, Box::new(t), Box::new(x)))
+                })
+            },
         ),
         primary_term,
     ))(i)

@@ -87,20 +87,20 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `x + y`                                | *x* + *y*                                                    |                                                              |
 | `x - y`                                | *x* − *y*                                                    |                                                              |
 | `x y`<br />`x * y`                     | *x* *y*                                                      |                                                              |
-| `x / y`                                | *x* / *y*                                                    | Undefined for *y* = 0.                                       |
+| `x / y`                                | *x*/*y*                                                      | Undefined for *y* = 0.                                       |
 | `sqrt(x)`                              | √*x*                                                         | Undefined for *x* < 0.                                       |
 | `x ^ y`                                | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
 | `exp(x)`                               | e<sup>*x*</sup>                                              |                                                              |
 | `ln(x)`<br />`log(x)`<br />`log(b, x)` | log<sub>e</sub> *x*<br />log<sub>10</sub> *x*<br />log<sub>*b*</sub> *x* | Undefined for *x* ≤ 0, *b* ≤ 0 and *b* = 1.                  |
 | `\|x\|`                                | \|*x*\|                                                      |                                                              |
-| `min(x, y)`                            | min {*x*, *y*}                                               |                                                              |
-| `max(x, y)`                            | max {*x*, *y*}                                               |                                                              |
+| `min(x1, …, xn)`                       | min {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}                  |                                                              |
+| `max(x1, …, xn)`                       | max {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}                  |                                                              |
 | `floor(x)`<br />`⌊x⌋`                  | ⌊*x*⌋                                                        | The [floor function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `ceil(x)`<br />`⌈x⌉`                   | ⌈*x*⌉                                                        | The [ceiling function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `sign(x)`                              | sgn(*x*)                                                     | The [sign function](https://en.wikipedia.org/wiki/Sign_function). |
-| `mod(x, y)`                            | *x* mod *y*                                                  | The nonnegative remainder of *x*/*y* ([modulo operation](https://en.wikipedia.org/wiki/Modulo_operation)).<br />0 ≤ *x* mod *y* < \|*y*\|. |
-| `gcd(x, y)`                            | gcd(*x*, *y*)                                                | The [greatest common divisor](https://en.wikipedia.org/wiki/Greatest_common_divisor) of *x* and *y*. |
-| `lcm(x, y)`                            | lcm(*x*, *y*)                                                | The [least common multiple](https://en.wikipedia.org/wiki/Least_common_multiple) of *x* and *y*. |
+| `mod(x, y)`                            | *x* mod *y*                                                  | The non-negative remainder of *x*/*y* ([modulo operation](https://en.wikipedia.org/wiki/Modulo_operation)).<br />0 ≤ *x* mod *y* < \|*y*\|. |
+| `gcd(x1, …, xn)`                       | gcd(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [greatest common divisor](https://en.wikipedia.org/wiki/Greatest_common_divisor) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
+| `lcm(x1, …, xn)`                       | lcm(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [least common multiple](https://en.wikipedia.org/wiki/Least_common_multiple) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
 
 See also [Trigonometric Functions](#trigonometric-functions) and [Special Functions](#special-functions).
 
@@ -157,8 +157,8 @@ Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4
 To be consistent with GrafEq, the following definitions of exponentiation is implemented.
 
 - For *x* < 0, *x*<sup>*y*</sup> is defined if and only if *y* is a rational number with an odd denominator:
-  - For any positive integers *m* and *n*, *x*<sup>±*m* / *n*</sup> := (<sup>*n*</sup>√*x*)<sup>±*m*</sup>, where <sup>*n*</sup>√*x* is the real-valued *n*th root of *x*.
-  - *x*<sup>±*m* / *n*</sup> is an even (odd) function of *x* if *m* is even (odd).
+  - For any positive integers *m* and *n*, *x*<sup>±*m*/*n*</sup> := (<sup>*n*</sup>√*x*)<sup>±*m*</sup>, where <sup>*n*</sup>√*x* is the real, non-negative *n*th root of *x*.
+  - *x*<sup>±*m*/*n*</sup> is an even (odd) function of *x* if *m* is even (odd).
 - 0<sup>0</sup> := 1.
 
 ## Function Reference
