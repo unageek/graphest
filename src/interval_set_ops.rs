@@ -551,6 +551,7 @@ impl TupperIntervalSet {
     });
 
     impl_op_cut!(rem_euclid(x, y), {
+        // Compute x - |y| ⌊x / |y|⌋.
         const ZERO: DecInterval = const_dec_interval!(0.0, 0.0);
         let y = y.abs(); // Take abs, normalize, then iterate would be better.
         let q = (x / y).floor();
@@ -559,9 +560,12 @@ impl TupperIntervalSet {
         if b - a == 1.0 {
             let q0 = DecInterval::set_dec(interval!(a, a).unwrap(), q.decoration());
             let q1 = DecInterval::set_dec(interval!(b, b).unwrap(), q.decoration());
-            ((x - y * q0).max(ZERO).min(y), (x - y * q1).max(ZERO).min(y))
+            (
+                (-y).mul_add(q0, x).max(ZERO).min(y),
+                (-y).mul_add(q1, x).max(ZERO).min(y),
+            )
         } else {
-            ((x - y * q).max(ZERO).min(y), DecInterval::EMPTY)
+            ((-y).mul_add(q, x).max(ZERO).min(y), DecInterval::EMPTY)
         }
     });
 
