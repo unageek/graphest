@@ -202,12 +202,14 @@ impl TupperIntervalSet {
 
     /// Sorts intervals in a consistent order, takes the least decoration
     /// and merges overlapping intervals with the same branch maps.
-    pub fn normalize(self) -> Self {
-        if self.len() < 4 {
-            return self;
+    ///
+    /// It does nothing when the set is small enough and `force` is set to `false`.
+    pub fn normalize(&mut self, force: bool) {
+        let xs = &mut self.0;
+        if !force && !xs.spilled() || xs.is_empty() {
+            return;
         }
 
-        let mut xs = self.0.into_vec();
         xs.sort_by(|x, y| {
             (x.g.cut.cmp(&y.g.cut))
                 .then(x.g.chosen.cmp(&y.g.chosen))
@@ -215,20 +217,28 @@ impl TupperIntervalSet {
         });
         let dec = xs.iter().map(|x| x.d).min().unwrap();
 
-        let mut rs = Self::empty();
         let mut hull = Interval::EMPTY;
         let mut g = BranchMap::new();
-        for x in xs {
+        let mut write: usize = 0;
+        for read in 0..xs.len() {
+            let x = xs[read];
             if x.g == g && !x.x.disjoint(hull) {
                 hull = hull.convex_hull(x.x);
             } else {
-                rs.insert(TupperInterval::new(DecInterval::set_dec(hull, dec), g));
+                if !hull.is_empty() {
+                    xs[write] = TupperInterval::new(DecInterval::set_dec(hull, dec), g);
+                    write += 1;
+                }
                 hull = x.x;
                 g = x.g;
             }
         }
-        rs.insert(TupperInterval::new(DecInterval::set_dec(hull, dec), g));
-        rs
+        if !hull.is_empty() {
+            xs[write] = TupperInterval::new(DecInterval::set_dec(hull, dec), g);
+            write += 1;
+        }
+        xs.truncate(write);
+        xs.shrink_to_fit();
     }
 
     pub fn size_in_heap(&self) -> usize {

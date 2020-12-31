@@ -38,7 +38,8 @@ macro_rules! impl_arith_op {
                         }
                     }
                 }
-                rs.normalize()
+                rs.normalize(false);
+                rs
             }
         }
     };
@@ -64,7 +65,8 @@ macro_rules! impl_op {
                 let $x = x.to_dec_interval();
                 rs.insert(TupperInterval::new($result, x.g));
             }
-            rs.normalize()
+            rs.normalize(false);
+            rs
         }
     };
 
@@ -80,7 +82,8 @@ macro_rules! impl_op {
                     }
                 }
             }
-            rs.normalize()
+            rs.normalize(false);
+            rs
         }
     };
 }
@@ -129,7 +132,8 @@ macro_rules! impl_op_cut {
                 let $x = x.to_dec_interval();
                 insert_intervals(&mut rs, $result, x.g, site);
             }
-            rs.normalize()
+            rs.normalize(false);
+            rs
         }
     };
 
@@ -146,7 +150,8 @@ macro_rules! impl_op_cut {
                     }
                 }
             }
-            rs.normalize()
+            rs.normalize(false);
+            rs
         }
     };
 }
@@ -305,7 +310,8 @@ impl TupperIntervalSet {
                 }
             }
         }
-        rs.normalize()
+        rs.normalize(false);
+        rs
     }
 
     // TODO: Implement branch cut tracking.
@@ -335,7 +341,7 @@ impl TupperIntervalSet {
                                 ys_rem_xs.insert(rm);
                             }
                         }
-                        ys_rem_xs = ys_rem_xs.normalize();
+                        ys_rem_xs.normalize(true);
 
                         if ys_rem_xs == ys {
                             // Reached the fixed point (obtained all possible values).
@@ -353,7 +359,8 @@ impl TupperIntervalSet {
                 }
             }
         }
-        rs.normalize()
+        rs.normalize(false);
+        rs
     }
 
     pub fn lcm(&self, rhs: &Self, site: Option<Site>) -> Self {
@@ -394,7 +401,8 @@ impl TupperIntervalSet {
                 }
             }
         }
-        rs.normalize()
+        rs.normalize(false);
+        rs
     }
 
     // f(x) = 1.

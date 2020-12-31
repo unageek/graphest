@@ -77,6 +77,10 @@ impl BitOr for BoolInterval {
 }
 
 macro_rules! impl_arb_op {
+    ($op:ident($x:ident), $result:expr) => {
+        impl_arb_op!($op($x), $result, BoolInterval::TRUE);
+    };
+
     ($op:ident($x:ident), $result:expr, $def:expr) => {
         pub fn $op(&self) -> Self {
             let mut rs = Self::empty();
@@ -93,12 +97,9 @@ macro_rules! impl_arb_op {
                     rs.insert(TupperInterval::new(DecInterval::set_dec($result, dec), x.g));
                 }
             }
-            rs.normalize()
+            rs.normalize(false);
+            rs
         }
-    };
-
-    ($op:ident($x:ident), $result:expr) => {
-        impl_arb_op!($op($x), $result, BoolInterval::TRUE);
     };
 
     ($op:ident($x:ident, $y:ident), $result:expr, $def:expr) => {
@@ -122,7 +123,8 @@ macro_rules! impl_arb_op {
                     }
                 }
             }
-            rs.normalize()
+            rs.normalize(false);
+            rs
         }
     };
 }
