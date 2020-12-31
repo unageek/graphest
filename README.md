@@ -93,8 +93,8 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `exp(x)`                                               | e<sup>*x*</sup>                                              |                                                              |
 | `ln(x)`<br />`log(x)`<br />`log(b, x)`                 | log<sub>e</sub> *x*<br />log<sub>10</sub> *x*<br />log<sub>*b*</sub> *x* | Undefined for *x* ≤ 0, *b* ≤ 0 and *b* = 1.                  |
 | `\|x\|`                                                | \|*x*\|                                                      |                                                              |
-| `min(x1, …, xn)`<br />`max(x1, …, xn)`                 | min {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}<br />max {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>} | The smallest/largest number of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
-| `min(x1, …, xn, rank=k)`<br />`max(x1, …, xn, rank=k)` |                                                              | The *k*th smallest/largest number of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
+| `min(x1, …, xn)`<br />`max(x1, …, xn)`                 | min {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}<br />max {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>} | The minimum/maximum of a set {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}. |
+| `min(x1, …, xn, rank=k)`<br />`max(x1, …, xn, rank=k)` |                                                              | The *k*th smallest/largest member of a sequence (*x*<sub>1</sub>, …, *x*<sub>*n*</sub>). |
 | `floor(x)`<br />`⌊x⌋`                                  | ⌊*x*⌋                                                        | The [floor function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `ceil(x)`<br />`⌈x⌉`                                   | ⌈*x*⌉                                                        | The [ceiling function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `sign(x)`                                              | sgn(*x*)                                                     | The [sign function](https://en.wikipedia.org/wiki/Sign_function). |
