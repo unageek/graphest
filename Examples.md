@@ -245,6 +245,16 @@
     "sin(|x + y|) > max(cos(x^2), sin(y^2))"
     ```
 
+## Examples taken from [Tup01]
+
+- Fig. 15 (b), the patterned star
+
+  ```text
+  "0.15 > |min(cos(8y), cos(4(y-sqrt(3)x)), cos(4(y+sqrt(3)x)), rank=2) - \
+   cos(⌊3/π mod(atan2(y,x),2π) - 0.5⌋) - 0.1| && \
+   min(|2x|, |x-sqrt(3)y|, |x+sqrt(3)y|, rank=2) < 10"
+  ```
+
 ## Examples taken from [GrafEq Reviews](http://www.peda.com/grafeq/reviews.html)
 
 ```text
