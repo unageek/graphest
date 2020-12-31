@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, FormId, RelOp, TermId, UnaryOp, VarSet},
+    ast::{BinaryOp, FormId, NaryOp, RelOp, TermId, UnaryOp, VarSet},
     interval_set::{DecSignSet, Site, TupperIntervalSet},
 };
 
@@ -11,6 +11,10 @@ pub enum StaticTermKind {
     Unary(UnaryOp, TermId),
     Binary(BinaryOp, TermId, TermId),
     Pown(TermId, i32),
+    // Box the `Vec` to keep the enum small.
+    // These operations are relatively rare, so it is worth the cost of the extra indirection.
+    #[allow(clippy::box_vec)]
+    Nary(NaryOp, Box<Vec<TermId>>),
 }
 
 /// A term in a cache-efficient representation.
@@ -26,7 +30,7 @@ impl StaticTerm {
     ///
     /// Panics if the term is of kind [`StaticTermKind::X`] or [`StaticTermKind::Y`].
     pub fn eval(&self, ts: &[TupperIntervalSet]) -> TupperIntervalSet {
-        use {BinaryOp::*, StaticTermKind::*, UnaryOp::*};
+        use {BinaryOp::*, NaryOp::*, StaticTermKind::*, UnaryOp::*};
         match &self.kind {
             Constant(x) => *x.clone(),
             Unary(Abs, x) => ts[*x as usize].abs(),
@@ -92,6 +96,14 @@ impl StaticTerm {
             Binary(Pow, x, y) => ts[*x as usize].pow(&ts[*y as usize], self.site),
             Binary(Sub, x, y) => &ts[*x as usize] - &ts[*y as usize],
             Pown(x, y) => ts[*x as usize].pown(*y, self.site),
+            Nary(RankedMax, xs) => TupperIntervalSet::ranked_max(
+                xs.iter().map(|x| &ts[*x as usize]).collect(),
+                self.site,
+            ),
+            Nary(RankedMin, xs) => TupperIntervalSet::ranked_min(
+                xs.iter().map(|x| &ts[*x as usize]).collect(),
+                self.site,
+            ),
             X | Y => panic!("free variables cannot be evaluated"),
         }
     }

@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Form, FormKind, RelOp, Term, TermKind, UnaryOp},
+    ast::{BinaryOp, Form, FormKind, NaryOp, RelOp, Term, TermKind, UnaryOp},
     interval_set::TupperIntervalSet,
 };
 use inari::{dec_interval, DecInterval};
@@ -10,7 +10,7 @@ use nom::{
     combinator::{all_consuming, map, not, opt, peek, recognize, value, verify},
     error::VerboseError,
     multi::{fold_many0, fold_many1},
-    sequence::{delimited, pair, preceded, separated_pair, terminated},
+    sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
     Err as NomErr, IResult,
 };
 use std::collections::VecDeque;
@@ -204,6 +204,35 @@ fn postfix_term(i: &str) -> ParseResult<Term> {
                 xs.into_iter().fold(head, |t, x| {
                     Term::new(TermKind::Binary(f, Box::new(t), Box::new(x)))
                 })
+            },
+        ),
+        map(
+            pair(
+                alt((
+                    value(NaryOp::RankedMax, keyword("max")),
+                    value(NaryOp::RankedMin, keyword("min")),
+                )),
+                delimited(
+                    delimited(space0, char('('), space0),
+                    separated_pair(
+                        term_list,
+                        tuple((
+                            space0,
+                            char(','),
+                            space0,
+                            keyword("rank"),
+                            space0,
+                            char('='),
+                            space0,
+                        )),
+                        term,
+                    ),
+                    preceded(space0, char(')')),
+                ),
+            ),
+            |(f, (mut xs, n))| {
+                xs.push_back(n);
+                Term::new(TermKind::Nary(f, xs.into_iter().collect()))
             },
         ),
         primary_term,

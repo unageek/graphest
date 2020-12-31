@@ -83,6 +83,12 @@ pub enum BinaryOp {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum NaryOp {
+    RankedMax,
+    RankedMin,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum RelOp {
     Eq,
     Ge,
@@ -99,6 +105,7 @@ pub enum TermKind {
     Unary(UnaryOp, Box<Term>),
     Binary(BinaryOp, Box<Term>, Box<Term>),
     Pown(Box<Term>, i32),
+    Nary(NaryOp, Vec<Term>),
     Uninit,
 }
 
@@ -143,7 +150,7 @@ impl Term {
     /// Panics if the term contains a sub-term of kind [`TermKind::X`], [`TermKind::Y`]
     /// or [`TermKind::Uninit`].
     pub fn eval(&self) -> TupperIntervalSet {
-        use {BinaryOp::*, TermKind::*, UnaryOp::*};
+        use {BinaryOp::*, NaryOp::*, TermKind::*, UnaryOp::*};
         match &self.kind {
             Constant(x) => *x.clone(),
             Unary(Abs, x) => x.eval().abs(),
@@ -209,6 +216,14 @@ impl Term {
             Binary(Pow, x, y) => x.eval().pow(&y.eval(), None),
             Binary(Sub, x, y) => &x.eval() - &y.eval(),
             Pown(x, y) => x.eval().pown(*y, None),
+            Nary(RankedMax, xs) => {
+                let xs = xs.iter().map(|x| x.eval()).collect::<Vec<_>>();
+                TupperIntervalSet::ranked_max(xs.iter().collect(), None)
+            }
+            Nary(RankedMin, xs) => {
+                let xs = xs.iter().map(|x| x.eval()).collect::<Vec<_>>();
+                TupperIntervalSet::ranked_min(xs.iter().collect(), None)
+            }
             X | Y | Uninit => panic!("this term cannot be evaluated"),
         }
     }
@@ -224,6 +239,7 @@ impl Term {
             TermKind::Y => VarSet::Y,
             TermKind::Unary(_, x) | TermKind::Pown(x, _) => x.vars,
             TermKind::Binary(_, x, y) => x.vars | y.vars,
+            TermKind::Nary(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
             TermKind::Uninit => panic!(),
         };
         self.internal_hash = {

@@ -538,6 +538,60 @@ impl TupperIntervalSet {
         }
     });
 
+    pub fn ranked_max(xs: Vec<&Self>, site: Option<Site>) -> Self {
+        Self::ranked_min_max(xs, site, true)
+    }
+
+    pub fn ranked_min(xs: Vec<&Self>, site: Option<Site>) -> Self {
+        Self::ranked_min_max(xs, site, false)
+    }
+
+    fn ranked_min_max(xs: Vec<&Self>, site: Option<Site>, max: bool) -> Self {
+        use itertools::Itertools;
+        assert!(xs.len() >= 2);
+        let (&n, xs) = xs.split_last().unwrap();
+        let mut rs = Self::empty();
+        let mut infs = vec![];
+        let mut sups = vec![];
+        for n in n {
+            // `n` uses 1-based indexing.
+            let n0 = n.x - const_interval!(1.0, 1.0);
+            let n0_rest = n0.intersection(interval!(0.0, (xs.len() - 1) as f64).unwrap());
+            let na = n0_rest.inf().ceil() as usize;
+            let nb = n0_rest.sup().floor() as usize;
+            if na > nb {
+                continue;
+            }
+            let dec = if n0.is_singleton() && na == nb {
+                Decoration::Dac.min(n.d)
+            } else {
+                Decoration::Trv
+            };
+            for xs in xs.iter().copied().multi_cartesian_product() {
+                if let Some(g) = xs.iter().try_fold(n.g, |g, x| g.union(x.g)) {
+                    let dec = xs.iter().fold(dec, |d, x| d.min(x.d));
+                    infs.splice(.., xs.iter().map(|x| x.x.inf()));
+                    infs.sort_by(|x, y| x.partial_cmp(y).unwrap());
+                    sups.splice(.., xs.iter().map(|x| x.x.sup()));
+                    sups.sort_by(|x, y| x.partial_cmp(y).unwrap());
+                    if nb == na + 1 {
+                        let y0 = DecInterval::set_dec(interval!(infs[na], sups[na]).unwrap(), dec);
+                        let y1 = DecInterval::set_dec(interval!(infs[nb], sups[nb]).unwrap(), dec);
+                        insert_intervals(&mut rs, (y0, y1), g, site);
+                    } else {
+                        for i in na..=nb {
+                            let i = if max { xs.len() - 1 - i } else { i };
+                            let y = DecInterval::set_dec(interval!(infs[i], sups[i]).unwrap(), dec);
+                            rs.insert(TupperInterval::new(y, g));
+                        }
+                    }
+                }
+            }
+        }
+        rs.normalize(false);
+        rs
+    }
+
     impl_op_cut!(recip(x), {
         let a = x.inf();
         let b = x.sup();

@@ -78,29 +78,29 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 
 ### Expression
 
-| Input                                  | Interpreted as                                               | Details                                                      |
-| -------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `123`<br />`123.5`<br />`.5`           | 123<br />123.5<br />0.5                                      |                                                              |
-| `e`                                    | e                                                            | The base of natural logarithms.                              |
-| `pi`<br />`π`                          | π                                                            |                                                              |
-| `-x`                                   | −*x*                                                         |                                                              |
-| `x + y`                                | *x* + *y*                                                    |                                                              |
-| `x - y`                                | *x* − *y*                                                    |                                                              |
-| `x y`<br />`x * y`                     | *x* *y*                                                      |                                                              |
-| `x / y`                                | *x*/*y*                                                      | Undefined for *y* = 0.                                       |
-| `sqrt(x)`                              | √*x*                                                         | Undefined for *x* < 0.                                       |
-| `x ^ y`                                | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
-| `exp(x)`                               | e<sup>*x*</sup>                                              |                                                              |
-| `ln(x)`<br />`log(x)`<br />`log(b, x)` | log<sub>e</sub> *x*<br />log<sub>10</sub> *x*<br />log<sub>*b*</sub> *x* | Undefined for *x* ≤ 0, *b* ≤ 0 and *b* = 1.                  |
-| `\|x\|`                                | \|*x*\|                                                      |                                                              |
-| `min(x1, …, xn)`                       | min {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}                  |                                                              |
-| `max(x1, …, xn)`                       | max {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}                  |                                                              |
-| `floor(x)`<br />`⌊x⌋`                  | ⌊*x*⌋                                                        | The [floor function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
-| `ceil(x)`<br />`⌈x⌉`                   | ⌈*x*⌉                                                        | The [ceiling function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
-| `sign(x)`                              | sgn(*x*)                                                     | The [sign function](https://en.wikipedia.org/wiki/Sign_function). |
-| `mod(x, y)`                            | *x* mod *y*                                                  | The non-negative remainder of *x*/*y* ([modulo operation](https://en.wikipedia.org/wiki/Modulo_operation)).<br />0 ≤ *x* mod *y* < \|*y*\|. |
-| `gcd(x1, …, xn)`                       | gcd(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [greatest common divisor](https://en.wikipedia.org/wiki/Greatest_common_divisor) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
-| `lcm(x1, …, xn)`                       | lcm(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [least common multiple](https://en.wikipedia.org/wiki/Least_common_multiple) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
+| Input                                                  | Interpreted as                                               | Details                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `123`<br />`123.5`<br />`.5`                           | 123<br />123.5<br />0.5                                      |                                                              |
+| `e`                                                    | e                                                            | The base of natural logarithms.                              |
+| `pi`<br />`π`                                          | π                                                            |                                                              |
+| `-x`                                                   | −*x*                                                         |                                                              |
+| `x + y`                                                | *x* + *y*                                                    |                                                              |
+| `x - y`                                                | *x* − *y*                                                    |                                                              |
+| `x y`<br />`x * y`                                     | *x* *y*                                                      |                                                              |
+| `x / y`                                                | *x*/*y*                                                      | Undefined for *y* = 0.                                       |
+| `sqrt(x)`                                              | √*x*                                                         | Undefined for *x* < 0.                                       |
+| `x ^ y`                                                | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
+| `exp(x)`                                               | e<sup>*x*</sup>                                              |                                                              |
+| `ln(x)`<br />`log(x)`<br />`log(b, x)`                 | log<sub>e</sub> *x*<br />log<sub>10</sub> *x*<br />log<sub>*b*</sub> *x* | Undefined for *x* ≤ 0, *b* ≤ 0 and *b* = 1.                  |
+| `\|x\|`                                                | \|*x*\|                                                      |                                                              |
+| `min(x1, …, xn)`<br />`max(x1, …, xn)`                 | min {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}<br />max {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>} | The smallest/largest number of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
+| `min(x1, …, xn, rank=k)`<br />`max(x1, …, xn, rank=k)` |                                                              | The *k*th smallest/largest number of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
+| `floor(x)`<br />`⌊x⌋`                                  | ⌊*x*⌋                                                        | The [floor function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
+| `ceil(x)`<br />`⌈x⌉`                                   | ⌈*x*⌉                                                        | The [ceiling function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
+| `sign(x)`                                              | sgn(*x*)                                                     | The [sign function](https://en.wikipedia.org/wiki/Sign_function). |
+| `mod(x, y)`                                            | *x* mod *y*                                                  | The non-negative remainder of *x*/*y* ([modulo operation](https://en.wikipedia.org/wiki/Modulo_operation)).<br />0 ≤ *x* mod *y* < \|*y*\|. |
+| `gcd(x1, …, xn)`                                       | gcd(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [greatest common divisor](https://en.wikipedia.org/wiki/Greatest_common_divisor) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
+| `lcm(x1, …, xn)`                                       | lcm(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [least common multiple](https://en.wikipedia.org/wiki/Least_common_multiple) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
 
 See also [Trigonometric Functions](#trigonometric-functions) and [Special Functions](#special-functions).
 
