@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Form, FormId, FormKind, Term, TermId, TermKind, UnaryOp, VarSet},
+    ast::{BinaryOp, Form, FormId, FormKind, NaryOp, Term, TermId, TermKind, UnaryOp, VarSet},
     interval_set::{Site, TupperIntervalSet},
     rel::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind},
 };
@@ -32,7 +32,12 @@ fn traverse_term<'a, V: Visit<'a>>(v: &mut V, t: &'a Term) {
             v.visit_term(y);
         }
         Pown(x, _) => v.visit_term(x),
-        _ => (),
+        Nary(_, xs) => {
+            for x in xs {
+                v.visit_term(x);
+            }
+        }
+        Constant(_) | X | Y | Uninit => (),
     };
 }
 
@@ -74,7 +79,12 @@ fn traverse_term_mut<V: VisitMut>(v: &mut V, t: &mut Term) {
             v.visit_term_mut(y);
         }
         Pown(x, _) => v.visit_term_mut(x),
-        _ => (),
+        Nary(_, xs) => {
+            for x in xs {
+                v.visit_term_mut(x);
+            }
+        }
+        Constant(_) | X | Y | Uninit => (),
     };
 }
 
@@ -317,6 +327,15 @@ impl VisitMut for FoldConstant {
                     }
                 }
             }
+            Nary(_, xs) => {
+                if xs.iter().all(|x| matches!(x.kind, Constant(_))) {
+                    let val = t.eval();
+                    if val.len() <= 1 {
+                        *t = Term::new(Constant(Box::new(val)));
+                        self.modified = true;
+                    }
+                }
+            }
             _ => (),
         }
     }
@@ -415,7 +434,7 @@ impl<'a> AssignIdStage1<'a> {
 
     /// Returns `true` if the term can perform branch cut on evaluation.
     fn term_can_perform_cut(kind: &TermKind) -> bool {
-        use {BinaryOp::*, TermKind::*, UnaryOp::*};
+        use {BinaryOp::*, NaryOp::*, TermKind::*, UnaryOp::*};
         matches!(
             kind,
             Unary(Ceil, _)
@@ -432,6 +451,8 @@ impl<'a> AssignIdStage1<'a> {
                 | Binary(Mod, _, _)
                 | Binary(Pow, _, _)
                 | Pown(_, _)
+                | Nary(RankedMax, _)
+                | Nary(RankedMin, _)
         )
     }
 }
@@ -570,6 +591,9 @@ impl<'a> Visit<'a> for CollectStatic {
                     Unary(op, x) => StaticTermKind::Unary(*op, x.id.get()),
                     Binary(op, x, y) => StaticTermKind::Binary(*op, x.id.get(), y.id.get()),
                     Pown(x, y) => StaticTermKind::Pown(x.id.get(), *y),
+                    Nary(op, xs) => {
+                        StaticTermKind::Nary(*op, Box::new(xs.iter().map(|x| x.id.get()).collect()))
+                    }
                     Uninit => panic!(),
                 },
                 vars: t.vars,
