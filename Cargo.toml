@@ -18,7 +18,7 @@ bitflags = "1.2"
 inari = "0.8"
 itertools = "0.10"
 nom = "6.0"
-smallvec = "1.5"
+smallvec = "1.6"
 static_assertions = "1.1"
 
 [dependencies.clap]
