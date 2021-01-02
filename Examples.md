@@ -247,7 +247,7 @@
 
 ## Examples taken from [Tup01]
 
-- Fig. 15 (b), the patterned star
+- Fig. 15 (b) “the patterned star”
 
   ```text
   "0.15 > |min(cos(8y), cos(4(y-sqrt(3)x)), cos(4(y+sqrt(3)x)), rank=2) - \

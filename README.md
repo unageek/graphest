@@ -83,6 +83,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `123`<br />`123.5`<br />`.5`                           | 123<br />123.5<br />0.5                                      |                                                              |
 | `e`                                                    | e                                                            | The base of natural logarithms.                              |
 | `pi`<br />`π`                                          | π                                                            |                                                              |
+| `gamma`<br />`γ`                                       | γ                                                            | The [Euler–Mascheroni constant](https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant). |
 | `-x`                                                   | −*x*                                                         |                                                              |
 | `x + y`                                                | *x* + *y*                                                    |                                                              |
 | `x - y`                                                | *x* − *y*                                                    |                                                              |
