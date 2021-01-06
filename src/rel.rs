@@ -49,6 +49,7 @@ impl StaticTerm {
             Unary(Ci, x) => ts[*x as usize].ci(),
             Unary(Cos, x) => ts[*x as usize].cos(),
             Unary(Cosh, x) => ts[*x as usize].cosh(),
+            Unary(Digamma, x) => ts[*x as usize].digamma(self.site),
             Unary(Ei, x) => ts[*x as usize].ei(),
             Unary(Erf, x) => ts[*x as usize].erf(),
             Unary(Erfc, x) => ts[*x as usize].erfc(),

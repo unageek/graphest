@@ -215,6 +215,32 @@ impl TupperIntervalSet {
     #[cfg(not(feature = "arb"))]
     impl_op!(cosh(x), x.cosh());
 
+    impl_op_cut!(digamma(x), {
+        let a = x.inf();
+        let b = x.sup();
+        let ia = a.ceil();
+        let ib = b.floor();
+        if ia == ib && a <= 0.0 {
+            // ∃i ∈ S : x ∩ S = {i}, where S = {0, -1, …}.
+            let dec = Decoration::Trv;
+            let x0 = interval!(a, ia).unwrap();
+            let x1 = interval!(ia, b).unwrap();
+            (
+                DecInterval::set_dec(digamma(x0), dec),
+                DecInterval::set_dec(digamma(x1), dec),
+            )
+        } else {
+            let dec = if ia < ib && a <= 0.0 {
+                // x ∩ S ≠ ∅.
+                Decoration::Trv
+            } else {
+                Decoration::Com.min(x.decoration())
+            };
+            let x = x.interval().unwrap();
+            (DecInterval::set_dec(digamma(x), dec), DecInterval::EMPTY)
+        }
+    });
+
     impl_op_cut!(div(x, y), {
         let c = y.inf();
         let d = y.sup();
@@ -254,17 +280,14 @@ impl TupperIntervalSet {
         const MIN_RD: f64 = 0.8856031944108886;
         let mut rs = Self::empty();
         for x in self {
-            let mut a = x.x.inf();
+            let a = x.x.inf();
             let b = x.x.sup();
             if a == 0.0 && b == 0.0 {
                 // empty.
             } else if a >= 0.0 {
                 let dec = if a == 0.0 { Decoration::Trv } else { x.d };
-
-                if a == 0.0 {
-                    // gamma_rd/ru(±0.0) returns ±∞.
-                    a = 0.0;
-                }
+                // gamma_rd/ru(±0.0) returns ±∞.
+                let a = if a == 0.0 { 0.0 } else { a };
 
                 let y = if b <= ARGMIN_RD {
                     // b < x0, where x0 = argmin_{x > 0} Γ(x).
@@ -814,9 +837,37 @@ macro_rules! mpfr_fn {
     };
 }
 
+mpfr_fn!(digamma, digamma_rd, digamma_ru);
 mpfr_fn!(erf, erf_rd, erf_ru);
 mpfr_fn!(erfc, erfc_rd, erfc_ru);
 mpfr_fn!(gamma, gamma_rd, gamma_ru);
+
+/// `x` must be nonempty.
+pub(crate) fn digamma(x: Interval) -> Interval {
+    let a = x.inf();
+    let b = x.sup();
+    let ia = a.ceil();
+    let ib = b.floor();
+    if x.is_singleton() && a == ia && a <= 0.0 {
+        // ∃i ∈ S : x = {i}, where S = {0, -1, …}.
+        Interval::EMPTY
+    } else if a < 0.0 && (a < ia && ia <= ib && ib < b || x.wid() >= 1.0) {
+        // (∃i ∈ S : a < i < b) ∨ (a < 0 ∧ b - a ≥ 1).
+        Interval::ENTIRE
+    } else {
+        let inf = if a == ia && a <= 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            digamma_rd(a)
+        };
+        let sup = if b == ib && b <= 0.0 {
+            f64::INFINITY
+        } else {
+            digamma_ru(b)
+        };
+        interval!(inf, sup).unwrap()
+    }
+}
 
 /// `x` must be nonempty.
 pub(crate) fn erf(x: Interval) -> Interval {
