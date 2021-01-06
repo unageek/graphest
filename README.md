@@ -82,12 +82,12 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | ------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | `123`<br />`123.5`<br />`.5`                           | 123<br />123.5<br />0.5                                      |                                                              |
 | `e`                                                    | e                                                            | The base of natural logarithms.                              |
-| `pi`<br />`π`                                          | π                                                            |                                                              |
-| `gamma`<br />`γ`                                       | γ                                                            | The [Euler–Mascheroni constant](https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant). |
+| `pi` or `π`                                            | π                                                            |                                                              |
+| `gamma` or `γ`                                         | γ                                                            | The [Euler–Mascheroni constant](https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant). |
 | `-x`                                                   | −*x*                                                         |                                                              |
 | `x + y`                                                | *x* + *y*                                                    |                                                              |
 | `x - y`                                                | *x* − *y*                                                    |                                                              |
-| `x y`<br />`x * y`                                     | *x* *y*                                                      |                                                              |
+| `x y` or `x * y`                                       | *x* *y*                                                      |                                                              |
 | `x / y`                                                | *x*/*y*                                                      | Undefined for *y* = 0.                                       |
 | `sqrt(x)`                                              | √*x*                                                         | Undefined for *x* < 0.                                       |
 | `x ^ y`                                                | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
@@ -96,8 +96,8 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `\|x\|`                                                | \|*x*\|                                                      |                                                              |
 | `min(x1, …, xn)`<br />`max(x1, …, xn)`                 | min {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}<br />max {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>} | The minimum/maximum of a set {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}. |
 | `min(x1, …, xn, rank=k)`<br />`max(x1, …, xn, rank=k)` |                                                              | The *k*th smallest/largest member of a sequence (*x*<sub>1</sub>, …, *x*<sub>*n*</sub>). |
-| `floor(x)`<br />`⌊x⌋`                                  | ⌊*x*⌋                                                        | The [floor function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
-| `ceil(x)`<br />`⌈x⌉`                                   | ⌈*x*⌉                                                        | The [ceiling function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
+| `floor(x)` or `⌊x⌋`                                    | ⌊*x*⌋                                                        | The [floor function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
+| `ceil(x)` or `⌈x⌉`                                     | ⌈*x*⌉                                                        | The [ceiling function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `sign(x)`                                              | sgn(*x*)                                                     | The [sign function](https://en.wikipedia.org/wiki/Sign_function). |
 | `mod(x, y)`                                            | *x* mod *y*                                                  | The non-negative remainder of *x*/*y* ([modulo operation](https://en.wikipedia.org/wiki/Modulo_operation)).<br />0 ≤ *x* mod *y* < \|*y*\|. |
 | `gcd(x1, …, xn)`                                       | gcd(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [greatest common divisor](https://en.wikipedia.org/wiki/Greatest_common_divisor) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
@@ -107,15 +107,15 @@ See also [Trigonometric Functions](#trigonometric-functions) and [Special Functi
 
 ### Relation
 
-| Input                 | Interpreted as | Details                                                      |
-| --------------------- | -------------- | ------------------------------------------------------------ |
-| `x = y`               | *x* = *y*      |                                                              |
-| `x < y`               | *x* < *y*      |                                                              |
-| `x <= y`<br />`x ≤ y` | *x* ≤ *y*      |                                                              |
-| `x > y`               | *x* > *y*      |                                                              |
-| `x >= y`<br />`x ≥ y` | *x* ≥ *y*      |                                                              |
-| `X && Y`              | *X* ∧ *Y*      | [Logical conjunction.](https://en.wikipedia.org/wiki/Logical_conjunction)<br />`X` and `Y` must be a relation. |
-| `X \|\| Y`            | *X* ∨ *Y*      | [Logical disjunction.](https://en.wikipedia.org/wiki/Logical_disjunction)<br />`X` and `Y` must be a relation. |
+| Input               | Interpreted as | Details                                                      |
+| ------------------- | -------------- | ------------------------------------------------------------ |
+| `x = y`             | *x* = *y*      |                                                              |
+| `x < y`             | *x* < *y*      |                                                              |
+| `x <= y` or `x ≤ y` | *x* ≤ *y*      |                                                              |
+| `x > y`             | *x* > *y*      |                                                              |
+| `x >= y` or `x ≥ y` | *x* ≥ *y*      |                                                              |
+| `X && Y`            | *X* ∧ *Y*      | [Logical conjunction.](https://en.wikipedia.org/wiki/Logical_conjunction)<br />`X` and `Y` must be a relation. |
+| `X \|\| Y`          | *X* ∨ *Y*      | [Logical disjunction.](https://en.wikipedia.org/wiki/Logical_disjunction)<br />`X` and `Y` must be a relation. |
 
 You can group a part of an expression or a relation with `(` … `)`.
 
@@ -184,17 +184,18 @@ To be consistent with GrafEq, the following definitions of exponentiation is imp
 
 ### Special Functions
 
-| Input                  | Interpreted as | Details                                                      |
-| ---------------------- | -------------- | ------------------------------------------------------------ |
-| `Gamma(x)`<br />`Γ(x)` | Γ(*x*)         | The [gamma function](https://en.wikipedia.org/wiki/Gamma_function).<br />Undefined for *x* = 0, −1, −2, … |
-| `erf(x)`               | erf(*x*)       | The [error function](https://en.wikipedia.org/wiki/Error_function). |
-| `erfc(x)`              | erfc(*x*)      | The complementary error function.                            |
+| Input                | Interpreted as | Details                                                      |
+| -------------------- | -------------- | ------------------------------------------------------------ |
+| `Gamma(x)` or `Γ(x)` | Γ(*x*)         | The [gamma function](https://en.wikipedia.org/wiki/Gamma_function).<br />Undefined for *x* = 0, −1, −2, … |
+| `psi(x)` or `ψ(x)`   | ψ(*x*)         | The [digamma function](https://en.wikipedia.org/wiki/Digamma_function).<br />Undefined for *x* = 0, −1, −2, … |
+| `erf(x)`             | erf(*x*)       | The [error function](https://en.wikipedia.org/wiki/Error_function). |
+| `erfc(x)`            | erfc(*x*)      | The complementary error function.                            |
 
 Functions that require building with `--features "arb"` option:
 
 | Input                                            | Interpreted as                                   | Details                                                      |
 | ------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------ |
-| `Gamma(a, x)`<br />`Γ(a, x)`                     | Γ(*a*, *x*)                                      | The [upper incomplete gamma function](https://en.wikipedia.org/wiki/Incomplete_gamma_function).<br />*a* must be an exact number.<sup>1</sup> |
+| `Gamma(a, x)` or `Γ(a, x)`                       | Γ(*a*, *x*)                                      | The [upper incomplete gamma function](https://en.wikipedia.org/wiki/Incomplete_gamma_function).<br />*a* must be an exact number.<sup>1</sup> |
 | `erfi(x)`                                        | erfi(*x*)                                        | The imaginary error function.                                |
 | `Ei(x)`                                          | Ei(*x*)                                          | The [exponential integral](https://en.wikipedia.org/wiki/Exponential_integral). |
 | `li(x)`                                          | li(*x*)                                          | The [logarithmic integral](https://en.wikipedia.org/wiki/Logarithmic_integral_function). |
