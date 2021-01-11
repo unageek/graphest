@@ -348,36 +348,34 @@ impl TupperIntervalSet {
                 if let Some(g) = x.g.union(y.g) {
                     let x = x.to_dec_interval();
                     let y = y.to_dec_interval();
-                    let mut xs = TupperIntervalSet::from(TupperInterval::new(x.min(y), g));
-                    let mut ys = TupperIntervalSet::from(TupperInterval::new(x.max(y), g));
+                    let mut xs = TupperIntervalSet::from(TupperInterval::new(x.max(y), g));
+                    let mut ys = TupperIntervalSet::from(TupperInterval::new(x.min(y), g));
                     loop {
-                        let mut ys_rem_xs = TupperIntervalSet::empty();
-                        for x in &xs {
-                            let ys_rem_x = ys.rem_euclid(&TupperIntervalSet::from(*x), None);
-                            if ys_rem_x.iter().any(|rm| rm.x.contains(0.0)) {
-                                // If 0 ∈ rm, x possibly contains gcd(x, ys).
-                                rs.insert(*x);
+                        let mut xs_rem_ys = TupperIntervalSet::empty();
+                        for y in &ys {
+                            let xs_rem_y = xs.rem_euclid(&TupperIntervalSet::from(*y), None);
+                            if xs_rem_y.iter().any(|rm| rm.x.contains(0.0)) {
+                                // If 0 ∈ rm, y possibly contains gcd(xs, y).
+                                rs.insert(*y);
                             }
-                            for rm in ys_rem_x.into_iter().filter(|rm| rm.x != ZERO) {
+                            for rm in xs_rem_y.into_iter().filter(|rm| rm.x != ZERO) {
                                 // If rm = {0}, it will not contribute to the remainder
                                 // in the next iteration.
-                                ys_rem_xs.insert(rm);
+                                xs_rem_ys.insert(rm);
                             }
                         }
-                        ys_rem_xs.normalize(true);
+                        xs_rem_ys.normalize(true);
 
-                        if ys_rem_xs == ys {
+                        if xs_rem_ys == xs {
                             // Reached the fixed point (obtained all possible values).
                             break;
                         }
 
-                        // (xs, ys) = (ys_rem_xs, xs)
-                        let xs_bak = xs;
-                        xs = ys_rem_xs;
-                        ys = xs_bak;
+                        xs = ys;
+                        ys = xs_rem_ys;
                     }
-                    for x in xs {
-                        rs.insert(x);
+                    for y in ys {
+                        rs.insert(y);
                     }
                 }
             }
