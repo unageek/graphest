@@ -100,8 +100,8 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `ceil(x)` or `⌈x⌉`                                     | ⌈*x*⌉                                                        | The [ceiling function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `sign(x)`                                              | sgn(*x*)                                                     | The [sign function](https://en.wikipedia.org/wiki/Sign_function). |
 | `mod(x, y)`                                            | *x* mod *y*                                                  | The non-negative remainder of *x*/*y* ([modulo operation](https://en.wikipedia.org/wiki/Modulo_operation)).<br />0 ≤ *x* mod *y* < \|*y*\|. |
-| `gcd(x1, …, xn)`                                       | gcd(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [greatest common divisor](https://en.wikipedia.org/wiki/Greatest_common_divisor) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
-| `lcm(x1, …, xn)`                                       | lcm(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [least common multiple](https://en.wikipedia.org/wiki/Least_common_multiple) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>. |
+| `gcd(x1, …, xn)`                                       | gcd(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [greatest common divisor](https://en.wikipedia.org/wiki/Greatest_common_divisor) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>.<br />gcd(*x*, 0) := \|*x*\| for every rational number *x*.<br />Undefined for irrational numbers. |
+| `lcm(x1, …, xn)`                                       | lcm(*x*<sub>1</sub>, …, *x*<sub>*n*</sub>)                   | The [least common multiple](https://en.wikipedia.org/wiki/Least_common_multiple) of *x*<sub>1</sub>, …, *x*<sub>*n*</sub>.<br />lcm(*x*, 0) := 0 for every rational number *x*.<br />Undefined for irrational numbers. |
 
 See also [Trigonometric Functions](#trigonometric-functions) and [Special Functions](#special-functions).
 

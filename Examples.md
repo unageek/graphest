@@ -39,7 +39,7 @@
   - 📄 Irrationally Contin.gqs
 
     ```test
-    "y = gcd(x, 1)" -b 0 2 -0.5 1.5
+    "y = gcd(x, 1)" -b -0.68 3.14 -0.68 3.14
     ```
 
   - 📄 Parabolic Waves.gqs
@@ -69,7 +69,7 @@
   - 📄 Rational Beams.gqs
 
     ```text
-    "gcd(x, y) > 1" -b 0 10 0 10
+    "gcd(x, y) > 1" -b 0.3 8.9 0.4 9.0
     ```
 
 - 📂 Single Relation/Abstract/Traditionally Difficult/

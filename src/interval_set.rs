@@ -241,6 +241,16 @@ impl TupperIntervalSet {
         xs.shrink_to_fit();
     }
 
+    /// Retains only the intervals specified by the predicate.
+    ///
+    /// It preserves the order of the retained elements.
+    pub fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&mut TupperInterval) -> bool,
+    {
+        self.0.retain(f)
+    }
+
     pub fn size_in_heap(&self) -> usize {
         if self.0.spilled() {
             self.0.capacity() * size_of::<TupperInterval>()

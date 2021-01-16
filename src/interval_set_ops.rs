@@ -337,47 +337,82 @@ impl TupperIntervalSet {
         rs
     }
 
+    // For x, y ∈ ℚ, gcd(x, y) is defined recursively (the Euclidean algorithm) as:
+    //
+    //   gcd(x, y) = | |x|              if y = 0,
+    //               | gcd(y, x mod y)  otherwise,
+    //
+    // assuming the recursion terminates. We leave gcd undefined For irrational numbers.
+    // Here is an interval extension of it:
+    //
+    //                | |X|                    if Y = {0} ∨ (X = Y ∧ 0 ∈ X ∧ X mod X ⊆ |X|),
+    //   gcd(X, Y) := | gcd(Y, X mod Y)        if 0 ∉ Y,
+    //                | |X| ∪ gcd(Y, X mod Y)  otherwise.
+    //
+    // The second condition of the first case is justified by the following proposition.
+    // Let X ⊆ ℚ such that 0 ∈ X ∧ X mod X ⊆ |X|. Then
+    //
+    //   gcd(X, X) ⊆ |X|.
+    //
+    // Proof: From the definition of gcd,
+    //
+    //   ∀x, y ∈ X : ∃n ∈ ℕ_{≥1} : ∃z_0, …, z_n ∈ |X| :
+    //       z_0 = |x| ∧ z_1 = |y|
+    //     ∧ ∀k ∈ {2, …, n} : z_k = z_{k-2} mod z_{k-1}
+    //     ∧ z_n = 0 (thus z_{n-1} = gcd(x, y)).
+    //
+    // Thus ∀x, y ∈ X : gcd(x, y) ∈ |X|. ■
+    //
     // TODO: Implement branch cut tracking.
     pub fn gcd(&self, rhs: &Self, _site: Option<Site>) -> Self {
         const ZERO: Interval = const_interval!(0.0, 0.0);
         let mut rs = Self::empty();
+        // gcd(X, Y)
+        //   = gcd(|X|, |Y|)
+        //   = {gcd(max(x, y), min(x, y)) | x ∈ |X|, y ∈ |Y|}
+        //   ⊆ {gcd(x, y) | x ∈ max(|X|, |Y|), y ∈ min(|X|, |Y|)}.
         let xs = &self.abs();
         let ys = &rhs.abs();
         for x in xs {
             for y in ys {
                 if let Some(g) = x.g.union(y.g) {
-                    let x = x.to_dec_interval();
-                    let y = y.to_dec_interval();
-                    let mut xs = TupperIntervalSet::from(TupperInterval::new(x.min(y), g));
-                    let mut ys = TupperIntervalSet::from(TupperInterval::new(x.max(y), g));
+                    let dec = if x.x.is_singleton() && y.x.is_singleton() {
+                        Decoration::Dac.min(x.d).min(y.d)
+                    } else {
+                        Decoration::Trv
+                    };
+                    let x = DecInterval::set_dec(x.x, dec);
+                    let y = DecInterval::set_dec(y.x, dec);
+                    let mut xs = TupperIntervalSet::from(TupperInterval::new(x.max(y), g));
+                    let mut ys = TupperIntervalSet::from(TupperInterval::new(x.min(y), g));
                     loop {
-                        let mut ys_rem_xs = TupperIntervalSet::empty();
-                        for x in &xs {
-                            let ys_rem_x = ys.rem_euclid(&TupperIntervalSet::from(*x), None);
-                            if ys_rem_x.iter().any(|rm| rm.x.contains(0.0)) {
-                                // If 0 ∈ rm, x possibly contains gcd(x, ys).
+                        if ys.iter().any(|y| y.x.contains(0.0)) {
+                            for x in &xs {
                                 rs.insert(*x);
                             }
-                            for rm in ys_rem_x.into_iter().filter(|rm| rm.x != ZERO) {
-                                // If rm = {0}, it will not contribute to the remainder
-                                // in the next iteration.
-                                ys_rem_xs.insert(rm);
+
+                            if xs == ys {
+                                // Here, in the first iteration, `xs` and `ys` consists of
+                                // the same, single, nonnegative interval X = |X| = [0, a].
+                                // Let x, y ∈ X. Then
+                                //
+                                //       0 ≤ x mod y < y ≤ a
+                                //   ⟹ x mod y ∈ X.
+                                //
+                                // Therefore, 0 ∈ X ∧ X mod X ⊆ |X|.
+                                break;
                             }
                         }
-                        ys_rem_xs.normalize(true);
 
-                        if ys_rem_xs == ys {
-                            // Reached the fixed point (obtained all possible values).
+                        ys.retain(|y| y.x != ZERO);
+                        if ys.is_empty() {
                             break;
                         }
 
-                        // (xs, ys) = (ys_rem_xs, xs)
-                        let xs_bak = xs;
-                        xs = ys_rem_xs;
-                        ys = xs_bak;
-                    }
-                    for x in xs {
-                        rs.insert(x);
+                        let xs_rem_ys = xs.rem_euclid(&ys, None);
+                        xs = ys;
+                        ys = xs_rem_ys;
+                        ys.normalize(true);
                     }
                 }
             }
@@ -386,8 +421,29 @@ impl TupperIntervalSet {
         rs
     }
 
+    // For x, y ∈ ℚ, lcm(x, y) is defined as:
+    //
+    //   lcm(x, y) = | 0                  if x = y = 0,
+    //               | |x y| / gcd(x, y)  otherwise.
+    //
+    // We leave lcm undefined for irrational numbers.
+    // Here is an interval extension of it:
+    //
+    //   lcm(X, Y) := | {0}                if X = Y = {0},
+    //                | |X Y| / gcd(X, Y)  otherwise.
     pub fn lcm(&self, rhs: &Self, site: Option<Site>) -> Self {
-        (self * rhs).abs().div(&self.gcd(rhs, site), None)
+        const ZERO: Interval = const_interval!(0.0, 0.0);
+        let mut rs = (self * rhs).abs().div(&self.gcd(rhs, site), None);
+        for x in self.iter().filter(|x| x.x == ZERO) {
+            for y in rhs.iter().filter(|y| y.x == ZERO) {
+                if let Some(g) = x.g.union(y.g) {
+                    let dec = Decoration::Dac.min(x.d).min(y.d);
+                    rs.insert(TupperInterval::new(DecInterval::set_dec(ZERO, dec), g));
+                }
+            }
+        }
+        rs.normalize(false);
+        rs
     }
 
     #[cfg(not(feature = "arb"))]
