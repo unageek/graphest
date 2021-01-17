@@ -556,58 +556,48 @@ impl Graph {
             return Ok(());
         }
 
-        // We could evaluate again on `inter` (which is slightly finer than `u_up`)
-        // to get a better result, but the effect would be negligible.
-
-        // To prove the existence of a solution by a change of sign...
-        //   for conjunctions, both operands must be `Dac`.
-        //   for disjunctions, at least one operand must be `Dac`.
-        // There is little chance that an expression is evaluated
-        // to zero on one of the probe points. In that case,
-        // the expression is not required to be `Dac` on the entire
-        // subpixel. We don't care such a chance.
+        // Evaluate the relation for some sample points within the inner bounds of the subpixel
+        // and try proving existence of a solution in two ways:
+        //
+        // a. Test if the relation is true for any of the sample points.
+        //    This is useful especially for plotting inequalities such as "lcm(x, y) ≤ 1".
+        //
+        // b. Use the intermediate value theorem.
+        //    A note about `locally_zero_mask` (for plotting conjunction):
+        //    Suppose we are plotting "y = sin(x) && x ≥ 0".
+        //    If the conjunct "x ≥ 0" is true throughout the subpixel
+        //    and "y - sin(x)" evaluates to `POS` for a sample point and `NEG` for another,
+        //    we can conclude that there is a point within the subpixel where the entire relation holds.
+        //    Such observation would not be possible by merely converting the relation to
+        //    "|y - sin(x)| + |x ≥ 0 ? 0 : 1| = 0".
         let dac_mask = r_u_up.map(|DecSignSet(_, d)| d >= Decoration::Dac);
-        if dac_mask.eval(&self.forms[..]) {
-            // Suppose we are plotting the graph of a conjunction such as
-            // "y == sin(x) && x >= 0".
-            // If the conjunct "x >= 0" holds everywhere in the subpixel,
-            // and "y - sin(x)" evaluates to both `POS` and `NEG` at
-            // different points in the region, we can tell that
-            // there exists a point where the entire relation holds.
-            // Such a test is not possible by merely converting
-            // the relation to "|y - sin(x)| + |x >= 0 ? 0 : 1| == 0".
-            let locally_zero_mask =
-                r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac);
+        let locally_zero_mask =
+            r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac);
 
-            let points = [
-                (inter.0.inf(), inter.1.inf()), // bottom left
-                (inter.0.sup(), inter.1.inf()), // bottom right
-                (inter.0.inf(), inter.1.sup()), // top left
-                (inter.0.sup(), inter.1.sup()), // top right
-            ];
+        let points = [
+            (inter.0.inf(), inter.1.inf()), // bottom left
+            (inter.0.sup(), inter.1.inf()), // bottom right
+            (inter.0.inf(), inter.1.sup()), // top left
+            (inter.0.sup(), inter.1.sup()), // top right
+        ];
 
-            let mut neg_mask = r_u_up.map(|_| false);
-            let mut pos_mask = neg_mask.clone();
-            for point in &points {
-                let r =
-                    Self::eval_on_point(&mut self.rel, point.0, point.1, Some(cache_eval_on_point));
+        let mut neg_mask = r_u_up.map(|_| false);
+        let mut pos_mask = neg_mask.clone();
+        for point in &points {
+            let r = Self::eval_on_point(&mut self.rel, point.0, point.1, Some(cache_eval_on_point));
 
-                // `ss` is not empty if the decoration is `Dac`, which is
-                // ensured by `dac_mask`.
-                neg_mask |= r.map(|DecSignSet(ss, _)| {
-                    ss == ss & (SignSet::NEG | SignSet::ZERO) // ss <= 0
-                });
-                pos_mask |= r.map(|DecSignSet(ss, _)| {
-                    ss == ss & (SignSet::POS | SignSet::ZERO) // ss >= 0
-                });
+            // `ss` is nonempty if the decoration is `Dac`, which is ensured by `dac_mask`.
+            neg_mask |= r.map(|DecSignSet(ss, _)| (SignSet::NEG | SignSet::ZERO).contains(ss));
+            pos_mask |= r.map(|DecSignSet(ss, _)| (SignSet::POS | SignSet::ZERO).contains(ss));
 
-                if (&(&neg_mask & &pos_mask) & &dac_mask)
+            if r.map(|DecSignSet(ss, _)| ss == SignSet::ZERO)
+                .eval(&self.forms[..])
+                || (&(&neg_mask & &pos_mask) & &dac_mask)
                     .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
-                {
-                    // Found a solution.
-                    *self.im.pixel_mut(pixel) = C_TRUE;
-                    return Ok(());
-                }
+            {
+                // Found a solution.
+                *self.im.pixel_mut(pixel) = C_TRUE;
+                return Ok(());
             }
         }
 
