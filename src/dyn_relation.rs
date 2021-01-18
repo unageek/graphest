@@ -162,7 +162,27 @@ impl DynRelation {
                     _ => RelationType::Implicit,
                 }
             }
-            StaticFormKind::And(i, j) | StaticFormKind::Or(i, j) => {
+            StaticFormKind::And(_, _) => {
+                // This should not be `FunctionOfX` nor `FunctionOfY`.
+                // Example: "y = x && y = x + 0.0001"
+                //                              /
+                //                 +--+       +/-+
+                //                 |  |       /  |
+                //   FunctionOfX:  |  |/  ∧  /|  |   =   ?
+                //                 |  / T     |  | T
+                //                 +-/+       +--+
+                //                  /
+                //                              /
+                //                 +--+       +/-+       +--+
+                //                 |  | F     /  | T     |  | F
+                //      Implicit:  +--+/  ∧  /+--+   =   +--+
+                //                 |  / T     |  | F     |  | F
+                //                 +-/+       +--+       +--+
+                //                  /
+                // See `EvalResultMask::solution_certainly_exists` for how conjunctions are evaluated.
+                RelationType::Implicit
+            }
+            StaticFormKind::Or(i, j) => {
                 match (
                     self.relation_type_impl(i as usize),
                     self.relation_type_impl(j as usize),
