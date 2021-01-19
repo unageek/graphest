@@ -575,6 +575,7 @@ impl Graph {
             r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac);
 
         let points = [
+            Self::simple_eval_point(&inter),
             (inter.0.inf(), inter.1.inf()), // bottom left
             (inter.0.sup(), inter.1.inf()), // bottom right
             (inter.0.inf(), inter.1.sup()), // top left
@@ -626,6 +627,30 @@ impl Graph {
         cache: Option<&mut EvalCache>,
     ) -> EvalResult {
         rel.eval(r.0, r.1, cache)
+    }
+
+    /// Returns a point within the given region whose coordinates have as many trailing zeros
+    /// as they can in their significand bits.
+    /// At such a point, arithmetic expressions are more likely to be evaluated to exact numbers.
+    fn simple_eval_point(r: &Region) -> (f64, f64) {
+        fn f(x: Interval) -> f64 {
+            let a = x.inf();
+            let b = x.sup();
+            let a_bits = a.to_bits();
+            let b_bits = b.to_bits();
+            let diff = a_bits ^ b_bits;
+            // The number of leading equal bits.
+            let n = diff.leading_zeros();
+            // Set all bits from the MSB through the first differing bit.
+            let mask = !0u64 << (64 - n - 1);
+            if a <= 0.0 {
+                f64::from_bits(a_bits & mask)
+            } else {
+                f64::from_bits(b_bits & mask)
+            }
+        }
+
+        (f(r.0), f(r.1))
     }
 
     /// Precondition: `!b.is_superpixel()`.
