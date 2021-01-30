@@ -641,6 +641,9 @@ impl Graph {
             let diff = a_bits ^ b_bits;
             // The number of leading equal bits.
             let n = diff.leading_zeros();
+            if n == 64 {
+                return a;
+            }
             // Set all bits from the MSB through the first differing bit.
             let mask = !0u64 << (64 - n - 1);
             if a <= 0.0 {
