@@ -18,7 +18,7 @@ mod visit;
 
 use crate::{
     dyn_relation::DynRelation,
-    graph::{Graph, GraphingStatistics, Region},
+    graph::{Graph, GraphingStatistics, InexactRegion},
 };
 use clap::{App, AppSettings, Arg};
 use image::RgbImage;
@@ -54,6 +54,11 @@ fn print_statistics(cur: &GraphingStatistics, prev: &GraphingStatistics) {
     );
 }
 
+fn to_interval(s: &str) -> Interval {
+    let ss = format!("[{},{}]", s, s);
+    interval!(&ss).unwrap_or_else(|_| panic!("{} is not a valid number", s))
+}
+
 fn main() {
     let matches = App::new("inari-graph")
         .setting(AppSettings::AllowLeadingHyphen)
@@ -84,13 +89,18 @@ fn main() {
         .get_matches();
 
     let rel = matches.value_of_t_or_exit::<DynRelation>("relation");
-    let bounds = matches.values_of_t_or_exit::<f64>("bounds");
-    let output = matches.value_of("output");
+    let bounds = matches
+        .values_of_lossy("bounds")
+        .unwrap()
+        .iter_mut()
+        .map(|s| to_interval(s))
+        .collect::<Vec<_>>();
+    let output = matches.value_of_os("output");
     let size = matches.values_of_t_or_exit::<u32>("size");
 
     let mut g = Graph::new(
         rel,
-        Region::new(bounds[0], bounds[1], bounds[2], bounds[3]),
+        InexactRegion::new(bounds[0], bounds[1], bounds[2], bounds[3]),
         size[0],
         size[1],
     );
