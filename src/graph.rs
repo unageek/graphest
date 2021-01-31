@@ -170,23 +170,10 @@ impl ImageBlock {
 }
 
 /// A possibly empty rectangular region of the Cartesian plane.
-#[derive(Debug, Clone)]
-pub struct Region(Interval, Interval);
+#[derive(Clone, Debug)]
+struct Region(Interval, Interval);
 
 impl Region {
-    /// Creates a new [`Region`] with the specified bounds.
-    pub fn new(l: f64, r: f64, b: f64, t: f64) -> Self {
-        // Regions constructed directly do not need to satisfy these conditions.
-        assert!(l < r && b < t && l.is_finite() && r.is_finite() && b.is_finite() && t.is_finite());
-        Self(interval!(l, r).unwrap(), interval!(b, t).unwrap())
-    }
-
-    /// Returns the tightest enclusure of the height of the region.
-    fn height(&self) -> Interval {
-        interval!(self.1.sup(), self.1.sup()).unwrap()
-            - interval!(self.1.inf(), self.1.inf()).unwrap()
-    }
-
     /// Returns the intersection of the two regions.
     fn intersection(&self, rhs: &Self) -> Self {
         Self(self.0.intersection(rhs.0), self.1.intersection(rhs.1))
@@ -196,20 +183,14 @@ impl Region {
     fn is_empty(&self) -> bool {
         self.0.is_empty() || self.1.is_empty()
     }
-
-    /// Returns the tightest enclosure of the width of the region.
-    fn width(&self) -> Interval {
-        interval!(self.0.sup(), self.0.sup()).unwrap()
-            - interval!(self.0.inf(), self.0.inf()).unwrap()
-    }
 }
 
 /// A rectangular region of the Cartesian plane with inexact bounds.
 ///
 /// Conceptually, it is a pair of two rectangular regions *inner* and *outer*
 /// that satisfy `inner ⊆ outer`. The inner region can be empty, while the outer one cannot.
-#[derive(Debug)]
-struct InexactRegion {
+#[derive(Clone, Debug)]
+pub struct InexactRegion {
     l: Interval,
     r: Interval,
     b: Interval,
@@ -217,6 +198,17 @@ struct InexactRegion {
 }
 
 impl InexactRegion {
+    /// Creates a new [`InexactRegion`] with the given bounds.
+    pub fn new(l: Interval, r: Interval, b: Interval, t: Interval) -> Self {
+        assert!(l.inf() <= r.sup() && b.inf() <= t.sup());
+        Self { l, r, b, t }
+    }
+
+    /// Returns the height of the region.
+    fn height(&self) -> Interval {
+        self.t - self.b
+    }
+
     /// Returns the inner region.
     fn inner(&self) -> Region {
         Region(
@@ -280,6 +272,11 @@ impl InexactRegion {
             self.t.mid()
         };
         Region(interval!(l, r).unwrap(), interval!(b, t).unwrap())
+    }
+
+    /// Returns the width of the region.
+    fn width(&self) -> Interval {
+        self.r - self.l
     }
 }
 
@@ -376,7 +373,7 @@ pub struct Graph {
 }
 
 impl Graph {
-    pub fn new(rel: DynRelation, region: Region, im_width: u32, im_height: u32) -> Self {
+    pub fn new(rel: DynRelation, region: InexactRegion, im_width: u32, im_height: u32) -> Self {
         let forms = rel.forms().clone();
         let relation_type = rel.relation_type();
         let mut g = Self {
@@ -389,8 +386,8 @@ impl Graph {
             by_end: im_height << -MIN_K,
             sx: region.width() / Self::point_interval(im_width as f64 / MIN_WIDTH),
             sy: region.height() / Self::point_interval(im_height as f64 / MIN_WIDTH),
-            tx: Self::point_interval(region.0.inf()),
-            ty: Self::point_interval(region.1.inf()),
+            tx: region.l,
+            ty: region.b,
             stats: GraphingStatistics {
                 pixels: im_width as usize * im_height as usize,
                 pixels_proven: 0,
