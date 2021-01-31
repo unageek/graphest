@@ -552,7 +552,6 @@ impl Graph {
 
         let inter = u_up.intersection(&p_dn);
         if inter.is_empty() {
-            *self.im.pixel_mut(pixel) -= b.area();
             return Ok(());
         }
 
