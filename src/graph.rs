@@ -467,15 +467,22 @@ impl Graph {
                 };
             }
 
-            if self.im.size_in_heap()
+            let mut clear_cache_and_retry = true;
+            while self.im.size_in_heap()
                 + self.bs_to_subdivide.capacity() * size_of::<ImageBlock>()
                 + cache_eval_on_region.size_in_heap()
                 + cache_eval_on_point.size_in_heap()
                 > self.mem_limit
             {
-                return Err(GraphingError {
-                    kind: GraphingErrorKind::ReachedMemLimit,
-                });
+                if clear_cache_and_retry {
+                    cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
+                    cache_eval_on_point = EvalCache::new(EvalCacheLevel::Full);
+                    clear_cache_and_retry = false;
+                } else {
+                    return Err(GraphingError {
+                        kind: GraphingErrorKind::ReachedMemLimit,
+                    });
+                }
             }
 
             if now.elapsed() > timeout {
