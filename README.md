@@ -1,6 +1,6 @@
 # inari-graph
 
-[![build](https://img.shields.io/github/workflow/status/mizuno-gsinet/inari-graph/build/master)](https://github.com/mizuno-gsinet/inari-graph/actions?query=branch%3Amaster+workflow%3Abuild)
+[![build](https://img.shields.io/github/workflow/status/unageek/inari-graph/build/master)](https://github.com/unageek/inari-graph/actions?query=branch%3Amaster+workflow%3Abuild)
 
 <p align="center">
   <img src="images/cover.gif"><br>
@@ -23,7 +23,7 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 1. Build
 
    ```bash
-   git clone https://github.com/mizuno-gsinet/inari-graph.git
+   git clone https://github.com/unageek/inari-graph.git
    cd inari-graph
    cargo build --release
    ```
@@ -44,26 +44,35 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 
    Try plotting some [example relations](Examples.md) or your own ones.
 
-   Use `-h` option to show help:
+   Use `-h` option to view help:
 
-   ```bash
+   ```text
    inari-graph
-   Plots the graph of a relation over the x-y plane.
-
+   Plots the graph of a mathematical relation to an image.
+   See https://github.com/unageek/inari-graph for details.
+   
    USAGE:
        inari-graph [OPTIONS] [relation]
-
+   
    ARGS:
        <relation>    Relation to plot.
-
+   
    FLAGS:
        -h, --help       Prints help information
        -V, --version    Prints version information
-
+   
    OPTIONS:
-       -b <xmin> <xmax> <ymin> <ymax>        Bounds of the plot region. [default: -10 10 -10 10]
-       -o <output>                           Output file, only .png is supported. [default: graph.png]
-       -s <width> <height>                   Dimensions of the plot. [default: 1024 1024]
+       -b, --bounds <xmin> <xmax> <ymin> <ymax>
+               Bounds of the region to plot over. [default: -10 10 -10 10]
+   
+           --mem-limit <mem-limit>
+               Approximate amount of memory in MiB that the program can use. [default: 1024]
+   
+       -o, --output <output>
+               Path to the output image. It must end with '.png'. [default: graph.png]
+   
+       -s, --size <width> <height>
+               Pixel dimensions of the output image. [default: 1024 1024]
    ```
 
 ## Color Legend

@@ -62,29 +62,41 @@ fn to_interval(s: &str) -> Interval {
 fn main() {
     let matches = App::new("inari-graph")
         .setting(AppSettings::AllowLeadingHyphen)
-        .about("Plots the graph of a relation over the x-y plane.")
+        .about(
+            "Plots the graph of a mathematical relation to an image.\n\
+            See https://github.com/unageek/inari-graph for details.",
+        )
         .arg(Arg::new("relation").index(1).about("Relation to plot."))
         .arg(
             Arg::new("bounds")
                 .short('b')
+                .long("bounds")
                 .number_of_values(4)
                 .default_values(&["-10", "10", "-10", "10"])
                 .value_names(&["xmin", "xmax", "ymin", "ymax"])
-                .about("Bounds of the plot region."),
+                .about("Bounds of the region to plot over."),
+        )
+        .arg(
+            Arg::new("mem-limit")
+                .long("mem-limit")
+                .default_value("1024")
+                .about("Approximate amount of memory in MiB that the program can use."),
         )
         .arg(
             Arg::new("output")
                 .short('o')
+                .long("output")
                 .default_value("graph.png")
-                .about("Output file, only .png is supported."),
+                .about("Path to the output image. It must end with '.png'."),
         )
         .arg(
             Arg::new("size")
                 .short('s')
+                .long("size")
                 .number_of_values(2)
                 .default_values(&["1024", "1024"])
                 .value_names(&["width", "height"])
-                .about("Dimensions of the plot."),
+                .about("Pixel dimensions of the output image."),
         )
         .get_matches();
 
@@ -92,9 +104,10 @@ fn main() {
     let bounds = matches
         .values_of_lossy("bounds")
         .unwrap()
-        .iter_mut()
+        .iter()
         .map(|s| to_interval(s))
         .collect::<Vec<_>>();
+    let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
     let output = matches.value_of_os("output");
     let size = matches.values_of_t_or_exit::<u32>("size");
 
@@ -103,6 +116,7 @@ fn main() {
         InexactRegion::new(bounds[0], bounds[1], bounds[2], bounds[3]),
         size[0],
         size[1],
+        mem_limit,
     );
     let mut im = RgbImage::new(size[0], size[1]);
 
@@ -125,7 +139,7 @@ fn main() {
         match result {
             Ok(true) => break,
             Err(e) => {
-                println!("Warning: {}", e);
+                eprintln!("Warning: {}", e);
                 break;
             }
             _ => (),
