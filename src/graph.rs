@@ -4,7 +4,7 @@ use crate::{
     interval_set::{DecSignSet, SignSet},
     rel::StaticForm,
 };
-use image::{imageops, Rgb, RgbImage};
+use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{interval, Decoration, Interval};
 use std::{
     collections::VecDeque,
@@ -406,6 +406,18 @@ impl Graph {
             ky: k,
         });
         g
+    }
+
+    pub fn get_gray_alpha_image(&self, im: &mut GrayAlphaImage) {
+        assert!(im.width() == self.im.width && im.height() == self.im.height);
+        for (src, dst) in self.im.data.iter().zip(im.pixels_mut()) {
+            *dst = match *src {
+                C_TRUE => LumaA([0, 255]),
+                C_FALSE => LumaA([0, 0]),
+                _ => LumaA([0, 128]),
+            }
+        }
+        imageops::flip_vertical_in_place(im);
     }
 
     pub fn get_image(&self, im: &mut RgbImage) {

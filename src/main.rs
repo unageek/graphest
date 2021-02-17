@@ -20,8 +20,8 @@ use crate::{
     dyn_relation::DynRelation,
     graph::{Graph, GraphingStatistics, InexactRegion},
 };
-use clap::{App, AppSettings, Arg};
-use image::RgbImage;
+use clap::{App, AppSettings, Arg, ArgSettings};
+use image::{GrayAlphaImage, RgbImage};
 use inari::{const_interval, interval, Interval};
 use std::time::Duration;
 
@@ -77,10 +77,15 @@ fn main() {
                 .about("Bounds of the region to plot over."),
         )
         .arg(
+            Arg::new("gray-alpha")
+                .long("gray-alpha")
+                .setting(ArgSettings::Hidden),
+        )
+        .arg(
             Arg::new("mem-limit")
                 .long("mem-limit")
                 .default_value("1024")
-                .about("Approximate amount of memory in MiB that the program can use."),
+                .about("Approximate maximum amount of memory in MiB that the program can use."),
         )
         .arg(
             Arg::new("output")
@@ -88,6 +93,11 @@ fn main() {
                 .long("output")
                 .default_value("graph.png")
                 .about("Path to the output image. It must end with '.png'."),
+        )
+        .arg(
+            Arg::new("parse")
+                .long("parse")
+                .about("Only parse the relation and exit with 0 iff it is valid."),
         )
         .arg(
             Arg::new("size")
@@ -101,12 +111,17 @@ fn main() {
         .get_matches();
 
     let rel = matches.value_of_t_or_exit::<DynRelation>("relation");
+    if matches.is_present("parse") {
+        return;
+    }
+
     let bounds = matches
         .values_of_lossy("bounds")
         .unwrap()
         .iter()
         .map(|s| to_interval(s))
         .collect::<Vec<_>>();
+    let gray_alpha = matches.is_present("gray-alpha");
     let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
     let output = matches.value_of_os("output");
     let size = matches.values_of_t_or_exit::<u32>("size");
@@ -118,7 +133,13 @@ fn main() {
         size[1],
         mem_limit,
     );
-    let mut im = RgbImage::new(size[0], size[1]);
+    let mut gray_alpha_im: Option<GrayAlphaImage> = None;
+    let mut rgb_im: Option<RgbImage> = None;
+    if gray_alpha {
+        gray_alpha_im = Some(GrayAlphaImage::new(size[0], size[1]));
+    } else {
+        rgb_im = Some(RgbImage::new(size[0], size[1]));
+    }
 
     let mut prev_stat = g.get_statistics();
     print_statistics_header();
@@ -132,8 +153,13 @@ fn main() {
         prev_stat = stat;
 
         if let Some(output) = output {
-            g.get_image(&mut im);
-            im.save(output).expect("saving image failed");
+            if let Some(im) = &mut gray_alpha_im {
+                g.get_gray_alpha_image(im);
+                im.save(output).expect("saving image failed");
+            } else if let Some(im) = &mut rgb_im {
+                g.get_image(im);
+                im.save(output).expect("saving image failed");
+            }
         }
 
         match result {
