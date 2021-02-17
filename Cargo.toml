@@ -1,8 +1,9 @@
 [package]
 name = "inari-graph"
 version = "0.1.0"
-authors = ["Masashi Mizuno <mizuno@gsinet.co.jp>"]
+authors = ["Masashi Mizuno"]
 edition = "2018"
+repository = "https://github.com/unageek/inari-graph"
 license = "MIT"
 publish = false
 
