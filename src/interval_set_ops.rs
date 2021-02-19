@@ -827,30 +827,72 @@ impl TupperIntervalSet {
     requires_arb!(si(x));
 }
 
+impl TupperIntervalSet {
+    pub fn eq(&self, rhs: &Self) -> DecSignSet {
+        let xs = self - rhs;
+        if xs.is_empty() {
+            return DecSignSet::empty();
+        }
+
+        let mut ss = SignSet::empty();
+        let mut d = Decoration::Com;
+        for x in xs {
+            let a = x.x.inf();
+            let b = x.x.sup();
+            if a < 0.0 {
+                ss |= SignSet::NEG;
+            }
+            if a <= 0.0 && b >= 0.0 {
+                ss |= SignSet::ZERO;
+            }
+            if b > 0.0 {
+                ss |= SignSet::POS;
+            }
+            d = d.min(x.d);
+        }
+
+        DecSignSet(ss, d)
+    }
+}
+
 macro_rules! impl_rel_op {
-    ($op:ident, $map_neg:expr, $map_zero:expr, $map_pos:expr) => {
+    ($op:ident, $map_neg:expr, $map_zero:expr, $map_pos:expr, $map_undef:expr) => {
         pub fn $op(&self, rhs: &Self) -> DecSignSet {
-            let xs = self - rhs;
-            if xs.is_empty() {
-                return DecSignSet::empty();
+            fn bool_to_sign(b: bool) -> SignSet {
+                if b {
+                    SignSet::ZERO
+                } else {
+                    SignSet::POS
+                }
             }
 
-            let mut ss = SignSet::empty();
-            let mut d = Decoration::Com;
-            for x in xs {
-                let a = x.x.inf();
-                let b = x.x.sup();
-                if a < 0.0 {
-                    ss |= $map_neg;
+            let xs = self - rhs;
+            let ss = if xs.is_empty() {
+                bool_to_sign($map_undef)
+            } else {
+                let mut ss = SignSet::empty();
+                for x in xs {
+                    let a = x.x.inf();
+                    let b = x.x.sup();
+                    if a < 0.0 {
+                        ss |= bool_to_sign($map_neg);
+                    }
+                    if a <= 0.0 && b >= 0.0 {
+                        ss |= bool_to_sign($map_zero);
+                    }
+                    if b > 0.0 {
+                        ss |= bool_to_sign($map_pos);
+                    }
+                    if x.d == Decoration::Trv {
+                        ss |= bool_to_sign($map_undef);
+                    }
                 }
-                if a <= 0.0 && b >= 0.0 {
-                    ss |= $map_zero;
-                }
-                if b > 0.0 {
-                    ss |= $map_pos;
-                }
-                d = d.min(x.d);
-            }
+                ss
+            };
+            let d = match ss {
+                SignSet::ZERO => Decoration::Dac,
+                _ => Decoration::Def,
+            };
 
             DecSignSet(ss, d)
         }
@@ -858,13 +900,15 @@ macro_rules! impl_rel_op {
 }
 
 impl TupperIntervalSet {
-    impl_rel_op!(eq, SignSet::NEG, SignSet::ZERO, SignSet::POS);
-
-    // f ≥ 0 ⟺ (f ≥ 0 ? 0 : 1) = 0, etc.
-    impl_rel_op!(ge, SignSet::POS, SignSet::ZERO, SignSet::ZERO);
-    impl_rel_op!(gt, SignSet::POS, SignSet::POS, SignSet::ZERO);
-    impl_rel_op!(le, SignSet::ZERO, SignSet::ZERO, SignSet::POS);
-    impl_rel_op!(lt, SignSet::ZERO, SignSet::POS, SignSet::POS);
+    impl_rel_op!(ge, false, true, true, false);
+    impl_rel_op!(gt, false, false, true, false);
+    impl_rel_op!(le, true, true, false, false);
+    impl_rel_op!(lt, true, false, false, false);
+    impl_rel_op!(neq, true, false, true, true);
+    impl_rel_op!(nge, true, false, false, true);
+    impl_rel_op!(ngt, true, true, false, true);
+    impl_rel_op!(nle, false, false, true, true);
+    impl_rel_op!(nlt, false, true, true, true);
 }
 
 // Copy-paste from inari/src/elementary.rs

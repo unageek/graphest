@@ -1,5 +1,7 @@
 use crate::{
-    ast::{BinaryOp, Form, FormId, FormKind, NaryOp, Term, TermId, TermKind, UnaryOp, VarSet},
+    ast::{
+        BinaryOp, Form, FormId, FormKind, NaryOp, RelOp, Term, TermId, TermKind, UnaryOp, VarSet,
+    },
     interval_set::{Site, TupperIntervalSet},
     rel::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind},
 };
@@ -7,6 +9,7 @@ use inari::Decoration;
 use std::{
     collections::{HashMap, HashSet},
     marker::Sized,
+    mem::{swap, take},
 };
 
 /// A type that traverses formulas and terms in depth-first order.
@@ -48,10 +51,14 @@ fn traverse_form<'a, V: Visit<'a>>(v: &mut V, f: &'a Form) {
             v.visit_term(x);
             v.visit_term(y);
         }
+        Not(x) => {
+            v.visit_form(x);
+        }
         And(x, y) | Or(x, y) => {
             v.visit_form(x);
             v.visit_form(y);
         }
+        Uninit => (),
     };
 }
 
@@ -95,10 +102,14 @@ fn traverse_form_mut<V: VisitMut>(v: &mut V, f: &mut Form) {
             v.visit_term_mut(x);
             v.visit_term_mut(y);
         }
+        Not(x) => {
+            v.visit_form_mut(x);
+        }
         And(x, y) | Or(x, y) => {
             v.visit_form_mut(x);
             v.visit_form_mut(y);
         }
+        Uninit => (),
     };
 }
 
@@ -107,7 +118,6 @@ pub struct PreTransform;
 
 impl VisitMut for PreTransform {
     fn visit_term_mut(&mut self, t: &mut Term) {
-        use std::mem::take;
         use {BinaryOp::*, TermKind::*, UnaryOp::*};
         traverse_term_mut(self, t);
 
@@ -161,7 +171,6 @@ fn precedes(x: &Term, y: &Term) -> bool {
 
 impl VisitMut for SortTerms {
     fn visit_term_mut(&mut self, t: &mut Term) {
-        use std::mem::swap;
         use {BinaryOp::*, TermKind::*};
         traverse_term_mut(self, t);
 
@@ -197,7 +206,6 @@ fn f64(x: &TupperIntervalSet) -> Option<f64> {
 
 impl VisitMut for Transform {
     fn visit_term_mut(&mut self, t: &mut Term) {
-        use std::mem::take;
         use {BinaryOp::*, TermKind::*, UnaryOp::*};
         traverse_term_mut(self, t);
 
@@ -346,7 +354,6 @@ pub struct PostTransform;
 
 impl VisitMut for PostTransform {
     fn visit_term_mut(&mut self, t: &mut Term) {
-        use std::mem::take;
         use {BinaryOp::*, TermKind::*, UnaryOp::*};
         traverse_term_mut(self, t);
 
@@ -388,6 +395,58 @@ impl VisitMut for PostTransform {
                 }
                 _ => (),
             }
+        }
+    }
+}
+
+/// Applies some normalization to formulas.
+#[derive(Default)]
+pub struct NormalizeForms {
+    pub modified: bool,
+}
+
+impl VisitMut for NormalizeForms {
+    fn visit_form_mut(&mut self, f: &mut Form) {
+        use FormKind::*;
+        traverse_form_mut(self, f);
+
+        if let FormKind::Not(x) = &mut f.kind {
+            match &mut x.kind {
+                Atomic(op, x1, x2) => {
+                    // (Not (op x1 x2)) → (!op x1 x2)
+                    let neg_op = match op {
+                        RelOp::Eq => RelOp::Neq,
+                        RelOp::Ge => RelOp::Nge,
+                        RelOp::Gt => RelOp::Ngt,
+                        RelOp::Le => RelOp::Nle,
+                        RelOp::Lt => RelOp::Nlt,
+                        RelOp::Neq => RelOp::Eq,
+                        RelOp::Nge => RelOp::Ge,
+                        RelOp::Ngt => RelOp::Gt,
+                        RelOp::Nle => RelOp::Le,
+                        RelOp::Nlt => RelOp::Lt,
+                    };
+                    *f = Form::new(Atomic(neg_op, take(x1), take(x2)));
+                    self.modified = true;
+                }
+                And(x1, x2) => {
+                    // (And (x1 x2)) → (Or (Not x1) (Not x2))
+                    *f = Form::new(Or(
+                        Box::new(Form::new(Not(take(x1)))),
+                        Box::new(Form::new(Not(take(x2)))),
+                    ));
+                    self.modified = true;
+                }
+                Or(x1, x2) => {
+                    // (Or (x1 x2)) → (And (Not x1) (Not x2))
+                    *f = Form::new(And(
+                        Box::new(Form::new(Not(take(x1)))),
+                        Box::new(Form::new(Not(take(x2)))),
+                    ));
+                    self.modified = true;
+                }
+                _ => (),
+            };
         }
     }
 }
@@ -613,6 +672,7 @@ impl<'a> Visit<'a> for CollectStatic {
                     Atomic(op, x, y) => StaticFormKind::Atomic(*op, x.id.get(), y.id.get()),
                     And(x, y) => StaticFormKind::And(x.id.get(), y.id.get()),
                     Or(x, y) => StaticFormKind::Or(x.id.get(), y.id.get()),
+                    Not(_) | Uninit => panic!(),
                 },
             });
         }
@@ -690,11 +750,12 @@ mod tests {
 
     fn test_sort_terms(input: &str, expected: &str) {
         let mut f = parse(&format!("{} = 0", input)).unwrap();
-        SortTerms::default().visit_form_mut(&mut f);
-        assert_eq!(
-            format!("{}", f.dump_structure()),
-            format!("(Eq {} {{...}})", expected)
-        );
+        let input = format!("{}", f.dump_structure());
+        let mut v = SortTerms::default();
+        v.visit_form_mut(&mut f);
+        let output = format!("{}", f.dump_structure());
+        assert_eq!(output, format!("(Eq {} {{...}})", expected));
+        assert_eq!(v.modified, input != output);
     }
 
     #[test]
@@ -708,11 +769,12 @@ mod tests {
     fn test_transform(input: &str, expected: &str) {
         let mut f = parse(&format!("{} = 0", input)).unwrap();
         FoldConstant::default().visit_form_mut(&mut f);
-        Transform::default().visit_form_mut(&mut f);
-        assert_eq!(
-            format!("{}", f.dump_structure()),
-            format!("(Eq {} {{...}})", expected)
-        );
+        let input = format!("{}", f.dump_structure());
+        let mut v = Transform::default();
+        v.visit_form_mut(&mut f);
+        let output = format!("{}", f.dump_structure());
+        assert_eq!(output, format!("(Eq {} {{...}})", expected));
+        assert_eq!(v.modified, input != output);
     }
 
     #[test]
@@ -748,5 +810,31 @@ mod tests {
         test_post_transform("x^1", "X");
         test_post_transform("x^2", "(Sqr X)");
         test_post_transform("x^3", "(Pown X 3)");
+    }
+
+    fn test_normalize_forms(input: &str, expected: &str) {
+        let mut f = parse(input).unwrap();
+        let input = format!("{}", f.dump_structure());
+        let mut v = NormalizeForms::default();
+        v.visit_form_mut(&mut f);
+        let output = format!("{}", f.dump_structure());
+        assert_eq!(output, expected);
+        assert_eq!(v.modified, input != output);
+    }
+
+    #[test]
+    fn normalize_forms() {
+        test_normalize_forms("!(x = y)", "(Neq X Y)");
+        test_normalize_forms("!(x <= y)", "(Nle X Y)");
+        test_normalize_forms("!(x < y)", "(Nlt X Y)");
+        test_normalize_forms("!(x >= y)", "(Nge X Y)");
+        test_normalize_forms("!(x > y)", "(Ngt X Y)");
+        test_normalize_forms("!!(x = y)", "(Eq X Y)");
+        test_normalize_forms("!!(x <= y)", "(Le X Y)");
+        test_normalize_forms("!!(x < y)", "(Lt X Y)");
+        test_normalize_forms("!!(x >= y)", "(Ge X Y)");
+        test_normalize_forms("!!(x > y)", "(Gt X Y)");
+        test_normalize_forms("!(x = y && x = y)", "(Or (Not (Eq X Y)) (Not (Eq X Y)))");
+        test_normalize_forms("!(x = y || x = y)", "(And (Not (Eq X Y)) (Not (Eq X Y)))");
     }
 }

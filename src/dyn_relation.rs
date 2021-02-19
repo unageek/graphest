@@ -307,6 +307,13 @@ impl FromStr for DynRelation {
             }
         }
         PostTransform.visit_form_mut(&mut form);
+        loop {
+            let mut v = NormalizeForms::default();
+            v.visit_form_mut(&mut form);
+            if !v.modified {
+                break;
+            }
+        }
         UpdateMetadata.visit_form_mut(&mut form);
         let mut v = AssignIdStage1::new();
         v.visit_form(&form);

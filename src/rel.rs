@@ -135,6 +135,11 @@ impl StaticForm {
             Atomic(Gt, x, y) => ts[*x as usize].gt(&ts[*y as usize]),
             Atomic(Le, x, y) => ts[*x as usize].le(&ts[*y as usize]),
             Atomic(Lt, x, y) => ts[*x as usize].lt(&ts[*y as usize]),
+            Atomic(Neq, x, y) => ts[*x as usize].neq(&ts[*y as usize]),
+            Atomic(Nge, x, y) => ts[*x as usize].nge(&ts[*y as usize]),
+            Atomic(Ngt, x, y) => ts[*x as usize].ngt(&ts[*y as usize]),
+            Atomic(Nle, x, y) => ts[*x as usize].nle(&ts[*y as usize]),
+            Atomic(Nlt, x, y) => ts[*x as usize].nlt(&ts[*y as usize]),
             And(_, _) | Or(_, _) => panic!("non-atomic formulas cannot be evaluated"),
         }
     }

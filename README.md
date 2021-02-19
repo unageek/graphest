@@ -123,8 +123,9 @@ See also [Trigonometric Functions](#trigonometric-functions) and [Special Functi
 | `x <= y` or `x ≤ y` | *x* ≤ *y*      |                                                              |
 | `x > y`             | *x* > *y*      |                                                              |
 | `x >= y` or `x ≥ y` | *x* ≥ *y*      |                                                              |
-| `X && Y`            | *X* ∧ *Y*      | [Logical conjunction.](https://en.wikipedia.org/wiki/Logical_conjunction)<br />`X` and `Y` must be a relation. |
-| `X \|\| Y`          | *X* ∨ *Y*      | [Logical disjunction.](https://en.wikipedia.org/wiki/Logical_disjunction)<br />`X` and `Y` must be a relation. |
+| `X && Y`            | *X* ∧ *Y*      | [Logical conjunction.](https://en.wikipedia.org/wiki/Logical_conjunction)<br />`X` and `Y` must be relations. |
+| `X \|\| Y`          | *X* ∨ *Y*      | [Logical disjunction.](https://en.wikipedia.org/wiki/Logical_disjunction)<br />`X` and `Y` must be relations. |
+| `!X`                | ¬*X*           | [Negation](https://en.wikipedia.org/wiki/Negation).<br />`x` must be a relation. |
 
 You can group a part of an expression or a relation with `(` … `)`.
 

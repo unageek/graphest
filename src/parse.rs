@@ -379,11 +379,21 @@ fn primary_form(i: &str) -> ParseResult<Form> {
     ))(i)
 }
 
+// Inputs like "!y < x" are allowed too.
+fn not_form(i: &str) -> ParseResult<Form> {
+    alt((
+        map(preceded(pair(char('!'), space0), not_form), |x| {
+            Form::new(FormKind::Not(Box::new(x)))
+        }),
+        primary_form,
+    ))(i)
+}
+
 fn and_form(i: &str) -> ParseResult<Form> {
-    let (i, x) = primary_form(i)?;
+    let (i, x) = not_form(i)?;
 
     fold_many0(
-        preceded(delimited(space0, tag("&&"), space0), primary_form),
+        preceded(delimited(space0, tag("&&"), space0), not_form),
         x,
         |xs, y| Form::new(FormKind::And(Box::new(xs), Box::new(y))),
     )(i)

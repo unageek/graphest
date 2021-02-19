@@ -96,6 +96,11 @@ pub enum RelOp {
     Gt,
     Le,
     Lt,
+    Neq,
+    Nge,
+    Ngt,
+    Nle,
+    Nlt,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -302,8 +307,10 @@ impl<'a> fmt::Display for DumpTermStructure<'a> {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum FormKind {
     Atomic(RelOp, Box<Term>, Box<Term>),
+    Not(Box<Form>),
     And(Box<Form>, Box<Form>),
     Or(Box<Form>, Box<Form>),
+    Uninit,
 }
 
 /// An AST node for a formula.
@@ -340,6 +347,16 @@ impl Form {
     }
 }
 
+impl Default for Form {
+    fn default() -> Self {
+        Self {
+            id: Cell::new(UNINIT_FORM_ID),
+            kind: FormKind::Uninit,
+            internal_hash: 0,
+        }
+    }
+}
+
 impl PartialEq for Form {
     fn eq(&self, rhs: &Self) -> bool {
         self.kind == rhs.kind
@@ -366,8 +383,10 @@ impl<'a> fmt::Display for DumpFormStructure<'a> {
                 x.dump_structure(),
                 y.dump_structure()
             ),
+            FormKind::Not(x) => write!(f, "(Not {})", x.dump_structure()),
             FormKind::And(x, y) => write!(f, "(And {} {})", x.dump_structure(), y.dump_structure()),
             FormKind::Or(x, y) => write!(f, "(Or {} {})", x.dump_structure(), y.dump_structure()),
+            x => write!(f, "{:?}", x),
         }
     }
 }
