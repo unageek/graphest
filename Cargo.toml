@@ -16,7 +16,7 @@ arb = []
 
 [dependencies]
 bitflags = "1.2"
-inari = "0.8"
+inari = "0.9"
 itertools = "0.10"
 nom = "6.0"
 smallvec = "1.6"
