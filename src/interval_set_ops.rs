@@ -90,37 +90,40 @@ macro_rules! impl_op {
 
 fn insert_intervals(
     rs: &mut TupperIntervalSet,
-    r: (DecInterval, DecInterval),
+    r: (DecInterval, Option<DecInterval>),
     g: BranchMap,
     site: Option<Site>,
 ) {
-    if r.0.is_empty() {
-        rs.insert(TupperInterval::new(r.1, g));
-    } else if r.1.is_empty() {
-        rs.insert(TupperInterval::new(r.0, g));
-    } else if !r.0.disjoint(r.1) {
-        rs.insert(TupperInterval::new(
-            DecInterval::set_dec(
-                r.0.interval().unwrap().convex_hull(r.1.interval().unwrap()),
-                r.0.decoration().min(r.1.decoration()),
-            ),
-            g,
-        ));
-    } else {
-        rs.insert(TupperInterval::new(
-            r.0,
-            match site {
-                Some(site) => g.inserted(site, Branch::new(0)),
-                _ => g,
-            },
-        ));
-        rs.insert(TupperInterval::new(
-            r.1,
-            match site {
-                Some(site) => g.inserted(site, Branch::new(1)),
-                _ => g,
-            },
-        ));
+    match r {
+        (r0, None) => {
+            rs.insert(TupperInterval::new(r0, g));
+        }
+        (r0, Some(r1)) => {
+            if !r0.disjoint(r1) {
+                rs.insert(TupperInterval::new(
+                    DecInterval::set_dec(
+                        r0.interval().unwrap().convex_hull(r1.interval().unwrap()),
+                        r0.decoration().min(r1.decoration()),
+                    ),
+                    g,
+                ));
+            } else {
+                rs.insert(TupperInterval::new(
+                    r0,
+                    match site {
+                        Some(site) => g.inserted(site, Branch::new(0)),
+                        _ => g,
+                    },
+                ));
+                rs.insert(TupperInterval::new(
+                    r1,
+                    match site {
+                        Some(site) => g.inserted(site, Branch::new(1)),
+                        _ => g,
+                    },
+                ));
+            }
+        }
     }
 }
 
@@ -183,7 +186,7 @@ impl TupperIntervalSet {
             let dec = Decoration::Trv;
             (
                 DecInterval::set_dec(-Interval::FRAC_PI_2, dec),
-                DecInterval::set_dec(Interval::FRAC_PI_2, dec),
+                Some(DecInterval::set_dec(Interval::FRAC_PI_2, dec)),
             )
         } else if a < 0.0 && b <= 0.0 && c < 0.0 && d >= 0.0 {
             let dec = if b == 0.0 {
@@ -199,10 +202,13 @@ impl TupperIntervalSet {
             let x1 = interval!(a, b).unwrap();
             let y1 = interval!(0.0, d).unwrap();
             let z1 = y1.atan2(x1);
-            (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
+            (
+                DecInterval::set_dec(z0, dec),
+                Some(DecInterval::set_dec(z1, dec)),
+            )
         } else {
             // a = b = c = d = 0 goes here.
-            (y.atan2(x), DecInterval::EMPTY)
+            (y.atan2(x), None)
         }
     });
 
@@ -227,7 +233,7 @@ impl TupperIntervalSet {
             let x1 = interval!(ia, b).unwrap();
             (
                 DecInterval::set_dec(digamma(x0), dec),
-                DecInterval::set_dec(digamma(x1), dec),
+                Some(DecInterval::set_dec(digamma(x1), dec)),
             )
         } else {
             let dec = if ia < ib && a <= 0.0 {
@@ -237,7 +243,7 @@ impl TupperIntervalSet {
                 Decoration::Com.min(x.decoration())
             };
             let x = x.interval().unwrap();
-            (DecInterval::set_dec(digamma(x), dec), DecInterval::EMPTY)
+            (DecInterval::set_dec(digamma(x), dec), None)
         }
     });
 
@@ -247,9 +253,9 @@ impl TupperIntervalSet {
         if c < 0.0 && d > 0.0 {
             let y0 = DecInterval::set_dec(interval!(c, 0.0).unwrap(), y.decoration());
             let y1 = DecInterval::set_dec(interval!(0.0, d).unwrap(), y.decoration());
-            (x / y0, x / y1)
+            (x / y0, Some(x / y1))
         } else {
-            (x / y, DecInterval::EMPTY)
+            (x / y, None)
         }
     });
 
@@ -536,7 +542,7 @@ impl TupperIntervalSet {
 
             if y.is_singleton() {
                 match Self::exponentiation_parity(c) {
-                    Parity::None => (x.pow(y), DecInterval::EMPTY),
+                    Parity::None => (x.pow(y), None),
                     Parity::Even => {
                         let z = x.abs().pow(y);
                         (
@@ -545,7 +551,7 @@ impl TupperIntervalSet {
                                 // It could be `Com`, but that does not matter in graphing.
                                 Decoration::Dac.min(z.decoration()),
                             ),
-                            DecInterval::EMPTY,
+                            None,
                         )
                     }
                     Parity::Odd => {
@@ -563,10 +569,13 @@ impl TupperIntervalSet {
                         let x1 = x.intersection(const_interval!(0.0, f64::INFINITY));
                         let z1 = x1.pow(y);
                         if c < 0.0 {
-                            (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
+                            (
+                                DecInterval::set_dec(z0, dec),
+                                Some(DecInterval::set_dec(z1, dec)),
+                            )
                         } else {
                             let z = z0.convex_hull(z1);
-                            (DecInterval::set_dec(z, dec), DecInterval::EMPTY)
+                            (DecInterval::set_dec(z, dec), None)
                         }
                     }
                 }
@@ -587,7 +596,10 @@ impl TupperIntervalSet {
                 //   x < 0 for those ys where f(x) = x^y is an even function.
                 let z1 = x.abs().pow(y).convex_hull(one_or_empty);
 
-                (DecInterval::set_dec(z0, dec), DecInterval::set_dec(z1, dec))
+                (
+                    DecInterval::set_dec(z0, dec),
+                    Some(DecInterval::set_dec(z1, dec)),
+                )
             } else {
                 // a ≥ 0.
 
@@ -599,7 +611,7 @@ impl TupperIntervalSet {
                         z.interval().unwrap().convex_hull(one_or_empty),
                         z.decoration(),
                     ),
-                    DecInterval::EMPTY,
+                    None,
                 )
             }
         }
@@ -611,9 +623,9 @@ impl TupperIntervalSet {
         if n < 0 && n % 2 == 1 && a < 0.0 && b > 0.0 {
             let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.decoration());
             let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.decoration());
-            (x0.pown(n), x1.pown(n))
+            (x0.pown(n), Some(x1.pown(n)))
         } else {
-            (x.pown(n), DecInterval::EMPTY)
+            (x.pown(n), None)
         }
     });
 
@@ -656,7 +668,7 @@ impl TupperIntervalSet {
                     if nb == na + 1 {
                         let y0 = DecInterval::set_dec(interval!(infs[na], sups[na]).unwrap(), dec);
                         let y1 = DecInterval::set_dec(interval!(infs[nb], sups[nb]).unwrap(), dec);
-                        insert_intervals(&mut rs, (y0, y1), g, site);
+                        insert_intervals(&mut rs, (y0, Some(y1)), g, site);
                     } else {
                         for i in na..=nb {
                             let i = if max { xs.len() - 1 - i } else { i };
@@ -677,9 +689,9 @@ impl TupperIntervalSet {
         if a < 0.0 && b > 0.0 {
             let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.decoration());
             let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.decoration());
-            (x0.recip(), x1.recip())
+            (x0.recip(), Some(x1.recip()))
         } else {
-            (x.recip(), DecInterval::EMPTY)
+            (x.recip(), None)
         }
     });
 
@@ -695,10 +707,10 @@ impl TupperIntervalSet {
             let q1 = DecInterval::set_dec(interval!(b, b).unwrap(), q.decoration());
             (
                 (-y).mul_add(q0, x).max(ZERO).min(y),
-                (-y).mul_add(q1, x).max(ZERO).min(y),
+                Some((-y).mul_add(q1, x).max(ZERO).min(y)),
             )
         } else {
-            ((-y).mul_add(q, x).max(ZERO).min(y), DecInterval::EMPTY)
+            ((-y).mul_add(q, x).max(ZERO).min(y), None)
         }
     });
 
@@ -731,16 +743,19 @@ impl TupperIntervalSet {
         let cont =
             qb != f64::INFINITY && b <= (interval!(qb, qb).unwrap() * Interval::FRAC_PI_2).inf();
         if q == 0.0 && (n < 1.0 || n == 1.0 && cont) || q == 1.0 && (n < 2.0 || n == 2.0 && cont) {
-            (x.tan(), DecInterval::EMPTY)
+            (x.tan(), None)
         } else if q == 0.0 && (n < 2.0 || n == 2.0 && cont)
             || q == 1.0 && (n < 3.0 || n == 3.0 && cont)
         {
             let dec = Decoration::Trv;
             let y0 = interval!(interval!(a, a).unwrap().tan().inf(), f64::INFINITY).unwrap();
             let y1 = interval!(f64::NEG_INFINITY, interval!(b, b).unwrap().tan().sup()).unwrap();
-            (DecInterval::set_dec(y0, dec), DecInterval::set_dec(y1, dec))
+            (
+                DecInterval::set_dec(y0, dec),
+                Some(DecInterval::set_dec(y1, dec)),
+            )
         } else {
-            (x.tan(), DecInterval::EMPTY)
+            (x.tan(), None)
         }
     });
 
@@ -774,10 +789,10 @@ macro_rules! impl_integer_op {
                 let y1 = interval!(b, b).unwrap();
                 (
                     DecInterval::set_dec(y0, y.decoration()),
-                    DecInterval::set_dec(y1, y.decoration()),
+                    Some(DecInterval::set_dec(y1, y.decoration())),
                 )
             } else {
-                (y, DecInterval::EMPTY)
+                (y, None)
             }
         });
     };
