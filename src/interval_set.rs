@@ -168,44 +168,63 @@ type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 /// A set of [`TupperInterval`]s.
 ///
 /// NOTE: [`Hash`], [`PartialEq`] and [`Eq`] are sensitive to the order by which the intervals
-/// are inserted to. See also the note in [`TupperInterval`].
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct TupperIntervalSet(TupperIntervalVec);
+/// are inserted to. To safely compare sets, you first need to call `normalize(true)`.
+/// See also the note in [`TupperInterval`].
+#[derive(Clone, Debug)]
+pub struct TupperIntervalSet {
+    xs: TupperIntervalVec,
+
+    /// The least decoration of the intervals.
+    ///
+    /// Although each interval also stores the same decoration, empty intervals are not kept
+    /// in the set. So if the first intervals being inserted are empty,
+    /// this is the only place where we can keep track of the [`Decoration::Trv`] decoration.
+    d: Decoration,
+}
 
 impl TupperIntervalSet {
     /// Creates an empty [`TupperIntervalSet`].
     pub fn empty() -> Self {
-        Self(TupperIntervalVec::new())
+        Self {
+            xs: TupperIntervalVec::new(),
+            d: Decoration::Com,
+        }
     }
 
     /// Returns an iterator.
     pub fn iter(&self) -> Iter<'_, TupperInterval> {
-        self.0.iter()
+        self.xs.iter()
     }
 
     /// Returns the number of intervals in the set.
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.xs.len()
     }
 
-    /// Inserts an interval to the set. If the interval is empty, it does nothing.
+    /// Inserts an interval to the set and sets the decorations of all intervals in it
+    /// to the least decoration of them.
     pub fn insert(&mut self, x: TupperInterval) {
         if !x.x.is_empty() {
-            self.0.push(x);
+            self.xs.push(x);
+        }
+
+        self.d = self.d.min(x.d);
+        for x in self.xs.iter_mut() {
+            x.d = self.d;
         }
     }
 
     /// Returns `true` if the set is empty.
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.xs.is_empty()
     }
 
-    /// Sorts intervals in a consistent order, takes the least decoration
-    /// and merges overlapping intervals with the same branch maps.
+    /// Sorts intervals in a consistent order and merges overlapping intervals
+    /// with the same branch map.
     ///
     /// It does nothing when the set is small enough and `force` is set to `false`.
     pub fn normalize(&mut self, force: bool) {
-        let xs = &mut self.0;
+        let xs = &mut self.xs;
         if !force && !xs.spilled() || xs.is_empty() {
             return;
         }
@@ -215,7 +234,6 @@ impl TupperIntervalSet {
                 .then(x.g.chosen.cmp(&y.g.chosen))
                 .then(x.x.inf().partial_cmp(&y.x.inf()).unwrap())
         });
-        let dec = xs.iter().map(|x| x.d).min().unwrap();
 
         let mut hull = Interval::EMPTY;
         let mut g = BranchMap::new();
@@ -226,7 +244,7 @@ impl TupperIntervalSet {
                 hull = hull.convex_hull(x.x);
             } else {
                 if !hull.is_empty() {
-                    xs[write] = TupperInterval::new(DecInterval::set_dec(hull, dec), g);
+                    xs[write] = TupperInterval::new(DecInterval::set_dec(hull, self.d), g);
                     write += 1;
                 }
                 hull = x.x;
@@ -234,7 +252,7 @@ impl TupperIntervalSet {
             }
         }
         if !hull.is_empty() {
-            xs[write] = TupperInterval::new(DecInterval::set_dec(hull, dec), g);
+            xs[write] = TupperInterval::new(DecInterval::set_dec(hull, self.d), g);
             write += 1;
         }
         xs.truncate(write);
@@ -243,20 +261,34 @@ impl TupperIntervalSet {
 
     /// Retains only the intervals specified by the predicate.
     ///
-    /// It preserves the order of the retained elements.
+    /// It preserves the order of the retained intervals.
     pub fn retain<F>(&mut self, f: F)
     where
         F: FnMut(&mut TupperInterval) -> bool,
     {
-        self.0.retain(f)
+        self.xs.retain(f)
     }
 
     pub fn size_in_heap(&self) -> usize {
-        if self.0.spilled() {
-            self.0.capacity() * size_of::<TupperInterval>()
+        if self.xs.spilled() {
+            self.xs.capacity() * size_of::<TupperInterval>()
         } else {
             0
         }
+    }
+}
+
+impl PartialEq for TupperIntervalSet {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.xs == rhs.xs
+    }
+}
+
+impl Eq for TupperIntervalSet {}
+
+impl Hash for TupperIntervalSet {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.xs.hash(state);
     }
 }
 
@@ -281,7 +313,7 @@ impl IntoIterator for TupperIntervalSet {
     type IntoIter = smallvec::IntoIter<TupperIntervalVecBackingArray>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.xs.into_iter()
     }
 }
 
@@ -290,7 +322,7 @@ impl<'a> IntoIterator for &'a TupperIntervalSet {
     type IntoIter = Iter<'a, TupperInterval>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
+        self.xs.iter()
     }
 }
 
