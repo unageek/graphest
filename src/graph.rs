@@ -510,7 +510,7 @@ impl Graph {
         let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache));
 
         let is_true = r_u_up
-            .map(|DecSignSet(ss, d)| d >= Decoration::Def && ss == SignSet::ZERO)
+            .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac)
             .eval(&self.forms[..]);
         let is_false = !r_u_up
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
@@ -552,11 +552,11 @@ impl Graph {
         let u_up = self.block_to_region(b).subpixel_outer(b);
         let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache_eval_on_region));
 
-        if r_u_up
-            .map(|DecSignSet(ss, _)| ss == SignSet::ZERO)
-            .eval(&self.forms[..])
-        {
-            // This pixel is proven to be true.
+        // Save `locally_zero_mask` for later use (see the comment below).
+        let locally_zero_mask =
+            r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac);
+        if locally_zero_mask.eval(&self.forms[..]) {
+            // The subpixel is true entirely.
             *self.im.pixel_mut(pixel) = C_TRUE;
             return Ok(());
         }
@@ -564,7 +564,7 @@ impl Graph {
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..])
         {
-            // This subpixel is proven to be false.
+            // The subpixel is false entirely.
             *self.im.pixel_mut(pixel) -= b.area();
             return Ok(());
         }
@@ -589,8 +589,6 @@ impl Graph {
         //    Such observation would not be possible by merely converting the relation to
         //    "|y - sin(x)| + |x ≥ 0 ? 0 : 1| = 0".
         let dac_mask = r_u_up.map(|DecSignSet(_, d)| d >= Decoration::Dac);
-        let locally_zero_mask =
-            r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac);
 
         let points = [
             Self::simple_eval_point(&inter),
@@ -609,7 +607,7 @@ impl Graph {
             neg_mask |= r.map(|DecSignSet(ss, _)| (SignSet::NEG | SignSet::ZERO).contains(ss));
             pos_mask |= r.map(|DecSignSet(ss, _)| (SignSet::POS | SignSet::ZERO).contains(ss));
 
-            if r.map(|DecSignSet(ss, _)| ss == SignSet::ZERO)
+            if r.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac)
                 .eval(&self.forms[..])
                 || (&(&neg_mask & &pos_mask) & &dac_mask)
                     .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
