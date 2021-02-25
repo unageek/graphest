@@ -687,7 +687,7 @@ pub struct FindMaximalTerms {
 }
 
 impl FindMaximalTerms {
-    pub fn new() -> FindMaximalTerms {
+    pub fn new() -> Self {
         Self {
             mx: Vec::new(),
             my: Vec::new(),

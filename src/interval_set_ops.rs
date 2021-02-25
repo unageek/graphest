@@ -308,8 +308,8 @@ impl TupperIntervalSet {
                 rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
             } else if b <= 0.0 {
                 // Γ(x) = π / (sin(π x) Γ(1 - x)).
-                let one = TupperIntervalSet::from(const_dec_interval!(1.0, 1.0));
-                let pi = TupperIntervalSet::from(DecInterval::PI);
+                let one = Self::from(const_dec_interval!(1.0, 1.0));
+                let pi = Self::from(DecInterval::PI);
                 let mut xs = Self::empty();
                 xs.insert(*x);
                 for y in pi.div(&(&(&pi * &xs).sin() * &(&one - &xs).gamma(None)), site) {
@@ -389,8 +389,8 @@ impl TupperIntervalSet {
                     };
                     let x = DecInterval::set_dec(x.x, dec);
                     let y = DecInterval::set_dec(y.x, dec);
-                    let mut xs = TupperIntervalSet::from(TupperInterval::new(x.max(y), g));
-                    let mut ys = TupperIntervalSet::from(TupperInterval::new(x.min(y), g));
+                    let mut xs = Self::from(TupperInterval::new(x.max(y), g));
+                    let mut ys = Self::from(TupperInterval::new(x.min(y), g));
                     loop {
                         if ys.iter().any(|y| y.x.contains(0.0)) {
                             for x in &xs {
