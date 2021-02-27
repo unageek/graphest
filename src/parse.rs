@@ -1,32 +1,38 @@
 use crate::{
     ast::{BinaryOp, Form, FormKind, NaryOp, RelOp, Term, TermKind, UnaryOp},
+    context::{Context, InputWithContext},
     interval_set::TupperIntervalSet,
 };
 use inari::{const_dec_interval, dec_interval, DecInterval};
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{anychar, char, digit0, digit1, space0},
+    character::complete::{alpha1, alphanumeric1, anychar, char, digit0, digit1, space0},
     combinator::{all_consuming, map, not, opt, peek, recognize, value, verify},
     error::VerboseError,
-    multi::{fold_many0, fold_many1},
+    multi::{fold_many0, fold_many1, many0},
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
     Err as NomErr, IResult,
 };
 use std::collections::VecDeque;
 
-type ParseResult<'a, O> = IResult<&'a str, O, VerboseError<&'a str>>;
+type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
 
-fn decimal_literal(i: &str) -> ParseResult<&str> {
-    alt((
-        // "12", "12." or "12.3"
-        recognize(pair(digit1, opt(pair(char('.'), digit0)))),
-        // ".3"
-        recognize(pair(char('.'), digit1)),
-    ))(i)
+fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
+    map(
+        alt((
+            // "12", "12." or "12.3"
+            recognize(pair(digit1, opt(pair(char('.'), digit0)))),
+            // ".3"
+            recognize(pair(char('.'), digit1)),
+        )),
+        |s: InputWithContext| s.i,
+    )(i)
 }
 
-fn keyword<'a>(kw: &'a str) -> impl FnMut(&'a str) -> ParseResult<'a, &'a str> {
+fn keyword<'a>(
+    kw: &'a str,
+) -> impl FnMut(InputWithContext<'a>) -> ParseResult<'a, InputWithContext<'a>> {
     terminated(
         tag(kw),
         not(verify(peek(anychar), |c| {
@@ -35,7 +41,18 @@ fn keyword<'a>(kw: &'a str) -> impl FnMut(&'a str) -> ParseResult<'a, &'a str> {
     )
 }
 
-fn primary_term(i: &str) -> ParseResult<Term> {
+fn variable(i: InputWithContext) -> ParseResult<&str> {
+    let ctx = i.ctx;
+    map(
+        verify(
+            recognize(pair(alpha1, many0(alphanumeric1))),
+            move |s: &InputWithContext| !ctx.is_defined(s.i),
+        ),
+        |s: InputWithContext| s.i,
+    )(i)
+}
+
+fn primary_term(i: InputWithContext) -> ParseResult<Term> {
     alt((
         map(decimal_literal, |s| {
             let s = ["[", s, ",", s, "]"].concat();
@@ -57,8 +74,7 @@ fn primary_term(i: &str) -> ParseResult<Term> {
             let x = TupperIntervalSet::from(DecInterval::PI);
             Term::new(TermKind::Constant(Box::new(x)))
         }),
-        value(Term::new(TermKind::X), keyword("x")),
-        value(Term::new(TermKind::Y), keyword("y")),
+        map(variable, |x| Term::new(TermKind::Var(x.into()))),
         delimited(
             terminated(char('('), space0),
             term,
@@ -91,7 +107,7 @@ fn primary_term(i: &str) -> ParseResult<Term> {
     ))(i)
 }
 
-fn fn1(i: &str) -> ParseResult<UnaryOp> {
+fn fn1(i: InputWithContext) -> ParseResult<UnaryOp> {
     // `alt` takes a tuple with 21 elements at most.
     alt((
         value(UnaryOp::Acos, keyword("acos")),
@@ -135,7 +151,7 @@ fn fn1(i: &str) -> ParseResult<UnaryOp> {
     ))(i)
 }
 
-fn fn2(i: &str) -> ParseResult<BinaryOp> {
+fn fn2(i: InputWithContext) -> ParseResult<BinaryOp> {
     alt((
         value(BinaryOp::Atan2, keyword("atan2")),
         value(BinaryOp::BesselI, keyword("I")),
@@ -149,7 +165,7 @@ fn fn2(i: &str) -> ParseResult<BinaryOp> {
     ))(i)
 }
 
-fn fn_flat(i: &str) -> ParseResult<BinaryOp> {
+fn fn_flat(i: InputWithContext) -> ParseResult<BinaryOp> {
     alt((
         value(BinaryOp::Gcd, keyword("gcd")),
         value(BinaryOp::Lcm, keyword("lcm")),
@@ -158,13 +174,21 @@ fn fn_flat(i: &str) -> ParseResult<BinaryOp> {
     ))(i)
 }
 
-fn term_list(i: &str) -> ParseResult<VecDeque<Term>> {
-    let (i, x) = term(i)?;
+fn argument(i: InputWithContext) -> ParseResult<Term> {
+    terminated(
+        term,
+        // Omit positional arguments.
+        not(peek(pair(space0, char('=')))),
+    )(i)
+}
+
+fn argument_list(i: InputWithContext) -> ParseResult<VecDeque<Term>> {
+    let (i, x) = argument(i)?;
 
     let mut xs = VecDeque::new();
     xs.push_back(x);
     fold_many0(
-        preceded(delimited(space0, char(','), space0), term),
+        preceded(delimited(space0, char(','), space0), argument),
         xs,
         |mut xs, x| {
             xs.push_back(x);
@@ -173,7 +197,7 @@ fn term_list(i: &str) -> ParseResult<VecDeque<Term>> {
     )(i)
 }
 
-fn postfix_term(i: &str) -> ParseResult<Term> {
+fn postfix_term(i: InputWithContext) -> ParseResult<Term> {
     alt((
         map(
             pair(
@@ -202,7 +226,7 @@ fn postfix_term(i: &str) -> ParseResult<Term> {
                 fn_flat,
                 delimited(
                     delimited(space0, char('('), space0),
-                    term_list,
+                    argument_list,
                     preceded(space0, char(')')),
                 ),
             ),
@@ -222,7 +246,7 @@ fn postfix_term(i: &str) -> ParseResult<Term> {
                 delimited(
                     delimited(space0, char('('), space0),
                     separated_pair(
-                        term_list,
+                        argument_list,
                         tuple((
                             space0,
                             char(','),
@@ -247,7 +271,7 @@ fn postfix_term(i: &str) -> ParseResult<Term> {
 }
 
 // ^ is right-associative: x^y^z is the same as x^(y^z).
-fn power_term(i: &str) -> ParseResult<Term> {
+fn power_term(i: InputWithContext) -> ParseResult<Term> {
     alt((
         map(
             separated_pair(
@@ -261,7 +285,7 @@ fn power_term(i: &str) -> ParseResult<Term> {
     ))(i)
 }
 
-fn unary_term(i: &str) -> ParseResult<Term> {
+fn unary_term(i: InputWithContext) -> ParseResult<Term> {
     alt((
         preceded(pair(char('+'), space0), unary_term),
         map(preceded(pair(char('-'), space0), unary_term), |x| {
@@ -271,7 +295,7 @@ fn unary_term(i: &str) -> ParseResult<Term> {
     ))(i)
 }
 
-fn multiplicative_term(i: &str) -> ParseResult<Term> {
+fn multiplicative_term(i: InputWithContext) -> ParseResult<Term> {
     let (i, x) = unary_term(i)?;
 
     fold_many0(
@@ -297,7 +321,7 @@ fn multiplicative_term(i: &str) -> ParseResult<Term> {
     )(i)
 }
 
-fn additive_term(i: &str) -> ParseResult<Term> {
+fn additive_term(i: InputWithContext) -> ParseResult<Term> {
     let (i, x) = multiplicative_term(i)?;
 
     fold_many0(
@@ -317,12 +341,12 @@ fn additive_term(i: &str) -> ParseResult<Term> {
     )(i)
 }
 
-fn term(i: &str) -> ParseResult<Term> {
+fn term(i: InputWithContext) -> ParseResult<Term> {
     additive_term(i)
 }
 
 // (In)equalities can be chained: x < y < z is the same as x < y && y < z.
-fn equality(i: &str) -> ParseResult<Form> {
+fn equality(i: InputWithContext) -> ParseResult<Form> {
     // `acc` is a pair of `Vec<RelOp>` and `Vec<Term>` that store
     // lists of equality operators and their operands, respectively.
     // `acc.1.len() == acc.0.len() + 1` holds.
@@ -368,7 +392,7 @@ fn equality(i: &str) -> ParseResult<Form> {
     )(i)
 }
 
-fn primary_form(i: &str) -> ParseResult<Form> {
+fn primary_form(i: InputWithContext) -> ParseResult<Form> {
     alt((
         delimited(
             terminated(char('('), space0),
@@ -380,7 +404,7 @@ fn primary_form(i: &str) -> ParseResult<Form> {
 }
 
 // Inputs like "!y < x" are allowed too.
-fn not_form(i: &str) -> ParseResult<Form> {
+fn not_form(i: InputWithContext) -> ParseResult<Form> {
     alt((
         map(preceded(pair(char('!'), space0), not_form), |x| {
             Form::new(FormKind::Not(Box::new(x)))
@@ -389,7 +413,7 @@ fn not_form(i: &str) -> ParseResult<Form> {
     ))(i)
 }
 
-fn and_form(i: &str) -> ParseResult<Form> {
+fn and_form(i: InputWithContext) -> ParseResult<Form> {
     let (i, x) = not_form(i)?;
 
     fold_many0(
@@ -399,7 +423,7 @@ fn and_form(i: &str) -> ParseResult<Form> {
     )(i)
 }
 
-fn or_form(i: &str) -> ParseResult<Form> {
+fn or_form(i: InputWithContext) -> ParseResult<Form> {
     let (i, x) = and_form(i)?;
 
     fold_many0(
@@ -409,14 +433,15 @@ fn or_form(i: &str) -> ParseResult<Form> {
     )(i)
 }
 
-fn form(i: &str) -> ParseResult<Form> {
+fn form(i: InputWithContext) -> ParseResult<Form> {
     or_form(i)
 }
 
 /// Parses a formula.
-pub fn parse(i: &str) -> Result<Form, String> {
-    match all_consuming(delimited(space0, form, space0))(i) {
-        Ok(("", x)) => Ok(x),
+pub fn parse(i: &str, ctx: &Context) -> Result<Form, String> {
+    let i = InputWithContext::new(i, ctx);
+    match all_consuming(delimited(space0, form, space0))(i.clone()) {
+        Ok((InputWithContext { i: "", ctx: _ }, x)) => Ok(x),
         Err(NomErr::Error(e)) | Err(NomErr::Failure(e)) => Err(convert_error(i, e)),
         _ => unreachable!(),
     }
@@ -424,10 +449,11 @@ pub fn parse(i: &str) -> Result<Form, String> {
 
 // Copied from `nom::error::convert_error`.
 #[allow(clippy::naive_bytecount)]
-fn convert_error(input: &str, e: VerboseError<&str>) -> String {
+fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> String {
     use nom::Offset;
 
-    let substring = e.errors.first().unwrap().0;
+    let input = input.i;
+    let substring = e.errors.first().unwrap().0.i;
     let offset = input.offset(substring);
 
     let prefix = &input.as_bytes()[..offset];
@@ -463,4 +489,118 @@ fn convert_error(input: &str, e: VerboseError<&str>) -> String {
         caret = '^',
         column = column_number,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::context::Context;
+
+    #[test]
+    fn parse_term() {
+        test_parse_term("|x|", "(Abs x)");
+        test_parse_term("⌈x⌉", "(Ceil x)");
+        test_parse_term("⌊x⌋", "(Floor x)");
+        test_parse_term("acos(x)", "(Acos x)");
+        test_parse_term("acosh(x)", "(Acosh x)");
+        test_parse_term("Ai(x)", "(AiryAi x)");
+        test_parse_term("Ai'(x)", "(AiryAiPrime x)");
+        test_parse_term("Bi(x)", "(AiryBi x)");
+        test_parse_term("Bi'(x)", "(AiryBiPrime x)");
+        test_parse_term("asin(x)", "(Asin x)");
+        test_parse_term("asinh(x)", "(Asinh x)");
+        test_parse_term("atan(x)", "(Atan x)");
+        test_parse_term("atanh(x)", "(Atanh x)");
+        test_parse_term("ceil(x)", "(Ceil x)");
+        test_parse_term("Chi(x)", "(Chi x)");
+        test_parse_term("Ci(x)", "(Ci x)");
+        test_parse_term("cos(x)", "(Cos x)");
+        test_parse_term("cosh(x)", "(Cosh x)");
+        test_parse_term("psi(x)", "(Digamma x)");
+        test_parse_term("ψ(x)", "(Digamma x)");
+        test_parse_term("Ei(x)", "(Ei x)");
+        test_parse_term("erf(x)", "(Erf x)");
+        test_parse_term("erfc(x)", "(Erfc x)");
+        test_parse_term("erfi(x)", "(Erfi x)");
+        test_parse_term("exp(x)", "(Exp x)");
+        test_parse_term("floor(x)", "(Floor x)");
+        test_parse_term("C(x)", "(FresnelC x)");
+        test_parse_term("S(x)", "(FresnelS x)");
+        test_parse_term("Gamma(x)", "(Gamma x)");
+        test_parse_term("Γ(x)", "(Gamma x)");
+        test_parse_term("li(x)", "(Li x)");
+        test_parse_term("ln(x)", "(Ln x)");
+        test_parse_term("log(x)", "(Log10 x)");
+        test_parse_term("Shi(x)", "(Shi x)");
+        test_parse_term("Si(x)", "(Si x)");
+        test_parse_term("sign(x)", "(Sign x)");
+        test_parse_term("sin(x)", "(Sin x)");
+        test_parse_term("sinh(x)", "(Sinh x)");
+        test_parse_term("sqrt(x)", "(Sqrt x)");
+        test_parse_term("tan(x)", "(Tan x)");
+        test_parse_term("tanh(x)", "(Tanh x)");
+        test_parse_term("atan2(y, x)", "(Atan2 y x)");
+        test_parse_term("I(n, x)", "(BesselI n x)");
+        test_parse_term("J(n, x)", "(BesselJ n x)");
+        test_parse_term("K(n, x)", "(BesselK n x)");
+        test_parse_term("Y(n, x)", "(BesselY n x)");
+        test_parse_term("Gamma(a, x)", "(GammaInc a x)");
+        test_parse_term("Γ(a, x)", "(GammaInc a x)");
+        test_parse_term("log(b, x)", "(Log b x)");
+        test_parse_term("mod(x, y)", "(Mod x y)");
+        test_parse_term("gcd(x, y, z)", "(Gcd (Gcd x y) z)");
+        test_parse_term("lcm(x, y, z)", "(Lcm (Lcm x y) z)");
+        test_parse_term("max(x, y, z)", "(Max (Max x y) z)");
+        test_parse_term("min(x, y, z)", "(Min (Min x y) z)");
+        test_parse_term("max(x, y, z, rank=k)", "(RankedMax x y z k)");
+        test_parse_term("min(x, y, z, rank=k)", "(RankedMin x y z k)");
+        test_parse_term("x ^ y ^ z", "(Pow x (Pow y z))");
+        test_parse_term("-x ^ -y", "(Neg (Pow x (Neg y)))");
+        test_parse_term("+x", "x");
+        test_parse_term("-x", "(Neg x)");
+        test_parse_term("x y z", "(Mul (Mul x y) z)");
+        test_parse_term("x * y * z", "(Mul (Mul x y) z)");
+        test_parse_term("x / y / z", "(Div (Div x y) z)");
+        test_parse_term("x + y + z", "(Add (Add x y) z)");
+        test_parse_term("x - y - z", "(Sub (Sub x y) z)");
+        test_parse_term("x + y z", "(Add x (Mul y z))");
+        test_parse_term("(x + y) z", "(Mul (Add x y) z)");
+    }
+
+    fn test_parse_term(input: &str, expected: &str) {
+        let ctx = Context::new();
+        let f = super::parse(&format!("{} = 0", input), &ctx).unwrap();
+        assert_eq!(
+            format!("(Eq {} {{...}})", expected),
+            format!("{}", f.dump_structure())
+        );
+    }
+
+    #[test]
+    fn parse_forms() {
+        test_parse_form("x = y", "(Eq x y)");
+        test_parse_form("x >= y", "(Ge x y)");
+        test_parse_form("x ≥ y", "(Ge x y)");
+        test_parse_form("x > y", "(Gt x y)");
+        test_parse_form("x <= y", "(Le x y)");
+        test_parse_form("x ≤ y", "(Le x y)");
+        test_parse_form("x < y", "(Lt x y)");
+        test_parse_form("x = y = z", "(And (Eq x y) (Eq y z))");
+        test_parse_form("!x = y", "(Not (Eq x y))");
+        test_parse_form("x = y && y = z", "(And (Eq x y) (Eq y z))");
+        test_parse_form("x = y || y = z", "(Or (Eq x y) (Eq y z))");
+        test_parse_form(
+            "x = y || y = z && z = x",
+            "(Or (Eq x y) (And (Eq y z) (Eq z x)))",
+        );
+        test_parse_form(
+            "(x = y || y = z) && z = x",
+            "(And (Or (Eq x y) (Eq y z)) (Eq z x))",
+        );
+    }
+
+    fn test_parse_form(input: &str, expected: &str) {
+        let ctx = Context::new();
+        let f = super::parse(input, &ctx).unwrap();
+        assert_eq!(expected, format!("{}", f.dump_structure()));
+    }
 }

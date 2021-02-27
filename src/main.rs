@@ -7,6 +7,7 @@ mod arb_interval_set_ops;
 #[cfg(feature = "arb")]
 mod arb_sys;
 mod ast;
+mod context;
 mod dyn_relation;
 mod eval_result;
 mod graph;
@@ -75,6 +76,12 @@ fn main() {
                 .default_values(&["-10", "10", "-10", "10"])
                 .value_names(&["xmin", "xmax", "ymin", "ymax"])
                 .about("Bounds of the region to plot over."),
+        )
+        .arg(
+            Arg::new("def")
+                .long("def")
+                .multiple(true)
+                .about("Custom definition."),
         )
         .arg(
             Arg::new("gray-alpha")

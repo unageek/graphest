@@ -106,8 +106,7 @@ pub enum RelOp {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum TermKind {
     Constant(Box<TupperIntervalSet>),
-    X,
-    Y,
+    Var(String),
     Unary(UnaryOp, Box<Term>),
     Binary(BinaryOp, Box<Term>, Box<Term>),
     Pown(Box<Term>, i32),
@@ -153,8 +152,7 @@ impl Term {
 
     /// Evaluates the term.
     ///
-    /// Panics if the term contains a sub-term of kind [`TermKind::X`], [`TermKind::Y`]
-    /// or [`TermKind::Uninit`].
+    /// Panics if the term contains [`TermKind::Var`].
     pub fn eval(&self) -> TupperIntervalSet {
         use {BinaryOp::*, NaryOp::*, TermKind::*, UnaryOp::*};
         match &self.kind {
@@ -231,23 +229,25 @@ impl Term {
                 let xs = xs.iter().map(|x| x.eval()).collect::<Vec<_>>();
                 TupperIntervalSet::ranked_min(xs.iter().collect(), None)
             }
-            X | Y | Uninit => panic!("this term cannot be evaluated"),
+            Var(_) | Uninit => panic!("this term cannot be evaluated"),
         }
     }
 
-    /// Updates `vars` and `internal_hash` fields of `self`.
+    /// Updates [`Term::vars`] and [`Term::internal_hash`] fields of the term.
     ///
     /// Precondition:
     ///   The function is called on all sub-terms and they have not been changed since then.
+    ///
+    /// Panics if the term contains [`TermKind::Var`] with a name other than `"x"` or `"y"`.
     pub fn update_metadata(&mut self) {
         self.vars = match &self.kind {
             TermKind::Constant(_) => VarSet::EMPTY,
-            TermKind::X => VarSet::X,
-            TermKind::Y => VarSet::Y,
+            TermKind::Var(x) if x == "x" => VarSet::X,
+            TermKind::Var(x) if x == "y" => VarSet::Y,
             TermKind::Unary(_, x) | TermKind::Pown(x, _) => x.vars,
             TermKind::Binary(_, x, y) => x.vars | y.vars,
             TermKind::Nary(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
-            TermKind::Uninit => panic!(),
+            TermKind::Var(_) | TermKind::Uninit => panic!(),
         };
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
@@ -290,6 +290,7 @@ impl<'a> fmt::Display for DumpTermStructure<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.0.kind {
             TermKind::Constant(_) => write!(f, "{{...}}"),
+            TermKind::Var(x) => write!(f, "{}", x),
             TermKind::Unary(op, x) => write!(f, "({:?} {})", op, x.dump_structure()),
             TermKind::Binary(op, x, y) => write!(
                 f,
@@ -299,7 +300,16 @@ impl<'a> fmt::Display for DumpTermStructure<'a> {
                 y.dump_structure()
             ),
             TermKind::Pown(x, y) => write!(f, "(Pown {} {})", x.dump_structure(), y),
-            x => write!(f, "{:?}", x),
+            TermKind::Nary(op, xs) => write!(
+                f,
+                "({:?} {})",
+                op,
+                xs.iter()
+                    .map(|x| format!("{}", x.dump_structure()))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
+            TermKind::Uninit => panic!(),
         }
     }
 }
@@ -386,7 +396,7 @@ impl<'a> fmt::Display for DumpFormStructure<'a> {
             FormKind::Not(x) => write!(f, "(Not {})", x.dump_structure()),
             FormKind::And(x, y) => write!(f, "(And {} {})", x.dump_structure(), y.dump_structure()),
             FormKind::Or(x, y) => write!(f, "(Or {} {})", x.dump_structure(), y.dump_structure()),
-            x => write!(f, "{:?}", x),
+            FormKind::Uninit => panic!(),
         }
     }
 }
