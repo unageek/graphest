@@ -40,7 +40,7 @@ fn traverse_term<'a, V: Visit<'a>>(v: &mut V, t: &'a Term) {
                 v.visit_term(x);
             }
         }
-        Constant(_) | X | Y | Uninit => (),
+        Constant(_) | Var(_) | Uninit => (),
     };
 }
 
@@ -91,7 +91,7 @@ fn traverse_term_mut<V: VisitMut>(v: &mut V, t: &mut Term) {
                 v.visit_term_mut(x);
             }
         }
-        Constant(_) | X | Y | Uninit => (),
+        Constant(_) | Var(_) | Uninit => (),
     };
 }
 
@@ -646,15 +646,15 @@ impl<'a> Visit<'a> for CollectStatic {
                 site: t.site.get(),
                 kind: match &t.kind {
                     Constant(x) => StaticTermKind::Constant(x.clone()),
-                    X => StaticTermKind::X,
-                    Y => StaticTermKind::Y,
+                    Var(x) if x == "x" => StaticTermKind::X,
+                    Var(x) if x == "y" => StaticTermKind::Y,
                     Unary(op, x) => StaticTermKind::Unary(*op, x.id.get()),
                     Binary(op, x, y) => StaticTermKind::Binary(*op, x.id.get(), y.id.get()),
                     Pown(x, y) => StaticTermKind::Pown(x.id.get(), *y),
                     Nary(op, xs) => {
                         StaticTermKind::Nary(*op, Box::new(xs.iter().map(|x| x.id.get()).collect()))
                     }
-                    Uninit => panic!(),
+                    Var(_) | Uninit => panic!(),
                 },
                 vars: t.vars,
             });
@@ -680,7 +680,7 @@ impl<'a> Visit<'a> for CollectStatic {
 }
 
 /// Collects the ids of maximal sub-terms that contain exactly one free variable.
-/// Terms of kind [`TermKind::X`] and [`TermKind::Y`] are excluded from collection.
+/// Terms of kind [`TermKind::Var`] are excluded from collection.
 pub struct FindMaximalTerms {
     mx: Vec<TermId>,
     my: Vec<TermId>,
@@ -707,12 +707,12 @@ impl<'a> Visit<'a> for FindMaximalTerms {
     fn visit_term(&mut self, t: &'a Term) {
         match t.vars {
             VarSet::X => {
-                if !matches!(t.kind, TermKind::X) {
+                if !matches!(t.kind, TermKind::Var(_)) {
                     self.mx.push(t.id.get());
                 }
             }
             VarSet::Y => {
-                if !matches!(t.kind, TermKind::Y) {
+                if !matches!(t.kind, TermKind::Var(_)) {
                     self.my.push(t.id.get());
                 }
             }
@@ -729,10 +729,11 @@ impl<'a> Visit<'a> for FindMaximalTerms {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::parse;
+    use crate::{context::Context, parse::parse};
 
     fn test_pre_transform(input: &str, expected: &str) {
-        let mut f = parse(&format!("{} = 0", input)).unwrap();
+        let ctx = Context::new();
+        let mut f = parse(&format!("{} = 0", input), &ctx).unwrap();
         PreTransform.visit_form_mut(&mut f);
         assert_eq!(
             format!("{}", f.dump_structure()),
@@ -742,14 +743,15 @@ mod tests {
 
     #[test]
     fn pre_transform() {
-        test_pre_transform("x - y", "(Add X (Neg Y))");
-        test_pre_transform("sin(x)/x", "(Sinc (UndefAt0 X))");
-        test_pre_transform("x/sin(x)", "(Recip (Sinc (UndefAt0 X)))");
-        test_pre_transform("x/x", "(One (UndefAt0 X))");
+        test_pre_transform("x - y", "(Add x (Neg y))");
+        test_pre_transform("sin(x)/x", "(Sinc (UndefAt0 x))");
+        test_pre_transform("x/sin(x)", "(Recip (Sinc (UndefAt0 x)))");
+        test_pre_transform("x/x", "(One (UndefAt0 x))");
     }
 
     fn test_sort_terms(input: &str, expected: &str) {
-        let mut f = parse(&format!("{} = 0", input)).unwrap();
+        let ctx = Context::new();
+        let mut f = parse(&format!("{} = 0", input), &ctx).unwrap();
         let input = format!("{}", f.dump_structure());
         let mut v = SortTerms::default();
         v.visit_form_mut(&mut f);
@@ -760,14 +762,15 @@ mod tests {
 
     #[test]
     fn sort_terms() {
-        test_sort_terms("1 + x", "(Add {...} X)");
-        test_sort_terms("x + 1", "(Add {...} X)");
-        test_sort_terms("2 x", "(Mul {...} X)");
-        test_sort_terms("x 2", "(Mul {...} X)");
+        test_sort_terms("1 + x", "(Add {...} x)");
+        test_sort_terms("x + 1", "(Add {...} x)");
+        test_sort_terms("2 x", "(Mul {...} x)");
+        test_sort_terms("x 2", "(Mul {...} x)");
     }
 
     fn test_transform(input: &str, expected: &str) {
-        let mut f = parse(&format!("{} = 0", input)).unwrap();
+        let ctx = Context::new();
+        let mut f = parse(&format!("{} = 0", input), &ctx).unwrap();
         FoldConstant::default().visit_form_mut(&mut f);
         let input = format!("{}", f.dump_structure());
         let mut v = Transform::default();
@@ -779,19 +782,20 @@ mod tests {
 
     #[test]
     fn transform() {
-        test_transform("--x", "X");
-        test_transform("-(x + y)", "(Add (Neg X) (Neg Y))");
-        test_transform("0 + x", "X");
-        test_transform("1 + (x + y)", "(Add (Add {...} X) Y)");
-        test_transform("1 x", "X");
-        test_transform("-1 x", "(Neg X)"); // Needs constant folding
-        test_transform("(-x) y", "(Neg (Mul X Y))");
-        test_transform("x (-y)", "(Neg (Mul X Y))");
-        test_transform("2 (x y)", "(Mul (Mul {...} X) Y)");
+        test_transform("--x", "x");
+        test_transform("-(x + y)", "(Add (Neg x) (Neg y))");
+        test_transform("0 + x", "x");
+        test_transform("x + (y + z)", "(Add (Add x y) z)");
+        test_transform("1 x", "x");
+        test_transform("-1 x", "(Neg x)"); // Needs constant folding
+        test_transform("(-x) y", "(Neg (Mul x y))");
+        test_transform("x (-y)", "(Neg (Mul x y))");
+        test_transform("x (y z)", "(Mul (Mul x y) z)");
     }
 
     fn test_post_transform(input: &str, expected: &str) {
-        let mut f = parse(&format!("{} = 0", input)).unwrap();
+        let ctx = Context::new();
+        let mut f = parse(&format!("{} = 0", input), &ctx).unwrap();
         FoldConstant::default().visit_form_mut(&mut f);
         PostTransform.visit_form_mut(&mut f);
         assert_eq!(
@@ -802,18 +806,19 @@ mod tests {
 
     #[test]
     fn post_transform() {
-        test_post_transform("2^x", "(Exp2 X)");
-        test_post_transform("10^x", "(Exp10 X)");
-        test_post_transform("x^-1", "(Recip X)"); // Needs constant folding
-        test_post_transform("x^0", "(One X)");
-        test_post_transform("x^0.5", "(Sqrt X)");
-        test_post_transform("x^1", "X");
-        test_post_transform("x^2", "(Sqr X)");
-        test_post_transform("x^3", "(Pown X 3)");
+        test_post_transform("2^x", "(Exp2 x)");
+        test_post_transform("10^x", "(Exp10 x)");
+        test_post_transform("x^-1", "(Recip x)"); // Needs constant folding
+        test_post_transform("x^0", "(One x)");
+        test_post_transform("x^0.5", "(Sqrt x)");
+        test_post_transform("x^1", "x");
+        test_post_transform("x^2", "(Sqr x)");
+        test_post_transform("x^3", "(Pown x 3)");
     }
 
     fn test_normalize_forms(input: &str, expected: &str) {
-        let mut f = parse(input).unwrap();
+        let ctx = Context::new();
+        let mut f = parse(input, &ctx).unwrap();
         let input = format!("{}", f.dump_structure());
         let mut v = NormalizeForms::default();
         v.visit_form_mut(&mut f);
@@ -824,17 +829,17 @@ mod tests {
 
     #[test]
     fn normalize_forms() {
-        test_normalize_forms("!(x = y)", "(Neq X Y)");
-        test_normalize_forms("!(x <= y)", "(Nle X Y)");
-        test_normalize_forms("!(x < y)", "(Nlt X Y)");
-        test_normalize_forms("!(x >= y)", "(Nge X Y)");
-        test_normalize_forms("!(x > y)", "(Ngt X Y)");
-        test_normalize_forms("!!(x = y)", "(Eq X Y)");
-        test_normalize_forms("!!(x <= y)", "(Le X Y)");
-        test_normalize_forms("!!(x < y)", "(Lt X Y)");
-        test_normalize_forms("!!(x >= y)", "(Ge X Y)");
-        test_normalize_forms("!!(x > y)", "(Gt X Y)");
-        test_normalize_forms("!(x = y && x = y)", "(Or (Not (Eq X Y)) (Not (Eq X Y)))");
-        test_normalize_forms("!(x = y || x = y)", "(And (Not (Eq X Y)) (Not (Eq X Y)))");
+        test_normalize_forms("!(x = y)", "(Neq x y)");
+        test_normalize_forms("!(x <= y)", "(Nle x y)");
+        test_normalize_forms("!(x < y)", "(Nlt x y)");
+        test_normalize_forms("!(x >= y)", "(Nge x y)");
+        test_normalize_forms("!(x > y)", "(Ngt x y)");
+        test_normalize_forms("!!(x = y)", "(Eq x y)");
+        test_normalize_forms("!!(x <= y)", "(Le x y)");
+        test_normalize_forms("!!(x < y)", "(Lt x y)");
+        test_normalize_forms("!!(x >= y)", "(Ge x y)");
+        test_normalize_forms("!!(x > y)", "(Gt x y)");
+        test_normalize_forms("!(x = y && y = z)", "(Or (Not (Eq x y)) (Not (Eq y z)))");
+        test_normalize_forms("!(x = y || y = z)", "(And (Not (Eq x y)) (Not (Eq y z)))");
     }
 }

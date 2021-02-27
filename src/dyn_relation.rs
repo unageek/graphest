@@ -1,5 +1,6 @@
 use crate::{
     ast::{TermId, VarSet},
+    context::Context,
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
     parse::parse,
@@ -293,7 +294,8 @@ impl FromStr for DynRelation {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, String> {
-        let mut form = parse(s)?;
+        let ctx = Context::new();
+        let mut form = parse(s, &ctx)?;
         PreTransform.visit_form_mut(&mut form);
         loop {
             let mut s = SortTerms::default();
