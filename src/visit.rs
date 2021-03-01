@@ -724,12 +724,11 @@ mod tests {
     use crate::{context::Context, parse::parse};
 
     fn test_pre_transform(input: &str, expected: &str) {
-        let ctx = Context::new();
-        let mut f = parse(&format!("{} = 0", input), &ctx).unwrap();
+        let mut f = parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
         PreTransform.visit_form_mut(&mut f);
         assert_eq!(
             format!("{}", f.dump_structure()),
-            format!("(Eq {} {{...}})", expected)
+            format!("(Eq {} @)", expected)
         );
     }
 
@@ -742,33 +741,31 @@ mod tests {
     }
 
     fn test_sort_terms(input: &str, expected: &str) {
-        let ctx = Context::new();
-        let mut f = parse(&format!("{} = 0", input), &ctx).unwrap();
+        let mut f = parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
         let input = format!("{}", f.dump_structure());
         let mut v = SortTerms::default();
         v.visit_form_mut(&mut f);
         let output = format!("{}", f.dump_structure());
-        assert_eq!(output, format!("(Eq {} {{...}})", expected));
+        assert_eq!(output, format!("(Eq {} @)", expected));
         assert_eq!(v.modified, input != output);
     }
 
     #[test]
     fn sort_terms() {
-        test_sort_terms("1 + x", "(Add {...} x)");
-        test_sort_terms("x + 1", "(Add {...} x)");
-        test_sort_terms("2 x", "(Mul {...} x)");
-        test_sort_terms("x 2", "(Mul {...} x)");
+        test_sort_terms("1 + x", "(Add @ x)");
+        test_sort_terms("x + 1", "(Add @ x)");
+        test_sort_terms("2 x", "(Mul @ x)");
+        test_sort_terms("x 2", "(Mul @ x)");
     }
 
     fn test_transform(input: &str, expected: &str) {
-        let ctx = Context::new();
-        let mut f = parse(&format!("{} = 0", input), &ctx).unwrap();
+        let mut f = parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
         FoldConstant::default().visit_form_mut(&mut f);
         let input = format!("{}", f.dump_structure());
         let mut v = Transform::default();
         v.visit_form_mut(&mut f);
         let output = format!("{}", f.dump_structure());
-        assert_eq!(output, format!("(Eq {} {{...}})", expected));
+        assert_eq!(output, format!("(Eq {} @)", expected));
         assert_eq!(v.modified, input != output);
     }
 
@@ -786,13 +783,12 @@ mod tests {
     }
 
     fn test_post_transform(input: &str, expected: &str) {
-        let ctx = Context::new();
-        let mut f = parse(&format!("{} = 0", input), &ctx).unwrap();
+        let mut f = parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
         FoldConstant::default().visit_form_mut(&mut f);
         PostTransform.visit_form_mut(&mut f);
         assert_eq!(
             format!("{}", f.dump_structure()),
-            format!("(Eq {} {{...}})", expected)
+            format!("(Eq {} @)", expected)
         );
     }
 
@@ -809,8 +805,7 @@ mod tests {
     }
 
     fn test_normalize_forms(input: &str, expected: &str) {
-        let ctx = Context::new();
-        let mut f = parse(input, &ctx).unwrap();
+        let mut f = parse(input, Context::builtin_context()).unwrap();
         let input = format!("{}", f.dump_structure());
         let mut v = NormalizeForms::default();
         v.visit_form_mut(&mut f);

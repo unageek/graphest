@@ -244,7 +244,8 @@ impl Term {
             TermKind::Unary(_, x) | TermKind::Pown(x, _) => x.vars,
             TermKind::Binary(_, x, y) => x.vars | y.vars,
             TermKind::Nary(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
-            TermKind::Var(_) | TermKind::Uninit => panic!(),
+            TermKind::Var(x) => panic!("'{}' is undefined", x),
+            TermKind::Uninit => panic!(),
         };
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
@@ -285,7 +286,7 @@ struct DumpTermStructure<'a>(&'a Term);
 impl<'a> fmt::Display for DumpTermStructure<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.0.kind {
-            TermKind::Constant(_) => write!(f, "{{...}}"),
+            TermKind::Constant(_) => write!(f, "@"),
             TermKind::Var(x) => write!(f, "{}", x),
             TermKind::Unary(op, x) => write!(f, "({:?} {})", op, x.dump_structure()),
             TermKind::Binary(op, x, y) => write!(

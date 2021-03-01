@@ -3,20 +3,34 @@ use crate::{
     context::{Context, InputWithContext},
     interval_set::TupperIntervalSet,
 };
-use inari::{const_dec_interval, dec_interval, DecInterval};
+use inari::dec_interval;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{alpha1, alphanumeric1, anychar, char, digit0, digit1, space0},
-    combinator::{all_consuming, map, not, opt, peek, recognize, value, verify},
-    error::VerboseError,
-    multi::{fold_many0, fold_many1, many0},
+    character::complete::{anychar, char, digit0, digit1, space0},
+    combinator::{all_consuming, map, map_opt, not, opt, peek, recognize, value, verify},
+    error::{ErrorKind, VerboseError},
+    multi::{fold_many0, fold_many1},
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
-    Err as NomErr, IResult,
+    Err as NomErr, IResult, InputTakeAtPosition,
 };
 use std::collections::VecDeque;
 
 type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
+
+/// The Unicode version of [`nom::character::complete::alpha1`].
+fn unicode_alpha1(i: InputWithContext) -> ParseResult<InputWithContext> {
+    i.split_at_position1_complete(|c| !c.is_alphabetic(), ErrorKind::Alpha)
+}
+
+/// The Unicode version of [`nom::character::complete::alphanumeric0`].
+fn unicode_alphanumeric0(i: InputWithContext) -> ParseResult<InputWithContext> {
+    i.split_at_position_complete(|c| !c.is_alphanumeric())
+}
+
+fn identifier(i: InputWithContext) -> ParseResult<InputWithContext> {
+    recognize(pair(unicode_alpha1, unicode_alphanumeric0))(i)
+}
 
 fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
     map(
@@ -35,46 +49,39 @@ fn keyword<'a>(
 ) -> impl FnMut(InputWithContext<'a>) -> ParseResult<'a, InputWithContext<'a>> {
     terminated(
         tag(kw),
-        not(verify(peek(anychar), |c| {
-            c.is_alphanumeric() || *c == '_' || *c == '\''
-        })),
+        not(verify(peek(anychar), |c| c.is_alphanumeric() || *c == '\'')),
     )
 }
 
-fn variable(i: InputWithContext) -> ParseResult<&str> {
-    let ctx = i.ctx;
-    map(
-        verify(
-            recognize(pair(alpha1, many0(alphanumeric1))),
-            move |s: &InputWithContext| !ctx.is_defined(s.i),
-        ),
-        |s: InputWithContext| s.i,
-    )(i)
+fn decimal_constant(i: InputWithContext) -> ParseResult<Term> {
+    map(decimal_literal, |s| {
+        let s = ["[", s, ",", s, "]"].concat();
+        let x = TupperIntervalSet::from(dec_interval!(&s).unwrap());
+        Term::new(TermKind::Constant(Box::new(x)))
+    })(i)
+}
+
+fn named_constant(i: InputWithContext) -> ParseResult<Term> {
+    map_opt(identifier, |s: InputWithContext| {
+        s.ctx.get_substituted(s.i, vec![])
+    })(i)
+}
+
+fn variable(i: InputWithContext) -> ParseResult<Term> {
+    use std::ops::Not;
+    map_opt(identifier, |s: InputWithContext| {
+        s.ctx
+            .is_defined(s.i)
+            .not()
+            .then(|| Term::new(TermKind::Var(s.i.into())))
+    })(i)
 }
 
 fn primary_term(i: InputWithContext) -> ParseResult<Term> {
     alt((
-        map(decimal_literal, |s| {
-            let s = ["[", s, ",", s, "]"].concat();
-            let x = TupperIntervalSet::from(dec_interval!(&s).unwrap());
-            Term::new(TermKind::Constant(Box::new(x)))
-        }),
-        map(keyword("e"), |_| {
-            let x = TupperIntervalSet::from(DecInterval::E);
-            Term::new(TermKind::Constant(Box::new(x)))
-        }),
-        map(alt((keyword("gamma"), keyword("γ"))), |_| {
-            let x = TupperIntervalSet::from(const_dec_interval!(
-                0.5772156649015328,
-                0.5772156649015329
-            ));
-            Term::new(TermKind::Constant(Box::new(x)))
-        }),
-        map(alt((keyword("pi"), keyword("π"))), |_| {
-            let x = TupperIntervalSet::from(DecInterval::PI);
-            Term::new(TermKind::Constant(Box::new(x)))
-        }),
-        map(variable, |x| Term::new(TermKind::Var(x.into()))),
+        decimal_constant,
+        named_constant,
+        variable,
         delimited(
             terminated(char('('), space0),
             term,
@@ -403,7 +410,7 @@ fn primary_form(i: InputWithContext) -> ParseResult<Form> {
     ))(i)
 }
 
-// Inputs like "!y < x" are allowed too.
+// Inputs like "!y < x", are permitted too.
 fn not_form(i: InputWithContext) -> ParseResult<Form> {
     alt((
         map(preceded(pair(char('!'), space0), not_form), |x| {
@@ -497,6 +504,11 @@ mod tests {
 
     #[test]
     fn parse_term() {
+        test_parse_term("e", "@");
+        test_parse_term("gamma", "@");
+        test_parse_term("γ", "@");
+        test_parse_term("pi", "@");
+        test_parse_term("π", "@");
         test_parse_term("|x|", "(Abs x)");
         test_parse_term("⌈x⌉", "(Ceil x)");
         test_parse_term("⌊x⌋", "(Floor x)");
@@ -567,10 +579,9 @@ mod tests {
     }
 
     fn test_parse_term(input: &str, expected: &str) {
-        let ctx = Context::new();
-        let f = super::parse(&format!("{} = 0", input), &ctx).unwrap();
+        let f = super::parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
         assert_eq!(
-            format!("(Eq {} {{...}})", expected),
+            format!("(Eq {} @)", expected),
             format!("{}", f.dump_structure())
         );
     }
@@ -599,8 +610,7 @@ mod tests {
     }
 
     fn test_parse_form(input: &str, expected: &str) {
-        let ctx = Context::new();
-        let f = super::parse(input, &ctx).unwrap();
+        let f = super::parse(input, Context::builtin_context()).unwrap();
         assert_eq!(expected, format!("{}", f.dump_structure()));
     }
 }

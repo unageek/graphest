@@ -1,4 +1,5 @@
 #![allow(clippy::float_cmp)]
+#![feature(once_cell)]
 
 #[cfg(feature = "arb")]
 mod arb;

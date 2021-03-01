@@ -1,37 +1,93 @@
+use crate::{
+    ast::{Term, TermKind},
+    interval_set::TupperIntervalSet,
+};
+use inari::{const_dec_interval, DecInterval};
 use nom::{
     Compare, CompareResult, InputIter, InputLength, InputTake, Needed, Offset, Slice,
     UnspecializedInput,
 };
 use std::{
-    collections::HashSet,
+    collections::HashMap,
+    lazy::SyncLazy,
     ops::{Range, RangeFrom, RangeFull, RangeTo},
     str::{CharIndices, Chars},
 };
 
-/// A set of definitions of constants and functions.
-///
-/// It only contains the names of builtin functions at the moment.
-pub struct Context {
-    defs: HashSet<String>,
+const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
+
+const BUILTIN_NAMES: &[&str] = &[
+    "acos", "acosh", "Ai", "asin", "asinh", "atan", "atan2", "atanh", "Bi", "C", "ceil", "Chi",
+    "Ci", "cos", "cosh", "Ei", "erf", "erfc", "erfi", "exp", "floor", "Gamma", "Γ", "gcd", "I",
+    "J", "K", "lcm", "li", "ln", "log", "max", "min", "mod", "psi", "ψ", "S", "Shi", "Si", "sign",
+    "sin", "sinh", "sqrt", "tan", "tanh", "Y",
+];
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Arity {
+    Fixed(u8),
+    Variadic,
 }
 
+#[derive(Clone, Debug)]
+struct Definition {
+    pub arity: Arity,
+    pub body: Term,
+}
+
+impl Definition {
+    fn constant(x: DecInterval) -> Self {
+        Self {
+            arity: Arity::Fixed(0),
+            body: Term::new(TermKind::Constant(Box::new(TupperIntervalSet::from(x)))),
+        }
+    }
+}
+
+/// A set of definitions of constants and functions.
+///
+/// Builtin functions have dummy definitions at the moment.
+#[derive(Clone, Debug)]
+pub struct Context {
+    defs: HashMap<String, Vec<Definition>>,
+}
+
+static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
+    let mut defs = HashMap::new();
+    defs.insert("e".into(), vec![Definition::constant(DecInterval::E)]);
+    defs.insert("gamma".into(), vec![Definition::constant(EULER_GAMMA)]);
+    defs.insert("γ".into(), vec![Definition::constant(EULER_GAMMA)]);
+    defs.insert("pi".into(), vec![Definition::constant(DecInterval::PI)]);
+    defs.insert("π".into(), vec![Definition::constant(DecInterval::PI)]);
+    for name in BUILTIN_NAMES {
+        defs.insert(
+            name.to_string(),
+            vec![Definition {
+                arity: Arity::Variadic,
+                body: Term::default(),
+            }],
+        );
+    }
+    Context { defs }
+});
+
 impl Context {
-    pub fn new() -> Self {
-        let defs = [
-            "acos", "acosh", "Ai", "asin", "asinh", "atan", "atan2", "atanh", "Bi", "C", "ceil",
-            "Chi", "Ci", "cos", "cosh", "e", "Ei", "erf", "erfc", "erfi", "exp", "floor", "Gamma",
-            "Γ", "gamma", "γ", "gcd", "I", "J", "K", "lcm", "li", "ln", "log", "max", "min", "mod",
-            "pi", "π", "psi", "ψ", "S", "Shi", "Si", "sign", "sin", "sinh", "sqrt", "tan", "tanh",
-            "Y",
-        ]
-        .iter()
-        .map(|&s| s.into())
-        .collect::<HashSet<String>>();
-        Self { defs }
+    pub fn builtin_context() -> &'static Self {
+        &BUILTIN_CONTEXT
+    }
+
+    // TODO: Define something like `TermKind::Slot` and do substitution.
+    pub fn get_substituted(&self, name: &str, args: Vec<&Term>) -> Option<Term> {
+        let def = self
+            .defs
+            .get(name)?
+            .iter()
+            .find(|d| matches!(d.arity,Arity::Fixed(n) if n as usize == args.len()))?;
+        Some(def.body.clone())
     }
 
     pub fn is_defined(&self, name: &str) -> bool {
-        self.defs.contains(name)
+        self.defs.contains_key(name)
     }
 }
 

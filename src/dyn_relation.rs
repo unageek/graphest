@@ -294,8 +294,7 @@ impl FromStr for DynRelation {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, String> {
-        let ctx = Context::new();
-        let mut form = parse(s, &ctx)?;
+        let mut form = parse(s, Context::builtin_context())?;
         PreTransform.visit_form_mut(&mut form);
         loop {
             let mut s = SortTerms::default();
