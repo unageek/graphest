@@ -1,17 +1,16 @@
-use crate::interval_set::{Site, TupperIntervalSet};
+use crate::interval_set::TupperIntervalSet;
 use bitflags::*;
 use std::{
-    cell::Cell,
     collections::hash_map::DefaultHasher,
     fmt,
     hash::{Hash, Hasher},
 };
 
 pub type TermId = u32;
-const UNINIT_TERM_ID: TermId = TermId::MAX;
+pub const UNINIT_TERM_ID: TermId = TermId::MAX;
 
 pub type FormId = u32;
-const UNINIT_FORM_ID: FormId = FormId::MAX;
+pub const UNINIT_FORM_ID: FormId = FormId::MAX;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
@@ -127,8 +126,7 @@ bitflags! {
 /// An AST node for a term.
 #[derive(Clone, Debug)]
 pub struct Term {
-    pub id: Cell<TermId>,
-    pub site: Cell<Option<Site>>,
+    pub id: TermId,
     pub kind: TermKind,
     /// The set of the free variables in the term.
     pub vars: VarSet,
@@ -138,8 +136,7 @@ pub struct Term {
 impl Term {
     pub fn new(kind: TermKind) -> Self {
         Self {
-            id: Cell::new(UNINIT_TERM_ID),
-            site: Cell::new(None),
+            id: UNINIT_TERM_ID,
             kind,
             vars: VarSet::EMPTY,
             internal_hash: 0,
@@ -261,8 +258,7 @@ impl Term {
 impl Default for Term {
     fn default() -> Self {
         Self {
-            id: Cell::new(UNINIT_TERM_ID),
-            site: Cell::new(None),
+            id: UNINIT_TERM_ID,
             kind: TermKind::Uninit,
             vars: VarSet::EMPTY,
             internal_hash: 0,
@@ -326,7 +322,7 @@ pub enum FormKind {
 /// An AST node for a formula.
 #[derive(Clone, Debug)]
 pub struct Form {
-    pub id: Cell<FormId>,
+    pub id: FormId,
     pub kind: FormKind,
     internal_hash: u64,
 }
@@ -334,7 +330,7 @@ pub struct Form {
 impl Form {
     pub fn new(kind: FormKind) -> Self {
         Self {
-            id: Cell::new(UNINIT_FORM_ID),
+            id: UNINIT_FORM_ID,
             kind,
             internal_hash: 0,
         }
@@ -360,7 +356,7 @@ impl Form {
 impl Default for Form {
     fn default() -> Self {
         Self {
-            id: Cell::new(UNINIT_FORM_ID),
+            id: UNINIT_FORM_ID,
             kind: FormKind::Uninit,
             internal_hash: 0,
         }

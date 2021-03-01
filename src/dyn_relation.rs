@@ -318,9 +318,9 @@ impl FromStr for DynRelation {
         }
         UpdateMetadata.visit_form_mut(&mut form);
         let mut v = AssignIdStage1::new();
-        v.visit_form(&form);
+        v.visit_form_mut(&mut form);
         let mut v = AssignIdStage2::new(v);
-        v.visit_form(&form);
+        v.visit_form_mut(&mut form);
         let mut v = CollectStatic::new(v);
         v.visit_form(&form);
         let (terms, forms) = v.terms_forms();
