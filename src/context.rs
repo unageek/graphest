@@ -1,6 +1,7 @@
 use crate::{
-    ast::{Term, TermKind},
+    ast::{BinaryOp, Term, TermKind, UnaryOp},
     interval_set::TupperIntervalSet,
+    visit::{Substitute, VisitMut},
 };
 use inari::{const_dec_interval, DecInterval};
 use nom::{
@@ -14,61 +15,150 @@ use std::{
     str::{CharIndices, Chars},
 };
 
-const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
-
-const BUILTIN_NAMES: &[&str] = &[
-    "acos", "acosh", "Ai", "asin", "asinh", "atan", "atan2", "atanh", "Bi", "C", "ceil", "Chi",
-    "Ci", "cos", "cosh", "Ei", "erf", "erfc", "erfi", "exp", "floor", "Gamma", "Γ", "gcd", "I",
-    "J", "K", "lcm", "li", "ln", "log", "max", "min", "mod", "psi", "ψ", "S", "Shi", "Si", "sign",
-    "sin", "sinh", "sqrt", "tan", "tanh", "Y",
-];
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Arity {
     Fixed(u8),
-    Variadic,
 }
 
+/// A definition of a constant or a function in terms of the AST.
 #[derive(Clone, Debug)]
-struct Definition {
-    pub arity: Arity,
-    pub body: Term,
+struct Def {
+    arity: Arity,
+    body: Term,
+    associative: bool,
 }
 
-impl Definition {
+impl Def {
     fn constant(x: DecInterval) -> Self {
         Self {
             arity: Arity::Fixed(0),
             body: Term::new(TermKind::Constant(Box::new(TupperIntervalSet::from(x)))),
+            associative: false,
         }
+    }
+
+    fn unary(op: UnaryOp) -> Self {
+        Self {
+            arity: Arity::Fixed(1),
+            body: Term::new(TermKind::Unary(
+                op,
+                Box::new(Term::new(TermKind::Var("0".into()))),
+            )),
+            associative: false,
+        }
+    }
+
+    fn binary(op: BinaryOp) -> Self {
+        Self {
+            arity: Arity::Fixed(2),
+            body: Term::new(TermKind::Binary(
+                op,
+                Box::new(Term::new(TermKind::Var("0".into()))),
+                Box::new(Term::new(TermKind::Var("1".into()))),
+            )),
+            associative: false,
+        }
+    }
+
+    /// Sets the `associative` flag of `self` and returns it.
+    ///
+    /// Panics if the arity is not 2.
+    fn associative(mut self) -> Self {
+        assert!(self.arity == Arity::Fixed(2));
+        self.associative = true;
+        self
+    }
+
+    fn substitute(&self, args: Vec<Term>) -> Term {
+        let mut t = self.body.clone();
+        Substitute::new(args).visit_term_mut(&mut t);
+        t
     }
 }
 
 /// A set of definitions of constants and functions.
-///
-/// Builtin functions have dummy definitions at the moment.
 #[derive(Clone, Debug)]
 pub struct Context {
-    defs: HashMap<String, Vec<Definition>>,
+    defs: HashMap<String, Vec<Def>>,
+}
+
+impl Context {
+    fn new() -> Self {
+        Self {
+            defs: HashMap::new(),
+        }
+    }
+
+    fn def(mut self, name: &str, def: Def) -> Self {
+        if let Some(defs) = self.defs.get_mut(name) {
+            defs.push(def);
+        } else {
+            self.defs.insert(name.into(), vec![def]);
+        }
+        self
+    }
 }
 
 static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
-    let mut defs = HashMap::new();
-    defs.insert("e".into(), vec![Definition::constant(DecInterval::E)]);
-    defs.insert("gamma".into(), vec![Definition::constant(EULER_GAMMA)]);
-    defs.insert("γ".into(), vec![Definition::constant(EULER_GAMMA)]);
-    defs.insert("pi".into(), vec![Definition::constant(DecInterval::PI)]);
-    defs.insert("π".into(), vec![Definition::constant(DecInterval::PI)]);
-    for name in BUILTIN_NAMES {
-        defs.insert(
-            name.to_string(),
-            vec![Definition {
-                arity: Arity::Variadic,
-                body: Term::default(),
-            }],
-        );
-    }
-    Context { defs }
+    const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
+    Context::new()
+        .def("e", Def::constant(DecInterval::E))
+        .def("gamma", Def::constant(EULER_GAMMA))
+        .def("γ", Def::constant(EULER_GAMMA))
+        .def("pi", Def::constant(DecInterval::PI))
+        .def("π", Def::constant(DecInterval::PI))
+        .def("abs", Def::unary(UnaryOp::Abs))
+        .def("acos", Def::unary(UnaryOp::Acos))
+        .def("acosh", Def::unary(UnaryOp::Acosh))
+        .def("Ai", Def::unary(UnaryOp::AiryAi))
+        .def("Ai'", Def::unary(UnaryOp::AiryAiPrime))
+        .def("Bi", Def::unary(UnaryOp::AiryBi))
+        .def("Bi'", Def::unary(UnaryOp::AiryBiPrime))
+        .def("asin", Def::unary(UnaryOp::Asin))
+        .def("asinh", Def::unary(UnaryOp::Asinh))
+        .def("atan", Def::unary(UnaryOp::Atan))
+        .def("atanh", Def::unary(UnaryOp::Atanh))
+        .def("ceil", Def::unary(UnaryOp::Ceil))
+        .def("Chi", Def::unary(UnaryOp::Chi))
+        .def("Ci", Def::unary(UnaryOp::Ci))
+        .def("cos", Def::unary(UnaryOp::Cos))
+        .def("cosh", Def::unary(UnaryOp::Cosh))
+        .def("psi", Def::unary(UnaryOp::Digamma))
+        .def("ψ", Def::unary(UnaryOp::Digamma))
+        .def("Ei", Def::unary(UnaryOp::Ei))
+        .def("erf", Def::unary(UnaryOp::Erf))
+        .def("erfc", Def::unary(UnaryOp::Erfc))
+        .def("erfi", Def::unary(UnaryOp::Erfi))
+        .def("exp", Def::unary(UnaryOp::Exp))
+        .def("floor", Def::unary(UnaryOp::Floor))
+        .def("C", Def::unary(UnaryOp::FresnelC))
+        .def("S", Def::unary(UnaryOp::FresnelS))
+        .def("Gamma", Def::unary(UnaryOp::Gamma))
+        .def("Γ", Def::unary(UnaryOp::Gamma))
+        .def("li", Def::unary(UnaryOp::Li))
+        .def("ln", Def::unary(UnaryOp::Ln))
+        .def("log", Def::unary(UnaryOp::Log10))
+        .def("Shi", Def::unary(UnaryOp::Shi))
+        .def("Si", Def::unary(UnaryOp::Si))
+        .def("sign", Def::unary(UnaryOp::Sign))
+        .def("sin", Def::unary(UnaryOp::Sin))
+        .def("sinh", Def::unary(UnaryOp::Sinh))
+        .def("sqrt", Def::unary(UnaryOp::Sqrt))
+        .def("tan", Def::unary(UnaryOp::Tan))
+        .def("tanh", Def::unary(UnaryOp::Tanh))
+        .def("atan2", Def::binary(BinaryOp::Atan2))
+        .def("I", Def::binary(BinaryOp::BesselI))
+        .def("J", Def::binary(BinaryOp::BesselJ))
+        .def("K", Def::binary(BinaryOp::BesselK))
+        .def("Y", Def::binary(BinaryOp::BesselY))
+        .def("Gamma", Def::binary(BinaryOp::GammaInc))
+        .def("Γ", Def::binary(BinaryOp::GammaInc))
+        .def("gcd", Def::binary(BinaryOp::Gcd).associative())
+        .def("lcm", Def::binary(BinaryOp::Lcm).associative())
+        .def("log", Def::binary(BinaryOp::Log))
+        .def("max", Def::binary(BinaryOp::Max).associative())
+        .def("min", Def::binary(BinaryOp::Min).associative())
+        .def("mod", Def::binary(BinaryOp::Mod))
 });
 
 impl Context {
@@ -76,18 +166,26 @@ impl Context {
         &BUILTIN_CONTEXT
     }
 
-    // TODO: Define something like `TermKind::Slot` and do substitution.
-    pub fn get_substituted(&self, name: &str, args: Vec<&Term>) -> Option<Term> {
-        let def = self
-            .defs
-            .get(name)?
+    pub fn get_substitution(&self, name: &str, mut args: Vec<Term>) -> Option<Term> {
+        let defs = self.defs.get(name)?;
+        if let Some(def) = defs
             .iter()
-            .find(|d| matches!(d.arity,Arity::Fixed(n) if n as usize == args.len()))?;
-        Some(def.body.clone())
-    }
+            .find(|d| matches!(d.arity, Arity::Fixed(n) if n as usize == args.len()))
+        {
+            let t = def.substitute(args);
+            Some(t)
+        } else if let Some(def) = defs.iter().find(|d| d.associative) {
+            if args.len() < 2 {
+                return None;
+            }
 
-    pub fn is_defined(&self, name: &str) -> bool {
-        self.defs.contains_key(name)
+            let mut args = args.drain(..);
+            let x0 = args.next().unwrap();
+            let t = args.fold(x0, |t, x| def.substitute(vec![t, x]));
+            Some(t)
+        } else {
+            None
+        }
     }
 }
 

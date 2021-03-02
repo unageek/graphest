@@ -14,7 +14,6 @@ use nom::{
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
     Err as NomErr, IResult, InputTakeAtPosition,
 };
-use std::collections::VecDeque;
 
 type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
 
@@ -44,15 +43,6 @@ fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
     )(i)
 }
 
-fn keyword<'a>(
-    kw: &'a str,
-) -> impl FnMut(InputWithContext<'a>) -> ParseResult<'a, InputWithContext<'a>> {
-    terminated(
-        tag(kw),
-        not(verify(peek(anychar), |c| c.is_alphanumeric() || *c == '\'')),
-    )
-}
-
 fn decimal_constant(i: InputWithContext) -> ParseResult<Term> {
     map(decimal_literal, |s| {
         let s = ["[", s, ",", s, "]"].concat();
@@ -63,122 +53,8 @@ fn decimal_constant(i: InputWithContext) -> ParseResult<Term> {
 
 fn named_constant(i: InputWithContext) -> ParseResult<Term> {
     map_opt(identifier, |s: InputWithContext| {
-        s.ctx.get_substituted(s.i, vec![])
+        s.ctx.get_substitution(s.i, vec![])
     })(i)
-}
-
-fn variable(i: InputWithContext) -> ParseResult<Term> {
-    use std::ops::Not;
-    map_opt(identifier, |s: InputWithContext| {
-        s.ctx
-            .is_defined(s.i)
-            .not()
-            .then(|| Term::new(TermKind::Var(s.i.into())))
-    })(i)
-}
-
-fn primary_term(i: InputWithContext) -> ParseResult<Term> {
-    alt((
-        decimal_constant,
-        named_constant,
-        variable,
-        delimited(
-            terminated(char('('), space0),
-            term,
-            preceded(space0, char(')')),
-        ),
-        map(
-            delimited(
-                terminated(char('|'), space0),
-                term,
-                preceded(space0, char('|')),
-            ),
-            |x| Term::new(TermKind::Unary(UnaryOp::Abs, Box::new(x))),
-        ),
-        map(
-            delimited(
-                terminated(char('⌈'), space0),
-                term,
-                preceded(space0, char('⌉')),
-            ),
-            |x| Term::new(TermKind::Unary(UnaryOp::Ceil, Box::new(x))),
-        ),
-        map(
-            delimited(
-                terminated(char('⌊'), space0),
-                term,
-                preceded(space0, char('⌋')),
-            ),
-            |x| Term::new(TermKind::Unary(UnaryOp::Floor, Box::new(x))),
-        ),
-    ))(i)
-}
-
-fn fn1(i: InputWithContext) -> ParseResult<UnaryOp> {
-    // `alt` takes a tuple with 21 elements at most.
-    alt((
-        value(UnaryOp::Acos, keyword("acos")),
-        value(UnaryOp::Acosh, keyword("acosh")),
-        value(UnaryOp::AiryAi, keyword("Ai")),
-        value(UnaryOp::AiryAiPrime, keyword("Ai'")),
-        value(UnaryOp::AiryBi, keyword("Bi")),
-        value(UnaryOp::AiryBiPrime, keyword("Bi'")),
-        value(UnaryOp::Asin, keyword("asin")),
-        value(UnaryOp::Asinh, keyword("asinh")),
-        value(UnaryOp::Atan, keyword("atan")),
-        value(UnaryOp::Atanh, keyword("atanh")),
-        value(UnaryOp::Ceil, keyword("ceil")),
-        value(UnaryOp::Chi, keyword("Chi")),
-        value(UnaryOp::Ci, keyword("Ci")),
-        value(UnaryOp::Cos, keyword("cos")),
-        value(UnaryOp::Cosh, keyword("cosh")),
-        value(UnaryOp::Digamma, alt((keyword("psi"), keyword("ψ")))),
-        value(UnaryOp::Ei, keyword("Ei")),
-        value(UnaryOp::Erf, keyword("erf")),
-        value(UnaryOp::Erfc, keyword("erfc")),
-        value(UnaryOp::Erfi, keyword("erfi")),
-        alt((
-            value(UnaryOp::Exp, keyword("exp")),
-            value(UnaryOp::Floor, keyword("floor")),
-            value(UnaryOp::FresnelC, keyword("C")),
-            value(UnaryOp::FresnelS, keyword("S")),
-            value(UnaryOp::Gamma, alt((keyword("Gamma"), keyword("Γ")))),
-            value(UnaryOp::Li, keyword("li")),
-            value(UnaryOp::Ln, keyword("ln")),
-            value(UnaryOp::Log10, keyword("log")),
-            value(UnaryOp::Shi, keyword("Shi")),
-            value(UnaryOp::Si, keyword("Si")),
-            value(UnaryOp::Sign, keyword("sign")),
-            value(UnaryOp::Sin, keyword("sin")),
-            value(UnaryOp::Sinh, keyword("sinh")),
-            value(UnaryOp::Sqrt, keyword("sqrt")),
-            value(UnaryOp::Tan, keyword("tan")),
-            value(UnaryOp::Tanh, keyword("tanh")),
-        )),
-    ))(i)
-}
-
-fn fn2(i: InputWithContext) -> ParseResult<BinaryOp> {
-    alt((
-        value(BinaryOp::Atan2, keyword("atan2")),
-        value(BinaryOp::BesselI, keyword("I")),
-        value(BinaryOp::BesselJ, keyword("J")),
-        value(BinaryOp::BesselK, keyword("K")),
-        value(BinaryOp::BesselY, keyword("Y")),
-        value(BinaryOp::GammaInc, keyword("Gamma")),
-        value(BinaryOp::GammaInc, keyword("Γ")),
-        value(BinaryOp::Log, keyword("log")),
-        value(BinaryOp::Mod, keyword("mod")),
-    ))(i)
-}
-
-fn fn_flat(i: InputWithContext) -> ParseResult<BinaryOp> {
-    alt((
-        value(BinaryOp::Gcd, keyword("gcd")),
-        value(BinaryOp::Lcm, keyword("lcm")),
-        value(BinaryOp::Max, keyword("max")),
-        value(BinaryOp::Min, keyword("min")),
-    ))(i)
 }
 
 fn argument(i: InputWithContext) -> ParseResult<Term> {
@@ -189,61 +65,40 @@ fn argument(i: InputWithContext) -> ParseResult<Term> {
     )(i)
 }
 
-fn argument_list(i: InputWithContext) -> ParseResult<VecDeque<Term>> {
+fn argument_list(i: InputWithContext) -> ParseResult<Vec<Term>> {
     let (i, x) = argument(i)?;
 
-    let mut xs = VecDeque::new();
-    xs.push_back(x);
     fold_many0(
         preceded(delimited(space0, char(','), space0), argument),
-        xs,
+        vec![x],
         |mut xs, x| {
-            xs.push_back(x);
+            xs.push(x);
             xs
         },
     )(i)
 }
 
-fn postfix_term(i: InputWithContext) -> ParseResult<Term> {
+fn function_application(i: InputWithContext) -> ParseResult<Term> {
+    fn keyword<'a>(
+        kw: &'a str,
+    ) -> impl FnMut(InputWithContext<'a>) -> ParseResult<'a, InputWithContext<'a>> {
+        terminated(tag(kw), not(verify(peek(anychar), |c| c.is_alphanumeric())))
+    }
+
     alt((
-        map(
+        map_opt(
             pair(
-                fn1,
-                delimited(
-                    delimited(space0, char('('), space0),
-                    term,
-                    preceded(space0, char(')')),
-                ),
-            ),
-            |(f, x)| Term::new(TermKind::Unary(f, Box::new(x))),
-        ),
-        map(
-            pair(
-                fn2,
-                delimited(
-                    delimited(space0, char('('), space0),
-                    separated_pair(term, delimited(space0, char(','), space0), term),
-                    preceded(space0, char(')')),
-                ),
-            ),
-            |(f, (x, y))| Term::new(TermKind::Binary(f, Box::new(x), Box::new(y))),
-        ),
-        map(
-            pair(
-                fn_flat,
+                // Allow suffix ' for `Ai'`/`Bi'`.
+                recognize(pair(identifier, opt(char('\'')))),
                 delimited(
                     delimited(space0, char('('), space0),
                     argument_list,
                     preceded(space0, char(')')),
                 ),
             ),
-            |(f, mut xs)| {
-                let head = xs.pop_front().unwrap();
-                xs.into_iter().fold(head, |t, x| {
-                    Term::new(TermKind::Binary(f, Box::new(t), Box::new(x)))
-                })
-            },
+            |(s, xs)| s.ctx.get_substitution(s.i, xs),
         ),
+        // TODO: Move the definition to `Context`.
         map(
             pair(
                 alt((
@@ -269,11 +124,53 @@ fn postfix_term(i: InputWithContext) -> ParseResult<Term> {
                 ),
             ),
             |(f, (mut xs, n))| {
-                xs.push_back(n);
-                Term::new(TermKind::Nary(f, xs.into_iter().collect()))
+                xs.push(n);
+                Term::new(TermKind::Nary(f, xs))
             },
         ),
-        primary_term,
+    ))(i)
+}
+
+fn variable(i: InputWithContext) -> ParseResult<Term> {
+    map(identifier, |s| Term::new(TermKind::Var(s.i.into())))(i)
+}
+
+fn primary_term(i: InputWithContext) -> ParseResult<Term> {
+    let ctx = i.ctx;
+    alt((
+        decimal_constant,
+        named_constant,
+        function_application,
+        variable,
+        delimited(
+            terminated(char('('), space0),
+            term,
+            preceded(space0, char(')')),
+        ),
+        map_opt(
+            delimited(
+                terminated(char('|'), space0),
+                term,
+                preceded(space0, char('|')),
+            ),
+            move |x| ctx.get_substitution("abs", vec![x]),
+        ),
+        map_opt(
+            delimited(
+                terminated(char('⌈'), space0),
+                term,
+                preceded(space0, char('⌉')),
+            ),
+            move |x| ctx.get_substitution("ceil", vec![x]),
+        ),
+        map_opt(
+            delimited(
+                terminated(char('⌊'), space0),
+                term,
+                preceded(space0, char('⌋')),
+            ),
+            move |x| ctx.get_substitution("floor", vec![x]),
+        ),
     ))(i)
 }
 
@@ -282,13 +179,13 @@ fn power_term(i: InputWithContext) -> ParseResult<Term> {
     alt((
         map(
             separated_pair(
-                postfix_term,
+                primary_term,
                 delimited(space0, char('^'), space0),
                 unary_term,
             ),
             |(x, y)| Term::new(TermKind::Binary(BinaryOp::Pow, Box::new(x), Box::new(y))),
         ),
-        postfix_term,
+        primary_term,
     ))(i)
 }
 
@@ -512,6 +409,7 @@ mod tests {
         test_parse_term("|x|", "(Abs x)");
         test_parse_term("⌈x⌉", "(Ceil x)");
         test_parse_term("⌊x⌋", "(Floor x)");
+        test_parse_term("abs(x)", "(Abs x)");
         test_parse_term("acos(x)", "(Acos x)");
         test_parse_term("acosh(x)", "(Acosh x)");
         test_parse_term("Ai(x)", "(AiryAi x)");

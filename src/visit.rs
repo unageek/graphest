@@ -114,6 +114,28 @@ fn traverse_form_mut<V: VisitMut>(v: &mut V, f: &mut Form) {
     };
 }
 
+pub struct Substitute {
+    args: Vec<Term>,
+}
+
+impl Substitute {
+    pub fn new(args: Vec<Term>) -> Self {
+        Self { args }
+    }
+}
+
+impl VisitMut for Substitute {
+    fn visit_term_mut(&mut self, t: &mut Term) {
+        traverse_term_mut(self, t);
+
+        if let TermKind::Var(x) = &mut t.kind {
+            if let Ok(i) = x.parse::<usize>() {
+                *t = self.args.get(i).unwrap().clone()
+            }
+        }
+    }
+}
+
 /// Replaces a - b with a + (-b) and does some special transformations.
 pub struct PreTransform;
 
@@ -702,11 +724,13 @@ impl<'a> Visit<'a> for FindMaximalTerms {
                 if !matches!(t.kind, TermKind::Var(_)) {
                     self.mx.push(t.id);
                 }
+                // Stop traversal.
             }
             VarSet::Y => {
                 if !matches!(t.kind, TermKind::Var(_)) {
                     self.my.push(t.id);
                 }
+                // Stop traversal.
             }
             VarSet::XY => traverse_term(self, t),
             _ => (),
