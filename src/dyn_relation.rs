@@ -333,7 +333,7 @@ impl FromStr for DynRelation {
             .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _, _)))
             .count();
 
-        let mut v = FindMaximalTerms::new();
+        let mut v = FindMaximalScalarTerms::new();
         v.visit_form(&form);
         let (mx, my) = v.mx_my();
 

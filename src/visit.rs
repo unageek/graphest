@@ -681,14 +681,14 @@ impl<'a> Visit<'a> for CollectStatic {
     }
 }
 
-/// Collects the ids of maximal sub-terms that contain exactly one free variable.
+/// Collects the ids of maximal scalar sub-terms that contain exactly one free variable.
 /// Terms of kind [`TermKind::Var`] are excluded from collection.
-pub struct FindMaximalTerms {
+pub struct FindMaximalScalarTerms {
     mx: Vec<TermId>,
     my: Vec<TermId>,
 }
 
-impl FindMaximalTerms {
+impl FindMaximalScalarTerms {
     pub fn new() -> Self {
         Self {
             mx: Vec::new(),
@@ -705,17 +705,17 @@ impl FindMaximalTerms {
     }
 }
 
-impl<'a> Visit<'a> for FindMaximalTerms {
+impl<'a> Visit<'a> for FindMaximalScalarTerms {
     fn visit_term(&mut self, t: &'a Term) {
         match t.vars {
             VarSet::X => {
-                if !matches!(t.kind, TermKind::Var(_)) {
+                if !matches!(t.kind, TermKind::Var(_) | TermKind::List(_)) {
                     self.mx.push(t.id);
                 }
                 // Stop traversal.
             }
             VarSet::Y => {
-                if !matches!(t.kind, TermKind::Var(_)) {
+                if !matches!(t.kind, TermKind::Var(_) | TermKind::List(_)) {
                     self.my.push(t.id);
                 }
                 // Stop traversal.
