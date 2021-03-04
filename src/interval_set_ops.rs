@@ -629,18 +629,17 @@ impl TupperIntervalSet {
         }
     });
 
-    pub fn ranked_max(xs: Vec<&Self>, site: Option<Site>) -> Self {
-        Self::ranked_min_max(xs, site, true)
+    pub fn ranked_max(xs: Vec<&Self>, n: &Self, site: Option<Site>) -> Self {
+        Self::ranked_min_max(xs, n, site, true)
     }
 
-    pub fn ranked_min(xs: Vec<&Self>, site: Option<Site>) -> Self {
-        Self::ranked_min_max(xs, site, false)
+    pub fn ranked_min(xs: Vec<&Self>, n: &Self, site: Option<Site>) -> Self {
+        Self::ranked_min_max(xs, n, site, false)
     }
 
-    fn ranked_min_max(xs: Vec<&Self>, site: Option<Site>, max: bool) -> Self {
+    fn ranked_min_max(xs: Vec<&Self>, n: &Self, site: Option<Site>, max: bool) -> Self {
         use itertools::Itertools;
-        assert!(xs.len() >= 2);
-        let (&n, xs) = xs.split_last().unwrap();
+        assert!(!xs.is_empty());
         let mut rs = Self::empty();
         let mut infs = vec![];
         let mut sups = vec![];

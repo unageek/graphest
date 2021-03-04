@@ -1,20 +1,22 @@
 use crate::{
-    ast::{BinaryOp, FormId, NaryOp, RelOp, TermId, UnaryOp, VarSet},
+    ast::{BinaryOp, FormId, RelOp, TermId, UnaryOp, VarSet},
     interval_set::{DecSignSet, Site, TupperIntervalSet},
 };
 
 #[derive(Clone, Debug)]
 pub enum StaticTermKind {
+    // == Scalar terms ==
     Constant(Box<TupperIntervalSet>),
     X,
     Y,
     Unary(UnaryOp, TermId),
     Binary(BinaryOp, TermId, TermId),
     Pown(TermId, i32),
+    // == Others ==
     // Box the `Vec` to keep the enum small.
-    // These operations are relatively rare, so it is worth the cost of the extra indirection.
+    // Operations involving lists are relatively rare, so it would be worth the cost of the extra indirection.
     #[allow(clippy::box_vec)]
-    Nary(NaryOp, Box<Vec<TermId>>),
+    List(Box<Vec<TermId>>),
 }
 
 /// A term in a cache-efficient representation.
@@ -28,9 +30,10 @@ pub struct StaticTerm {
 impl StaticTerm {
     /// Evaluates the term.
     ///
-    /// Panics if the term is of kind [`StaticTermKind::X`] or [`StaticTermKind::Y`].
-    pub fn eval(&self, ts: &[TupperIntervalSet]) -> TupperIntervalSet {
-        use {BinaryOp::*, NaryOp::*, StaticTermKind::*, UnaryOp::*};
+    /// Panics if the term is of kind [`StaticTermKind::X`], [`StaticTermKind::Y`]
+    /// or [`StaticTermKind::List`].
+    pub fn eval(&self, terms: &[StaticTerm], ts: &[TupperIntervalSet]) -> TupperIntervalSet {
+        use {BinaryOp::*, StaticTermKind::*, UnaryOp::*};
         match &self.kind {
             Constant(x) => *x.clone(),
             Unary(Abs, x) => ts[*x as usize].abs(),
@@ -95,17 +98,31 @@ impl StaticTerm {
             Binary(Mod, x, y) => ts[*x as usize].rem_euclid(&ts[*y as usize], self.site),
             Binary(Mul, x, y) => &ts[*x as usize] * &ts[*y as usize],
             Binary(Pow, x, y) => ts[*x as usize].pow(&ts[*y as usize], self.site),
+            Binary(RankedMax, xs, n) => {
+                if let List(xs) = &terms[*xs as usize].kind {
+                    TupperIntervalSet::ranked_max(
+                        xs.iter().map(|x| &ts[*x as usize]).collect(),
+                        &ts[*n as usize],
+                        self.site,
+                    )
+                } else {
+                    panic!("a list is expected")
+                }
+            }
+            Binary(RankedMin, xs, n) => {
+                if let List(xs) = &terms[*xs as usize].kind {
+                    TupperIntervalSet::ranked_min(
+                        xs.iter().map(|x| &ts[*x as usize]).collect(),
+                        &ts[*n as usize],
+                        self.site,
+                    )
+                } else {
+                    panic!("a list is expected")
+                }
+            }
             Binary(Sub, x, y) => &ts[*x as usize] - &ts[*y as usize],
             Pown(x, y) => ts[*x as usize].pown(*y, self.site),
-            Nary(RankedMax, xs) => TupperIntervalSet::ranked_max(
-                xs.iter().map(|x| &ts[*x as usize]).collect(),
-                self.site,
-            ),
-            Nary(RankedMin, xs) => TupperIntervalSet::ranked_min(
-                xs.iter().map(|x| &ts[*x as usize]).collect(),
-                self.site,
-            ),
-            X | Y => panic!("free variables cannot be evaluated"),
+            X | Y | List(_) => panic!("this term cannot be evaluated"),
         }
     }
 }

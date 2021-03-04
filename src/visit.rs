@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        BinaryOp, Form, FormId, FormKind, NaryOp, RelOp, Term, TermId, TermKind, UnaryOp, VarSet,
+        BinaryOp, Form, FormId, FormKind, RelOp, Term, TermId, TermKind, UnaryOp, VarSet,
         UNINIT_FORM_ID, UNINIT_TERM_ID,
     },
     interval_set::{Site, TupperIntervalSet},
@@ -36,7 +36,7 @@ fn traverse_term<'a, V: Visit<'a>>(v: &mut V, t: &'a Term) {
             v.visit_term(y);
         }
         Pown(x, _) => v.visit_term(x),
-        Nary(_, xs) => {
+        List(xs) => {
             for x in xs {
                 v.visit_term(x);
             }
@@ -87,7 +87,7 @@ fn traverse_term_mut<V: VisitMut>(v: &mut V, t: &mut Term) {
             v.visit_term_mut(y);
         }
         Pown(x, _) => v.visit_term_mut(x),
-        Nary(_, xs) => {
+        List(xs) => {
             for x in xs {
                 v.visit_term_mut(x);
             }
@@ -322,52 +322,20 @@ pub struct FoldConstant {
     pub modified: bool,
 }
 
-// Only fold constants which evaluate to an empty or a single interval
-// since the sites are not assigned and branch cut tracking is not possible
-// at this moment.
 impl VisitMut for FoldConstant {
     fn visit_term_mut(&mut self, t: &mut Term) {
         use TermKind::*;
         traverse_term_mut(self, t);
 
-        match &mut t.kind {
-            Unary(_, x) => {
-                if let Constant(_) = &x.kind {
-                    let val = t.eval();
-                    if val.len() <= 1 {
-                        *t = Term::new(Constant(Box::new(val)));
-                        self.modified = true;
-                    }
+        if !matches!(t.kind, TermKind::Constant(_)) {
+            if let Some(val) = t.eval() {
+                // Only fold constants which evaluate to the empty or a single interval
+                // since the branch cut tracking is not possible with the AST.
+                if val.len() <= 1 {
+                    *t = Term::new(Constant(Box::new(val)));
+                    self.modified = true;
                 }
             }
-            Binary(_, x, y) => {
-                if let (Constant(_), Constant(_)) = (&x.kind, &y.kind) {
-                    let val = t.eval();
-                    if val.len() <= 1 {
-                        *t = Term::new(Constant(Box::new(val)));
-                        self.modified = true;
-                    }
-                }
-            }
-            Pown(x, _) => {
-                if let Constant(_) = &x.kind {
-                    let val = t.eval();
-                    if val.len() <= 1 {
-                        *t = Term::new(Constant(Box::new(val)));
-                        self.modified = true;
-                    }
-                }
-            }
-            Nary(_, xs) => {
-                if xs.iter().all(|x| matches!(x.kind, Constant(_))) {
-                    let val = t.eval();
-                    if val.len() <= 1 {
-                        *t = Term::new(Constant(Box::new(val)));
-                        self.modified = true;
-                    }
-                }
-            }
-            _ => (),
         }
     }
 }
@@ -491,8 +459,8 @@ impl VisitMut for UpdateMetadata {
 
 type SiteMap = HashMap<TermId, Site>;
 
-/// Assigns [`TermId`]s to all of the terms, and assigns [`FormId`]s to the atomic formulas
-/// so that they serve as indices in [`EvalResult`][`crate::eval_result::EvalResult`].
+/// Assigns [`TermId`]s to the scalar terms and [`FormId`]s to the atomic formulas.
+/// These [`FormId`]s are used as indices in [`EvalResult`][`crate::eval_result::EvalResult`].
 pub struct AssignIdStage1 {
     next_form_id: FormId,
     next_term_id: TermId,
@@ -516,7 +484,7 @@ impl AssignIdStage1 {
 
     /// Returns `true` if the term can perform branch cut on evaluation.
     fn term_can_perform_cut(kind: &TermKind) -> bool {
-        use {BinaryOp::*, NaryOp::*, TermKind::*, UnaryOp::*};
+        use {BinaryOp::*, TermKind::*, UnaryOp::*};
         matches!(
             kind,
             Unary(Ceil, _)
@@ -533,9 +501,9 @@ impl AssignIdStage1 {
                 | Binary(Log, _, _)
                 | Binary(Mod, _, _)
                 | Binary(Pow, _, _)
+                | Binary(RankedMax, _, _)
+                | Binary(RankedMin, _, _)
                 | Pown(_, _)
-                | Nary(RankedMax, _)
-                | Nary(RankedMin, _)
         )
     }
 }
@@ -544,24 +512,26 @@ impl VisitMut for AssignIdStage1 {
     fn visit_term_mut(&mut self, t: &mut Term) {
         traverse_term_mut(self, t);
 
-        match self.visited_terms.get(&(t as *const Term)) {
-            Some(visited) => {
-                let id = unsafe { (**visited).id };
-                t.id = id;
+        if !matches!(t.kind, TermKind::List(_)) {
+            match self.visited_terms.get(&(t as *const Term)) {
+                Some(visited) => {
+                    let id = unsafe { (**visited).id };
+                    t.id = id;
 
-                if !self.site_map.contains_key(&id)
-                    && Self::term_can_perform_cut(&t.kind)
-                    && self.next_site <= Site::MAX
-                {
-                    self.site_map.insert(id, Site::new(self.next_site));
-                    self.next_site += 1;
+                    if !self.site_map.contains_key(&id)
+                        && Self::term_can_perform_cut(&t.kind)
+                        && self.next_site <= Site::MAX
+                    {
+                        self.site_map.insert(id, Site::new(self.next_site));
+                        self.next_site += 1;
+                    }
                 }
-            }
-            _ => {
-                assert!(self.next_term_id != UNINIT_TERM_ID);
-                t.id = self.next_term_id;
-                self.next_term_id += 1;
-                self.visited_terms.insert(t);
+                _ => {
+                    assert!(self.next_term_id != UNINIT_TERM_ID);
+                    t.id = self.next_term_id;
+                    self.next_term_id += 1;
+                    self.visited_terms.insert(t);
+                }
             }
         }
     }
@@ -585,12 +555,13 @@ impl VisitMut for AssignIdStage1 {
     }
 }
 
-/// Assigns [`TermId`]s to the non-atomic formulas.
+/// Assigns [`TermId`]s to the non-scalar terms and [`FormId`]s to the non-atomic formulas.
 pub struct AssignIdStage2 {
     next_form_id: FormId,
     next_term_id: TermId,
     site_map: SiteMap,
     visited_forms: HashSet<*const Form>,
+    visited_terms: HashSet<*const Term>,
 }
 
 impl AssignIdStage2 {
@@ -600,11 +571,30 @@ impl AssignIdStage2 {
             next_term_id: stage1.next_term_id,
             site_map: stage1.site_map,
             visited_forms: HashSet::new(),
+            visited_terms: HashSet::new(),
         }
     }
 }
 
 impl VisitMut for AssignIdStage2 {
+    fn visit_term_mut(&mut self, t: &mut Term) {
+        traverse_term_mut(self, t);
+
+        if let TermKind::List(_) = t.kind {
+            match self.visited_terms.get(&(t as *const Term)) {
+                Some(visited) => {
+                    t.id = unsafe { (**visited).id };
+                }
+                _ => {
+                    assert!(self.next_term_id != UNINIT_TERM_ID);
+                    t.id = self.next_term_id;
+                    self.next_term_id += 1;
+                    self.visited_terms.insert(t);
+                }
+            }
+        }
+    }
+
     fn visit_form_mut(&mut self, f: &mut Form) {
         traverse_form_mut(self, f);
 
@@ -624,7 +614,7 @@ impl VisitMut for AssignIdStage2 {
     }
 }
 
-/// Collects [`StaticTerm`]s and [`StaticForm`]s in the topological order.
+/// Collects [`StaticTerm`]s and [`StaticForm`]s in ascending order of the IDs.
 pub struct CollectStatic {
     site_map: SiteMap,
     terms: Vec<Option<StaticTerm>>,
@@ -665,9 +655,7 @@ impl<'a> Visit<'a> for CollectStatic {
                     Unary(op, x) => StaticTermKind::Unary(*op, x.id),
                     Binary(op, x, y) => StaticTermKind::Binary(*op, x.id, y.id),
                     Pown(x, y) => StaticTermKind::Pown(x.id, *y),
-                    Nary(op, xs) => {
-                        StaticTermKind::Nary(*op, Box::new(xs.iter().map(|x| x.id).collect()))
-                    }
+                    List(xs) => StaticTermKind::List(Box::new(xs.iter().map(|x| x.id).collect())),
                     Var(_) | Uninit => panic!(),
                 },
                 vars: t.vars,
