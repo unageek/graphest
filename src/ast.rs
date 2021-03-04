@@ -79,13 +79,9 @@ pub enum BinaryOp {
     Mod,
     Mul,
     Pow,
-    Sub,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum NaryOp {
     RankedMax,
     RankedMin,
+    Sub,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -104,12 +100,14 @@ pub enum RelOp {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum TermKind {
+    // == Scalar terms ==
     Constant(Box<TupperIntervalSet>),
-    Var(String),
     Unary(UnaryOp, Box<Term>),
     Binary(BinaryOp, Box<Term>, Box<Term>),
     Pown(Box<Term>, i32),
-    Nary(NaryOp, Vec<Term>),
+    // == Others ==
+    Var(String),
+    List(Vec<Term>),
     Uninit,
 }
 
@@ -149,84 +147,93 @@ impl Term {
 
     /// Evaluates the term.
     ///
-    /// Panics if the term contains [`TermKind::Var`].
-    pub fn eval(&self) -> TupperIntervalSet {
-        use {BinaryOp::*, NaryOp::*, TermKind::*, UnaryOp::*};
+    /// Returns [`None`] if the term cannot be evaluated to a scalar constant.
+    pub fn eval(&self) -> Option<TupperIntervalSet> {
+        use {BinaryOp::*, TermKind::*, UnaryOp::*};
         match &self.kind {
-            Constant(x) => *x.clone(),
-            Unary(Abs, x) => x.eval().abs(),
-            Unary(Acos, x) => x.eval().acos(),
-            Unary(Acosh, x) => x.eval().acosh(),
-            Unary(AiryAi, x) => x.eval().airy_ai(),
-            Unary(AiryAiPrime, x) => x.eval().airy_ai_prime(),
-            Unary(AiryBi, x) => x.eval().airy_bi(),
-            Unary(AiryBiPrime, x) => x.eval().airy_bi_prime(),
-            Unary(Asin, x) => x.eval().asin(),
-            Unary(Asinh, x) => x.eval().asinh(),
-            Unary(Atan, x) => x.eval().atan(),
-            Unary(Atanh, x) => x.eval().atanh(),
-            Unary(Ceil, x) => x.eval().ceil(None),
-            Unary(Chi, x) => x.eval().chi(),
-            Unary(Ci, x) => x.eval().ci(),
-            Unary(Cos, x) => x.eval().cos(),
-            Unary(Cosh, x) => x.eval().cosh(),
-            Unary(Digamma, x) => x.eval().digamma(None),
-            Unary(Ei, x) => x.eval().ei(),
-            Unary(Erf, x) => x.eval().erf(),
-            Unary(Erfc, x) => x.eval().erfc(),
-            Unary(Erfi, x) => x.eval().erfi(),
-            Unary(Exp, x) => x.eval().exp(),
-            Unary(Exp10, x) => x.eval().exp10(),
-            Unary(Exp2, x) => x.eval().exp2(),
-            Unary(Floor, x) => x.eval().floor(None),
-            Unary(FresnelC, x) => x.eval().fresnel_c(),
-            Unary(FresnelS, x) => x.eval().fresnel_s(),
-            Unary(Gamma, x) => x.eval().gamma(None),
-            Unary(Li, x) => x.eval().li(),
-            Unary(Ln, x) => x.eval().ln(),
-            Unary(Log10, x) => x.eval().log10(),
-            Unary(Neg, x) => -&x.eval(),
-            Unary(One, x) => x.eval().one(),
-            Unary(Recip, x) => x.eval().recip(None),
-            Unary(Shi, x) => x.eval().shi(),
-            Unary(Si, x) => x.eval().si(),
-            Unary(Sign, x) => x.eval().sign(None),
-            Unary(Sin, x) => x.eval().sin(),
-            Unary(Sinc, x) => x.eval().sinc(),
-            Unary(Sinh, x) => x.eval().sinh(),
-            Unary(Sqr, x) => x.eval().sqr(),
-            Unary(Sqrt, x) => x.eval().sqrt(),
-            Unary(Tan, x) => x.eval().tan(None),
-            Unary(Tanh, x) => x.eval().tanh(),
-            Unary(UndefAt0, x) => x.eval().undef_at_0(),
-            Binary(Add, x, y) => &x.eval() + &y.eval(),
-            Binary(Atan2, y, x) => y.eval().atan2(&x.eval(), None),
-            Binary(BesselI, n, x) => n.eval().bessel_i(&x.eval()),
-            Binary(BesselJ, n, x) => n.eval().bessel_j(&x.eval()),
-            Binary(BesselK, n, x) => n.eval().bessel_k(&x.eval()),
-            Binary(BesselY, n, x) => n.eval().bessel_y(&x.eval()),
-            Binary(Div, x, y) => x.eval().div(&y.eval(), None),
-            Binary(GammaInc, a, x) => a.eval().gamma_inc(&x.eval()),
-            Binary(Gcd, x, y) => x.eval().gcd(&y.eval(), None),
-            Binary(Lcm, x, y) => x.eval().lcm(&y.eval(), None),
+            Constant(x) => Some(*x.clone()),
+            Unary(Abs, x) => Some(x.eval()?.abs()),
+            Unary(Acos, x) => Some(x.eval()?.acos()),
+            Unary(Acosh, x) => Some(x.eval()?.acosh()),
+            Unary(AiryAi, x) => Some(x.eval()?.airy_ai()),
+            Unary(AiryAiPrime, x) => Some(x.eval()?.airy_ai_prime()),
+            Unary(AiryBi, x) => Some(x.eval()?.airy_bi()),
+            Unary(AiryBiPrime, x) => Some(x.eval()?.airy_bi_prime()),
+            Unary(Asin, x) => Some(x.eval()?.asin()),
+            Unary(Asinh, x) => Some(x.eval()?.asinh()),
+            Unary(Atan, x) => Some(x.eval()?.atan()),
+            Unary(Atanh, x) => Some(x.eval()?.atanh()),
+            Unary(Ceil, x) => Some(x.eval()?.ceil(None)),
+            Unary(Chi, x) => Some(x.eval()?.chi()),
+            Unary(Ci, x) => Some(x.eval()?.ci()),
+            Unary(Cos, x) => Some(x.eval()?.cos()),
+            Unary(Cosh, x) => Some(x.eval()?.cosh()),
+            Unary(Digamma, x) => Some(x.eval()?.digamma(None)),
+            Unary(Ei, x) => Some(x.eval()?.ei()),
+            Unary(Erf, x) => Some(x.eval()?.erf()),
+            Unary(Erfc, x) => Some(x.eval()?.erfc()),
+            Unary(Erfi, x) => Some(x.eval()?.erfi()),
+            Unary(Exp, x) => Some(x.eval()?.exp()),
+            Unary(Exp10, x) => Some(x.eval()?.exp10()),
+            Unary(Exp2, x) => Some(x.eval()?.exp2()),
+            Unary(Floor, x) => Some(x.eval()?.floor(None)),
+            Unary(FresnelC, x) => Some(x.eval()?.fresnel_c()),
+            Unary(FresnelS, x) => Some(x.eval()?.fresnel_s()),
+            Unary(Gamma, x) => Some(x.eval()?.gamma(None)),
+            Unary(Li, x) => Some(x.eval()?.li()),
+            Unary(Ln, x) => Some(x.eval()?.ln()),
+            Unary(Log10, x) => Some(x.eval()?.log10()),
+            Unary(Neg, x) => Some(-&x.eval()?),
+            Unary(One, x) => Some(x.eval()?.one()),
+            Unary(Recip, x) => Some(x.eval()?.recip(None)),
+            Unary(Shi, x) => Some(x.eval()?.shi()),
+            Unary(Si, x) => Some(x.eval()?.si()),
+            Unary(Sign, x) => Some(x.eval()?.sign(None)),
+            Unary(Sin, x) => Some(x.eval()?.sin()),
+            Unary(Sinc, x) => Some(x.eval()?.sinc()),
+            Unary(Sinh, x) => Some(x.eval()?.sinh()),
+            Unary(Sqr, x) => Some(x.eval()?.sqr()),
+            Unary(Sqrt, x) => Some(x.eval()?.sqrt()),
+            Unary(Tan, x) => Some(x.eval()?.tan(None)),
+            Unary(Tanh, x) => Some(x.eval()?.tanh()),
+            Unary(UndefAt0, x) => Some(x.eval()?.undef_at_0()),
+            Binary(Add, x, y) => Some(&x.eval()? + &y.eval()?),
+            Binary(Atan2, y, x) => Some(y.eval()?.atan2(&x.eval()?, None)),
+            Binary(BesselI, n, x) => Some(n.eval()?.bessel_i(&x.eval()?)),
+            Binary(BesselJ, n, x) => Some(n.eval()?.bessel_j(&x.eval()?)),
+            Binary(BesselK, n, x) => Some(n.eval()?.bessel_k(&x.eval()?)),
+            Binary(BesselY, n, x) => Some(n.eval()?.bessel_y(&x.eval()?)),
+            Binary(Div, x, y) => Some(x.eval()?.div(&y.eval()?, None)),
+            Binary(GammaInc, a, x) => Some(a.eval()?.gamma_inc(&x.eval()?)),
+            Binary(Gcd, x, y) => Some(x.eval()?.gcd(&y.eval()?, None)),
+            Binary(Lcm, x, y) => Some(x.eval()?.lcm(&y.eval()?, None)),
             // Beware the order of arguments.
-            Binary(Log, b, x) => x.eval().log(&b.eval(), None),
-            Binary(Max, x, y) => x.eval().max(&y.eval()),
-            Binary(Min, x, y) => x.eval().min(&y.eval()),
-            Binary(Mod, x, y) => x.eval().rem_euclid(&y.eval(), None),
-            Binary(Mul, x, y) => &x.eval() * &y.eval(),
-            Binary(Pow, x, y) => x.eval().pow(&y.eval(), None),
-            Binary(Sub, x, y) => &x.eval() - &y.eval(),
-            Pown(x, y) => x.eval().pown(*y, None),
-            Nary(RankedMax, xs) => {
-                let xs = xs.iter().map(|x| x.eval()).collect::<Vec<_>>();
-                TupperIntervalSet::ranked_max(xs.iter().collect(), None)
-            }
-            Nary(RankedMin, xs) => {
-                let xs = xs.iter().map(|x| x.eval()).collect::<Vec<_>>();
-                TupperIntervalSet::ranked_min(xs.iter().collect(), None)
-            }
-            Var(_) | Uninit => panic!("this term cannot be evaluated"),
+            Binary(Log, b, x) => Some(x.eval()?.log(&b.eval()?, None)),
+            Binary(Max, x, y) => Some(x.eval()?.max(&y.eval()?)),
+            Binary(Min, x, y) => Some(x.eval()?.min(&y.eval()?)),
+            Binary(Mod, x, y) => Some(x.eval()?.rem_euclid(&y.eval()?, None)),
+            Binary(Mul, x, y) => Some(&x.eval()? * &y.eval()?),
+            Binary(Pow, x, y) => Some(x.eval()?.pow(&y.eval()?, None)),
+            Binary(RankedMax, xs, n) => Some({
+                if let List(xs) = &xs.kind {
+                    let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
+                    TupperIntervalSet::ranked_max(xs.iter().collect(), &n.eval()?, None)
+                } else {
+                    panic!("a list is expected")
+                }
+            }),
+            Binary(RankedMin, xs, n) => Some({
+                if let List(xs) = &xs.kind {
+                    let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
+                    TupperIntervalSet::ranked_min(xs.iter().collect(), &n.eval()?, None)
+                } else {
+                    panic!("a list is expected")
+                }
+            }),
+            Binary(Sub, x, y) => Some(&x.eval()? - &y.eval()?),
+            Pown(x, y) => Some(x.eval()?.pown(*y, None)),
+            Var(_) | List(_) => None,
+            Uninit => panic!(),
         }
     }
 
@@ -243,8 +250,8 @@ impl Term {
             TermKind::Var(x) if x == "y" => VarSet::Y,
             TermKind::Unary(_, x) | TermKind::Pown(x, _) => x.vars,
             TermKind::Binary(_, x, y) => x.vars | y.vars,
-            TermKind::Nary(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
             TermKind::Var(x) => panic!("'{}' is undefined", x),
+            TermKind::List(xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
             TermKind::Uninit => panic!(),
         };
         self.internal_hash = {
@@ -297,15 +304,11 @@ impl<'a> fmt::Display for DumpTermStructure<'a> {
                 y.dump_structure()
             ),
             TermKind::Pown(x, y) => write!(f, "(Pown {} {})", x.dump_structure(), y),
-            TermKind::Nary(op, xs) => write!(
-                f,
-                "({:?} {})",
-                op,
-                xs.iter()
-                    .map(|x| format!("{}", x.dump_structure()))
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            ),
+            TermKind::List(xs) => {
+                let mut parts = vec!["List".to_string()];
+                parts.extend(xs.iter().map(|x| format!("{}", x.dump_structure())));
+                write!(f, "({})", parts.join(" "))
+            }
             TermKind::Uninit => panic!(),
         }
     }

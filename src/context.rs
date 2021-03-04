@@ -15,64 +15,82 @@ use std::{
     str::{CharIndices, Chars},
 };
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Arity {
-    Fixed(u8),
-}
-
 /// A definition of a constant or a function in terms of the AST.
 #[derive(Clone, Debug)]
-struct Def {
-    arity: Arity,
-    body: Term,
-    associative: bool,
+enum Def {
+    Constant {
+        body: Term,
+    },
+    Function {
+        arity: usize,
+        body: Term,
+        left_associative: bool,
+    },
 }
 
 impl Def {
+    /// Creates a definition of a constant.
     fn constant(x: DecInterval) -> Self {
-        Self {
-            arity: Arity::Fixed(0),
+        Self::Constant {
             body: Term::new(TermKind::Constant(Box::new(TupperIntervalSet::from(x)))),
-            associative: false,
         }
     }
 
+    /// Creates a definition of a unary function.
     fn unary(op: UnaryOp) -> Self {
-        Self {
-            arity: Arity::Fixed(1),
+        Self::Function {
+            arity: 1,
             body: Term::new(TermKind::Unary(
                 op,
                 Box::new(Term::new(TermKind::Var("0".into()))),
             )),
-            associative: false,
+            left_associative: false,
         }
     }
 
+    /// Creates a definition of a binary function.
     fn binary(op: BinaryOp) -> Self {
-        Self {
-            arity: Arity::Fixed(2),
+        Self::Function {
+            arity: 2,
             body: Term::new(TermKind::Binary(
                 op,
                 Box::new(Term::new(TermKind::Var("0".into()))),
                 Box::new(Term::new(TermKind::Var("1".into()))),
             )),
-            associative: false,
+            left_associative: false,
         }
     }
 
-    /// Sets the `associative` flag of `self` and returns it.
+    /// Marks the binary function as left-associative and returns `self`.
     ///
-    /// Panics if the arity is not 2.
-    fn associative(mut self) -> Self {
-        assert!(self.arity == Arity::Fixed(2));
-        self.associative = true;
+    /// Panics if `self` is not a function of arity 2.
+    fn left_associative(mut self) -> Self {
+        match self {
+            Def::Function {
+                arity,
+                ref mut left_associative,
+                ..
+            } if arity == 2 => {
+                *left_associative = true;
+            }
+            _ => panic!(),
+        }
         self
     }
 
-    fn substitute(&self, args: Vec<Term>) -> Term {
-        let mut t = self.body.clone();
-        Substitute::new(args).visit_term_mut(&mut t);
-        t
+    /// Applies arguments to the function.
+    ///
+    /// Panics if `self` is not a function or the number of arguments does not match the arity.
+    fn apply(&self, args: Vec<Term>) -> Term {
+        match self {
+            Def::Function { arity, body, .. } => {
+                assert!(*arity == args.len());
+                let mut t = body.clone();
+                Substitute::new(args).visit_term_mut(&mut t);
+                t
+            }
+            _ => panic!(),
+        }
     }
 }
 
@@ -83,12 +101,14 @@ pub struct Context {
 }
 
 impl Context {
+    /// Creates an empty context.
     fn new() -> Self {
         Self {
             defs: HashMap::new(),
         }
     }
 
+    /// Appends a definition to the context and returns `self`.
     fn def(mut self, name: &str, def: Def) -> Self {
         if let Some(defs) = self.defs.get_mut(name) {
             defs.push(def);
@@ -138,6 +158,7 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("li", Def::unary(UnaryOp::Li))
         .def("ln", Def::unary(UnaryOp::Ln))
         .def("log", Def::unary(UnaryOp::Log10))
+        .def("-", Def::unary(UnaryOp::Neg))
         .def("Shi", Def::unary(UnaryOp::Shi))
         .def("Si", Def::unary(UnaryOp::Si))
         .def("sign", Def::unary(UnaryOp::Sign))
@@ -146,46 +167,62 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("sqrt", Def::unary(UnaryOp::Sqrt))
         .def("tan", Def::unary(UnaryOp::Tan))
         .def("tanh", Def::unary(UnaryOp::Tanh))
+        .def("+", Def::binary(BinaryOp::Add))
         .def("atan2", Def::binary(BinaryOp::Atan2))
         .def("I", Def::binary(BinaryOp::BesselI))
         .def("J", Def::binary(BinaryOp::BesselJ))
         .def("K", Def::binary(BinaryOp::BesselK))
         .def("Y", Def::binary(BinaryOp::BesselY))
+        .def("/", Def::binary(BinaryOp::Div))
         .def("Gamma", Def::binary(BinaryOp::GammaInc))
         .def("Γ", Def::binary(BinaryOp::GammaInc))
-        .def("gcd", Def::binary(BinaryOp::Gcd).associative())
-        .def("lcm", Def::binary(BinaryOp::Lcm).associative())
+        .def("gcd", Def::binary(BinaryOp::Gcd).left_associative())
+        .def("lcm", Def::binary(BinaryOp::Lcm).left_associative())
         .def("log", Def::binary(BinaryOp::Log))
-        .def("max", Def::binary(BinaryOp::Max).associative())
-        .def("min", Def::binary(BinaryOp::Min).associative())
+        .def("max", Def::binary(BinaryOp::Max).left_associative())
+        .def("min", Def::binary(BinaryOp::Min).left_associative())
         .def("mod", Def::binary(BinaryOp::Mod))
+        .def("*", Def::binary(BinaryOp::Mul))
+        .def("^", Def::binary(BinaryOp::Pow))
+        .def("ranked_max", Def::binary(BinaryOp::RankedMax))
+        .def("ranked_min", Def::binary(BinaryOp::RankedMin))
+        .def("-", Def::binary(BinaryOp::Sub))
 });
 
 impl Context {
+    /// Returns the context with the builtin definitions.
     pub fn builtin_context() -> &'static Self {
         &BUILTIN_CONTEXT
     }
 
-    pub fn get_substitution(&self, name: &str, mut args: Vec<Term>) -> Option<Term> {
-        let defs = self.defs.get(name)?;
-        if let Some(def) = defs
-            .iter()
-            .find(|d| matches!(d.arity, Arity::Fixed(n) if n as usize == args.len()))
-        {
-            let t = def.substitute(args);
-            Some(t)
-        } else if let Some(def) = defs.iter().find(|d| d.associative) {
-            if args.len() < 2 {
-                return None;
+    pub fn apply(&self, name: &str, mut args: Vec<Term>) -> Option<Term> {
+        for d in self.defs.get(name)? {
+            match *d {
+                Def::Function { arity, .. } if args.len() == arity => {
+                    let t = d.apply(args);
+                    return Some(t);
+                }
+                Def::Function {
+                    left_associative, ..
+                } if left_associative && args.len() >= 2 => {
+                    let mut args = args.drain(..);
+                    let x0 = args.next().unwrap();
+                    let t = args.fold(x0, |t, x| d.apply(vec![t, x]));
+                    return Some(t);
+                }
+                _ => (),
             }
-
-            let mut args = args.drain(..);
-            let x0 = args.next().unwrap();
-            let t = args.fold(x0, |t, x| def.substitute(vec![t, x]));
-            Some(t)
-        } else {
-            None
         }
+        None
+    }
+
+    pub fn get_constant(&self, name: &str) -> Option<Term> {
+        for d in self.defs.get(name)? {
+            if let Def::Constant { body } = d {
+                return Some(body.clone());
+            }
+        }
+        None
     }
 }
 

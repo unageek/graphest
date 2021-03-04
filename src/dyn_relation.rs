@@ -111,6 +111,7 @@ pub enum RelationType {
 pub struct DynRelation {
     terms: Vec<StaticTerm>,
     forms: Vec<StaticForm>,
+    n_scalar_terms: usize,
     n_atom_forms: usize,
     ts: Vec<TupperIntervalSet>,
     eval_count: usize,
@@ -218,20 +219,20 @@ impl DynRelation {
             }
         }
 
-        for i in 0..self.terms.len() {
+        for i in 0..self.n_scalar_terms {
             let t = &self.terms[i];
             match t.kind {
                 StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecInterval::new(x)),
                 StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecInterval::new(y)),
                 _ => match t.vars {
                     VarSet::X if mx_ts == None => {
-                        ts[i] = t.eval(&ts);
+                        ts[i] = t.eval(&self.terms, &ts);
                     }
                     VarSet::Y if my_ts == None => {
-                        ts[i] = t.eval(&ts);
+                        ts[i] = t.eval(&self.terms, &ts);
                     }
                     VarSet::XY => {
-                        ts[i] = t.eval(&ts);
+                        ts[i] = t.eval(&self.terms, &ts);
                     }
                     _ => (), // Constant or cached subexpression.
                 },
@@ -258,14 +259,14 @@ impl DynRelation {
 
     fn eval_without_cache(&mut self, x: Interval, y: Interval) -> EvalResult {
         let ts = &mut self.ts;
-        for i in 0..self.terms.len() {
+        for i in 0..self.n_scalar_terms {
             let t = &self.terms[i];
             match t.kind {
                 StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecInterval::new(x)),
                 StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecInterval::new(y)),
                 _ => match t.vars {
                     VarSet::EMPTY => (), // Constant subexpression.
-                    _ => ts[i] = t.eval(&ts),
+                    _ => ts[i] = t.eval(&self.terms, &ts),
                 },
             }
         }
@@ -279,12 +280,12 @@ impl DynRelation {
     }
 
     fn initialize(&mut self) {
-        for i in 0..self.terms.len() {
+        for i in 0..self.n_scalar_terms {
             let t = &self.terms[i];
             // This condition is different from `let StaticTermKind::Constant(_) = t.kind`,
             // as not all constant subexpressions are folded. See the comment on [`FoldConstant`].
             if t.vars == VarSet::EMPTY {
-                self.ts[i] = t.eval(&self.ts);
+                self.ts[i] = t.eval(&self.terms, &self.ts);
             }
         }
     }
@@ -323,7 +324,10 @@ impl FromStr for DynRelation {
         let mut v = CollectStatic::new(v);
         v.visit_form(&form);
         let (terms, forms) = v.terms_forms();
-        let n_ts = terms.len();
+        let n_scalar_terms = terms
+            .iter()
+            .filter(|t| !matches!(t.kind, StaticTermKind::List(_)))
+            .count();
         let n_atom_forms = forms
             .iter()
             .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _, _)))
@@ -336,8 +340,9 @@ impl FromStr for DynRelation {
         let mut slf = Self {
             terms,
             forms,
+            n_scalar_terms,
             n_atom_forms,
-            ts: vec![TupperIntervalSet::empty(); n_ts],
+            ts: vec![TupperIntervalSet::empty(); n_scalar_terms],
             eval_count: 0,
             mx,
             my,
