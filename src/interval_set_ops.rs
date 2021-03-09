@@ -2,7 +2,9 @@ use crate::interval_set::{
     Branch, BranchMap, DecSignSet, SignSet, Site, TupperInterval, TupperIntervalSet,
 };
 use gmp_mpfr_sys::mpfr;
-use inari::{const_dec_interval, const_interval, interval, DecInterval, Decoration, Interval};
+use inari::{
+    const_dec_interval, const_interval, dec_interval, interval, DecInterval, Decoration, Interval,
+};
 use rug::Float;
 use std::{
     convert::From,
@@ -629,57 +631,15 @@ impl TupperIntervalSet {
         }
     });
 
-    pub fn ranked_max(xs: Vec<&Self>, n: &Self, site: Option<Site>) -> Self {
-        Self::ranked_min_max(xs, n, site, true)
+    pub fn ranked_max(xs: &Vec<Self>, n: &Self, site: Option<Site>) -> Self {
+        let len_p1 = xs.len() as f64 + 1.0;
+        assert!(len_p1 <= Self::MAX_SAFE_INTEGER);
+        let len_p1 = TupperIntervalSet::from(dec_interval!(len_p1, len_p1).unwrap());
+        Self::index(&Self::sort(xs), &(&len_p1 - &n), site)
     }
 
-    pub fn ranked_min(xs: Vec<&Self>, n: &Self, site: Option<Site>) -> Self {
-        Self::ranked_min_max(xs, n, site, false)
-    }
-
-    fn ranked_min_max(xs: Vec<&Self>, n: &Self, site: Option<Site>, max: bool) -> Self {
-        use itertools::Itertools;
-        assert!(!xs.is_empty());
-        let mut rs = Self::empty();
-        let mut infs = vec![];
-        let mut sups = vec![];
-        for n in n {
-            // `n` uses 1-based indexing.
-            let n0 = n.x - const_interval!(1.0, 1.0);
-            let n0_rest = n0.intersection(interval!(0.0, (xs.len() - 1) as f64).unwrap());
-            let na = n0_rest.inf().ceil() as usize;
-            let nb = n0_rest.sup().floor() as usize;
-            if na > nb {
-                continue;
-            }
-            let dec = if n0.is_singleton() && na == nb {
-                Decoration::Dac.min(n.d)
-            } else {
-                Decoration::Trv
-            };
-            for xs in xs.iter().copied().multi_cartesian_product() {
-                if let Some(g) = xs.iter().try_fold(n.g, |g, x| g.union(x.g)) {
-                    let dec = xs.iter().fold(dec, |d, x| d.min(x.d));
-                    infs.splice(.., xs.iter().map(|x| x.x.inf()));
-                    infs.sort_by(|x, y| x.partial_cmp(y).unwrap());
-                    sups.splice(.., xs.iter().map(|x| x.x.sup()));
-                    sups.sort_by(|x, y| x.partial_cmp(y).unwrap());
-                    if nb == na + 1 {
-                        let y0 = DecInterval::set_dec(interval!(infs[na], sups[na]).unwrap(), dec);
-                        let y1 = DecInterval::set_dec(interval!(infs[nb], sups[nb]).unwrap(), dec);
-                        insert_intervals(&mut rs, (y0, Some(y1)), g, site);
-                    } else {
-                        for i in na..=nb {
-                            let i = if max { xs.len() - 1 - i } else { i };
-                            let y = DecInterval::set_dec(interval!(infs[i], sups[i]).unwrap(), dec);
-                            rs.insert(TupperInterval::new(y, g));
-                        }
-                    }
-                }
-            }
-        }
-        rs.normalize(false);
-        rs
+    pub fn ranked_min(xs: &Vec<Self>, n: &Self, site: Option<Site>) -> Self {
+        Self::index(&Self::sort(xs), n, site)
     }
 
     impl_op_cut!(recip(x), {
@@ -775,6 +735,70 @@ impl TupperIntervalSet {
             x
         }
     });
+
+    const MAX_SAFE_INTEGER: f64 = 9007199254740991.0;
+
+    pub fn index(xs: &Vec<Self>, n: &Self, site: Option<Site>) -> Self {
+        use itertools::Itertools;
+        assert!(!xs.is_empty() && (xs.len() as f64) <= Self::MAX_SAFE_INTEGER);
+        let mut rs = Self::empty();
+        for n in n {
+            let n_restricted = n.x.intersection(interval!(1.0, xs.len() as f64).unwrap());
+            if n_restricted.is_empty() {
+                continue;
+            }
+            let na = n_restricted.inf().ceil() as usize;
+            let nb = n_restricted.sup().floor() as usize;
+            let dec = if n.x.is_singleton() && n.x == n_restricted {
+                Decoration::Dac.min(n.d)
+            } else {
+                Decoration::Trv
+            };
+            for xs in xs[na - 1..=nb - 1].iter().multi_cartesian_product() {
+                if let Some(g) = xs.iter().try_fold(n.g, |g, x| g.union(x.g)) {
+                    let dec = xs.iter().fold(dec, |d, x| d.min(x.d));
+                    if xs.len() == 2 {
+                        let y0 = DecInterval::set_dec(xs[0].x, dec);
+                        let y1 = DecInterval::set_dec(xs[1].x, dec);
+                        insert_intervals(&mut rs, (y0, Some(y1)), g, site);
+                    } else {
+                        for i in 0..xs.len() {
+                            let y = DecInterval::set_dec(xs[i].x, dec);
+                            rs.insert(TupperInterval::new(y, g));
+                        }
+                    }
+                }
+            }
+        }
+        rs.normalize(false);
+        rs
+    }
+
+    pub fn sort(xs: &Vec<Self>) -> Vec<Self> {
+        use itertools::Itertools;
+        let mut rs = vec![TupperIntervalSet::empty(); xs.len()];
+        let mut infs = vec![];
+        let mut sups = vec![];
+        for xs in xs.iter().multi_cartesian_product() {
+            if let Some(g) = xs.iter().try_fold(BranchMap::new(), |g, x| g.union(x.g)) {
+                let dec = xs.iter().fold(Decoration::Com, |d, x| d.min(x.d));
+                infs.splice(.., xs.iter().map(|x| x.x.inf()));
+                infs.sort_by(|x, y| x.partial_cmp(y).unwrap());
+                sups.splice(.., xs.iter().map(|x| x.x.sup()));
+                sups.sort_by(|x, y| x.partial_cmp(y).unwrap());
+                for i in 0..xs.len() {
+                    rs[i].insert(TupperInterval::new(
+                        DecInterval::set_dec(interval!(infs[i], sups[i]).unwrap(), dec),
+                        g,
+                    ));
+                }
+            }
+        }
+        for rs in &mut rs {
+            rs.normalize(false);
+        }
+        rs
+    }
 }
 
 macro_rules! impl_integer_op {

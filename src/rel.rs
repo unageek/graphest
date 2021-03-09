@@ -25,6 +25,7 @@ pub struct StaticTerm {
     pub site: Option<Site>,
     pub kind: StaticTermKind,
     pub vars: VarSet,
+    pub store_index: u32,
 }
 
 impl StaticTerm {
@@ -101,7 +102,7 @@ impl StaticTerm {
             Binary(RankedMax, xs, n) => {
                 if let List(xs) = &terms[*xs as usize].kind {
                     TupperIntervalSet::ranked_max(
-                        xs.iter().map(|x| &ts[*x as usize]).collect(),
+                        &xs.iter().map(|x| ts[*x as usize].clone()).collect(),
                         &ts[*n as usize],
                         self.site,
                     )
@@ -112,7 +113,7 @@ impl StaticTerm {
             Binary(RankedMin, xs, n) => {
                 if let List(xs) = &terms[*xs as usize].kind {
                     TupperIntervalSet::ranked_min(
-                        xs.iter().map(|x| &ts[*x as usize]).collect(),
+                        &xs.iter().map(|x| ts[*x as usize].clone()).collect(),
                         &ts[*n as usize],
                         self.site,
                     )

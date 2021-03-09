@@ -217,7 +217,7 @@ impl Term {
             Binary(RankedMax, xs, n) => Some({
                 if let List(xs) = &xs.kind {
                     let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
-                    TupperIntervalSet::ranked_max(xs.iter().collect(), &n.eval()?, None)
+                    TupperIntervalSet::ranked_max(&xs, &n.eval()?, None)
                 } else {
                     panic!("a list is expected")
                 }
@@ -225,7 +225,7 @@ impl Term {
             Binary(RankedMin, xs, n) => Some({
                 if let List(xs) = &xs.kind {
                     let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
-                    TupperIntervalSet::ranked_min(xs.iter().collect(), &n.eval()?, None)
+                    TupperIntervalSet::ranked_min(&xs, &n.eval()?, None)
                 } else {
                     panic!("a list is expected")
                 }

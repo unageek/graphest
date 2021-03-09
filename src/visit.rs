@@ -697,6 +697,7 @@ impl<'a> Visit<'a> for CollectStatic {
                     Var(_) | Uninit => panic!(),
                 },
                 vars: t.vars,
+                store_index: 0,
             });
         }
     }
