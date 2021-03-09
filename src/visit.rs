@@ -9,8 +9,10 @@ use crate::{
 use inari::Decoration;
 use std::{
     collections::{HashMap, HashSet},
+    hash::{Hash, Hasher},
     marker::Sized,
     mem::{swap, take},
+    ops::Deref,
 };
 
 /// A type that traverses formulas and terms in depth-first order.
@@ -112,6 +114,40 @@ fn traverse_form_mut<V: VisitMut>(v: &mut V, f: &mut Form) {
         }
         Uninit => (),
     };
+}
+
+/// A possibly dangling reference to a value.
+/// All operations except [`UnsafeRef<T>::from`] are unsafe.
+struct UnsafeRef<T: Eq + Hash> {
+    ptr: *const T,
+}
+
+impl<T: Eq + Hash> UnsafeRef<T> {
+    fn from(t: &T) -> Self {
+        Self { ptr: t as *const T }
+    }
+}
+
+impl<T: Eq + Hash> Deref for UnsafeRef<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<T: Eq + Hash> PartialEq for UnsafeRef<T> {
+    fn eq(&self, rhs: &Self) -> bool {
+        unsafe { (*self.ptr) == (*rhs.ptr) }
+    }
+}
+
+impl<T: Eq + Hash> Eq for UnsafeRef<T> {}
+
+impl<T: Eq + Hash> Hash for UnsafeRef<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        unsafe { (*self.ptr).hash(state) }
+    }
 }
 
 pub struct Substitute {
@@ -458,6 +494,8 @@ impl VisitMut for UpdateMetadata {
 }
 
 type SiteMap = HashMap<TermId, Site>;
+type UnsafeTermRef = UnsafeRef<Term>;
+type UnsafeFormRef = UnsafeRef<Form>;
 
 /// Assigns [`TermId`]s to the scalar terms and [`FormId`]s to the atomic formulas.
 /// These [`FormId`]s are used as indices in [`EvalResult`][`crate::eval_result::EvalResult`].
@@ -466,8 +504,8 @@ pub struct AssignIdStage1 {
     next_term_id: TermId,
     next_site: u8,
     site_map: SiteMap,
-    visited_forms: HashSet<*const Form>,
-    visited_terms: HashSet<*const Term>,
+    visited_forms: HashSet<UnsafeFormRef>,
+    visited_terms: HashSet<UnsafeTermRef>,
 }
 
 impl AssignIdStage1 {
@@ -513,9 +551,9 @@ impl VisitMut for AssignIdStage1 {
         traverse_term_mut(self, t);
 
         if !matches!(t.kind, TermKind::List(_)) {
-            match self.visited_terms.get(&(t as *const Term)) {
+            match self.visited_terms.get(&UnsafeTermRef::from(t)) {
                 Some(visited) => {
-                    let id = unsafe { (**visited).id };
+                    let id = visited.id;
                     t.id = id;
 
                     if !self.site_map.contains_key(&id)
@@ -530,7 +568,7 @@ impl VisitMut for AssignIdStage1 {
                     assert!(self.next_term_id != UNINIT_TERM_ID);
                     t.id = self.next_term_id;
                     self.next_term_id += 1;
-                    self.visited_terms.insert(t);
+                    self.visited_terms.insert(UnsafeTermRef::from(t));
                 }
             }
         }
@@ -540,15 +578,15 @@ impl VisitMut for AssignIdStage1 {
         traverse_form_mut(self, f);
 
         if let FormKind::Atomic(_, _, _) = f.kind {
-            match self.visited_forms.get(&(f as *const Form)) {
+            match self.visited_forms.get(&UnsafeFormRef::from(f)) {
                 Some(visited) => {
-                    f.id = unsafe { (**visited).id };
+                    f.id = visited.id;
                 }
                 _ => {
                     assert!(self.next_form_id != UNINIT_FORM_ID);
                     f.id = self.next_form_id;
                     self.next_form_id += 1;
-                    self.visited_forms.insert(f);
+                    self.visited_forms.insert(UnsafeFormRef::from(f));
                 }
             }
         }
@@ -560,8 +598,8 @@ pub struct AssignIdStage2 {
     next_form_id: FormId,
     next_term_id: TermId,
     site_map: SiteMap,
-    visited_forms: HashSet<*const Form>,
-    visited_terms: HashSet<*const Term>,
+    visited_forms: HashSet<UnsafeFormRef>,
+    visited_terms: HashSet<UnsafeTermRef>,
 }
 
 impl AssignIdStage2 {
@@ -581,15 +619,15 @@ impl VisitMut for AssignIdStage2 {
         traverse_term_mut(self, t);
 
         if let TermKind::List(_) = t.kind {
-            match self.visited_terms.get(&(t as *const Term)) {
+            match self.visited_terms.get(&UnsafeTermRef::from(t)) {
                 Some(visited) => {
-                    t.id = unsafe { (**visited).id };
+                    t.id = visited.id;
                 }
                 _ => {
                     assert!(self.next_term_id != UNINIT_TERM_ID);
                     t.id = self.next_term_id;
                     self.next_term_id += 1;
-                    self.visited_terms.insert(t);
+                    self.visited_terms.insert(UnsafeTermRef::from(t));
                 }
             }
         }
@@ -599,15 +637,15 @@ impl VisitMut for AssignIdStage2 {
         traverse_form_mut(self, f);
 
         if !matches!(f.kind, FormKind::Atomic(_, _, _)) {
-            match self.visited_forms.get(&(f as *const Form)) {
+            match self.visited_forms.get(&UnsafeFormRef::from(f)) {
                 Some(visited) => {
-                    f.id = unsafe { (**visited).id };
+                    f.id = visited.id;
                 }
                 _ => {
                     assert!(self.next_form_id != UNINIT_FORM_ID);
                     f.id = self.next_form_id;
                     self.next_form_id += 1;
-                    self.visited_forms.insert(f);
+                    self.visited_forms.insert(UnsafeFormRef::from(f));
                 }
             }
         }
