@@ -61,7 +61,7 @@ fn build_flint(env: &Environment) {
             &env.flint_branch.to_str().unwrap(),
             "--depth",
             "1",
-            "https://github.com/wbhart/flint2.git",
+            "https://github.com/fredrik-johansson/flint2.git",
             build_dir.to_str().unwrap(),
         ]),
         "checkout FLINT",
