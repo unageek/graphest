@@ -1,6 +1,6 @@
 use crate::{
     interval_set::DecSignSet,
-    rel::{StaticForm, StaticFormKind},
+    ops::{StaticForm, StaticFormKind},
 };
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 use smallvec::SmallVec;

@@ -6,11 +6,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-pub type TermId = u32;
-pub const UNINIT_TERM_ID: TermId = TermId::MAX;
-
-pub type FormId = u32;
-pub const UNINIT_FORM_ID: FormId = FormId::MAX;
+pub type ExprId = u32;
+pub const UNINIT_EXPR_ID: ExprId = ExprId::MAX;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
@@ -46,6 +43,7 @@ pub enum UnaryOp {
     Ln,
     Log10,
     Neg,
+    Not,
     One,
     Recip,
     Shi,
@@ -64,51 +62,57 @@ pub enum UnaryOp {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryOp {
     Add,
+    And,
     Atan2,
     BesselI,
     BesselJ,
     BesselK,
     BesselY,
     Div,
+    Eq,
     GammaInc,
     Gcd,
+    Ge,
+    Gt,
     Lcm,
+    Le,
     Log,
+    Lt,
     Max,
     Min,
     Mod,
     Mul,
+    Neq,
+    Nge,
+    Ngt,
+    Nle,
+    Nlt,
+    Or,
     Pow,
     RankedMax,
     RankedMin,
     Sub,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum RelOp {
-    Eq,
-    Ge,
-    Gt,
-    Le,
-    Lt,
-    Neq,
-    Nge,
-    Ngt,
-    Nle,
-    Nlt,
-}
-
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum TermKind {
-    // == Scalar terms ==
+pub enum ExprKind {
+    // == Scalar-valued expressions ==
     Constant(Box<TupperIntervalSet>),
-    Unary(UnaryOp, Box<Term>),
-    Binary(BinaryOp, Box<Term>, Box<Term>),
-    Pown(Box<Term>, i32),
+    Unary(UnaryOp, Box<Expr>),
+    Binary(BinaryOp, Box<Expr>, Box<Expr>),
+    Pown(Box<Expr>, i32),
     // == Others ==
     Var(String),
-    List(Vec<Term>),
+    List(Vec<Expr>),
     Uninit,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ValueType {
+    Scalar,
+    Vector,
+    Boolean,
+    Unknown,
 }
 
 bitflags! {
@@ -121,35 +125,37 @@ bitflags! {
     }
 }
 
-/// An AST node for a term.
+/// An AST node for an expression.
 #[derive(Clone, Debug)]
-pub struct Term {
-    pub id: TermId,
-    pub kind: TermKind,
-    /// The set of the free variables in the term.
+pub struct Expr {
+    pub id: ExprId,
+    pub kind: ExprKind,
+    pub ty: ValueType,
+    /// The set of the free variables in the expression.
     pub vars: VarSet,
     internal_hash: u64,
 }
 
-impl Term {
-    pub fn new(kind: TermKind) -> Self {
+impl Expr {
+    pub fn new(kind: ExprKind) -> Self {
         Self {
-            id: UNINIT_TERM_ID,
+            id: UNINIT_EXPR_ID,
             kind,
+            ty: ValueType::Unknown,
             vars: VarSet::EMPTY,
             internal_hash: 0,
         }
     }
 
     pub fn dump_structure(&self) -> impl fmt::Display + '_ {
-        DumpTermStructure(self)
+        DumpStructure(self)
     }
 
-    /// Evaluates the term.
+    /// Evaluates the expression.
     ///
-    /// Returns [`None`] if the term cannot be evaluated to a scalar constant.
+    /// Returns [`None`] if the expression cannot be evaluated to a scalar constant.
     pub fn eval(&self) -> Option<TupperIntervalSet> {
-        use {BinaryOp::*, TermKind::*, UnaryOp::*};
+        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
         match &self.kind {
             Constant(x) => Some(*x.clone()),
             Unary(Abs, x) => Some(x.eval()?.abs()),
@@ -232,27 +238,26 @@ impl Term {
             }),
             Binary(Sub, x, y) => Some(&x.eval()? - &y.eval()?),
             Pown(x, y) => Some(x.eval()?.pown(*y, None)),
-            Var(_) | List(_) => None,
             Uninit => panic!(),
+            _ => None,
         }
     }
 
-    /// Updates [`Term::vars`] and [`Term::internal_hash`] fields of the term.
+    /// Updates [`Expr::ty`], [`Expr::vars`] and [`Expr::internal_hash`] of the expression.
     ///
     /// Precondition:
-    ///   The function is called on all sub-terms and they have not been changed since then.
-    ///
-    /// Panics if the term contains [`TermKind::Var`] with a name other than `"x"` or `"y"`.
+    ///   The function is called on all sub-expressions and they have not been changed since then.
     pub fn update_metadata(&mut self) {
+        self.ty = self.value_type();
         self.vars = match &self.kind {
-            TermKind::Constant(_) => VarSet::EMPTY,
-            TermKind::Var(x) if x == "x" => VarSet::X,
-            TermKind::Var(x) if x == "y" => VarSet::Y,
-            TermKind::Unary(_, x) | TermKind::Pown(x, _) => x.vars,
-            TermKind::Binary(_, x, y) => x.vars | y.vars,
-            TermKind::Var(x) => panic!("'{}' is undefined", x),
-            TermKind::List(xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
-            TermKind::Uninit => panic!(),
+            ExprKind::Constant(_) => VarSet::EMPTY,
+            ExprKind::Var(x) if x == "x" => VarSet::X,
+            ExprKind::Var(x) if x == "y" => VarSet::Y,
+            ExprKind::Var(_) => VarSet::EMPTY,
+            ExprKind::Unary(_, x) | ExprKind::Pown(x, _) => x.vars,
+            ExprKind::Binary(_, x, y) => x.vars | y.vars,
+            ExprKind::List(xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
+            ExprKind::Uninit => panic!(),
         };
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
@@ -261,142 +266,90 @@ impl Term {
             hasher.finish()
         }
     }
+
+    pub fn value_type(&self) -> ValueType {
+        use {BinaryOp::*, ExprKind::*, UnaryOp::*, ValueType::*};
+        match &self.kind {
+            Constant(_) => Scalar,
+            Unary(
+                Abs | Acos | Acosh | AiryAi | AiryAiPrime | AiryBi | AiryBiPrime | Asin | Asinh
+                | Atan | Atanh | Ceil | Chi | Ci | Cos | Cosh | Digamma | Ei | Erf | Erfc | Erfi
+                | Exp | Exp10 | Exp2 | Floor | FresnelC | FresnelS | Gamma | Li | Ln | Log10 | Neg
+                | One | Recip | Shi | Si | Sign | Sin | Sinc | Sinh | Sqr | Sqrt | Tan | Tanh
+                | UndefAt0,
+                x,
+            ) if x.ty == Scalar => Scalar,
+            Binary(
+                Add | Atan2 | BesselI | BesselJ | BesselK | BesselY | Div | GammaInc | Gcd | Lcm
+                | Log | Max | Min | Mod | Mul | Pow | Sub,
+                x,
+                y,
+            ) if x.ty == Scalar && y.ty == Scalar => Scalar,
+            Binary(RankedMax | RankedMin, x, y) if x.ty == Vector && y.ty == Scalar => Scalar,
+            Pown(x, _) if x.ty == Scalar => Scalar,
+            List(xs) if xs.iter().all(|x| x.ty == Scalar) => Vector,
+            Unary(Not, x) if x.ty == Boolean => Boolean,
+            Binary(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
+            Binary(Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt, x, y)
+                if x.ty == Scalar && y.ty == Scalar =>
+            {
+                Boolean
+            }
+            Var(x) if x == "x" || x == "y" => Scalar,
+            Uninit => panic!(),
+            _ => Unknown,
+        }
+    }
 }
 
-impl Default for Term {
+impl Default for Expr {
     fn default() -> Self {
         Self {
-            id: UNINIT_TERM_ID,
-            kind: TermKind::Uninit,
+            id: UNINIT_EXPR_ID,
+            kind: ExprKind::Uninit,
+            ty: ValueType::Unknown,
             vars: VarSet::EMPTY,
             internal_hash: 0,
         }
     }
 }
 
-impl PartialEq for Term {
+impl PartialEq for Expr {
     fn eq(&self, rhs: &Self) -> bool {
         self.kind == rhs.kind
     }
 }
 
-impl Eq for Term {}
+impl Eq for Expr {}
 
-impl Hash for Term {
+impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.internal_hash.hash(state);
     }
 }
 
-struct DumpTermStructure<'a>(&'a Term);
+struct DumpStructure<'a>(&'a Expr);
 
-impl<'a> fmt::Display for DumpTermStructure<'a> {
+impl<'a> fmt::Display for DumpStructure<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.0.kind {
-            TermKind::Constant(_) => write!(f, "@"),
-            TermKind::Var(x) => write!(f, "{}", x),
-            TermKind::Unary(op, x) => write!(f, "({:?} {})", op, x.dump_structure()),
-            TermKind::Binary(op, x, y) => write!(
+            ExprKind::Constant(_) => write!(f, "@"),
+            ExprKind::Var(x) => write!(f, "{}", x),
+            ExprKind::Unary(op, x) => write!(f, "({:?} {})", op, x.dump_structure()),
+            ExprKind::Binary(op, x, y) => write!(
                 f,
                 "({:?} {} {})",
                 op,
                 x.dump_structure(),
                 y.dump_structure()
             ),
-            TermKind::Pown(x, y) => write!(f, "(Pown {} {})", x.dump_structure(), y),
-            TermKind::List(xs) => {
+            ExprKind::Pown(x, y) => write!(f, "(Pown {} {})", x.dump_structure(), y),
+            ExprKind::List(xs) => {
                 let mut parts = vec!["List".to_string()];
                 parts.extend(xs.iter().map(|x| format!("{}", x.dump_structure())));
                 write!(f, "({})", parts.join(" "))
             }
-            TermKind::Uninit => panic!(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum FormKind {
-    Atomic(RelOp, Box<Term>, Box<Term>),
-    Not(Box<Form>),
-    And(Box<Form>, Box<Form>),
-    Or(Box<Form>, Box<Form>),
-    Uninit,
-}
-
-/// An AST node for a formula.
-#[derive(Clone, Debug)]
-pub struct Form {
-    pub id: FormId,
-    pub kind: FormKind,
-    internal_hash: u64,
-}
-
-impl Form {
-    pub fn new(kind: FormKind) -> Self {
-        Self {
-            id: UNINIT_FORM_ID,
-            kind,
-            internal_hash: 0,
-        }
-    }
-
-    pub fn dump_structure(&self) -> impl fmt::Display + '_ {
-        DumpFormStructure(self)
-    }
-
-    /// Updates `internal_hash` field of `self`.
-    ///
-    /// Precondition:
-    ///   The function is called on all sub-terms/forms and they have not been changed since then.
-    pub fn update_metadata(&mut self) {
-        self.internal_hash = {
-            let mut hasher = DefaultHasher::new();
-            self.kind.hash(&mut hasher);
-            hasher.finish()
-        }
-    }
-}
-
-impl Default for Form {
-    fn default() -> Self {
-        Self {
-            id: UNINIT_FORM_ID,
-            kind: FormKind::Uninit,
-            internal_hash: 0,
-        }
-    }
-}
-
-impl PartialEq for Form {
-    fn eq(&self, rhs: &Self) -> bool {
-        self.kind == rhs.kind
-    }
-}
-
-impl Eq for Form {}
-
-impl Hash for Form {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.kind.hash(state);
-    }
-}
-
-struct DumpFormStructure<'a>(&'a Form);
-
-impl<'a> fmt::Display for DumpFormStructure<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.0.kind {
-            FormKind::Atomic(op, x, y) => write!(
-                f,
-                "({:?} {} {})",
-                op,
-                x.dump_structure(),
-                y.dump_structure()
-            ),
-            FormKind::Not(x) => write!(f, "(Not {})", x.dump_structure()),
-            FormKind::And(x, y) => write!(f, "(And {} {})", x.dump_structure(), y.dump_structure()),
-            FormKind::Or(x, y) => write!(f, "(Or {} {})", x.dump_structure(), y.dump_structure()),
-            FormKind::Uninit => panic!(),
+            ExprKind::Uninit => panic!(),
         }
     }
 }

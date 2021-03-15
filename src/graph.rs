@@ -1,8 +1,8 @@
 use crate::{
-    dyn_relation::{DynRelation, EvalCache, EvalCacheLevel, RelationType},
     eval_result::EvalResult,
     interval_set::{DecSignSet, SignSet},
-    rel::StaticForm,
+    ops::StaticForm,
+    relation::{EvalCache, EvalCacheLevel, Relation, RelationType},
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{interval, Decoration, Interval};
@@ -348,7 +348,7 @@ pub struct GraphingStatistics {
 
 #[derive(Debug)]
 pub struct Graph {
-    rel: DynRelation,
+    rel: Relation,
     forms: Vec<StaticForm>,
     relation_type: RelationType,
     im: Image,
@@ -370,7 +370,7 @@ pub struct Graph {
 
 impl Graph {
     pub fn new(
-        rel: DynRelation,
+        rel: Relation,
         region: InexactRegion,
         im_width: u32,
         im_height: u32,
@@ -629,7 +629,7 @@ impl Graph {
     }
 
     fn eval_on_point(
-        rel: &mut DynRelation,
+        rel: &mut Relation,
         x: f64,
         y: f64,
         cache: Option<&mut EvalCache>,
@@ -637,11 +637,7 @@ impl Graph {
         rel.eval(Self::point_interval(x), Self::point_interval(y), cache)
     }
 
-    fn eval_on_region(
-        rel: &mut DynRelation,
-        r: &Region,
-        cache: Option<&mut EvalCache>,
-    ) -> EvalResult {
+    fn eval_on_region(rel: &mut Relation, r: &Region, cache: Option<&mut EvalCache>) -> EvalResult {
         rel.eval(r.0, r.1, cache)
     }
 

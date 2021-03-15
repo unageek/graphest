@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Term, TermKind, UnaryOp},
+    ast::{BinaryOp, Expr, ExprKind, UnaryOp},
     interval_set::TupperIntervalSet,
     visit::{Substitute, VisitMut},
 };
@@ -19,11 +19,11 @@ use std::{
 #[derive(Clone, Debug)]
 enum Def {
     Constant {
-        body: Term,
+        body: Expr,
     },
     Function {
         arity: usize,
-        body: Term,
+        body: Expr,
         left_associative: bool,
     },
 }
@@ -32,7 +32,7 @@ impl Def {
     /// Creates a definition of a constant.
     fn constant(x: DecInterval) -> Self {
         Self::Constant {
-            body: Term::new(TermKind::Constant(Box::new(TupperIntervalSet::from(x)))),
+            body: Expr::new(ExprKind::Constant(Box::new(TupperIntervalSet::from(x)))),
         }
     }
 
@@ -40,9 +40,9 @@ impl Def {
     fn unary(op: UnaryOp) -> Self {
         Self::Function {
             arity: 1,
-            body: Term::new(TermKind::Unary(
+            body: Expr::new(ExprKind::Unary(
                 op,
-                Box::new(Term::new(TermKind::Var("0".into()))),
+                Box::new(Expr::new(ExprKind::Var("0".into()))),
             )),
             left_associative: false,
         }
@@ -52,10 +52,10 @@ impl Def {
     fn binary(op: BinaryOp) -> Self {
         Self::Function {
             arity: 2,
-            body: Term::new(TermKind::Binary(
+            body: Expr::new(ExprKind::Binary(
                 op,
-                Box::new(Term::new(TermKind::Var("0".into()))),
-                Box::new(Term::new(TermKind::Var("1".into()))),
+                Box::new(Expr::new(ExprKind::Var("0".into()))),
+                Box::new(Expr::new(ExprKind::Var("1".into()))),
             )),
             left_associative: false,
         }
@@ -81,12 +81,12 @@ impl Def {
     /// Applies arguments to the function.
     ///
     /// Panics if `self` is not a function or the number of arguments does not match the arity.
-    fn apply(&self, args: Vec<Term>) -> Term {
+    fn apply(&self, args: Vec<Expr>) -> Expr {
         match self {
             Def::Function { arity, body, .. } => {
                 assert!(*arity == args.len());
                 let mut t = body.clone();
-                Substitute::new(args).visit_term_mut(&mut t);
+                Substitute::new(args).visit_expr_mut(&mut t);
                 t
             }
             _ => panic!(),
@@ -159,6 +159,7 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("ln", Def::unary(UnaryOp::Ln))
         .def("log", Def::unary(UnaryOp::Log10))
         .def("-", Def::unary(UnaryOp::Neg))
+        .def("!", Def::unary(UnaryOp::Not))
         .def("Shi", Def::unary(UnaryOp::Shi))
         .def("Si", Def::unary(UnaryOp::Si))
         .def("sign", Def::unary(UnaryOp::Sign))
@@ -168,21 +169,28 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("tan", Def::unary(UnaryOp::Tan))
         .def("tanh", Def::unary(UnaryOp::Tanh))
         .def("+", Def::binary(BinaryOp::Add))
+        .def("&&", Def::binary(BinaryOp::And))
         .def("atan2", Def::binary(BinaryOp::Atan2))
         .def("I", Def::binary(BinaryOp::BesselI))
         .def("J", Def::binary(BinaryOp::BesselJ))
         .def("K", Def::binary(BinaryOp::BesselK))
         .def("Y", Def::binary(BinaryOp::BesselY))
         .def("/", Def::binary(BinaryOp::Div))
+        .def("=", Def::binary(BinaryOp::Eq))
         .def("Gamma", Def::binary(BinaryOp::GammaInc))
         .def("Γ", Def::binary(BinaryOp::GammaInc))
         .def("gcd", Def::binary(BinaryOp::Gcd).left_associative())
+        .def(">=", Def::binary(BinaryOp::Ge))
+        .def(">", Def::binary(BinaryOp::Gt))
         .def("lcm", Def::binary(BinaryOp::Lcm).left_associative())
+        .def("<=", Def::binary(BinaryOp::Le))
         .def("log", Def::binary(BinaryOp::Log))
+        .def("<", Def::binary(BinaryOp::Lt))
         .def("max", Def::binary(BinaryOp::Max).left_associative())
         .def("min", Def::binary(BinaryOp::Min).left_associative())
         .def("mod", Def::binary(BinaryOp::Mod))
         .def("*", Def::binary(BinaryOp::Mul))
+        .def("||", Def::binary(BinaryOp::Or))
         .def("^", Def::binary(BinaryOp::Pow))
         .def("ranked_max", Def::binary(BinaryOp::RankedMax))
         .def("ranked_min", Def::binary(BinaryOp::RankedMin))
@@ -195,7 +203,7 @@ impl Context {
         &BUILTIN_CONTEXT
     }
 
-    pub fn apply(&self, name: &str, mut args: Vec<Term>) -> Option<Term> {
+    pub fn apply(&self, name: &str, mut args: Vec<Expr>) -> Option<Expr> {
         for d in self.defs.get(name)? {
             match *d {
                 Def::Function { arity, .. } if args.len() == arity => {
@@ -216,7 +224,7 @@ impl Context {
         None
     }
 
-    pub fn get_constant(&self, name: &str) -> Option<Term> {
+    pub fn get_constant(&self, name: &str) -> Option<Expr> {
         for d in self.defs.get(name)? {
             if let Def::Constant { body } = d {
                 return Some(body.clone());
