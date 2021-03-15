@@ -370,8 +370,13 @@ impl StaticForm {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::mem::size_of;
+
     #[test]
-    fn foo() {
-        println!("{}", std::mem::size_of::<StaticTerm>());
+    fn struct_size() {
+        assert_eq!(size_of::<StaticTermKind>(), 16);
+        assert_eq!(size_of::<StaticTerm>(), 24);
+        assert_eq!(size_of::<StaticFormKind>(), 12);
+        assert_eq!(size_of::<StaticForm>(), 12);
     }
 }
