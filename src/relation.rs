@@ -1,10 +1,10 @@
 use crate::{
-    ast::{TermId, VarSet},
+    ast::VarSet,
     context::Context,
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
-    parse::parse,
-    rel::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind},
+    ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
+    parse::parse_expr,
     visit::*,
 };
 use inari::{DecInterval, Interval};
@@ -108,18 +108,17 @@ pub enum RelationType {
 }
 
 #[derive(Clone, Debug)]
-pub struct DynRelation {
+pub struct Relation {
     terms: Vec<StaticTerm>,
     forms: Vec<StaticForm>,
-    n_scalar_terms: usize,
     n_atom_forms: usize,
-    ts: Vec<TupperIntervalSet>,
+    ts: ValueStore<TupperIntervalSet>,
     eval_count: usize,
-    mx: Vec<TermId>,
-    my: Vec<TermId>,
+    mx: Vec<StoreIndex>,
+    my: Vec<StoreIndex>,
 }
 
-impl DynRelation {
+impl Relation {
     pub fn eval(&mut self, x: Interval, y: Interval, cache: Option<&mut EvalCache>) -> EvalResult {
         self.eval_count += 1;
         match cache {
@@ -205,34 +204,36 @@ impl DynRelation {
             return r.clone();
         }
 
+        let terms = &self.terms;
         let ts = &mut self.ts;
         let mx_ts = cache.get_x(&kx);
         let my_ts = cache.get_y(&ky);
         if let Some(mx_ts) = mx_ts {
+            #[allow(clippy::needless_range_loop)]
             for i in 0..self.mx.len() {
-                ts[self.mx[i] as usize] = mx_ts[i].clone();
+                ts.put(self.mx[i], mx_ts[i].clone());
             }
         }
         if let Some(my_ts) = my_ts {
+            #[allow(clippy::needless_range_loop)]
             for i in 0..self.my.len() {
-                ts[self.my[i] as usize] = my_ts[i].clone();
+                ts.put(self.my[i], my_ts[i].clone());
             }
         }
 
-        for i in 0..self.n_scalar_terms {
-            let t = &self.terms[i];
+        for t in terms {
             match t.kind {
-                StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecInterval::new(x)),
-                StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecInterval::new(y)),
+                StaticTermKind::X => t.put(ts, TupperIntervalSet::from(DecInterval::new(x))),
+                StaticTermKind::Y => t.put(ts, TupperIntervalSet::from(DecInterval::new(y))),
                 _ => match t.vars {
                     VarSet::X if mx_ts == None => {
-                        ts[i] = t.eval(&self.terms, &ts);
+                        t.put_eval(terms, ts);
                     }
                     VarSet::Y if my_ts == None => {
-                        ts[i] = t.eval(&self.terms, &ts);
+                        t.put_eval(terms, ts);
                     }
                     VarSet::XY => {
-                        ts[i] = t.eval(&self.terms, &ts);
+                        t.put_eval(terms, ts);
                     }
                     _ => (), // Constant or cached subexpression.
                 },
@@ -242,31 +243,27 @@ impl DynRelation {
         let r = EvalResult(
             self.forms[..self.n_atom_forms]
                 .iter()
-                .map(|f| f.eval(&ts))
+                .map(|f| f.eval(terms, ts))
                 .collect(),
         );
 
         let ts = &self.ts;
-        cache.insert_x_with(kx, || {
-            self.mx.iter().map(|&i| ts[i as usize].clone()).collect()
-        });
-        cache.insert_y_with(ky, || {
-            self.my.iter().map(|&i| ts[i as usize].clone()).collect()
-        });
+        cache.insert_x_with(kx, || self.mx.iter().map(|&i| ts.get(i).clone()).collect());
+        cache.insert_y_with(ky, || self.my.iter().map(|&i| ts.get(i).clone()).collect());
         cache.insert_xy_with(kxy, || r.clone());
         r
     }
 
     fn eval_without_cache(&mut self, x: Interval, y: Interval) -> EvalResult {
         let ts = &mut self.ts;
-        for i in 0..self.n_scalar_terms {
-            let t = &self.terms[i];
+        let terms = &self.terms;
+        for t in terms {
             match t.kind {
-                StaticTermKind::X => ts[i] = TupperIntervalSet::from(DecInterval::new(x)),
-                StaticTermKind::Y => ts[i] = TupperIntervalSet::from(DecInterval::new(y)),
+                StaticTermKind::X => t.put(ts, TupperIntervalSet::from(DecInterval::new(x))),
+                StaticTermKind::Y => t.put(ts, TupperIntervalSet::from(DecInterval::new(y))),
                 _ => match t.vars {
                     VarSet::EMPTY => (), // Constant subexpression.
-                    _ => ts[i] = t.eval(&self.terms, &ts),
+                    _ => t.put_eval(terms, ts),
                 },
             }
         }
@@ -274,75 +271,62 @@ impl DynRelation {
         EvalResult(
             self.forms[..self.n_atom_forms]
                 .iter()
-                .map(|f| f.eval(&ts))
+                .map(|f| f.eval(terms, ts))
                 .collect(),
         )
     }
 
     fn initialize(&mut self) {
-        for i in 0..self.n_scalar_terms {
-            let t = &self.terms[i];
+        for t in &self.terms {
             // This condition is different from `let StaticTermKind::Constant(_) = t.kind`,
             // as not all constant subexpressions are folded. See the comment on [`FoldConstant`].
             if t.vars == VarSet::EMPTY {
-                self.ts[i] = t.eval(&self.terms, &self.ts);
+                t.put_eval(&self.terms, &mut self.ts);
             }
         }
     }
 }
 
-impl FromStr for DynRelation {
+impl FromStr for Relation {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, String> {
-        let mut form = parse(s, Context::builtin_context())?;
-        PreTransform.visit_form_mut(&mut form);
+        let mut e = parse_expr(s, Context::builtin_context())?;
+        // TODO: Check types and return a pretty error message.
+        PreTransform.visit_expr_mut(&mut e);
         loop {
             let mut s = SortTerms::default();
-            s.visit_form_mut(&mut form);
+            s.visit_expr_mut(&mut e);
             let mut t = Transform::default();
-            t.visit_form_mut(&mut form);
+            t.visit_expr_mut(&mut e);
             let mut f = FoldConstant::default();
-            f.visit_form_mut(&mut form);
+            f.visit_expr_mut(&mut e);
             if !s.modified && !t.modified && !f.modified {
                 break;
             }
         }
-        PostTransform.visit_form_mut(&mut form);
-        loop {
-            let mut v = NormalizeForms::default();
-            v.visit_form_mut(&mut form);
-            if !v.modified {
-                break;
-            }
-        }
-        UpdateMetadata.visit_form_mut(&mut form);
-        let mut v = AssignIdStage1::new();
-        v.visit_form_mut(&mut form);
-        let mut v = AssignIdStage2::new(v);
-        v.visit_form_mut(&mut form);
-        let mut v = CollectStatic::new(v);
-        v.visit_form(&form);
-        let (terms, forms) = v.terms_forms();
-        let n_scalar_terms = terms
-            .iter()
-            .filter(|t| !matches!(t.kind, StaticTermKind::List(_)))
-            .count();
+        PostTransform.visit_expr_mut(&mut e);
+        UpdateMetadata.visit_expr_mut(&mut e);
+        let mut v = AssignId::new();
+        v.visit_expr_mut(&mut e);
+        let collector = CollectStatic::new(v);
+        let terms = collector.terms.clone();
+        let forms = collector.forms.clone();
+        let n_scalar_terms = collector.n_scalar_terms();
         let n_atom_forms = forms
             .iter()
             .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _, _)))
             .count();
 
-        let mut v = FindMaximalScalarTerms::new();
-        v.visit_form(&form);
+        let mut v = FindMaximalScalarTerms::new(collector);
+        v.visit_expr(&e);
         let (mx, my) = v.mx_my();
 
         let mut slf = Self {
             terms,
             forms,
-            n_scalar_terms,
             n_atom_forms,
-            ts: vec![TupperIntervalSet::empty(); n_scalar_terms],
+            ts: ValueStore::new(TupperIntervalSet::empty(), n_scalar_terms),
             eval_count: 0,
             mx,
             my,

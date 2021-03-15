@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Form, FormKind, RelOp, Term, TermKind},
+    ast::{Expr, ExprKind},
     context::{Context, InputWithContext},
     interval_set::TupperIntervalSet,
 };
@@ -8,9 +8,9 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{char, digit0, digit1, satisfy, space0},
-    combinator::{all_consuming, map, map_opt, opt, recognize, value},
+    combinator::{all_consuming, cut, map, map_opt, not, opt, peek, recognize, value},
     error::VerboseError,
-    multi::{fold_many0, fold_many1, many0_count},
+    multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
     Err as NomErr, IResult,
 };
@@ -46,25 +46,25 @@ fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
     )(i)
 }
 
-fn decimal_constant(i: InputWithContext) -> ParseResult<Term> {
+fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
     map(decimal_literal, |s| {
         let s = ["[", s, ",", s, "]"].concat();
         let x = TupperIntervalSet::from(dec_interval!(&s).unwrap());
-        Term::new(TermKind::Constant(Box::new(x)))
+        Expr::new(ExprKind::Constant(Box::new(x)))
     })(i)
 }
 
-fn named_constant(i: InputWithContext) -> ParseResult<Term> {
+fn named_constant(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
     map_opt(identifier, move |s| ctx.get_constant(s))(i)
 }
 
-/// Nonempty, comma-separated list of terms.
-fn term_list(i: InputWithContext) -> ParseResult<Vec<Term>> {
-    let (i, x) = term(i)?;
+/// Nonempty, comma-separated list of expressions.
+fn expr_list(i: InputWithContext) -> ParseResult<Vec<Expr>> {
+    let (i, x) = expr(i)?;
 
     fold_many0(
-        preceded(delimited(space0, char(','), space0), term),
+        preceded(delimited(space0, char(','), space0), expr),
         vec![x],
         |mut xs, x| {
             xs.push(x);
@@ -73,7 +73,7 @@ fn term_list(i: InputWithContext) -> ParseResult<Vec<Term>> {
     )(i)
 }
 
-fn function_application(i: InputWithContext) -> ParseResult<Term> {
+fn function_application(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
     map_opt(
@@ -81,19 +81,19 @@ fn function_application(i: InputWithContext) -> ParseResult<Term> {
             identifier,
             delimited(
                 delimited(space0, char('('), space0),
-                term_list,
-                preceded(space0, char(')')),
+                expr_list,
+                preceded(space0, cut(char(')'))),
             ),
         ),
         move |(s, args)| ctx.apply(s, args),
     )(i)
 }
 
-fn variable(i: InputWithContext) -> ParseResult<Term> {
-    map(identifier, |s| Term::new(TermKind::Var(s.into())))(i)
+fn variable(i: InputWithContext) -> ParseResult<Expr> {
+    map(identifier, |s| Expr::new(ExprKind::Var(s.into())))(i)
 }
 
-fn primary_term(i: InputWithContext) -> ParseResult<Term> {
+fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
     alt((
@@ -103,21 +103,21 @@ fn primary_term(i: InputWithContext) -> ParseResult<Term> {
         variable,
         delimited(
             terminated(char('('), space0),
-            term,
-            preceded(space0, char(')')),
+            expr,
+            preceded(space0, cut(char(')'))),
         ),
         map(
             delimited(
                 terminated(char('['), space0),
-                term_list,
-                preceded(space0, char(']')),
+                expr_list,
+                preceded(space0, cut(char(']'))),
             ),
-            |xs| Term::new(TermKind::List(xs)),
+            |xs| Expr::new(ExprKind::List(xs)),
         ),
         map_opt(
             delimited(
-                terminated(char('|'), space0),
-                term,
+                terminated(terminated(char('|'), not(peek(char('|')))), space0),
+                expr,
                 preceded(space0, char('|')),
             ),
             move |x| ctx.apply("abs", vec![x]),
@@ -125,16 +125,16 @@ fn primary_term(i: InputWithContext) -> ParseResult<Term> {
         map_opt(
             delimited(
                 terminated(char('⌈'), space0),
-                term,
-                preceded(space0, char('⌉')),
+                expr,
+                preceded(space0, cut(char('⌉'))),
             ),
             move |x| ctx.apply("ceil", vec![x]),
         ),
         map_opt(
             delimited(
                 terminated(char('⌊'), space0),
-                term,
-                preceded(space0, char('⌋')),
+                expr,
+                preceded(space0, cut(char('⌋'))),
             ),
             move |x| ctx.apply("floor", vec![x]),
         ),
@@ -142,37 +142,42 @@ fn primary_term(i: InputWithContext) -> ParseResult<Term> {
 }
 
 // ^ is right-associative: x^y^z is the same as x^(y^z).
-fn power_term(i: InputWithContext) -> ParseResult<Term> {
+fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
     alt((
         map(
             separated_pair(
-                primary_term,
+                primary_expr,
                 delimited(space0, char('^'), space0),
-                unary_term,
+                cut(unary_expr),
             ),
             move |(x, y)| ctx.apply("^", vec![x, y]).unwrap(),
         ),
-        primary_term,
+        primary_expr,
     ))(i)
 }
 
-fn unary_term(i: InputWithContext) -> ParseResult<Term> {
+fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
     alt((
-        preceded(pair(char('+'), space0), unary_term),
-        map(preceded(pair(char('-'), space0), unary_term), move |x| {
-            ctx.apply("-", vec![x]).unwrap()
-        }),
-        power_term,
+        preceded(pair(char('+'), space0), cut(unary_expr)),
+        map(
+            separated_pair(
+                alt((value("-", char('-')), value("!", char('!')))),
+                space0,
+                cut(unary_expr),
+            ),
+            move |(op, x)| ctx.apply(op, vec![x]).unwrap(),
+        ),
+        power_expr,
     ))(i)
 }
 
-fn multiplicative_term(i: InputWithContext) -> ParseResult<Term> {
+fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
-    let (i, x) = unary_term(i)?;
+    let (i, x) = unary_expr(i)?;
 
     fold_many0(
         alt((
@@ -184,19 +189,20 @@ fn multiplicative_term(i: InputWithContext) -> ParseResult<Term> {
                     alt((value("*", char('*')), value("/", char('/')))),
                     space0,
                 ),
-                unary_term,
+                cut(unary_expr),
             ),
+            // 2x
             // x y
-            pair(value("*", space0), power_term),
+            pair(value("*", space0), power_expr),
         )),
         x,
         move |xs, (op, y)| ctx.apply(op, vec![xs, y]).unwrap(),
     )(i)
 }
 
-fn additive_term(i: InputWithContext) -> ParseResult<Term> {
+fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
-    let (i, x) = multiplicative_term(i)?;
+    let (i, x) = multiplicative_expr(i)?;
 
     fold_many0(
         pair(
@@ -205,126 +211,113 @@ fn additive_term(i: InputWithContext) -> ParseResult<Term> {
                 alt((value("+", char('+')), value("-", char('-')))),
                 space0,
             ),
-            multiplicative_term,
+            cut(multiplicative_expr),
         ),
         x,
         move |xs, (op, y)| ctx.apply(op, vec![xs, y]).unwrap(),
     )(i)
 }
 
-fn term(i: InputWithContext) -> ParseResult<Term> {
-    additive_term(i)
-}
-
-// (In)equalities can be chained: x < y < z is the same as x < y && y < z.
-fn equality(i: InputWithContext) -> ParseResult<Form> {
-    // `acc` is a pair of `Vec<RelOp>` and `Vec<Term>` that store
-    // lists of equality operators and their operands, respectively.
-    // `acc.1.len() == acc.0.len() + 1` holds.
-    let (i, acc) = map(term, |x| (vec![], vec![x]))(i)?;
+// Relational operators can be chained: x < y < z is the same as x < y && y < z.
+fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
+    let ctx = i.ctx;
+    let (i, (ops, xs)) = map(additive_expr, |x| (vec![], vec![x]))(i)?;
 
     map(
-        fold_many1(
+        fold_many0(
             pair(
                 delimited(
                     space0,
                     alt((
-                        value(RelOp::Eq, char('=')),
-                        value(RelOp::Ge, alt((tag(">="), tag("≥")))),
-                        value(RelOp::Gt, char('>')),
-                        value(RelOp::Le, alt((tag("<="), tag("≤")))),
-                        value(RelOp::Lt, char('<')),
+                        value("=", char('=')),
+                        value(">=", alt((tag(">="), tag("≥")))),
+                        value(">", char('>')),
+                        value("<=", alt((tag("<="), tag("≤")))),
+                        value("<", char('<')),
                     )),
                     space0,
                 ),
-                term,
+                cut(additive_expr),
             ),
-            acc,
-            |mut acc, (op, y)| {
-                acc.0.push(op);
-                acc.1.push(y);
-                acc
+            (ops, xs),
+            |(mut ops, mut xs), (op, y)| {
+                ops.push(op);
+                xs.push(y);
+                (ops, xs)
             },
         ),
-        |acc| {
-            let op = acc.0[0];
-            let x = acc.1[0].clone();
-            let y = acc.1[1].clone();
-            let mut f = Form::new(FormKind::Atomic(op, Box::new(x), Box::new(y)));
-            for i in 1..acc.0.len() {
-                let op = acc.0[i];
-                let x = acc.1[i].clone();
-                let y = acc.1[i + 1].clone();
-                let f2 = Form::new(FormKind::Atomic(op, Box::new(x), Box::new(y)));
-                f = Form::new(FormKind::And(Box::new(f), Box::new(f2)));
+        move |(ops, xs)| {
+            assert_eq!(xs.len(), ops.len() + 1);
+            if ops.is_empty() {
+                xs[0].clone()
+            } else {
+                let op = ops[0];
+                let x = xs[0].clone();
+                let y = xs[1].clone();
+                let mut t = ctx.apply(op, vec![x, y]).unwrap();
+                for i in 1..ops.len() {
+                    let op = ops[i];
+                    let x = xs[i].clone();
+                    let y = xs[i + 1].clone();
+                    let t2 = ctx.apply(op, vec![x, y]).unwrap();
+                    t = ctx.apply("&&", vec![t, t2]).unwrap();
+                }
+                t
             }
-            f
         },
     )(i)
 }
 
-fn primary_form(i: InputWithContext) -> ParseResult<Form> {
-    alt((
-        delimited(
-            terminated(char('('), space0),
-            form,
-            preceded(space0, char(')')),
-        ),
-        equality,
-    ))(i)
-}
-
-// Inputs like "!y < x", are permitted too.
-fn not_form(i: InputWithContext) -> ParseResult<Form> {
-    alt((
-        map(preceded(pair(char('!'), space0), not_form), |x| {
-            Form::new(FormKind::Not(Box::new(x)))
-        }),
-        primary_form,
-    ))(i)
-}
-
-fn and_form(i: InputWithContext) -> ParseResult<Form> {
-    let (i, x) = not_form(i)?;
+fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
+    let ctx = i.ctx;
+    let (i, x) = relational_expr(i)?;
 
     fold_many0(
-        preceded(delimited(space0, tag("&&"), space0), not_form),
+        preceded(delimited(space0, tag("&&"), space0), cut(relational_expr)),
         x,
-        |xs, y| Form::new(FormKind::And(Box::new(xs), Box::new(y))),
+        move |xs, y| ctx.apply("&&", vec![xs, y]).unwrap(),
     )(i)
 }
 
-fn or_form(i: InputWithContext) -> ParseResult<Form> {
-    let (i, x) = and_form(i)?;
+fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
+    let ctx = i.ctx;
+    let (i, x) = and_expr(i)?;
 
     fold_many0(
-        preceded(delimited(space0, tag("||"), space0), and_form),
+        preceded(delimited(space0, tag("||"), space0), cut(and_expr)),
         x,
-        |xs, y| Form::new(FormKind::Or(Box::new(xs), Box::new(y))),
+        move |xs, y| ctx.apply("||", vec![xs, y]).unwrap(),
     )(i)
 }
 
-fn form(i: InputWithContext) -> ParseResult<Form> {
-    or_form(i)
+fn expr(i: InputWithContext) -> ParseResult<Expr> {
+    or_expr(i)
 }
 
-/// Parses a formula.
-pub fn parse(i: &str, ctx: &Context) -> Result<Form, String> {
+/// Parses an expression.
+pub fn parse_expr(i: &str, ctx: &Context) -> Result<Expr, String> {
     let i = InputWithContext::new(i, ctx);
-    match all_consuming(delimited(space0, form, space0))(i.clone()) {
+    match all_consuming(delimited(space0, expr, space0))(i.clone()) {
         Ok((InputWithContext { i: "", ctx: _ }, x)) => Ok(x),
         Err(NomErr::Error(e)) | Err(NomErr::Failure(e)) => Err(convert_error(i, e)),
         _ => unreachable!(),
     }
 }
 
-// Copied from `nom::error::convert_error`.
+// Based on `nom::error::convert_error`.
 #[allow(clippy::naive_bytecount)]
 fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> String {
     use nom::Offset;
 
     let input = input.i;
     let substring = e.errors.first().unwrap().0.i;
+    // Skip leading spaces for readability.
+    let ws_chars = &[' ', '\t'][..];
+    let substring = substring.trim_start_matches(ws_chars);
+    let message = match substring.split(ws_chars).next() {
+        Some(word) if !word.is_empty() => format!("unexpected input around '{}'", word),
+        _ => "unexpected end of input".into(),
+    };
     let offset = input.offset(substring);
 
     let prefix = &input.as_bytes()[..offset];
@@ -349,12 +342,13 @@ fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> 
         .trim_end();
 
     // The (1-indexed) column number is the offset of our substring into that line
-    let column_number = line.offset(substring) + 1;
+    let column_number = line[..line.offset(substring)].chars().count() + 1;
 
     format!(
-        "at line {line_number}:\n\
+        "{message} at line {line_number}:\n\
                {line}\n\
                {caret:>column$}\n\n",
+        message = message,
         line_number = line_number,
         line = line,
         caret = '^',
@@ -367,116 +361,106 @@ mod tests {
     use crate::context::Context;
 
     #[test]
-    fn parse_term() {
-        test_parse_term("e", "@");
-        test_parse_term("gamma", "@");
-        test_parse_term("γ", "@");
-        test_parse_term("pi", "@");
-        test_parse_term("π", "@");
-        test_parse_term("[x, y, z]", "(List x y z)");
-        test_parse_term("|x|", "(Abs x)");
-        test_parse_term("⌈x⌉", "(Ceil x)");
-        test_parse_term("⌊x⌋", "(Floor x)");
-        test_parse_term("abs(x)", "(Abs x)");
-        test_parse_term("acos(x)", "(Acos x)");
-        test_parse_term("acosh(x)", "(Acosh x)");
-        test_parse_term("Ai(x)", "(AiryAi x)");
-        test_parse_term("Ai'(x)", "(AiryAiPrime x)");
-        test_parse_term("Bi(x)", "(AiryBi x)");
-        test_parse_term("Bi'(x)", "(AiryBiPrime x)");
-        test_parse_term("asin(x)", "(Asin x)");
-        test_parse_term("asinh(x)", "(Asinh x)");
-        test_parse_term("atan(x)", "(Atan x)");
-        test_parse_term("atanh(x)", "(Atanh x)");
-        test_parse_term("ceil(x)", "(Ceil x)");
-        test_parse_term("Chi(x)", "(Chi x)");
-        test_parse_term("Ci(x)", "(Ci x)");
-        test_parse_term("cos(x)", "(Cos x)");
-        test_parse_term("cosh(x)", "(Cosh x)");
-        test_parse_term("psi(x)", "(Digamma x)");
-        test_parse_term("ψ(x)", "(Digamma x)");
-        test_parse_term("Ei(x)", "(Ei x)");
-        test_parse_term("erf(x)", "(Erf x)");
-        test_parse_term("erfc(x)", "(Erfc x)");
-        test_parse_term("erfi(x)", "(Erfi x)");
-        test_parse_term("exp(x)", "(Exp x)");
-        test_parse_term("floor(x)", "(Floor x)");
-        test_parse_term("C(x)", "(FresnelC x)");
-        test_parse_term("S(x)", "(FresnelS x)");
-        test_parse_term("Gamma(x)", "(Gamma x)");
-        test_parse_term("Γ(x)", "(Gamma x)");
-        test_parse_term("li(x)", "(Li x)");
-        test_parse_term("ln(x)", "(Ln x)");
-        test_parse_term("log(x)", "(Log10 x)");
-        test_parse_term("Shi(x)", "(Shi x)");
-        test_parse_term("Si(x)", "(Si x)");
-        test_parse_term("sign(x)", "(Sign x)");
-        test_parse_term("sin(x)", "(Sin x)");
-        test_parse_term("sinh(x)", "(Sinh x)");
-        test_parse_term("sqrt(x)", "(Sqrt x)");
-        test_parse_term("tan(x)", "(Tan x)");
-        test_parse_term("tanh(x)", "(Tanh x)");
-        test_parse_term("atan2(y, x)", "(Atan2 y x)");
-        test_parse_term("I(n, x)", "(BesselI n x)");
-        test_parse_term("J(n, x)", "(BesselJ n x)");
-        test_parse_term("K(n, x)", "(BesselK n x)");
-        test_parse_term("Y(n, x)", "(BesselY n x)");
-        test_parse_term("Gamma(a, x)", "(GammaInc a x)");
-        test_parse_term("Γ(a, x)", "(GammaInc a x)");
-        test_parse_term("log(b, x)", "(Log b x)");
-        test_parse_term("mod(x, y)", "(Mod x y)");
-        test_parse_term("gcd(x, y, z)", "(Gcd (Gcd x y) z)");
-        test_parse_term("lcm(x, y, z)", "(Lcm (Lcm x y) z)");
-        test_parse_term("max(x, y, z)", "(Max (Max x y) z)");
-        test_parse_term("min(x, y, z)", "(Min (Min x y) z)");
-        test_parse_term("ranked_max([x, y, z], k)", "(RankedMax (List x y z) k)");
-        test_parse_term("ranked_min([x, y, z], k)", "(RankedMin (List x y z) k)");
-        test_parse_term("x ^ y ^ z", "(Pow x (Pow y z))");
-        test_parse_term("-x ^ -y", "(Neg (Pow x (Neg y)))");
-        test_parse_term("+x", "x");
-        test_parse_term("-x", "(Neg x)");
-        test_parse_term("x y z", "(Mul (Mul x y) z)");
-        test_parse_term("x * y * z", "(Mul (Mul x y) z)");
-        test_parse_term("x / y / z", "(Div (Div x y) z)");
-        test_parse_term("x + y + z", "(Add (Add x y) z)");
-        test_parse_term("x - y - z", "(Sub (Sub x y) z)");
-        test_parse_term("x + y z", "(Add x (Mul y z))");
-        test_parse_term("(x + y) z", "(Mul (Add x y) z)");
-    }
-
-    fn test_parse_term(input: &str, expected: &str) {
-        let f = super::parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
-        assert_eq!(
-            format!("(Eq {} @)", expected),
-            format!("{}", f.dump_structure())
-        );
-    }
-
-    #[test]
-    fn parse_forms() {
-        test_parse_form("x = y", "(Eq x y)");
-        test_parse_form("x >= y", "(Ge x y)");
-        test_parse_form("x ≥ y", "(Ge x y)");
-        test_parse_form("x > y", "(Gt x y)");
-        test_parse_form("x <= y", "(Le x y)");
-        test_parse_form("x ≤ y", "(Le x y)");
-        test_parse_form("x < y", "(Lt x y)");
-        test_parse_form("x = y = z", "(And (Eq x y) (Eq y z))");
-        test_parse_form("!x = y", "(Not (Eq x y))");
-        test_parse_form("x = y && y = z", "(And (Eq x y) (Eq y z))");
-        test_parse_form("x = y || y = z", "(Or (Eq x y) (Eq y z))");
-        test_parse_form(
+    fn parse_expr() {
+        test_parse_expr("e", "@");
+        test_parse_expr("gamma", "@");
+        test_parse_expr("γ", "@");
+        test_parse_expr("pi", "@");
+        test_parse_expr("π", "@");
+        test_parse_expr("[x, y, z]", "(List x y z)");
+        test_parse_expr("|x|", "(Abs x)");
+        test_parse_expr("|(|x| + y)|", "(Abs (Add (Abs x) y))");
+        test_parse_expr("⌈x⌉", "(Ceil x)");
+        test_parse_expr("⌊x⌋", "(Floor x)");
+        test_parse_expr("abs(x)", "(Abs x)");
+        test_parse_expr("acos(x)", "(Acos x)");
+        test_parse_expr("acosh(x)", "(Acosh x)");
+        test_parse_expr("Ai(x)", "(AiryAi x)");
+        test_parse_expr("Ai'(x)", "(AiryAiPrime x)");
+        test_parse_expr("Bi(x)", "(AiryBi x)");
+        test_parse_expr("Bi'(x)", "(AiryBiPrime x)");
+        test_parse_expr("asin(x)", "(Asin x)");
+        test_parse_expr("asinh(x)", "(Asinh x)");
+        test_parse_expr("atan(x)", "(Atan x)");
+        test_parse_expr("atanh(x)", "(Atanh x)");
+        test_parse_expr("ceil(x)", "(Ceil x)");
+        test_parse_expr("Chi(x)", "(Chi x)");
+        test_parse_expr("Ci(x)", "(Ci x)");
+        test_parse_expr("cos(x)", "(Cos x)");
+        test_parse_expr("cosh(x)", "(Cosh x)");
+        test_parse_expr("psi(x)", "(Digamma x)");
+        test_parse_expr("ψ(x)", "(Digamma x)");
+        test_parse_expr("Ei(x)", "(Ei x)");
+        test_parse_expr("erf(x)", "(Erf x)");
+        test_parse_expr("erfc(x)", "(Erfc x)");
+        test_parse_expr("erfi(x)", "(Erfi x)");
+        test_parse_expr("exp(x)", "(Exp x)");
+        test_parse_expr("floor(x)", "(Floor x)");
+        test_parse_expr("C(x)", "(FresnelC x)");
+        test_parse_expr("S(x)", "(FresnelS x)");
+        test_parse_expr("Gamma(x)", "(Gamma x)");
+        test_parse_expr("Γ(x)", "(Gamma x)");
+        test_parse_expr("li(x)", "(Li x)");
+        test_parse_expr("ln(x)", "(Ln x)");
+        test_parse_expr("log(x)", "(Log10 x)");
+        test_parse_expr("Shi(x)", "(Shi x)");
+        test_parse_expr("Si(x)", "(Si x)");
+        test_parse_expr("sign(x)", "(Sign x)");
+        test_parse_expr("sin(x)", "(Sin x)");
+        test_parse_expr("sinh(x)", "(Sinh x)");
+        test_parse_expr("sqrt(x)", "(Sqrt x)");
+        test_parse_expr("tan(x)", "(Tan x)");
+        test_parse_expr("tanh(x)", "(Tanh x)");
+        test_parse_expr("atan2(y, x)", "(Atan2 y x)");
+        test_parse_expr("I(n, x)", "(BesselI n x)");
+        test_parse_expr("J(n, x)", "(BesselJ n x)");
+        test_parse_expr("K(n, x)", "(BesselK n x)");
+        test_parse_expr("Y(n, x)", "(BesselY n x)");
+        test_parse_expr("Gamma(a, x)", "(GammaInc a x)");
+        test_parse_expr("Γ(a, x)", "(GammaInc a x)");
+        test_parse_expr("log(b, x)", "(Log b x)");
+        test_parse_expr("mod(x, y)", "(Mod x y)");
+        test_parse_expr("gcd(x, y, z)", "(Gcd (Gcd x y) z)");
+        test_parse_expr("lcm(x, y, z)", "(Lcm (Lcm x y) z)");
+        test_parse_expr("max(x, y, z)", "(Max (Max x y) z)");
+        test_parse_expr("min(x, y, z)", "(Min (Min x y) z)");
+        test_parse_expr("ranked_max([x, y, z], k)", "(RankedMax (List x y z) k)");
+        test_parse_expr("ranked_min([x, y, z], k)", "(RankedMin (List x y z) k)");
+        test_parse_expr("x ^ y ^ z", "(Pow x (Pow y z))");
+        test_parse_expr("-x ^ -y", "(Neg (Pow x (Neg y)))");
+        test_parse_expr("+x", "x");
+        test_parse_expr("-x", "(Neg x)");
+        test_parse_expr("2x", "(Mul @ x)");
+        test_parse_expr("x y z", "(Mul (Mul x y) z)");
+        test_parse_expr("x * y * z", "(Mul (Mul x y) z)");
+        test_parse_expr("x / y / z", "(Div (Div x y) z)");
+        test_parse_expr("x + y + z", "(Add (Add x y) z)");
+        test_parse_expr("x - y - z", "(Sub (Sub x y) z)");
+        test_parse_expr("x + y z", "(Add x (Mul y z))");
+        test_parse_expr("(x + y) z", "(Mul (Add x y) z)");
+        test_parse_expr("x = y", "(Eq x y)");
+        test_parse_expr("x >= y", "(Ge x y)");
+        test_parse_expr("x ≥ y", "(Ge x y)");
+        test_parse_expr("x > y", "(Gt x y)");
+        test_parse_expr("x <= y", "(Le x y)");
+        test_parse_expr("x ≤ y", "(Le x y)");
+        test_parse_expr("x < y", "(Lt x y)");
+        test_parse_expr("x = y = z", "(And (Eq x y) (Eq y z))");
+        test_parse_expr("!(x = y)", "(Not (Eq x y))");
+        test_parse_expr("x = y && y = z", "(And (Eq x y) (Eq y z))");
+        test_parse_expr("x = y || y = z", "(Or (Eq x y) (Eq y z))");
+        test_parse_expr(
             "x = y || y = z && z = x",
             "(Or (Eq x y) (And (Eq y z) (Eq z x)))",
         );
-        test_parse_form(
+        test_parse_expr(
             "(x = y || y = z) && z = x",
             "(And (Or (Eq x y) (Eq y z)) (Eq z x))",
         );
     }
 
-    fn test_parse_form(input: &str, expected: &str) {
-        let f = super::parse(input, Context::builtin_context()).unwrap();
-        assert_eq!(expected, format!("{}", f.dump_structure()));
+    fn test_parse_expr(input: &str, expected: &str) {
+        let f = super::parse_expr(input, Context::builtin_context()).unwrap();
+        assert_eq!(format!("{}", f.dump_structure()), expected);
     }
 }

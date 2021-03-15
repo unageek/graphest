@@ -1,5 +1,6 @@
 #![allow(clippy::float_cmp)]
 #![feature(once_cell)]
+#![feature(or_patterns)]
 
 #[cfg(feature = "arb")]
 mod arb;
@@ -9,18 +10,18 @@ mod arb_interval_set_ops;
 mod arb_sys;
 mod ast;
 mod context;
-mod dyn_relation;
 mod eval_result;
 mod graph;
 mod interval_set;
 mod interval_set_ops;
+mod ops;
 mod parse;
-mod rel;
+mod relation;
 mod visit;
 
 use crate::{
-    dyn_relation::DynRelation,
     graph::{Graph, GraphingStatistics, InexactRegion},
+    relation::Relation,
 };
 use clap::{App, AppSettings, Arg, ArgSettings};
 use image::{GrayAlphaImage, RgbImage};
@@ -118,7 +119,7 @@ fn main() {
         )
         .get_matches();
 
-    let rel = matches.value_of_t_or_exit::<DynRelation>("relation");
+    let rel = matches.value_of_t_or_exit::<Relation>("relation");
     if matches.is_present("parse") {
         return;
     }

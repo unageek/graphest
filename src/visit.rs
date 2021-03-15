@@ -1,10 +1,10 @@
 use crate::{
-    ast::{
-        BinaryOp, Form, FormId, FormKind, RelOp, Term, TermId, TermKind, UnaryOp, VarSet,
-        UNINIT_FORM_ID, UNINIT_TERM_ID,
-    },
+    ast::{BinaryOp, Expr, ExprId, ExprKind, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
     interval_set::{Site, TupperIntervalSet},
-    rel::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind},
+    ops::{
+        FormIndex, RelOp, ScalarBinaryOp, ScalarUnaryOp, StaticForm, StaticFormKind, StaticTerm,
+        StaticTermKind, StoreIndex, TermIndex,
+    },
 };
 use inari::Decoration;
 use std::{
@@ -15,118 +15,81 @@ use std::{
     ops::Deref,
 };
 
-/// A type that traverses formulas and terms in depth-first order.
+/// A visitor that visits AST nodes in depth-first order.
 pub trait Visit<'a>
 where
     Self: Sized,
 {
-    fn visit_term(&mut self, t: &'a Term) {
-        traverse_term(self, t);
-    }
-
-    fn visit_form(&mut self, f: &'a Form) {
-        traverse_form(self, f)
+    fn visit_expr(&mut self, e: &'a Expr) {
+        traverse_expr(self, e);
     }
 }
 
-fn traverse_term<'a, V: Visit<'a>>(v: &mut V, t: &'a Term) {
-    use TermKind::*;
-    match &t.kind {
-        Unary(_, x) => v.visit_term(x),
+fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
+    use ExprKind::*;
+    match &e.kind {
+        Unary(_, x) => v.visit_expr(x),
         Binary(_, x, y) => {
-            v.visit_term(x);
-            v.visit_term(y);
+            v.visit_expr(x);
+            v.visit_expr(y);
         }
-        Pown(x, _) => v.visit_term(x),
+        Pown(x, _) => v.visit_expr(x),
         List(xs) => {
             for x in xs {
-                v.visit_term(x);
+                v.visit_expr(x);
             }
         }
         Constant(_) | Var(_) | Uninit => (),
     };
 }
 
-fn traverse_form<'a, V: Visit<'a>>(v: &mut V, f: &'a Form) {
-    use FormKind::*;
-    match &f.kind {
-        Atomic(_, x, y) => {
-            v.visit_term(x);
-            v.visit_term(y);
-        }
-        Not(x) => {
-            v.visit_form(x);
-        }
-        And(x, y) | Or(x, y) => {
-            v.visit_form(x);
-            v.visit_form(y);
-        }
-        Uninit => (),
-    };
-}
-
-/// A type that traverses formulas and terms and possibly modifies them
-/// in depth-first order.
+/// A visitor that visits AST nodes in depth-first order and possibly modifies them.
 pub trait VisitMut
 where
     Self: Sized,
 {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        traverse_term_mut(self, t);
-    }
-
-    fn visit_form_mut(&mut self, f: &mut Form) {
-        traverse_form_mut(self, f);
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        traverse_expr_mut(self, e);
     }
 }
 
-fn traverse_term_mut<V: VisitMut>(v: &mut V, t: &mut Term) {
-    use TermKind::*;
-    match &mut t.kind {
-        Unary(_, x) => v.visit_term_mut(x),
+fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
+    use ExprKind::*;
+    match &mut e.kind {
+        Unary(_, x) => v.visit_expr_mut(x),
         Binary(_, x, y) => {
-            v.visit_term_mut(x);
-            v.visit_term_mut(y);
+            v.visit_expr_mut(x);
+            v.visit_expr_mut(y);
         }
-        Pown(x, _) => v.visit_term_mut(x),
+        Pown(x, _) => v.visit_expr_mut(x),
         List(xs) => {
             for x in xs {
-                v.visit_term_mut(x);
+                v.visit_expr_mut(x);
             }
         }
         Constant(_) | Var(_) | Uninit => (),
     };
 }
 
-fn traverse_form_mut<V: VisitMut>(v: &mut V, f: &mut Form) {
-    use FormKind::*;
-    match &mut f.kind {
-        Atomic(_, x, y) => {
-            v.visit_term_mut(x);
-            v.visit_term_mut(y);
-        }
-        Not(x) => {
-            v.visit_form_mut(x);
-        }
-        And(x, y) | Or(x, y) => {
-            v.visit_form_mut(x);
-            v.visit_form_mut(y);
-        }
-        Uninit => (),
-    };
-}
-
 /// A possibly dangling reference to a value.
-/// All operations except [`UnsafeRef<T>::from`] are unsafe.
+/// All operations except `from` and `clone` are unsafe.
 struct UnsafeRef<T: Eq + Hash> {
     ptr: *const T,
 }
 
 impl<T: Eq + Hash> UnsafeRef<T> {
-    fn from(t: &T) -> Self {
-        Self { ptr: t as *const T }
+    fn from(x: &T) -> Self {
+        Self { ptr: x as *const T }
     }
 }
+
+impl<T: Eq + Hash> Clone for UnsafeRef<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T: Eq + Hash> Copy for UnsafeRef<T> {}
 
 impl<T: Eq + Hash> Deref for UnsafeRef<T> {
     type Target = T;
@@ -151,22 +114,22 @@ impl<T: Eq + Hash> Hash for UnsafeRef<T> {
 }
 
 pub struct Substitute {
-    args: Vec<Term>,
+    args: Vec<Expr>,
 }
 
 impl Substitute {
-    pub fn new(args: Vec<Term>) -> Self {
+    pub fn new(args: Vec<Expr>) -> Self {
         Self { args }
     }
 }
 
 impl VisitMut for Substitute {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        traverse_term_mut(self, t);
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        traverse_expr_mut(self, e);
 
-        if let TermKind::Var(x) = &mut t.kind {
+        if let ExprKind::Var(x) = &mut e.kind {
             if let Ok(i) = x.parse::<usize>() {
-                *t = self.args.get(i).unwrap().clone()
+                *e = self.args.get(i).unwrap().clone()
             }
         }
     }
@@ -176,17 +139,17 @@ impl VisitMut for Substitute {
 pub struct PreTransform;
 
 impl VisitMut for PreTransform {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        use {BinaryOp::*, TermKind::*, UnaryOp::*};
-        traverse_term_mut(self, t);
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
 
-        match &mut t.kind {
+        match &mut e.kind {
             Binary(Sub, x, y) => {
                 // (Sub x y) → (Add x (Neg y))
-                *t = Term::new(Binary(
+                *e = Expr::new(Binary(
                     Add,
                     take(x),
-                    Box::new(Term::new(Unary(Neg, take(y)))),
+                    Box::new(Expr::new(Unary(Neg, take(y)))),
                 ));
             }
             // Ad-hoc transformations mainly for demonstrational purposes.
@@ -194,21 +157,21 @@ impl VisitMut for PreTransform {
                 match (&x.kind, &y.kind) {
                     (Unary(Sin, x1), _) if x1 == y => {
                         // (Div (Sin y) y) → (Sinc (UndefAt0 y))
-                        *t = Term::new(Unary(Sinc, Box::new(Term::new(Unary(UndefAt0, take(y))))));
+                        *e = Expr::new(Unary(Sinc, Box::new(Expr::new(Unary(UndefAt0, take(y))))));
                     }
                     (_, Unary(Sin, y1)) if y1 == x => {
                         // (Div x (Sin x)) → (Recip (Sinc (UndefAt0 x)))
-                        *t = Term::new(Unary(
+                        *e = Expr::new(Unary(
                             Recip,
-                            Box::new(Term::new(Unary(
+                            Box::new(Expr::new(Unary(
                                 Sinc,
-                                Box::new(Term::new(Unary(UndefAt0, take(x)))),
+                                Box::new(Expr::new(Unary(UndefAt0, take(x)))),
                             ))),
                         ));
                     }
                     _ if x == y => {
                         // (Div x x) → (One (UndefAt0 x))
-                        *t = Term::new(Unary(One, Box::new(Term::new(Unary(UndefAt0, take(x))))));
+                        *e = Expr::new(Unary(One, Box::new(Expr::new(Unary(UndefAt0, take(x))))));
                     }
                     _ => (),
                 };
@@ -224,16 +187,16 @@ pub struct SortTerms {
     pub modified: bool,
 }
 
-fn precedes(x: &Term, y: &Term) -> bool {
-    matches!(x.kind, TermKind::Constant(_)) && !matches!(y.kind, TermKind::Constant(_))
+fn precedes(x: &Expr, y: &Expr) -> bool {
+    matches!(x.kind, ExprKind::Constant(_)) && !matches!(y.kind, ExprKind::Constant(_))
 }
 
 impl VisitMut for SortTerms {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        use {BinaryOp::*, TermKind::*};
-        traverse_term_mut(self, t);
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, ExprKind::*};
+        traverse_expr_mut(self, e);
 
-        match &mut t.kind {
+        match &mut e.kind {
             Binary(Add, x, y) | Binary(Mul, x, y) if precedes(y, x) => {
                 // (op x y) /; y ≺ x → (op y x)
                 swap(x, y);
@@ -244,7 +207,7 @@ impl VisitMut for SortTerms {
     }
 }
 
-/// Transforms terms into simpler forms.
+/// Transforms expressions into simpler/normalized forms.
 #[derive(Default)]
 pub struct Transform {
     pub modified: bool,
@@ -264,24 +227,24 @@ fn f64(x: &TupperIntervalSet) -> Option<f64> {
 }
 
 impl VisitMut for Transform {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        use {BinaryOp::*, TermKind::*, UnaryOp::*};
-        traverse_term_mut(self, t);
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
 
-        match &mut t.kind {
+        match &mut e.kind {
             Unary(Neg, x) => {
                 match &mut x.kind {
                     Unary(Neg, x1) => {
                         // (Neg (Neg x1)) → x1
-                        *t = take(x1);
+                        *e = take(x1);
                         self.modified = true;
                     }
                     Binary(Add, x1, x2) => {
                         // (Neg (Add x1 x2)) → (Add (Neg x1) (Neg x2))
-                        *t = Term::new(Binary(
+                        *e = Expr::new(Binary(
                             Add,
-                            Box::new(Term::new(Unary(Neg, take(x1)))),
-                            Box::new(Term::new(Unary(Neg, take(x2)))),
+                            Box::new(Expr::new(Unary(Neg, take(x1)))),
+                            Box::new(Expr::new(Unary(Neg, take(x2)))),
                         ));
                         self.modified = true;
                     }
@@ -292,14 +255,14 @@ impl VisitMut for Transform {
                 match (&x.kind, &mut y.kind) {
                     (Constant(a), _) if f64(a) == Some(0.0) => {
                         // (Add 0 y) → y
-                        *t = take(y);
+                        *e = take(y);
                         self.modified = true;
                     }
                     (_, Binary(Add, y1, y2)) => {
                         // (Add x (Add y1 y2)) → (Add (Add x y1) y2)
-                        *t = Term::new(Binary(
+                        *e = Expr::new(Binary(
                             Add,
-                            Box::new(Term::new(Binary(Add, take(x), take(y1)))),
+                            Box::new(Expr::new(Binary(Add, take(x), take(y1)))),
                             take(y2),
                         ));
                         self.modified = true;
@@ -311,36 +274,77 @@ impl VisitMut for Transform {
                 match (&mut x.kind, &mut y.kind) {
                     (Constant(a), _) if f64(a) == Some(1.0) => {
                         // (Mul 1 y) → y
-                        *t = take(y);
+                        *e = take(y);
                         self.modified = true;
                     }
                     (Constant(a), _) if f64(a) == Some(-1.0) => {
                         // (Mul -1 y) → (Neg y)
-                        *t = Term::new(Unary(Neg, take(y)));
+                        *e = Expr::new(Unary(Neg, take(y)));
                         self.modified = true;
                     }
                     (Unary(Neg, x), _) => {
                         // (Mul (Neg x) y) → (Neg (Mul x y))
-                        *t = Term::new(Unary(
+                        *e = Expr::new(Unary(
                             Neg,
-                            Box::new(Term::new(Binary(Mul, take(x), take(y)))),
+                            Box::new(Expr::new(Binary(Mul, take(x), take(y)))),
                         ));
                         self.modified = true;
                     }
                     (_, Unary(Neg, y)) => {
                         // (Mul x (Neg y)) → (Neg (Mul x y))
-                        *t = Term::new(Unary(
+                        *e = Expr::new(Unary(
                             Neg,
-                            Box::new(Term::new(Binary(Mul, take(x), take(y)))),
+                            Box::new(Expr::new(Binary(Mul, take(x), take(y)))),
                         ));
                         self.modified = true;
                     }
                     (_, Binary(Mul, y1, y2)) => {
                         // (Mul x (Mul y1 y2)) → (Mul (Mul x y1) y2)
-                        *t = Term::new(Binary(
+                        *e = Expr::new(Binary(
                             Mul,
-                            Box::new(Term::new(Binary(Mul, take(x), take(y1)))),
+                            Box::new(Expr::new(Binary(Mul, take(x), take(y1)))),
                             take(y2),
+                        ));
+                        self.modified = true;
+                    }
+                    _ => (),
+                }
+            }
+            Unary(Not, x) => {
+                match &mut x.kind {
+                    Binary(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x1, x2) => {
+                        // (Not (op x1 x2)) → (!op x1 x2)
+                        let neg_op = match op {
+                            Eq => Neq,
+                            Ge => Nge,
+                            Gt => Ngt,
+                            Le => Nle,
+                            Lt => Nlt,
+                            Neq => Eq,
+                            Nge => Ge,
+                            Ngt => Gt,
+                            Nle => Le,
+                            Nlt => Lt,
+                            _ => unreachable!(),
+                        };
+                        *e = Expr::new(Binary(neg_op, take(x1), take(x2)));
+                        self.modified = true;
+                    }
+                    Binary(And, x1, x2) => {
+                        // (And (x1 x2)) → (Or (Not x1) (Not x2))
+                        *e = Expr::new(Binary(
+                            Or,
+                            Box::new(Expr::new(Unary(Not, take(x1)))),
+                            Box::new(Expr::new(Unary(Not, take(x2)))),
+                        ));
+                        self.modified = true;
+                    }
+                    Binary(Or, x1, x2) => {
+                        // (Or (x1 x2)) → (And (Not x1) (Not x2))
+                        *e = Expr::new(Binary(
+                            And,
+                            Box::new(Expr::new(Unary(Not, take(x1)))),
+                            Box::new(Expr::new(Unary(Not, take(x2)))),
                         ));
                         self.modified = true;
                     }
@@ -359,16 +363,16 @@ pub struct FoldConstant {
 }
 
 impl VisitMut for FoldConstant {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        use TermKind::*;
-        traverse_term_mut(self, t);
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use ExprKind::*;
+        traverse_expr_mut(self, e);
 
-        if !matches!(t.kind, TermKind::Constant(_)) {
-            if let Some(val) = t.eval() {
+        if !matches!(e.kind, ExprKind::Constant(_)) {
+            if let Some(val) = e.eval() {
                 // Only fold constants which evaluate to the empty or a single interval
                 // since the branch cut tracking is not possible with the AST.
                 if val.len() <= 1 {
-                    *t = Term::new(Constant(Box::new(val)));
+                    *e = Expr::new(Constant(Box::new(val)));
                     self.modified = true;
                 }
             }
@@ -380,20 +384,20 @@ impl VisitMut for FoldConstant {
 pub struct PostTransform;
 
 impl VisitMut for PostTransform {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        use {BinaryOp::*, TermKind::*, UnaryOp::*};
-        traverse_term_mut(self, t);
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
 
-        if let Binary(Pow, x, y) = &mut t.kind {
+        if let Binary(Pow, x, y) = &mut e.kind {
             match (&x.kind, &y.kind) {
                 (Constant(a), _) => {
                     if let Some(a) = f64(a) {
                         if a == 2.0 {
                             // (Pow 2 x) → (Exp2 x)
-                            *t = Term::new(Unary(Exp2, take(y)));
+                            *e = Expr::new(Unary(Exp2, take(y)));
                         } else if a == 10.0 {
                             // (Pow 10 x) → (Exp10 x)
-                            *t = Term::new(Unary(Exp10, take(y)));
+                            *e = Expr::new(Unary(Exp10, take(y)));
                         }
                     }
                 }
@@ -401,22 +405,22 @@ impl VisitMut for PostTransform {
                     if let Some(a) = f64(a) {
                         if a == -1.0 {
                             // (Pow x -1) → (Recip x)
-                            *t = Term::new(Unary(Recip, take(x)));
+                            *e = Expr::new(Unary(Recip, take(x)));
                         } else if a == 0.0 {
                             // (Pow x 0) → (One x)
-                            *t = Term::new(Unary(One, take(x)));
+                            *e = Expr::new(Unary(One, take(x)));
                         } else if a == 0.5 {
                             // (Pow x 1/2) → (Sqrt x)
-                            *t = Term::new(Unary(Sqrt, take(x)));
+                            *e = Expr::new(Unary(Sqrt, take(x)));
                         } else if a == 1.0 {
                             // (Pow x 1) → x
-                            *t = take(x);
+                            *e = take(x);
                         } else if a == 2.0 {
                             // (Pow x 2) → (Sqr x)
-                            *t = Term::new(Unary(Sqr, take(x)));
+                            *e = Expr::new(Unary(Sqr, take(x)));
                         } else if a == a as i32 as f64 {
                             // (Pow x a) /; a ∈ i32 → (Pown x a)
-                            *t = Term::new(Pown(take(x), a as i32));
+                            *e = Expr::new(Pown(take(x), a as i32));
                         }
                     }
                 }
@@ -426,103 +430,42 @@ impl VisitMut for PostTransform {
     }
 }
 
-/// Applies some normalization to formulas.
-#[derive(Default)]
-pub struct NormalizeForms {
-    pub modified: bool,
-}
-
-impl VisitMut for NormalizeForms {
-    fn visit_form_mut(&mut self, f: &mut Form) {
-        use FormKind::*;
-        traverse_form_mut(self, f);
-
-        if let FormKind::Not(x) = &mut f.kind {
-            match &mut x.kind {
-                Atomic(op, x1, x2) => {
-                    // (Not (op x1 x2)) → (!op x1 x2)
-                    let neg_op = match op {
-                        RelOp::Eq => RelOp::Neq,
-                        RelOp::Ge => RelOp::Nge,
-                        RelOp::Gt => RelOp::Ngt,
-                        RelOp::Le => RelOp::Nle,
-                        RelOp::Lt => RelOp::Nlt,
-                        RelOp::Neq => RelOp::Eq,
-                        RelOp::Nge => RelOp::Ge,
-                        RelOp::Ngt => RelOp::Gt,
-                        RelOp::Nle => RelOp::Le,
-                        RelOp::Nlt => RelOp::Lt,
-                    };
-                    *f = Form::new(Atomic(neg_op, take(x1), take(x2)));
-                    self.modified = true;
-                }
-                And(x1, x2) => {
-                    // (And (x1 x2)) → (Or (Not x1) (Not x2))
-                    *f = Form::new(Or(
-                        Box::new(Form::new(Not(take(x1)))),
-                        Box::new(Form::new(Not(take(x2)))),
-                    ));
-                    self.modified = true;
-                }
-                Or(x1, x2) => {
-                    // (Or (x1 x2)) → (And (Not x1) (Not x2))
-                    *f = Form::new(And(
-                        Box::new(Form::new(Not(take(x1)))),
-                        Box::new(Form::new(Not(take(x2)))),
-                    ));
-                    self.modified = true;
-                }
-                _ => (),
-            };
-        }
-    }
-}
-
 /// Updates metadata of terms and formulas.
 pub struct UpdateMetadata;
 
 impl VisitMut for UpdateMetadata {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        traverse_term_mut(self, t);
-        t.update_metadata();
-    }
-
-    fn visit_form_mut(&mut self, f: &mut Form) {
-        traverse_form_mut(self, f);
-        f.update_metadata();
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        traverse_expr_mut(self, e);
+        e.update_metadata();
     }
 }
 
-type SiteMap = HashMap<TermId, Site>;
-type UnsafeTermRef = UnsafeRef<Term>;
-type UnsafeFormRef = UnsafeRef<Form>;
+type SiteMap = HashMap<ExprId, Site>;
+type UnsafeExprRef = UnsafeRef<Expr>;
 
-/// Assigns [`TermId`]s to the scalar terms and [`FormId`]s to the atomic formulas.
-/// These [`FormId`]s are used as indices in [`EvalResult`][`crate::eval_result::EvalResult`].
-pub struct AssignIdStage1 {
-    next_form_id: FormId,
-    next_term_id: TermId,
+/// Assigns [`ExprId`]s to unique expressions in topological order.
+pub struct AssignId {
+    next_id: ExprId,
     next_site: u8,
     site_map: SiteMap,
-    visited_forms: HashSet<UnsafeFormRef>,
-    visited_terms: HashSet<UnsafeTermRef>,
+    exprs: Vec<UnsafeExprRef>,
+    visited: HashSet<UnsafeExprRef>,
 }
 
-impl AssignIdStage1 {
+impl AssignId {
     pub fn new() -> Self {
-        AssignIdStage1 {
-            next_form_id: 0,
-            next_term_id: 0,
+        AssignId {
+            next_id: 0,
             next_site: 0,
             site_map: HashMap::new(),
-            visited_forms: HashSet::new(),
-            visited_terms: HashSet::new(),
+            exprs: vec![],
+            visited: HashSet::new(),
         }
     }
 
-    /// Returns `true` if the term can perform branch cut on evaluation.
-    fn term_can_perform_cut(kind: &TermKind) -> bool {
-        use {BinaryOp::*, TermKind::*, UnaryOp::*};
+    /// Returns `true` if the expression can perform branch cut on evaluation.
+    fn term_can_perform_cut(kind: &ExprKind) -> bool {
+        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
         matches!(
             kind,
             Unary(Ceil, _)
@@ -546,107 +489,30 @@ impl AssignIdStage1 {
     }
 }
 
-impl VisitMut for AssignIdStage1 {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        traverse_term_mut(self, t);
+impl VisitMut for AssignId {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        traverse_expr_mut(self, e);
 
-        if !matches!(t.kind, TermKind::List(_)) {
-            match self.visited_terms.get(&UnsafeTermRef::from(t)) {
-                Some(visited) => {
-                    let id = visited.id;
-                    t.id = id;
+        match self.visited.get(&UnsafeExprRef::from(e)) {
+            Some(visited) => {
+                let id = visited.id;
+                e.id = id;
 
-                    if !self.site_map.contains_key(&id)
-                        && Self::term_can_perform_cut(&t.kind)
-                        && self.next_site <= Site::MAX
-                    {
-                        self.site_map.insert(id, Site::new(self.next_site));
-                        self.next_site += 1;
-                    }
-                }
-                _ => {
-                    assert!(self.next_term_id != UNINIT_TERM_ID);
-                    t.id = self.next_term_id;
-                    self.next_term_id += 1;
-                    self.visited_terms.insert(UnsafeTermRef::from(t));
+                if !self.site_map.contains_key(&id)
+                    && Self::term_can_perform_cut(&e.kind)
+                    && self.next_site <= Site::MAX
+                {
+                    self.site_map.insert(id, Site::new(self.next_site));
+                    self.next_site += 1;
                 }
             }
-        }
-    }
-
-    fn visit_form_mut(&mut self, f: &mut Form) {
-        traverse_form_mut(self, f);
-
-        if let FormKind::Atomic(_, _, _) = f.kind {
-            match self.visited_forms.get(&UnsafeFormRef::from(f)) {
-                Some(visited) => {
-                    f.id = visited.id;
-                }
-                _ => {
-                    assert!(self.next_form_id != UNINIT_FORM_ID);
-                    f.id = self.next_form_id;
-                    self.next_form_id += 1;
-                    self.visited_forms.insert(UnsafeFormRef::from(f));
-                }
-            }
-        }
-    }
-}
-
-/// Assigns [`TermId`]s to the non-scalar terms and [`FormId`]s to the non-atomic formulas.
-pub struct AssignIdStage2 {
-    next_form_id: FormId,
-    next_term_id: TermId,
-    site_map: SiteMap,
-    visited_forms: HashSet<UnsafeFormRef>,
-    visited_terms: HashSet<UnsafeTermRef>,
-}
-
-impl AssignIdStage2 {
-    pub fn new(stage1: AssignIdStage1) -> Self {
-        AssignIdStage2 {
-            next_form_id: stage1.next_form_id,
-            next_term_id: stage1.next_term_id,
-            site_map: stage1.site_map,
-            visited_forms: HashSet::new(),
-            visited_terms: HashSet::new(),
-        }
-    }
-}
-
-impl VisitMut for AssignIdStage2 {
-    fn visit_term_mut(&mut self, t: &mut Term) {
-        traverse_term_mut(self, t);
-
-        if let TermKind::List(_) = t.kind {
-            match self.visited_terms.get(&UnsafeTermRef::from(t)) {
-                Some(visited) => {
-                    t.id = visited.id;
-                }
-                _ => {
-                    assert!(self.next_term_id != UNINIT_TERM_ID);
-                    t.id = self.next_term_id;
-                    self.next_term_id += 1;
-                    self.visited_terms.insert(UnsafeTermRef::from(t));
-                }
-            }
-        }
-    }
-
-    fn visit_form_mut(&mut self, f: &mut Form) {
-        traverse_form_mut(self, f);
-
-        if !matches!(f.kind, FormKind::Atomic(_, _, _)) {
-            match self.visited_forms.get(&UnsafeFormRef::from(f)) {
-                Some(visited) => {
-                    f.id = visited.id;
-                }
-                _ => {
-                    assert!(self.next_form_id != UNINIT_FORM_ID);
-                    f.id = self.next_form_id;
-                    self.next_form_id += 1;
-                    self.visited_forms.insert(UnsafeFormRef::from(f));
-                }
+            _ => {
+                assert!(self.next_id != UNINIT_EXPR_ID);
+                e.id = self.next_id;
+                self.next_id += 1;
+                let r = UnsafeExprRef::from(e);
+                self.exprs.push(r);
+                self.visited.insert(r);
             }
         }
     }
@@ -654,87 +520,304 @@ impl VisitMut for AssignIdStage2 {
 
 /// Collects [`StaticTerm`]s and [`StaticForm`]s in ascending order of the IDs.
 pub struct CollectStatic {
+    pub terms: Vec<StaticTerm>,
+    pub forms: Vec<StaticForm>,
     site_map: SiteMap,
-    terms: Vec<Option<StaticTerm>>,
-    forms: Vec<Option<StaticForm>>,
+    exprs: Vec<UnsafeExprRef>,
+    term_index: HashMap<ExprId, TermIndex>,
+    form_index: HashMap<ExprId, FormIndex>,
+    next_scalar_store_index: u32,
 }
 
 impl CollectStatic {
-    pub fn new(stage2: AssignIdStage2) -> Self {
-        Self {
-            site_map: stage2.site_map,
-            terms: vec![None; stage2.next_term_id as usize],
-            forms: vec![None; stage2.next_form_id as usize],
+    pub fn new(v: AssignId) -> Self {
+        let mut slf = Self {
+            terms: vec![],
+            forms: vec![],
+            site_map: v.site_map,
+            exprs: v.exprs,
+            term_index: HashMap::new(),
+            form_index: HashMap::new(),
+            next_scalar_store_index: 0,
+        };
+        slf.collect_terms();
+        slf.collect_atomic_forms();
+        slf.collect_non_atomic_forms();
+        slf
+    }
+
+    pub fn n_scalar_terms(&self) -> usize {
+        self.exprs
+            .iter()
+            .filter(|t| t.ty == ValueType::Scalar)
+            .count()
+    }
+
+    fn collect_terms(&mut self) {
+        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        for t in self.exprs.iter().map(|t| &*t) {
+            let k = match &t.kind {
+                Constant(x) => Some(StaticTermKind::Constant(x.clone())),
+                Var(x) if x == "x" => Some(StaticTermKind::X),
+                Var(x) if x == "y" => Some(StaticTermKind::Y),
+                Unary(Abs, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Abs, self.ti(x))),
+                Unary(Acos, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Acos, self.ti(x))),
+                Unary(Acosh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Acosh, self.ti(x))),
+                Unary(AiryAi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::AiryAi, self.ti(x))),
+                Unary(AiryAiPrime, x) => Some(StaticTermKind::Unary(
+                    ScalarUnaryOp::AiryAiPrime,
+                    self.ti(x),
+                )),
+                Unary(AiryBi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::AiryBi, self.ti(x))),
+                Unary(AiryBiPrime, x) => Some(StaticTermKind::Unary(
+                    ScalarUnaryOp::AiryBiPrime,
+                    self.ti(x),
+                )),
+                Unary(Asin, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Asin, self.ti(x))),
+                Unary(Asinh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Asinh, self.ti(x))),
+                Unary(Atan, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Atan, self.ti(x))),
+                Unary(Atanh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Atanh, self.ti(x))),
+                Unary(Ceil, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Ceil, self.ti(x))),
+                Unary(Chi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Chi, self.ti(x))),
+                Unary(Ci, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Ci, self.ti(x))),
+                Unary(Cos, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Cos, self.ti(x))),
+                Unary(Cosh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Cosh, self.ti(x))),
+                Unary(Digamma, x) => {
+                    Some(StaticTermKind::Unary(ScalarUnaryOp::Digamma, self.ti(x)))
+                }
+                Unary(Ei, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Ei, self.ti(x))),
+                Unary(Erf, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Erf, self.ti(x))),
+                Unary(Erfc, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Erfc, self.ti(x))),
+                Unary(Erfi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Erfi, self.ti(x))),
+                Unary(Exp, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Exp, self.ti(x))),
+                Unary(Exp10, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Exp10, self.ti(x))),
+                Unary(Exp2, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Exp2, self.ti(x))),
+                Unary(Floor, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Floor, self.ti(x))),
+                Unary(FresnelC, x) => {
+                    Some(StaticTermKind::Unary(ScalarUnaryOp::FresnelC, self.ti(x)))
+                }
+                Unary(FresnelS, x) => {
+                    Some(StaticTermKind::Unary(ScalarUnaryOp::FresnelS, self.ti(x)))
+                }
+                Unary(Gamma, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Gamma, self.ti(x))),
+                Unary(Li, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Li, self.ti(x))),
+                Unary(Ln, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Ln, self.ti(x))),
+                Unary(Log10, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Log10, self.ti(x))),
+                Unary(Neg, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Neg, self.ti(x))),
+                Unary(One, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::One, self.ti(x))),
+                Unary(Recip, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Recip, self.ti(x))),
+                Unary(Shi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Shi, self.ti(x))),
+                Unary(Si, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Si, self.ti(x))),
+                Unary(Sign, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sign, self.ti(x))),
+                Unary(Sin, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sin, self.ti(x))),
+                Unary(Sinc, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sinc, self.ti(x))),
+                Unary(Sinh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sinh, self.ti(x))),
+                Unary(Sqr, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sqr, self.ti(x))),
+                Unary(Sqrt, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sqrt, self.ti(x))),
+                Unary(Tan, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Tan, self.ti(x))),
+                Unary(Tanh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Tanh, self.ti(x))),
+                Unary(UndefAt0, x) => {
+                    Some(StaticTermKind::Unary(ScalarUnaryOp::UndefAt0, self.ti(x)))
+                }
+                Binary(Add, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Add,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Atan2, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Atan2,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(BesselI, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::BesselI,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(BesselJ, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::BesselJ,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(BesselK, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::BesselK,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(BesselY, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::BesselY,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Div, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Div,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(GammaInc, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::GammaInc,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Gcd, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Gcd,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Lcm, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Lcm,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Log, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Log,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Max, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Max,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Min, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Min,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Mod, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Mod,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Mul, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Mul,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Pow, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Pow,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(RankedMax, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::RankedMax,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(RankedMin, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::RankedMin,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Binary(Sub, x, y) => Some(StaticTermKind::Binary(
+                    ScalarBinaryOp::Sub,
+                    self.ti(x),
+                    self.ti(y),
+                )),
+                Pown(x, y) => Some(StaticTermKind::Pown(self.ti(x), *y)),
+                List(xs) => Some(StaticTermKind::List(Box::new(
+                    xs.iter().map(|x| self.ti(x)).collect(),
+                ))),
+                Var(_) | Uninit => panic!(),
+                _ => None,
+            };
+            if let Some(k) = k {
+                self.term_index.insert(t.id, self.terms.len() as TermIndex);
+                let store_index = match &t.kind {
+                    List(_) => StoreIndex::new(0), // List values are not stored.
+                    _ => {
+                        let i = self.next_scalar_store_index;
+                        self.next_scalar_store_index += 1;
+                        StoreIndex::new(i)
+                    }
+                };
+                self.terms.push(StaticTerm {
+                    site: self.site_map.get(&t.id).copied(),
+                    kind: k,
+                    vars: t.vars,
+                    store_index,
+                })
+            }
         }
     }
 
-    /// Returns the collected terms and formulas.
-    pub fn terms_forms(self) -> (Vec<StaticTerm>, Vec<StaticForm>) {
-        (
-            self.terms.into_iter().collect::<Option<Vec<_>>>().unwrap(),
-            self.forms.into_iter().collect::<Option<Vec<_>>>().unwrap(),
-        )
+    fn collect_atomic_forms(&mut self) {
+        use {BinaryOp::*, ExprKind::*};
+        for t in self.exprs.iter().map(|t| &*t) {
+            let k = match &t.kind {
+                Binary(Eq, x, y) => Some(StaticFormKind::Atomic(RelOp::Eq, self.ti(x), self.ti(y))),
+                Binary(Ge, x, y) => Some(StaticFormKind::Atomic(RelOp::Ge, self.ti(x), self.ti(y))),
+                Binary(Gt, x, y) => Some(StaticFormKind::Atomic(RelOp::Gt, self.ti(x), self.ti(y))),
+                Binary(Le, x, y) => Some(StaticFormKind::Atomic(RelOp::Le, self.ti(x), self.ti(y))),
+                Binary(Lt, x, y) => Some(StaticFormKind::Atomic(RelOp::Lt, self.ti(x), self.ti(y))),
+                Binary(Neq, x, y) => {
+                    Some(StaticFormKind::Atomic(RelOp::Neq, self.ti(x), self.ti(y)))
+                }
+                Binary(Nge, x, y) => {
+                    Some(StaticFormKind::Atomic(RelOp::Nge, self.ti(x), self.ti(y)))
+                }
+                Binary(Ngt, x, y) => {
+                    Some(StaticFormKind::Atomic(RelOp::Ngt, self.ti(x), self.ti(y)))
+                }
+                Binary(Nle, x, y) => {
+                    Some(StaticFormKind::Atomic(RelOp::Nle, self.ti(x), self.ti(y)))
+                }
+                Binary(Nlt, x, y) => {
+                    Some(StaticFormKind::Atomic(RelOp::Nlt, self.ti(x), self.ti(y)))
+                }
+                _ => None,
+            };
+            if let Some(k) = k {
+                self.form_index.insert(t.id, self.forms.len() as FormIndex);
+                self.forms.push(StaticForm { kind: k })
+            }
+        }
+    }
+
+    fn collect_non_atomic_forms(&mut self) {
+        use {BinaryOp::*, ExprKind::*};
+        for t in self.exprs.iter().map(|t| &*t) {
+            let k = match &t.kind {
+                Binary(And, x, y) => Some(StaticFormKind::And(self.fi(x), self.fi(y))),
+                Binary(Or, x, y) => Some(StaticFormKind::Or(self.fi(x), self.fi(y))),
+                _ => None,
+            };
+            if let Some(k) = k {
+                self.form_index.insert(t.id, self.forms.len() as FormIndex);
+                self.forms.push(StaticForm { kind: k })
+            }
+        }
+    }
+
+    fn ti(&self, e: &Expr) -> TermIndex {
+        self.term_index[&e.id]
+    }
+
+    fn fi(&self, e: &Expr) -> FormIndex {
+        self.form_index[&e.id]
     }
 }
 
-impl<'a> Visit<'a> for CollectStatic {
-    fn visit_term(&mut self, t: &'a Term) {
-        use TermKind::*;
-        traverse_term(self, t);
-
-        let i = t.id as usize;
-        if self.terms[i].is_none() {
-            self.terms[i] = Some(StaticTerm {
-                site: self.site_map.get(&t.id).copied(),
-                kind: match &t.kind {
-                    Constant(x) => StaticTermKind::Constant(x.clone()),
-                    Var(x) if x == "x" => StaticTermKind::X,
-                    Var(x) if x == "y" => StaticTermKind::Y,
-                    Unary(op, x) => StaticTermKind::Unary(*op, x.id),
-                    Binary(op, x, y) => StaticTermKind::Binary(*op, x.id, y.id),
-                    Pown(x, y) => StaticTermKind::Pown(x.id, *y),
-                    List(xs) => StaticTermKind::List(Box::new(xs.iter().map(|x| x.id).collect())),
-                    Var(_) | Uninit => panic!(),
-                },
-                vars: t.vars,
-            });
-        }
-    }
-
-    fn visit_form(&mut self, f: &'a Form) {
-        use FormKind::*;
-        traverse_form(self, f);
-
-        let i = f.id as usize;
-        if self.forms[i].is_none() {
-            self.forms[i] = Some(StaticForm {
-                kind: match &f.kind {
-                    Atomic(op, x, y) => StaticFormKind::Atomic(*op, x.id, y.id),
-                    And(x, y) => StaticFormKind::And(x.id, y.id),
-                    Or(x, y) => StaticFormKind::Or(x.id, y.id),
-                    Not(_) | Uninit => panic!(),
-                },
-            });
-        }
-    }
-}
-
-/// Collects the ids of maximal scalar sub-terms that contain exactly one free variable.
-/// Terms of kind [`TermKind::Var`] are excluded from collection.
+/// Collects the store indices of maximal scalar sub-expressions that contain exactly one free variable.
+/// Expressions of the kind [`ExprKind::Var`] are excluded from collection.
 pub struct FindMaximalScalarTerms {
-    mx: Vec<TermId>,
-    my: Vec<TermId>,
+    mx: Vec<StoreIndex>,
+    my: Vec<StoreIndex>,
+    terms: Vec<StaticTerm>,
+    term_index: HashMap<ExprId, TermIndex>,
 }
 
 impl FindMaximalScalarTerms {
-    pub fn new() -> Self {
+    pub fn new(collector: CollectStatic) -> Self {
         Self {
-            mx: Vec::new(),
-            my: Vec::new(),
+            mx: vec![],
+            my: vec![],
+            terms: collector.terms,
+            term_index: collector.term_index,
         }
     }
 
-    pub fn mx_my(mut self) -> (Vec<TermId>, Vec<TermId>) {
+    pub fn mx_my(mut self) -> (Vec<StoreIndex>, Vec<StoreIndex>) {
         self.mx.sort_unstable();
         self.mx.dedup();
         self.my.sort_unstable();
@@ -744,42 +827,39 @@ impl FindMaximalScalarTerms {
 }
 
 impl<'a> Visit<'a> for FindMaximalScalarTerms {
-    fn visit_term(&mut self, t: &'a Term) {
-        match t.vars {
-            VarSet::X => {
-                if !matches!(t.kind, TermKind::Var(_) | TermKind::List(_)) {
-                    self.mx.push(t.id);
+    fn visit_expr(&mut self, e: &'a Expr) {
+        match e.vars {
+            VarSet::EMPTY => {
+                // Stop traversal.
+            }
+            VarSet::X if e.ty == ValueType::Scalar => {
+                if !matches!(e.kind, ExprKind::Var(_)) {
+                    self.mx
+                        .push(self.terms[self.term_index[&e.id] as usize].store_index);
                 }
                 // Stop traversal.
             }
-            VarSet::Y => {
-                if !matches!(t.kind, TermKind::Var(_) | TermKind::List(_)) {
-                    self.my.push(t.id);
+            VarSet::Y if e.ty == ValueType::Scalar => {
+                if !matches!(e.kind, ExprKind::Var(_)) {
+                    self.my
+                        .push(self.terms[self.term_index[&e.id] as usize].store_index);
                 }
                 // Stop traversal.
             }
-            VarSet::XY => traverse_term(self, t),
-            _ => (),
+            _ => traverse_expr(self, e),
         }
-    }
-
-    fn visit_form(&mut self, f: &'a Form) {
-        traverse_form(self, f);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{context::Context, parse::parse};
+    use crate::{context::Context, parse::parse_expr};
 
     fn test_pre_transform(input: &str, expected: &str) {
-        let mut f = parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
-        PreTransform.visit_form_mut(&mut f);
-        assert_eq!(
-            format!("{}", f.dump_structure()),
-            format!("(Eq {} @)", expected)
-        );
+        let mut f = parse_expr(input, Context::builtin_context()).unwrap();
+        PreTransform.visit_expr_mut(&mut f);
+        assert_eq!(format!("{}", f.dump_structure()), expected);
     }
 
     #[test]
@@ -791,12 +871,12 @@ mod tests {
     }
 
     fn test_sort_terms(input: &str, expected: &str) {
-        let mut f = parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
+        let mut f = parse_expr(input, Context::builtin_context()).unwrap();
         let input = format!("{}", f.dump_structure());
         let mut v = SortTerms::default();
-        v.visit_form_mut(&mut f);
+        v.visit_expr_mut(&mut f);
         let output = format!("{}", f.dump_structure());
-        assert_eq!(output, format!("(Eq {} @)", expected));
+        assert_eq!(output, expected);
         assert_eq!(v.modified, input != output);
     }
 
@@ -809,13 +889,13 @@ mod tests {
     }
 
     fn test_transform(input: &str, expected: &str) {
-        let mut f = parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
-        FoldConstant::default().visit_form_mut(&mut f);
+        let mut f = parse_expr(input, Context::builtin_context()).unwrap();
+        FoldConstant::default().visit_expr_mut(&mut f);
         let input = format!("{}", f.dump_structure());
         let mut v = Transform::default();
-        v.visit_form_mut(&mut f);
+        v.visit_expr_mut(&mut f);
         let output = format!("{}", f.dump_structure());
-        assert_eq!(output, format!("(Eq {} @)", expected));
+        assert_eq!(output, expected);
         assert_eq!(v.modified, input != output);
     }
 
@@ -830,16 +910,25 @@ mod tests {
         test_transform("(-x) y", "(Neg (Mul x y))");
         test_transform("x (-y)", "(Neg (Mul x y))");
         test_transform("x (y z)", "(Mul (Mul x y) z)");
+        test_transform("!(x = y)", "(Neq x y)");
+        test_transform("!(x ≤ y)", "(Nle x y)");
+        test_transform("!(x < y)", "(Nlt x y)");
+        test_transform("!(x ≥ y)", "(Nge x y)");
+        test_transform("!(x > y)", "(Ngt x y)");
+        test_transform("!!(x = y)", "(Eq x y)");
+        test_transform("!!(x ≤ y)", "(Le x y)");
+        test_transform("!!(x < y)", "(Lt x y)");
+        test_transform("!!(x ≥ y)", "(Ge x y)");
+        test_transform("!!(x > y)", "(Gt x y)");
+        test_transform("!(x = y && y = z)", "(Or (Not (Eq x y)) (Not (Eq y z)))");
+        test_transform("!(x = y || y = z)", "(And (Not (Eq x y)) (Not (Eq y z)))");
     }
 
     fn test_post_transform(input: &str, expected: &str) {
-        let mut f = parse(&format!("{} = 0", input), Context::builtin_context()).unwrap();
-        FoldConstant::default().visit_form_mut(&mut f);
-        PostTransform.visit_form_mut(&mut f);
-        assert_eq!(
-            format!("{}", f.dump_structure()),
-            format!("(Eq {} @)", expected)
-        );
+        let mut f = parse_expr(input, Context::builtin_context()).unwrap();
+        FoldConstant::default().visit_expr_mut(&mut f);
+        PostTransform.visit_expr_mut(&mut f);
+        assert_eq!(format!("{}", f.dump_structure()), expected);
     }
 
     #[test]
@@ -852,31 +941,5 @@ mod tests {
         test_post_transform("x^1", "x");
         test_post_transform("x^2", "(Sqr x)");
         test_post_transform("x^3", "(Pown x 3)");
-    }
-
-    fn test_normalize_forms(input: &str, expected: &str) {
-        let mut f = parse(input, Context::builtin_context()).unwrap();
-        let input = format!("{}", f.dump_structure());
-        let mut v = NormalizeForms::default();
-        v.visit_form_mut(&mut f);
-        let output = format!("{}", f.dump_structure());
-        assert_eq!(output, expected);
-        assert_eq!(v.modified, input != output);
-    }
-
-    #[test]
-    fn normalize_forms() {
-        test_normalize_forms("!x = y", "(Neq x y)");
-        test_normalize_forms("!x <= y", "(Nle x y)");
-        test_normalize_forms("!x < y", "(Nlt x y)");
-        test_normalize_forms("!x >= y", "(Nge x y)");
-        test_normalize_forms("!x > y", "(Ngt x y)");
-        test_normalize_forms("!!x = y", "(Eq x y)");
-        test_normalize_forms("!!x <= y", "(Le x y)");
-        test_normalize_forms("!!x < y", "(Lt x y)");
-        test_normalize_forms("!!x >= y", "(Ge x y)");
-        test_normalize_forms("!!x > y", "(Gt x y)");
-        test_normalize_forms("!(x = y && y = z)", "(Or (Not (Eq x y)) (Not (Eq y z)))");
-        test_normalize_forms("!(x = y || y = z)", "(And (Not (Eq x y)) (Not (Eq y z)))");
     }
 }
