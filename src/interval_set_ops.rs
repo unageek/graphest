@@ -58,8 +58,8 @@ enum Parity {
 }
 
 macro_rules! impl_op {
-    ($op:ident($x:ident), $result:expr) => {
-        pub fn $op(&self) -> Self {
+    ($op:ident($x:ident $(,$p:ident: $pt:ty)*), $result:expr) => {
+        pub fn $op(&self, $($p: $pt,)*) -> Self {
             let mut rs = Self::empty();
             for x in self {
                 let $x = x.to_dec_interval();
@@ -713,6 +713,22 @@ impl TupperIntervalSet {
         }
     });
 
+    impl_op!(rootn(x, n: u32), {
+        if n == 0 {
+            DecInterval::EMPTY
+        } else if n % 2 == 0 {
+            const DOM: Interval = const_interval!(0.0, f64::INFINITY);
+            let dec = if x.interval().unwrap().subset(DOM) {
+                x.decoration()
+            } else {
+                Decoration::Trv
+            };
+            DecInterval::set_dec(rootn(x.interval().unwrap(), n), dec)
+        } else {
+            DecInterval::set_dec(rootn(x.interval().unwrap(), n), x.decoration())
+        }
+    });
+
     #[cfg(not(feature = "arb"))]
     impl_op!(sin(x), x.sin());
 
@@ -939,6 +955,19 @@ fn mpfr_fn(
     }
 }
 
+fn mpfr_fn_ui(
+    f: unsafe extern "C" fn(*mut mpfr::mpfr_t, *const mpfr::mpfr_t, u64, mpfr::rnd_t) -> i32,
+    x: f64,
+    y: u64,
+    rnd: mpfr::rnd_t,
+) -> f64 {
+    let mut x = Float::with_val(f64::MANTISSA_DIGITS, x);
+    unsafe {
+        f(x.as_raw_mut(), x.as_raw(), y, rnd);
+        mpfr::get_d(x.as_raw(), rnd)
+    }
+}
+
 macro_rules! mpfr_fn {
     ($mpfr_f:ident, $f_rd:ident, $f_ru:ident) => {
         fn $f_rd(x: f64) -> f64 {
@@ -951,10 +980,23 @@ macro_rules! mpfr_fn {
     };
 }
 
+macro_rules! mpfr_fn_ui {
+    ($mpfr_f:ident, $f_rd:ident, $f_ru:ident) => {
+        fn $f_rd(x: f64, y: u32) -> f64 {
+            mpfr_fn_ui(mpfr::$mpfr_f, x, y as u64, mpfr::rnd_t::RNDD)
+        }
+
+        fn $f_ru(x: f64, y: u32) -> f64 {
+            mpfr_fn_ui(mpfr::$mpfr_f, x, y as u64, mpfr::rnd_t::RNDU)
+        }
+    };
+}
+
 mpfr_fn!(digamma, digamma_rd, digamma_ru);
 mpfr_fn!(erf, erf_rd, erf_ru);
 mpfr_fn!(erfc, erfc_rd, erfc_ru);
 mpfr_fn!(gamma, gamma_rd, gamma_ru);
+mpfr_fn_ui!(rootn_ui, rootn_rd, rootn_ru);
 
 /// `x` must be nonempty.
 pub(crate) fn digamma(x: Interval) -> Interval {
@@ -991,6 +1033,26 @@ pub(crate) fn erf(x: Interval) -> Interval {
 /// `x` must be nonempty.
 pub(crate) fn erfc(x: Interval) -> Interval {
     interval!(erfc_rd(x.sup()), erfc_ru(x.inf())).unwrap()
+}
+
+/// `x` must be nonempty.
+pub(crate) fn rootn(x: Interval, n: u32) -> Interval {
+    if n == 0 {
+        Interval::EMPTY
+    } else if n % 2 == 0 {
+        const DOM: Interval = const_interval!(0.0, f64::INFINITY);
+        let x = x.intersection(DOM);
+        if x.is_empty() {
+            return Interval::EMPTY;
+        }
+        let a = x.inf();
+        let b = x.sup();
+        interval!(rootn_rd(a, n), rootn_ru(b, n)).unwrap()
+    } else {
+        let a = x.inf();
+        let b = x.sup();
+        interval!(rootn_rd(a, n), rootn_ru(b, n)).unwrap()
+    }
 }
 
 /// `x` must be nonempty.

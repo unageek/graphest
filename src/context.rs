@@ -32,7 +32,10 @@ impl Def {
     /// Creates a definition of a constant.
     fn constant(x: DecInterval) -> Self {
         Self::Constant {
-            body: Expr::new(ExprKind::Constant(Box::new(TupperIntervalSet::from(x)))),
+            body: Expr::new(ExprKind::Constant(Box::new((
+                TupperIntervalSet::from(x),
+                None,
+            )))),
         }
     }
 

@@ -14,8 +14,36 @@ use nom::{
     sequence::{delimited, pair, preceded, separated_pair, terminated},
     Err as NomErr, IResult,
 };
+use rug::{Integer, Rational};
 
 type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
+
+fn pow(base: u32, exp: i32) -> Rational {
+    let i = Integer::from(Integer::u_pow_u(base, exp.abs() as u32));
+    let mut r = Rational::from(i);
+    if exp < 0 {
+        r.recip_mut();
+    }
+    r
+}
+
+fn parse_dec_float(mant: &str, exp: &str) -> Option<Rational> {
+    let e = exp.parse::<i32>().ok()?;
+    let mut parts = mant.split('.');
+    let int_part = parts.next().unwrap();
+    let frac_part = match parts.next() {
+        Some(s) => s,
+        _ => "",
+    };
+
+    // 123.456e7 -> 123456e4 (ulp == 1e4)
+    let log_ulp = e.checked_sub(frac_part.len() as i32)?;
+    let ulp = pow(10, log_ulp);
+
+    let i_str = [int_part, frac_part].concat();
+    let i = Integer::parse_radix(i_str, 10).unwrap();
+    Some(Rational::from(i) * ulp)
+}
 
 fn identifier_head(i: InputWithContext) -> ParseResult<char> {
     satisfy(|c| c.is_alphabetic())(i)
@@ -48,9 +76,10 @@ fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
 
 fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
     map(decimal_literal, |s| {
-        let s = ["[", s, ",", s, "]"].concat();
-        let x = TupperIntervalSet::from(dec_interval!(&s).unwrap());
-        Expr::new(ExprKind::Constant(Box::new(x)))
+        let interval_lit = ["[", s, ",", s, "]"].concat();
+        let x = TupperIntervalSet::from(dec_interval!(&interval_lit).unwrap());
+        let xr = parse_dec_float(s, "0");
+        Expr::new(ExprKind::Constant(Box::new((x, xr))))
     })(i)
 }
 
