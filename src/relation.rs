@@ -1,5 +1,5 @@
 use crate::{
-    ast::VarSet,
+    ast::{ValueType, VarSet},
     context::Context,
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
@@ -307,6 +307,9 @@ impl FromStr for Relation {
         }
         PostTransform.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
+        if e.ty != ValueType::Boolean {
+            return Err("the relation must be a Boolean expression".into());
+        }
         let mut v = AssignId::new();
         v.visit_expr_mut(&mut e);
         let collector = CollectStatic::new(v);
