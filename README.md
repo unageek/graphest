@@ -99,12 +99,12 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 | `x y` or `x * y`                                             | *x* *y*                                                      |                                                              |
 | `x / y`                                                      | *x*/*y*                                                      | Undefined for *y* = 0.                                       |
 | `sqrt(x)`                                                    | √*x*                                                         | Undefined for *x* < 0.                                       |
-| `x ^ y`                                                      | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [About Exponentiation](#about-exponentiation) for the definition. |
+| `x ^ y`                                                      | *x*<sup>*y*</sup>                                            | `^` is right-associative: `x^y^z` is equivalent to `x^(y^z)`.<br />See [Exponentiation](#exponentiation) for the definition. |
 | `exp(x)`                                                     | e<sup>*x*</sup>                                              |                                                              |
 | `ln(x)`<br />`log(x)`<br />`log(b, x)`                       | log<sub>e</sub> *x*<br />log<sub>10</sub> *x*<br />log<sub>*b*</sub> *x* | Undefined for *x* ≤ 0, *b* ≤ 0 and *b* = 1.                  |
 | `abs(x)` or `\|x\|`                                          | \|*x*\|                                                      |                                                              |
 | `min(x1, …, xn)`<br />`max(x1, …, xn)`                       | min {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}<br />max {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>} | The minimum/maximum of a set {*x*<sub>1</sub>, …, *x*<sub>*n*</sub>}. |
-| `ranked_min([x1, …, xn], k)`<br />`ranked_max([x1, …, xn], k)` |                                                              | The *k*th smallest/largest member of a sequence (*x*<sub>1</sub>, …, *x*<sub>*n*</sub>). |
+| `ranked_min([x1, …, xn], k)`<br />`ranked_max([x1, …, xn], k)` |                                                              | The *k*th smallest/largest member of a list (*x*<sub>1</sub>, …, *x*<sub>*n*</sub>). |
 | `floor(x)` or `⌊x⌋`                                          | ⌊*x*⌋                                                        | The [floor function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `ceil(x)` or `⌈x⌉`                                           | ⌈*x*⌉                                                        | The [ceiling function](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions). |
 | `sign(x)`                                                    | sgn(*x*)                                                     | The [sign function](https://en.wikipedia.org/wiki/Sign_function). |
@@ -163,11 +163,11 @@ You can group a part of an expression or a relation with `(` … `)`.
 
 Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4.1–3.4.3.
 
-### About Exponentiation
+### Exponentiation
 
-To be consistent with GrafEq, the following definitions of exponentiation is implemented.
+To be consistent with GrafEq, the exponentiation is defined as follows.
 
-- For *x* < 0, *x*<sup>*y*</sup> is defined if and only if *y* is a rational number with an odd denominator:
+- For *x* < 0, *x*<sup>*y*</sup> is defined if and only if *y* is a rational number with an odd denominator.
   - For any positive integers *m* and *n*, *x*<sup>±*m*/*n*</sup> := (<sup>*n*</sup>√*x*)<sup>±*m*</sup>, where <sup>*n*</sup>√*x* is the real, non-negative *n*th root of *x*.
   - *x*<sup>±*m*/*n*</sup> is an even (odd) function of *x* if *m* is even (odd).
 - 0<sup>0</sup> := 1.

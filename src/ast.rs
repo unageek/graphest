@@ -248,16 +248,17 @@ impl Expr {
     /// Precondition:
     ///   The function is called on all sub-expressions and they have not been changed since then.
     pub fn update_metadata(&mut self) {
+        use ExprKind::*;
         self.ty = self.value_type();
         self.vars = match &self.kind {
-            ExprKind::Constant(_) => VarSet::EMPTY,
-            ExprKind::Var(x) if x == "x" => VarSet::X,
-            ExprKind::Var(x) if x == "y" => VarSet::Y,
-            ExprKind::Var(_) => VarSet::EMPTY,
-            ExprKind::Unary(_, x) | ExprKind::Pown(x, _) => x.vars,
-            ExprKind::Binary(_, x, y) => x.vars | y.vars,
-            ExprKind::List(xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
-            ExprKind::Uninit => panic!(),
+            Constant(_) => VarSet::EMPTY,
+            Var(x) if x == "x" => VarSet::X,
+            Var(x) if x == "y" => VarSet::Y,
+            Var(_) => VarSet::EMPTY,
+            Unary(_, x) | Pown(x, _) => x.vars,
+            Binary(_, x, y) => x.vars | y.vars,
+            List(xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
+            Uninit => panic!(),
         };
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.

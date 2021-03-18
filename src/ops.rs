@@ -324,7 +324,7 @@ impl StaticTerm {
             Binary(Sub, x, y) => {
                 self.put(ts, terms[*x as usize].get(ts) - terms[*y as usize].get(ts))
             }
-            Pown(x, y) => self.put(ts, terms[*x as usize].get(ts).pown(*y, self.site)),
+            Pown(x, n) => self.put(ts, terms[*x as usize].get(ts).pown(*n, self.site)),
             List(_) => (),
             X | Y => panic!("this term cannot be evaluated"),
         }

@@ -624,40 +624,40 @@ impl CollectStatic {
                     self.ti(x),
                     self.ti(y),
                 )),
-                Binary(Atan2, x, y) => Some(StaticTermKind::Binary(
+                Binary(Atan2, y, x) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::Atan2,
-                    self.ti(x),
                     self.ti(y),
+                    self.ti(x),
                 )),
-                Binary(BesselI, x, y) => Some(StaticTermKind::Binary(
+                Binary(BesselI, n, x) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::BesselI,
+                    self.ti(n),
                     self.ti(x),
-                    self.ti(y),
                 )),
-                Binary(BesselJ, x, y) => Some(StaticTermKind::Binary(
+                Binary(BesselJ, n, x) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::BesselJ,
+                    self.ti(n),
                     self.ti(x),
-                    self.ti(y),
                 )),
-                Binary(BesselK, x, y) => Some(StaticTermKind::Binary(
+                Binary(BesselK, n, x) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::BesselK,
+                    self.ti(n),
                     self.ti(x),
-                    self.ti(y),
                 )),
-                Binary(BesselY, x, y) => Some(StaticTermKind::Binary(
+                Binary(BesselY, n, x) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::BesselY,
+                    self.ti(n),
                     self.ti(x),
-                    self.ti(y),
                 )),
                 Binary(Div, x, y) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::Div,
                     self.ti(x),
                     self.ti(y),
                 )),
-                Binary(GammaInc, x, y) => Some(StaticTermKind::Binary(
+                Binary(GammaInc, a, x) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::GammaInc,
+                    self.ti(a),
                     self.ti(x),
-                    self.ti(y),
                 )),
                 Binary(Gcd, x, y) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::Gcd,
@@ -669,10 +669,10 @@ impl CollectStatic {
                     self.ti(x),
                     self.ti(y),
                 )),
-                Binary(Log, x, y) => Some(StaticTermKind::Binary(
+                Binary(Log, b, x) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::Log,
+                    self.ti(b),
                     self.ti(x),
-                    self.ti(y),
                 )),
                 Binary(Max, x, y) => Some(StaticTermKind::Binary(
                     ScalarBinaryOp::Max,
@@ -714,7 +714,7 @@ impl CollectStatic {
                     self.ti(x),
                     self.ti(y),
                 )),
-                Pown(x, y) => Some(StaticTermKind::Pown(self.ti(x), *y)),
+                Pown(x, n) => Some(StaticTermKind::Pown(self.ti(x), *n)),
                 List(xs) => Some(StaticTermKind::List(Box::new(
                     xs.iter().map(|x| self.ti(x)).collect(),
                 ))),
