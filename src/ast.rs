@@ -1,5 +1,7 @@
-use crate::interval_set::TupperIntervalSet;
+use crate::{interval_set::TupperIntervalSet, rational_ops};
 use bitflags::*;
+use inari::DecInterval;
+use rug::Rational;
 use std::{
     collections::hash_map::DefaultHasher,
     fmt,
@@ -97,10 +99,11 @@ pub enum BinaryOp {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum ExprKind {
     // == Scalar-valued expressions ==
-    Constant(Box<TupperIntervalSet>),
+    Constant(Box<(TupperIntervalSet, Option<Rational>)>),
     Unary(UnaryOp, Box<Expr>),
     Binary(BinaryOp, Box<Expr>, Box<Expr>),
     Pown(Box<Expr>, i32),
+    Rootn(Box<Expr>, u32),
     // == Others ==
     Var(String),
     List(Vec<Expr>),
@@ -154,90 +157,103 @@ impl Expr {
     /// Evaluates the expression.
     ///
     /// Returns [`None`] if the expression cannot be evaluated to a scalar constant.
-    pub fn eval(&self) -> Option<TupperIntervalSet> {
+    pub fn eval(&self) -> Option<(TupperIntervalSet, Option<Rational>)> {
         use {BinaryOp::*, ExprKind::*, UnaryOp::*};
         match &self.kind {
             Constant(x) => Some(*x.clone()),
-            Unary(Abs, x) => Some(x.eval()?.abs()),
-            Unary(Acos, x) => Some(x.eval()?.acos()),
-            Unary(Acosh, x) => Some(x.eval()?.acosh()),
-            Unary(AiryAi, x) => Some(x.eval()?.airy_ai()),
-            Unary(AiryAiPrime, x) => Some(x.eval()?.airy_ai_prime()),
-            Unary(AiryBi, x) => Some(x.eval()?.airy_bi()),
-            Unary(AiryBiPrime, x) => Some(x.eval()?.airy_bi_prime()),
-            Unary(Asin, x) => Some(x.eval()?.asin()),
-            Unary(Asinh, x) => Some(x.eval()?.asinh()),
-            Unary(Atan, x) => Some(x.eval()?.atan()),
-            Unary(Atanh, x) => Some(x.eval()?.atanh()),
-            Unary(Ceil, x) => Some(x.eval()?.ceil(None)),
-            Unary(Chi, x) => Some(x.eval()?.chi()),
-            Unary(Ci, x) => Some(x.eval()?.ci()),
-            Unary(Cos, x) => Some(x.eval()?.cos()),
-            Unary(Cosh, x) => Some(x.eval()?.cosh()),
-            Unary(Digamma, x) => Some(x.eval()?.digamma(None)),
-            Unary(Ei, x) => Some(x.eval()?.ei()),
-            Unary(Erf, x) => Some(x.eval()?.erf()),
-            Unary(Erfc, x) => Some(x.eval()?.erfc()),
-            Unary(Erfi, x) => Some(x.eval()?.erfi()),
-            Unary(Exp, x) => Some(x.eval()?.exp()),
-            Unary(Exp10, x) => Some(x.eval()?.exp10()),
-            Unary(Exp2, x) => Some(x.eval()?.exp2()),
-            Unary(Floor, x) => Some(x.eval()?.floor(None)),
-            Unary(FresnelC, x) => Some(x.eval()?.fresnel_c()),
-            Unary(FresnelS, x) => Some(x.eval()?.fresnel_s()),
-            Unary(Gamma, x) => Some(x.eval()?.gamma(None)),
-            Unary(Li, x) => Some(x.eval()?.li()),
-            Unary(Ln, x) => Some(x.eval()?.ln()),
-            Unary(Log10, x) => Some(x.eval()?.log10()),
-            Unary(Neg, x) => Some(-&x.eval()?),
-            Unary(One, x) => Some(x.eval()?.one()),
-            Unary(Recip, x) => Some(x.eval()?.recip(None)),
-            Unary(Shi, x) => Some(x.eval()?.shi()),
-            Unary(Si, x) => Some(x.eval()?.si()),
-            Unary(Sign, x) => Some(x.eval()?.sign(None)),
-            Unary(Sin, x) => Some(x.eval()?.sin()),
-            Unary(Sinc, x) => Some(x.eval()?.sinc()),
-            Unary(Sinh, x) => Some(x.eval()?.sinh()),
-            Unary(Sqr, x) => Some(x.eval()?.sqr()),
-            Unary(Sqrt, x) => Some(x.eval()?.sqrt()),
-            Unary(Tan, x) => Some(x.eval()?.tan(None)),
-            Unary(Tanh, x) => Some(x.eval()?.tanh()),
-            Unary(UndefAt0, x) => Some(x.eval()?.undef_at_0()),
-            Binary(Add, x, y) => Some(&x.eval()? + &y.eval()?),
-            Binary(Atan2, y, x) => Some(y.eval()?.atan2(&x.eval()?, None)),
-            Binary(BesselI, n, x) => Some(n.eval()?.bessel_i(&x.eval()?)),
-            Binary(BesselJ, n, x) => Some(n.eval()?.bessel_j(&x.eval()?)),
-            Binary(BesselK, n, x) => Some(n.eval()?.bessel_k(&x.eval()?)),
-            Binary(BesselY, n, x) => Some(n.eval()?.bessel_y(&x.eval()?)),
-            Binary(Div, x, y) => Some(x.eval()?.div(&y.eval()?, None)),
-            Binary(GammaInc, a, x) => Some(a.eval()?.gamma_inc(&x.eval()?)),
-            Binary(Gcd, x, y) => Some(x.eval()?.gcd(&y.eval()?, None)),
-            Binary(Lcm, x, y) => Some(x.eval()?.lcm(&y.eval()?, None)),
+            Unary(Abs, x) => x.eval1r(|x| x.abs(), |x| Some(x.abs())),
+            Unary(Acos, x) => x.eval1(|x| x.acos()),
+            Unary(Acosh, x) => x.eval1(|x| x.acosh()),
+            Unary(AiryAi, x) => x.eval1(|x| x.airy_ai()),
+            Unary(AiryAiPrime, x) => x.eval1(|x| x.airy_ai_prime()),
+            Unary(AiryBi, x) => x.eval1(|x| x.airy_bi()),
+            Unary(AiryBiPrime, x) => x.eval1(|x| x.airy_bi_prime()),
+            Unary(Asin, x) => x.eval1(|x| x.asin()),
+            Unary(Asinh, x) => x.eval1(|x| x.asinh()),
+            Unary(Atan, x) => x.eval1(|x| x.atan()),
+            Unary(Atanh, x) => x.eval1(|x| x.atanh()),
+            Unary(Ceil, x) => x.eval1(|x| x.ceil(None)),
+            Unary(Chi, x) => x.eval1(|x| x.chi()),
+            Unary(Ci, x) => x.eval1(|x| x.ci()),
+            Unary(Cos, x) => x.eval1(|x| x.cos()),
+            Unary(Cosh, x) => x.eval1(|x| x.cosh()),
+            Unary(Digamma, x) => x.eval1(|x| x.digamma(None)),
+            Unary(Ei, x) => x.eval1(|x| x.ei()),
+            Unary(Erf, x) => x.eval1(|x| x.erf()),
+            Unary(Erfc, x) => x.eval1(|x| x.erfc()),
+            Unary(Erfi, x) => x.eval1(|x| x.erfi()),
+            Unary(Exp, x) => x.eval1(|x| x.exp()),
+            Unary(Exp10, x) => x.eval1(|x| x.exp10()),
+            Unary(Exp2, x) => x.eval1(|x| x.exp2()),
+            Unary(Floor, x) => x.eval1r(|x| x.floor(None), |x| Some(x.floor())),
+            Unary(FresnelC, x) => x.eval1(|x| x.fresnel_c()),
+            Unary(FresnelS, x) => x.eval1(|x| x.fresnel_s()),
+            Unary(Gamma, x) => x.eval1(|x| x.gamma(None)),
+            Unary(Li, x) => x.eval1(|x| x.li()),
+            Unary(Ln, x) => x.eval1(|x| x.ln()),
+            Unary(Log10, x) => x.eval1(|x| x.log10()),
+            Unary(Neg, x) => x.eval1r(|x| -&x, |x| Some(-x)),
+            Unary(One, x) => x.eval1(|x| x.one()),
+            Unary(Recip, x) => x.eval1r(|x| x.recip(None), rational_ops::recip),
+            Unary(Shi, x) => x.eval1(|x| x.shi()),
+            Unary(Si, x) => x.eval1(|x| x.si()),
+            Unary(Sign, x) => x.eval1r(|x| x.sign(None), |x| Some(x.signum())),
+            Unary(Sin, x) => x.eval1(|x| x.sin()),
+            Unary(Sinc, x) => x.eval1(|x| x.sinc()),
+            Unary(Sinh, x) => x.eval1(|x| x.sinh()),
+            Unary(Sqr, x) => x.eval1r(|x| x.sqr(), |x| Some(x.square())),
+            Unary(Sqrt, x) => x.eval1(|x| x.sqrt()),
+            Unary(Tan, x) => x.eval1(|x| x.tan(None)),
+            Unary(Tanh, x) => x.eval1(|x| x.tanh()),
+            Unary(UndefAt0, x) => x.eval1(|x| x.undef_at_0()),
+            Binary(Add, x, y) => x.eval2r(y, |x, y| &x + &y, |x, y| Some(x + y)),
+            Binary(Atan2, y, x) => y.eval2(x, |y, x| y.atan2(&x, None)),
+            Binary(BesselI, n, x) => n.eval2(x, |n, x| n.bessel_i(&x)),
+            Binary(BesselJ, n, x) => n.eval2(x, |n, x| n.bessel_j(&x)),
+            Binary(BesselK, n, x) => n.eval2(x, |n, x| n.bessel_k(&x)),
+            Binary(BesselY, n, x) => n.eval2(x, |n, x| n.bessel_y(&x)),
+            Binary(Div, x, y) => x.eval2r(y, |x, y| x.div(&y, None), rational_ops::div),
+            Binary(GammaInc, a, x) => a.eval2(x, |a, x| a.gamma_inc(&x)),
+            Binary(Gcd, x, y) => x.eval2r(y, |x, y| x.gcd(&y, None), rational_ops::gcd),
+            Binary(Lcm, x, y) => x.eval2r(y, |x, y| x.lcm(&y, None), rational_ops::lcm),
             // Beware the order of arguments.
-            Binary(Log, b, x) => Some(x.eval()?.log(&b.eval()?, None)),
-            Binary(Max, x, y) => Some(x.eval()?.max(&y.eval()?)),
-            Binary(Min, x, y) => Some(x.eval()?.min(&y.eval()?)),
-            Binary(Mod, x, y) => Some(x.eval()?.rem_euclid(&y.eval()?, None)),
-            Binary(Mul, x, y) => Some(&x.eval()? * &y.eval()?),
-            Binary(Pow, x, y) => Some(x.eval()?.pow(&y.eval()?, None)),
-            Binary(RankedMax, xs, n) => Some({
+            Binary(Log, b, x) => b.eval2(x, |b, x| x.log(&b, None)),
+            Binary(Max, x, y) => x.eval2r(y, |x, y| x.max(&y), rational_ops::max),
+            Binary(Min, x, y) => x.eval2r(y, |x, y| x.min(&y), rational_ops::min),
+            Binary(Mod, x, y) => {
+                x.eval2r(y, |x, y| x.rem_euclid(&y, None), rational_ops::rem_euclid)
+            }
+            Binary(Mul, x, y) => x.eval2r(y, |x, y| &x * &y, |x, y| Some(x * y)),
+            Binary(Pow, x, y) => x.eval2(y, |x, y| x.pow(&y, None)),
+            Binary(RankedMax, xs, n) => Some((
                 if let List(xs) = &xs.kind {
                     let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
-                    TupperIntervalSet::ranked_max(xs.iter().collect(), &n.eval()?, None)
+                    TupperIntervalSet::ranked_max(
+                        xs.iter().map(|x| &x.0).collect(),
+                        &n.eval()?.0,
+                        None,
+                    )
                 } else {
                     panic!("a list is expected")
-                }
-            }),
-            Binary(RankedMin, xs, n) => Some({
+                },
+                None,
+            )),
+            Binary(RankedMin, xs, n) => Some((
                 if let List(xs) = &xs.kind {
                     let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
-                    TupperIntervalSet::ranked_min(xs.iter().collect(), &n.eval()?, None)
+                    TupperIntervalSet::ranked_min(
+                        xs.iter().map(|x| &x.0).collect(),
+                        &n.eval()?.0,
+                        None,
+                    )
                 } else {
                     panic!("a list is expected")
-                }
-            }),
-            Binary(Sub, x, y) => Some(&x.eval()? - &y.eval()?),
-            Pown(x, y) => Some(x.eval()?.pown(*y, None)),
+                },
+                None,
+            )),
+            Binary(Sub, x, y) => x.eval2r(y, |x, y| &x - &y, |x, y| Some(x - y)),
+            Pown(x, n) => x.eval1r(|x| x.pown(*n, None), |x| rational_ops::pown(x, *n)),
+            Rootn(x, n) => x.eval1(|x| x.rootn(*n)),
             Uninit => panic!(),
             _ => None,
         }
@@ -255,7 +271,7 @@ impl Expr {
             Var(x) if x == "x" => VarSet::X,
             Var(x) if x == "y" => VarSet::Y,
             Var(_) => VarSet::EMPTY,
-            Unary(_, x) | Pown(x, _) => x.vars,
+            Unary(_, x) | Pown(x, _) | Rootn(x, _) => x.vars,
             Binary(_, x, y) => x.vars | y.vars,
             List(xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
             Uninit => panic!(),
@@ -287,7 +303,7 @@ impl Expr {
                 y,
             ) if x.ty == Scalar && y.ty == Scalar => Scalar,
             Binary(RankedMax | RankedMin, x, y) if x.ty == Vector && y.ty == Scalar => Scalar,
-            Pown(x, _) if x.ty == Scalar => Scalar,
+            Pown(x, _) | Rootn(x, _) if x.ty == Scalar => Scalar,
             List(xs) if xs.iter().all(|x| x.ty == Scalar) => Vector,
             Unary(Not, x) if x.ty == Boolean => Boolean,
             Binary(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
@@ -300,6 +316,54 @@ impl Expr {
             Uninit => panic!(),
             _ => Unknown,
         }
+    }
+
+    fn eval1<F>(&self, f: F) -> Option<(TupperIntervalSet, Option<Rational>)>
+    where
+        F: Fn(TupperIntervalSet) -> TupperIntervalSet,
+    {
+        let (x, _) = self.eval()?;
+        Some((f(x), None))
+    }
+
+    fn eval1r<F, FR>(&self, f: F, fr: FR) -> Option<(TupperIntervalSet, Option<Rational>)>
+    where
+        F: Fn(TupperIntervalSet) -> TupperIntervalSet,
+        FR: Fn(Rational) -> Option<Rational>,
+    {
+        let (x, xr) = self.eval()?;
+        let yr = xr.and_then(fr);
+        let y = if let Some(yr) = &yr {
+            TupperIntervalSet::from(DecInterval::new(rational_ops::to_interval(yr)))
+        } else {
+            f(x)
+        };
+        Some((y, yr))
+    }
+
+    fn eval2<F>(&self, y: &Self, f: F) -> Option<(TupperIntervalSet, Option<Rational>)>
+    where
+        F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet,
+    {
+        let (x, _) = self.eval()?;
+        let (y, _) = y.eval()?;
+        Some((f(x, y), None))
+    }
+
+    fn eval2r<F, FR>(&self, y: &Self, f: F, fr: FR) -> Option<(TupperIntervalSet, Option<Rational>)>
+    where
+        F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet,
+        FR: Fn(Rational, Rational) -> Option<Rational>,
+    {
+        let (x, xr) = self.eval()?;
+        let (y, yr) = y.eval()?;
+        let zr = xr.zip(yr).and_then(|(xr, yr)| fr(xr, yr));
+        let z = if let Some(zr) = &zr {
+            TupperIntervalSet::from(DecInterval::new(rational_ops::to_interval(zr)))
+        } else {
+            f(x, y)
+        };
+        Some((z, zr))
     }
 }
 
@@ -345,6 +409,7 @@ impl<'a> fmt::Display for DumpStructure<'a> {
                 y.dump_structure()
             ),
             ExprKind::Pown(x, y) => write!(f, "(Pown {} {})", x.dump_structure(), y),
+            ExprKind::Rootn(x, y) => write!(f, "(Rootn {} {})", x.dump_structure(), y),
             ExprKind::List(xs) => {
                 let mut parts = vec!["List".to_string()];
                 parts.extend(xs.iter().map(|x| format!("{}", x.dump_structure())));

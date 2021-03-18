@@ -128,6 +128,7 @@ pub enum StaticTermKind {
     Unary(ScalarUnaryOp, TermIndex),
     Binary(ScalarBinaryOp, TermIndex, TermIndex),
     Pown(TermIndex, i32),
+    Rootn(TermIndex, u32),
     // == Others ==
     // Box the `Vec` to keep the enum small.
     // Operations involving lists are relatively rare, so it would be worth the cost of the extra indirection.
@@ -325,6 +326,7 @@ impl StaticTerm {
                 self.put(ts, terms[*x as usize].get(ts) - terms[*y as usize].get(ts))
             }
             Pown(x, n) => self.put(ts, terms[*x as usize].get(ts).pown(*n, self.site)),
+            Rootn(x, n) => self.put(ts, terms[*x as usize].get(ts).rootn(*n)),
             List(_) => (),
             X | Y => panic!("this term cannot be evaluated"),
         }

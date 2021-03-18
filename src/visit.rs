@@ -34,6 +34,7 @@ fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
             v.visit_expr(y);
         }
         Pown(x, _) => v.visit_expr(x),
+        Rootn(x, _) => v.visit_expr(x),
         List(xs) => {
             for x in xs {
                 v.visit_expr(x);
@@ -62,6 +63,7 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
             v.visit_expr_mut(y);
         }
         Pown(x, _) => v.visit_expr_mut(x),
+        Rootn(x, _) => v.visit_expr_mut(x),
         List(xs) => {
             for x in xs {
                 v.visit_expr_mut(x);
@@ -253,7 +255,7 @@ impl VisitMut for Transform {
             }
             Binary(Add, x, y) => {
                 match (&x.kind, &mut y.kind) {
-                    (Constant(a), _) if f64(a) == Some(0.0) => {
+                    (Constant(a), _) if f64(&a.0) == Some(0.0) => {
                         // (Add 0 y) → y
                         *e = take(y);
                         self.modified = true;
@@ -272,12 +274,12 @@ impl VisitMut for Transform {
             }
             Binary(Mul, x, y) => {
                 match (&mut x.kind, &mut y.kind) {
-                    (Constant(a), _) if f64(a) == Some(1.0) => {
+                    (Constant(a), _) if f64(&a.0) == Some(1.0) => {
                         // (Mul 1 y) → y
                         *e = take(y);
                         self.modified = true;
                     }
-                    (Constant(a), _) if f64(a) == Some(-1.0) => {
+                    (Constant(a), _) if f64(&a.0) == Some(-1.0) => {
                         // (Mul -1 y) → (Neg y)
                         *e = Expr::new(Unary(Neg, take(y)));
                         self.modified = true;
@@ -368,11 +370,11 @@ impl VisitMut for FoldConstant {
         traverse_expr_mut(self, e);
 
         if !matches!(e.kind, ExprKind::Constant(_)) {
-            if let Some(val) = e.eval() {
+            if let Some((x, xr)) = e.eval() {
                 // Only fold constants which evaluate to the empty or a single interval
                 // since the branch cut tracking is not possible with the AST.
-                if val.len() <= 1 {
-                    *e = Expr::new(Constant(Box::new(val)));
+                if x.len() <= 1 {
+                    *e = Expr::new(Constant(Box::new((x, xr))));
                     self.modified = true;
                 }
             }
@@ -391,7 +393,7 @@ impl VisitMut for PostTransform {
         if let Binary(Pow, x, y) = &mut e.kind {
             match (&x.kind, &y.kind) {
                 (Constant(a), _) => {
-                    if let Some(a) = f64(a) {
+                    if let Some(a) = f64(&a.0) {
                         if a == 2.0 {
                             // (Pow 2 x) → (Exp2 x)
                             *e = Expr::new(Unary(Exp2, take(y)));
@@ -402,7 +404,7 @@ impl VisitMut for PostTransform {
                     }
                 }
                 (_, Constant(a)) => {
-                    if let Some(a) = f64(a) {
+                    if let Some(a) = f64(&a.0) {
                         if a == -1.0 {
                             // (Pow x -1) → (Recip x)
                             *e = Expr::new(Unary(Recip, take(x)));
@@ -421,6 +423,10 @@ impl VisitMut for PostTransform {
                         } else if a == a as i32 as f64 {
                             // (Pow x a) /; a ∈ i32 → (Pown x a)
                             *e = Expr::new(Pown(take(x), a as i32));
+                        }
+                    } else if let Some(a) = &a.1 {
+                        if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
+                            *e = Expr::new(Pown(Box::new(Expr::new(Rootn(take(x), d))), n));
                         }
                     }
                 }
@@ -557,7 +563,7 @@ impl CollectStatic {
         use {BinaryOp::*, ExprKind::*, UnaryOp::*};
         for t in self.exprs.iter().map(|t| &*t) {
             let k = match &t.kind {
-                Constant(x) => Some(StaticTermKind::Constant(x.clone())),
+                Constant(x) => Some(StaticTermKind::Constant(Box::new(x.0.clone()))),
                 Var(x) if x == "x" => Some(StaticTermKind::X),
                 Var(x) if x == "y" => Some(StaticTermKind::Y),
                 Unary(Abs, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Abs, self.ti(x))),
@@ -715,6 +721,7 @@ impl CollectStatic {
                     self.ti(y),
                 )),
                 Pown(x, n) => Some(StaticTermKind::Pown(self.ti(x), *n)),
+                Rootn(x, n) => Some(StaticTermKind::Rootn(self.ti(x), *n)),
                 List(xs) => Some(StaticTermKind::List(Box::new(
                     xs.iter().map(|x| self.ti(x)).collect(),
                 ))),
@@ -941,5 +948,8 @@ mod tests {
         test_post_transform("x^1", "x");
         test_post_transform("x^2", "(Sqr x)");
         test_post_transform("x^3", "(Pown x 3)");
+        test_post_transform("x^(2/3)", "(Pown (Rootn x 3) 2)");
+        test_post_transform("x^(-2/3)", "(Pown (Rootn x 3) -2)");
+        test_post_transform("x^(2/-3)", "(Pown (Rootn x 3) -2)");
     }
 }
