@@ -620,7 +620,7 @@ impl TupperIntervalSet {
     impl_op_cut!(pown(x, n: i32), {
         let a = x.inf();
         let b = x.sup();
-        if n < 0 && n % 2 == 1 && a < 0.0 && b > 0.0 {
+        if n < 0 && n % 2 == -1 && a < 0.0 && b > 0.0 {
             let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.decoration());
             let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.decoration());
             (x0.pown(n), Some(x1.pown(n)))
