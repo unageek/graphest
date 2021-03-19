@@ -276,6 +276,23 @@ impl TupperIntervalSet {
             0
         }
     }
+
+    /// Returns the `f64` value if `self` contains exactly one interval
+    /// which is singleton and has a decoration ≥ [`Decoration::Def`]; otherwise, `None`.
+    ///
+    /// If a `f64` value is returned, it implies that the exact result is obtained from evaluation.
+    pub fn to_f64(&self) -> Option<f64> {
+        if self.len() != 1 {
+            return None;
+        }
+
+        let x = self.xs[0].x;
+        if x.is_singleton() && self.d >= Decoration::Def {
+            Some(x.inf())
+        } else {
+            None
+        }
+    }
 }
 
 impl PartialEq for TupperIntervalSet {

@@ -183,8 +183,6 @@ impl Expr {
             Unary(Erfc, x) => x.eval1(|x| x.erfc()),
             Unary(Erfi, x) => x.eval1(|x| x.erfi()),
             Unary(Exp, x) => x.eval1(|x| x.exp()),
-            Unary(Exp10, x) => x.eval1(|x| x.exp10()),
-            Unary(Exp2, x) => x.eval1(|x| x.exp2()),
             Unary(Floor, x) => x.eval1r(|x| x.floor(None), |x| Some(x.floor())),
             Unary(FresnelC, x) => x.eval1(|x| x.fresnel_c()),
             Unary(FresnelS, x) => x.eval1(|x| x.fresnel_s()),
@@ -194,7 +192,6 @@ impl Expr {
             Unary(Log10, x) => x.eval1(|x| x.log10()),
             Unary(Neg, x) => x.eval1r(|x| -&x, |x| Some(-x)),
             Unary(One, x) => x.eval1(|x| x.one()),
-            Unary(Recip, x) => x.eval1r(|x| x.recip(None), rational_ops::recip),
             Unary(Shi, x) => x.eval1(|x| x.shi()),
             Unary(Si, x) => x.eval1(|x| x.si()),
             Unary(Sign, x) => x.eval1r(|x| x.sign(None), |x| Some(x.signum())),
@@ -224,7 +221,7 @@ impl Expr {
                 x.eval2r(y, |x, y| x.rem_euclid(&y, None), rational_ops::rem_euclid)
             }
             Binary(Mul, x, y) => x.eval2r(y, |x, y| &x * &y, |x, y| Some(x * y)),
-            Binary(Pow, x, y) => x.eval2(y, |x, y| x.pow(&y, None)),
+            Binary(Pow, x, y) => x.eval2r(y, |x, y| x.pow(&y, None), rational_ops::pow),
             Binary(RankedMax, xs, n) => Some((
                 if let List(xs) = &xs.kind {
                     let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
@@ -252,8 +249,10 @@ impl Expr {
                 None,
             )),
             Binary(Sub, x, y) => x.eval2r(y, |x, y| &x - &y, |x, y| Some(x - y)),
-            Pown(x, n) => x.eval1r(|x| x.pown(*n, None), |x| rational_ops::pown(x, *n)),
             Rootn(x, n) => x.eval1(|x| x.rootn(*n)),
+            Unary(Exp10, _) | Unary(Exp2, _) | Unary(Recip, _) | Pown(_, _) => {
+                panic!("Pow should be used instead")
+            }
             Uninit => panic!(),
             _ => None,
         }
@@ -323,7 +322,9 @@ impl Expr {
         F: Fn(TupperIntervalSet) -> TupperIntervalSet,
     {
         let (x, _) = self.eval()?;
-        Some((f(x), None))
+        let y = f(x);
+        let yr = y.to_f64().and_then(Rational::from_f64);
+        Some((y, yr))
     }
 
     fn eval1r<F, FR>(&self, f: F, fr: FR) -> Option<(TupperIntervalSet, Option<Rational>)>
@@ -347,7 +348,9 @@ impl Expr {
     {
         let (x, _) = self.eval()?;
         let (y, _) = y.eval()?;
-        Some((f(x, y), None))
+        let z = f(x, y);
+        let zr = z.to_f64().and_then(Rational::from_f64);
+        Some((z, zr))
     }
 
     fn eval2r<F, FR>(&self, y: &Self, f: F, fr: FR) -> Option<(TupperIntervalSet, Option<Rational>)>

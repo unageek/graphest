@@ -18,16 +18,17 @@ use rug::{Integer, Rational};
 
 type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
 
-fn pow(base: u32, exp: i32) -> Rational {
-    let i = Integer::from(Integer::u_pow_u(base, exp.abs() as u32));
-    let mut r = Rational::from(i);
-    if exp < 0 {
-        r.recip_mut();
-    }
-    r
-}
-
+// Based on `inari::parse::parse_dec_float`.
 fn parse_dec_float(mant: &str, exp: &str) -> Option<Rational> {
+    fn pow(base: u32, exp: i32) -> Rational {
+        let i = Integer::from(Integer::u_pow_u(base, exp.abs() as u32));
+        let mut r = Rational::from(i);
+        if exp < 0 {
+            r.recip_mut();
+        }
+        r
+    }
+
     let e = exp.parse::<i32>().ok()?;
     let mut parts = mant.split('.');
     let int_part = parts.next().unwrap();

@@ -1,12 +1,11 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprId, ExprKind, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
-    interval_set::{Site, TupperIntervalSet},
+    interval_set::Site,
     ops::{
         FormIndex, RelOp, ScalarBinaryOp, ScalarUnaryOp, StaticForm, StaticFormKind, StaticTerm,
         StaticTermKind, StoreIndex, TermIndex,
     },
 };
-use inari::Decoration;
 use std::{
     collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
@@ -215,19 +214,6 @@ pub struct Transform {
     pub modified: bool,
 }
 
-fn f64(x: &TupperIntervalSet) -> Option<f64> {
-    if x.len() != 1 {
-        return None;
-    }
-
-    let x = x.iter().next().unwrap().to_dec_interval();
-    if x.is_singleton() && x.decoration() >= Decoration::Dac {
-        Some(x.inf())
-    } else {
-        None
-    }
-}
-
 impl VisitMut for Transform {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
         use {BinaryOp::*, ExprKind::*, UnaryOp::*};
@@ -255,7 +241,7 @@ impl VisitMut for Transform {
             }
             Binary(Add, x, y) => {
                 match (&x.kind, &mut y.kind) {
-                    (Constant(a), _) if f64(&a.0) == Some(0.0) => {
+                    (Constant(a), _) if a.0.to_f64() == Some(0.0) => {
                         // (Add 0 y) → y
                         *e = take(y);
                         self.modified = true;
@@ -274,12 +260,12 @@ impl VisitMut for Transform {
             }
             Binary(Mul, x, y) => {
                 match (&mut x.kind, &mut y.kind) {
-                    (Constant(a), _) if f64(&a.0) == Some(1.0) => {
+                    (Constant(a), _) if a.0.to_f64() == Some(1.0) => {
                         // (Mul 1 y) → y
                         *e = take(y);
                         self.modified = true;
                     }
-                    (Constant(a), _) if f64(&a.0) == Some(-1.0) => {
+                    (Constant(a), _) if a.0.to_f64() == Some(-1.0) => {
                         // (Mul -1 y) → (Neg y)
                         *e = Expr::new(Unary(Neg, take(y)));
                         self.modified = true;
@@ -393,7 +379,7 @@ impl VisitMut for PostTransform {
         if let Binary(Pow, x, y) = &mut e.kind {
             match (&x.kind, &y.kind) {
                 (Constant(a), _) => {
-                    if let Some(a) = f64(&a.0) {
+                    if let Some(a) = a.0.to_f64() {
                         if a == 2.0 {
                             // (Pow 2 x) → (Exp2 x)
                             *e = Expr::new(Unary(Exp2, take(y)));
@@ -404,29 +390,20 @@ impl VisitMut for PostTransform {
                     }
                 }
                 (_, Constant(a)) => {
-                    if let Some(a) = f64(&a.0) {
-                        if a == -1.0 {
-                            // (Pow x -1) → (Recip x)
-                            *e = Expr::new(Unary(Recip, take(x)));
-                        } else if a == 0.0 {
-                            // (Pow x 0) → (One x)
-                            *e = Expr::new(Unary(One, take(x)));
-                        } else if a == 0.5 {
-                            // (Pow x 1/2) → (Sqrt x)
-                            *e = Expr::new(Unary(Sqrt, take(x)));
-                        } else if a == 1.0 {
-                            // (Pow x 1) → x
-                            *e = take(x);
-                        } else if a == 2.0 {
-                            // (Pow x 2) → (Sqr x)
-                            *e = Expr::new(Unary(Sqr, take(x)));
-                        } else if a == a as i32 as f64 {
-                            // (Pow x a) /; a ∈ i32 → (Pown x a)
-                            *e = Expr::new(Pown(take(x), a as i32));
-                        }
-                    } else if let Some(a) = &a.1 {
+                    if let Some(a) = &a.1 {
                         if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
-                            *e = Expr::new(Pown(Box::new(Expr::new(Rootn(take(x), d))), n));
+                            let root = match d {
+                                1 => take(x),
+                                2 => Box::new(Expr::new(Unary(Sqrt, take(x)))),
+                                _ => Box::new(Expr::new(Rootn(take(x), d))),
+                            };
+                            *e = match n {
+                                -1 => Expr::new(Unary(Recip, root)),
+                                0 => Expr::new(Unary(One, root)),
+                                1 => *root,
+                                2 => Expr::new(Unary(Sqr, root)),
+                                _ => Expr::new(Pown(root, n)),
+                            }
                         }
                     }
                 }
@@ -942,14 +919,16 @@ mod tests {
     fn post_transform() {
         test_post_transform("2^x", "(Exp2 x)");
         test_post_transform("10^x", "(Exp10 x)");
-        test_post_transform("x^-1", "(Recip x)"); // Needs constant folding
+        test_post_transform("x^-1", "(Recip x)");
         test_post_transform("x^0", "(One x)");
-        test_post_transform("x^0.5", "(Sqrt x)");
         test_post_transform("x^1", "x");
         test_post_transform("x^2", "(Sqr x)");
         test_post_transform("x^3", "(Pown x 3)");
-        test_post_transform("x^(2/3)", "(Pown (Rootn x 3) 2)");
+        test_post_transform("x^(1/2)", "(Sqrt x)");
+        test_post_transform("x^(3/2)", "(Pown (Sqrt x) 3)");
         test_post_transform("x^(-2/3)", "(Pown (Rootn x 3) -2)");
-        test_post_transform("x^(2/-3)", "(Pown (Rootn x 3) -2)");
+        test_post_transform("x^(-1/3)", "(Recip (Rootn x 3))");
+        test_post_transform("x^(1/3)", "(Rootn x 3)");
+        test_post_transform("x^(2/3)", "(Sqr (Rootn x 3))");
     }
 }
