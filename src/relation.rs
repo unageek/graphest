@@ -338,3 +338,30 @@ impl FromStr for Relation {
         Ok(slf)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relation_type() {
+        use RelationType::*;
+
+        fn t(rel: &str) -> RelationType {
+            rel.parse::<Relation>().unwrap().relation_type()
+        }
+
+        assert_eq!(t("y = 0"), FunctionOfX);
+        assert_eq!(t("0 = y"), FunctionOfX);
+        assert_eq!(t("y = sin(x)"), FunctionOfX);
+        assert_eq!(t("x = 0"), FunctionOfY);
+        assert_eq!(t("0 = x"), FunctionOfY);
+        assert_eq!(t("x = sin(y)"), FunctionOfY);
+        assert_eq!(t("x y = 0"), Implicit);
+        assert_eq!(t("y = sin(x y)"), Implicit);
+        assert_eq!(t("sin(x) = 0"), Implicit);
+        assert_eq!(t("sin(y) = 0"), Implicit);
+        assert_eq!(t("y < sin(x) || sin(x) < y"), FunctionOfX);
+        assert_eq!(t("y < sin(x) && sin(x) < y"), Implicit);
+    }
+}
