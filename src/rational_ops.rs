@@ -1,6 +1,6 @@
 use gmp_mpfr_sys::{mpfr, mpfr::rnd_t};
 use inari::{interval, Interval};
-use rug::{ops::Pow, Float, Rational};
+use rug::{Float, Rational};
 
 pub fn div(x: Rational, y: Rational) -> Option<Rational> {
     if y == 0 {
@@ -44,19 +44,29 @@ pub fn min(x: Rational, y: Rational) -> Option<Rational> {
     }
 }
 
-pub fn pown(x: Rational, n: i32) -> Option<Rational> {
-    if n < 0 && x == 0 {
-        None
+pub fn pow(x: Rational, y: Rational) -> Option<Rational> {
+    let xn = x.numer().to_i32()?;
+    let xd = x.denom().to_u32()?;
+    let yn = y.numer().to_i32()?;
+    let yd = y.denom().to_u32()?;
+    if yd == 1 {
+        if yn >= 0 {
+            let n = yn as u32;
+            let zn = xn.checked_pow(n)?;
+            let zd = xd.checked_pow(n)?;
+            Some(Rational::from((zn, zd)))
+        } else if xn != 0 {
+            let n = -yn as u32;
+            let zn = xd.checked_pow(n)?;
+            let zd = xn.checked_pow(n)?;
+            Some(Rational::from((zn, zd)))
+        } else {
+            // y < 0 ∧ x = 0.
+            None
+        }
     } else {
-        Some(x.pow(n))
-    }
-}
-
-pub fn recip(x: Rational) -> Option<Rational> {
-    if x == 0 {
+        // y ∉ ℤ.
         None
-    } else {
-        Some(x.recip())
     }
 }
 
@@ -69,6 +79,7 @@ pub fn rem_euclid(x: Rational, y: Rational) -> Option<Rational> {
     }
 }
 
+// Based on `inari::parse::rational_to_f64`.
 #[allow(clippy::many_single_char_names)]
 pub fn to_interval(r: &Rational) -> Interval {
     let mut f = Float::new(f64::MANTISSA_DIGITS);
