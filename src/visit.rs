@@ -405,7 +405,10 @@ impl VisitMut for PostTransform {
                             };
                             *e = match n {
                                 -1 => Expr::new(Unary(Recip, root)),
-                                0 => Expr::new(Unary(One, root)),
+                                0 => Expr::new(Unary(
+                                    One,
+                                    Box::new(Expr::new(Unary(UndefAt0, root))),
+                                )),
                                 1 => *root,
                                 2 => Expr::new(Unary(Sqr, root)),
                                 _ => Expr::new(Pown(root, n)),
@@ -926,7 +929,7 @@ mod tests {
         test_post_transform("2^x", "(Exp2 x)");
         test_post_transform("10^x", "(Exp10 x)");
         test_post_transform("x^-1", "(Recip x)");
-        test_post_transform("x^0", "(One x)");
+        test_post_transform("x^0", "(One (UndefAt0 x))");
         test_post_transform("x^1", "x");
         test_post_transform("x^2", "(Sqr x)");
         test_post_transform("x^3", "(Pown x 3)");
