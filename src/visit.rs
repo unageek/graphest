@@ -1,11 +1,13 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprId, ExprKind, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
-    interval_set::Site,
+    interval_set::{Site, TupperIntervalSet},
     ops::{
         FormIndex, RelOp, ScalarBinaryOp, ScalarUnaryOp, StaticForm, StaticFormKind, StaticTerm,
         StaticTermKind, StoreIndex, TermIndex,
     },
 };
+use inari::const_dec_interval;
+use rug::Rational;
 use std::{
     collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
@@ -161,13 +163,17 @@ impl VisitMut for PreTransform {
                         *e = Expr::new(Unary(Sinc, Box::new(Expr::new(Unary(UndefAt0, take(y))))));
                     }
                     (_, Unary(Sin, y1)) if y1 == x => {
-                        // (Div x (Sin x)) → (Recip (Sinc (UndefAt0 x)))
-                        *e = Expr::new(Unary(
-                            Recip,
+                        // (Div x (Sin x)) → (Pow (Sinc (UndefAt0 x)) -1)
+                        *e = Expr::new(Binary(
+                            Pow,
                             Box::new(Expr::new(Unary(
                                 Sinc,
                                 Box::new(Expr::new(Unary(UndefAt0, take(x)))),
                             ))),
+                            Box::new(Expr::new(Constant(Box::new((
+                                TupperIntervalSet::from(const_dec_interval!(-1.0, -1.0)),
+                                Some(Rational::from(-1)),
+                            ))))),
                         ));
                     }
                     _ if x == y => {
@@ -850,7 +856,7 @@ mod tests {
     fn pre_transform() {
         test_pre_transform("x - y", "(Add x (Neg y))");
         test_pre_transform("sin(x)/x", "(Sinc (UndefAt0 x))");
-        test_pre_transform("x/sin(x)", "(Recip (Sinc (UndefAt0 x)))");
+        test_pre_transform("x/sin(x)", "(Pow (Sinc (UndefAt0 x)) @)");
         test_pre_transform("x/x", "(One (UndefAt0 x))");
     }
 
