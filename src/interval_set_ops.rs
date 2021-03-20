@@ -528,17 +528,22 @@ impl TupperIntervalSet {
     //         |            (x^y is an odd function of x),
     //         | undefined  otherwise (y = (odd)/(even) or irrational).
     //
-    // `Interval::pow` is not defined for x < 0, so we extend it here.
+    // We also define 0^0 = 1.
+    // `Interval::pow` is defined neither for x < 0 nor for x = y = 0, so we extend it here.
     impl_op_cut!(
         #[allow(clippy::many_single_char_names)]
         pow(x, y),
         {
             let a = x.inf();
             let c = y.inf();
-
             if y.is_singleton() {
                 match Self::exponentiation_parity(c) {
                     Parity::None => (x.pow(y), None),
+                    Parity::Even if c == 0.0 => {
+                        // The decoration is `Com` if a > 0, but that does not matter for graphing.
+                        let z = DecInterval::set_dec(const_interval!(1.0, 1.0), Decoration::Dac);
+                        (z, None)
+                    }
                     Parity::Even => (x.abs().pow(y), None),
                     Parity::Odd => {
                         let dec = if x.contains(0.0) && c < 0.0 {
@@ -572,7 +577,8 @@ impl TupperIntervalSet {
                             let z = z0
                                 .unwrap_or(DecInterval::EMPTY)
                                 .convex_hull(z1.unwrap_or(DecInterval::EMPTY));
-                            (DecInterval::set_dec(z.interval().unwrap(), dec), None)
+                            let z = DecInterval::set_dec(z.interval().unwrap(), dec);
+                            (z, None)
                         }
                     }
                 }
@@ -591,12 +597,33 @@ impl TupperIntervalSet {
                 // x^y ≥ 0 part, which comes from
                 //   x ≥ 0;
                 //   x < 0, y = (even)/(odd) (x^y is an even function of x).
-                let z1 = DecInterval::set_dec(x.abs().pow(y), dec);
+                let mut z1 = DecInterval::set_dec(x.abs().pow(y), dec);
+                if x.contains(0.0) && y.contains(0.0) {
+                    z1 = z1.convex_hull(const_dec_interval!(1.0, 1.0));
+                }
 
                 (z0, Some(z1))
             } else {
                 // a ≥ 0.
-                (x.pow(y), None)
+                if x.contains(0.0) && y.contains(0.0) {
+                    let dec = if c < 0.0 {
+                        Decoration::Trv
+                    } else {
+                        // y is not a singleton, thus there is a discontinuity.
+                        Decoration::Def.min(x.decoration()).min(y.decoration())
+                    };
+                    let z0 = x.pow(y);
+                    let z0 = DecInterval::set_dec(z0.interval().unwrap(), dec);
+                    let z1 = if x.is_singleton() {
+                        // a = b = 0.
+                        Some(DecInterval::set_dec(const_interval!(1.0, 1.0), dec))
+                    } else {
+                        None
+                    };
+                    (z0, z1)
+                } else {
+                    (x.pow(y), None)
+                }
             }
         }
     );
@@ -1107,6 +1134,11 @@ mod tests {
             set![const_dec_interval!(1.0, f64::INFINITY)]
         );
 
+        // x^0
+        let x = set![const_dec_interval!(0.0, 0.0)];
+        let y = set![const_dec_interval!(0.0, 0.0)];
+        eq!(x.pow(&y, None), set![const_dec_interval!(1.0, 1.0)]);
+
         // x^2
         let x = set![const_dec_interval!(-1.0, 1.0)];
         let y = set![const_dec_interval!(2.0, 2.0)];
@@ -1164,5 +1196,18 @@ mod tests {
                 const_dec_interval!(1.0, f64::INFINITY)
             ]
         );
+
+        // 0^x
+        let x = set![const_dec_interval!(0.0, 0.0)];
+        let y = set![const_dec_interval!(0.0, 1.0)];
+        eq!(
+            x.pow(&y, None),
+            set![const_dec_interval!(0.0, 0.0), const_dec_interval!(1.0, 1.0)]
+        );
+
+        // Others
+        let x = set![const_dec_interval!(0.0, 1.0)];
+        let y = set![const_dec_interval!(0.0, 1.0)];
+        eq!(x.pow(&y, None), set![const_dec_interval!(0.0, 1.0)]);
     }
 }
