@@ -165,12 +165,12 @@ Currently, the following algorithms from [Tup01] are implemented: 1.1–3.2, 3.4
 
 ### Exponentiation
 
-To be consistent with GrafEq, the exponentiation is defined as follows.
+Exponentiation is defined as follows, which is consistent with GrafEq.
 
 - For *x* < 0, *x*<sup>*y*</sup> is defined if and only if *y* is a rational number with an odd denominator.
   - For any positive integers *m* and *n*, *x*<sup>±*m*/*n*</sup> := (<sup>*n*</sup>√*x*)<sup>±*m*</sup>, where <sup>*n*</sup>√*x* is the real, non-negative *n*th root of *x*.
   - *x*<sup>±*m*/*n*</sup> is an even (odd) function of *x* if *m* is even (odd).
-- 0<sup>0</sup> is left undefined.
+- 0<sup>0</sup> := 1.
 
 ## Function Reference
 
