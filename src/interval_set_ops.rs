@@ -518,9 +518,7 @@ impl TupperIntervalSet {
     //
     //   x^(m/n) = rootn(x, n)^m,
     //
-    // where rootn(x, n) is the real-valued nth root of x.
-    //
-    // Therefore, for x < 0,
+    // where rootn(x, n) is the real-valued nth root of x.  Therefore, for x < 0,
     //
     //         | (-x)^y     if y = (even)/(odd)
     //         |            (x^y is an even function of x),
@@ -528,8 +526,8 @@ impl TupperIntervalSet {
     //         |            (x^y is an odd function of x),
     //         | undefined  otherwise (y = (odd)/(even) or irrational).
     //
-    // We also define 0^0 = 1.
-    // `Interval::pow` is defined neither for x < 0 nor for x = y = 0, so we extend it here.
+    // We also define 0^0 = 1.  `Interval::pow` is defined neither for x < 0 nor for x = y = 0,
+    // so we extend it here.
     impl_op_cut!(
         #[allow(clippy::many_single_char_names)]
         pow(x, y),
@@ -543,7 +541,7 @@ impl TupperIntervalSet {
                         let dec = if x.contains(0.0) && c < 0.0 {
                             Decoration::Trv
                         } else {
-                            if a > 0.0 {
+                            if a > 0.0 || a >= 0.0 && c > 0.0 {
                                 Decoration::Com
                             } else {
                                 Decoration::Dac
@@ -565,7 +563,7 @@ impl TupperIntervalSet {
                         let dec = if x.contains(0.0) && c < 0.0 {
                             Decoration::Trv
                         } else {
-                            if a > 0.0 {
+                            if a >= 0.0 {
                                 Decoration::Com
                             } else {
                                 Decoration::Dac
@@ -1115,6 +1113,30 @@ mod tests {
     use const_interval as i;
     use Decoration::*;
 
+    fn test_fn<F>(f: F, x: Interval, expected: (Vec<Interval>, Decoration))
+    where
+        F: Fn(TupperIntervalSet) -> TupperIntervalSet,
+    {
+        let decs = [Com, Dac, Def, Trv];
+        for &dx in &decs {
+            let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
+            let mut y = f(x);
+            y.normalize(true);
+            let dy = if y.is_empty() {
+                Decoration::Trv
+            } else {
+                y.iter().next().unwrap().d
+            };
+            let mut y_exp = TupperIntervalSet::empty();
+            for &y in &expected.0 {
+                y_exp.insert(TupperInterval::new(DecInterval::new(y), BranchMap::new()));
+            }
+            let dy_exp = expected.1.min(dx);
+            assert_eq!(y, y_exp);
+            assert_eq!(dy, dy_exp);
+        }
+    }
+
     fn test_fn2<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
     where
         F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet,
@@ -1144,109 +1166,226 @@ mod tests {
 
     #[test]
     fn pow() {
-        fn pow(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
             x.pow(&y, None)
         }
 
         // x^-3
         let y = i!(-3.0, -3.0);
-        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(-1.0, -1.0)], Dac));
-        test_fn2(pow, i!(0.0, 0.0), y, (vec![], Trv));
-        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, -1.0), y, (vec![i!(-1.0, -1.0)], Dac));
+        test_fn2(f, i!(0.0, 0.0), y, (vec![], Trv));
+        test_fn2(f, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(-f64::INFINITY, -1.0)], Trv));
+        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
         test_fn2(
-            pow,
+            f,
             i!(-1.0, 1.0),
             y,
-            (
-                vec![i!(f64::NEG_INFINITY, -1.0), i!(1.0, f64::INFINITY)],
-                Trv,
-            ),
+            (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
         );
 
         // x^-2
         let y = i!(-2.0, -2.0);
-        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(1.0, 1.0)], Dac));
-        test_fn2(pow, i!(0.0, 0.0), y, (vec![], Trv));
-        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
-        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn2(f, i!(-1.0, -1.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(f, i!(0.0, 0.0), y, (vec![], Trv));
+        test_fn2(f, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+
+        // x^(-1/2)
+        let y = i!(-0.5, -0.5);
+        test_fn2(f, i!(-1.0, -1.0), y, (vec![], Trv));
+        test_fn2(f, i!(0.0, 0.0), y, (vec![], Trv));
+        test_fn2(f, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 0.0), y, (vec![], Trv));
+        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
 
         // x^0
         let y = i!(0.0, 0.0);
-        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(1.0, 1.0)], Dac));
-        test_fn2(pow, i!(0.0, 0.0), y, (vec![i!(1.0, 1.0)], Dac));
-        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
-        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(f, i!(-1.0, -1.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(f, i!(0.0, 0.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(f, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(1.0, 1.0)], Dac));
+
+        // x^(1/2)
+        let y = i!(0.5, 0.5);
+        test_fn2(f, i!(-1.0, -1.0), y, (vec![], Trv));
+        test_fn2(f, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Com));
+        test_fn2(f, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(0.0, 0.0)], Trv));
+        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Trv));
 
         // x^2
         let y = i!(2.0, 2.0);
-        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(1.0, 1.0)], Dac));
-        test_fn2(pow, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Dac));
-        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
-        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Dac));
+        test_fn2(f, i!(-1.0, -1.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(f, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Com));
+        test_fn2(f, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(0.0, 1.0)], Dac));
+        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Dac));
 
         // x^3
         let y = i!(3.0, 3.0);
-        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(-1.0, -1.0)], Dac));
-        test_fn2(pow, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Dac));
-        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
-        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Dac));
+        test_fn2(f, i!(-1.0, -1.0), y, (vec![i!(-1.0, -1.0)], Dac));
+        test_fn2(f, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Com));
+        test_fn2(f, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(-1.0, 0.0)], Dac));
+        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Dac));
 
         // x^e (or any inexact positive number)
         let y = Interval::E;
         test_fn2(
-            pow,
+            f,
             i!(-1.0, -1.0),
             y,
             (vec![i!(-1.0, -1.0), i!(1.0, 1.0)], Trv),
         );
-        test_fn2(pow, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Com));
-        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
-        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Trv));
+        test_fn2(f, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Com));
+        test_fn2(f, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(-1.0, 1.0)], Trv));
+        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Trv));
 
         // x^-e (or any inexact negative number)
         let y = -Interval::E;
         test_fn2(
-            pow,
+            f,
             i!(-1.0, -1.0),
             y,
             (vec![i!(-1.0, -1.0), i!(1.0, 1.0)], Trv),
         );
-        test_fn2(pow, i!(0.0, 0.0), y, (vec![], Trv));
-        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(f, i!(0.0, 0.0), y, (vec![], Trv));
+        test_fn2(f, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
         test_fn2(
-            pow,
+            f,
+            i!(-1.0, 0.0),
+            y,
+            (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
+        );
+        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn2(
+            f,
             i!(-1.0, 1.0),
             y,
-            (
-                vec![i!(f64::NEG_INFINITY, -1.0), i!(1.0, f64::INFINITY)],
-                Trv,
-            ),
+            (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
         );
 
         // 0^y
         let x = i!(0.0, 0.0);
-        test_fn2(pow, x, i!(-1.0, -1.0), (vec![], Trv));
-        test_fn2(pow, x, i!(0.0, 0.0), (vec![i!(1.0, 1.0)], Dac));
-        test_fn2(pow, x, i!(1.0, 1.0), (vec![i!(0.0, 0.0)], Dac));
-        test_fn2(pow, x, i!(-1.0, -1.0), (vec![], Trv));
-        test_fn2(pow, x, i!(-1.0, 0.0), (vec![i!(1.0, 1.0)], Trv));
-        test_fn2(
-            pow,
-            x,
-            i!(0.0, 1.0),
-            (vec![i!(0.0, 0.0), i!(1.0, 1.0)], Def),
-        );
-        test_fn2(
-            pow,
-            x,
-            i!(-1.0, 1.0),
-            (vec![i!(0.0, 0.0), i!(1.0, 1.0)], Trv),
-        );
+        test_fn2(f, x, i!(-1.0, -1.0), (vec![], Trv));
+        test_fn2(f, x, i!(0.0, 0.0), (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(f, x, i!(1.0, 1.0), (vec![i!(0.0, 0.0)], Com));
+        test_fn2(f, x, i!(-1.0, 0.0), (vec![i!(1.0, 1.0)], Trv));
+        test_fn2(f, x, i!(0.0, 1.0), (vec![i!(0.0, 0.0), i!(1.0, 1.0)], Def));
+        test_fn2(f, x, i!(-1.0, 1.0), (vec![i!(0.0, 0.0), i!(1.0, 1.0)], Trv));
 
         // Others
         let x = i!(0.0, 1.0);
-        test_fn2(pow, x, i!(-1.0, 0.0), (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn2(pow, x, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Def));
-        test_fn2(pow, x, i!(-1.0, 1.0), (vec![i!(0.0, f64::INFINITY)], Trv));
+        test_fn2(f, x, i!(-1.0, 0.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn2(f, x, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Def));
+        test_fn2(f, x, i!(-1.0, 1.0), (vec![i!(0.0, f64::INFINITY)], Trv));
+    }
+
+    #[test]
+    fn pown() {
+        fn pown(x: TupperIntervalSet, n: i32) -> TupperIntervalSet {
+            x.pown(n, None)
+        }
+
+        // x^-2
+        let f = |x| pown(x, -2);
+        test_fn(f, i!(-1.0, -1.0), (vec![i!(1.0, 1.0)], Com));
+        test_fn(f, i!(0.0, 0.0), (vec![], Trv));
+        test_fn(f, i!(1.0, 1.0), (vec![i!(1.0, 1.0)], Com));
+        test_fn(f, i!(-1.0, 0.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn(f, i!(-1.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+
+        // x^-1
+        let f = |x| pown(x, -1);
+        test_fn(f, i!(-1.0, -1.0), (vec![i!(-1.0, -1.0)], Com));
+        test_fn(f, i!(0.0, 0.0), (vec![], Trv));
+        test_fn(f, i!(1.0, 1.0), (vec![i!(1.0, 1.0)], Com));
+        test_fn(f, i!(-1.0, 0.0), (vec![i!(-f64::INFINITY, -1.0)], Trv));
+        test_fn(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn(
+            f,
+            i!(-1.0, 1.0),
+            (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
+        );
+
+        // x^0
+        let f = |x| pown(x, 0);
+        test_fn(f, i!(-1.0, 1.0), (vec![i!(1.0, 1.0)], Com));
+
+        // x^2
+        let f = |x| pown(x, 2);
+        test_fn(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Com));
+
+        // x^3
+        let f = |x| pown(x, 3);
+        test_fn(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
+    }
+
+    #[test]
+    fn recip() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.recip(None)
+        }
+
+        test_fn(f, i!(-1.0, -1.0), (vec![i!(-1.0, -1.0)], Com));
+        test_fn(f, i!(0.0, 0.0), (vec![], Trv));
+        test_fn(f, i!(1.0, 1.0), (vec![i!(1.0, 1.0)], Com));
+        test_fn(f, i!(-1.0, 0.0), (vec![i!(-f64::INFINITY, -1.0)], Trv));
+        test_fn(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn(
+            f,
+            i!(-1.0, 1.0),
+            (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
+        );
+    }
+
+    #[test]
+    fn rootn() {
+        fn rootn(x: TupperIntervalSet, n: u32) -> TupperIntervalSet {
+            x.rootn(n)
+        }
+
+        // x^1/0
+        let f = |x| rootn(x, 0);
+        test_fn(f, i!(-1.0, 1.0), (vec![], Trv));
+
+        // x^1/2
+        let f = |x| rootn(x, 2);
+        test_fn(f, i!(-1.0, -1.0), (vec![], Trv));
+        test_fn(f, i!(0.0, 0.0), (vec![i!(0.0, 0.0)], Com));
+        test_fn(f, i!(1.0, 1.0), (vec![i!(1.0, 1.0)], Com));
+        test_fn(f, i!(-1.0, 0.0), (vec![i!(0.0, 0.0)], Trv));
+        test_fn(f, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Com));
+        test_fn(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
+
+        // x^1/3
+        let f = |x| rootn(x, 3);
+        test_fn(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
+    }
+
+    #[test]
+    fn undef_at_0() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.undef_at_0()
+        }
+
+        test_fn(f, i!(-1.0, -1.0), (vec![i!(-1.0, -1.0)], Com));
+        test_fn(f, i!(0.0, 0.0), (vec![], Trv));
+        test_fn(f, i!(1.0, 1.0), (vec![i!(1.0, 1.0)], Com));
+        test_fn(f, i!(-1.0, 0.0), (vec![i!(-1.0, 0.0)], Trv));
+        test_fn(f, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
+        test_fn(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Trv));
     }
 }
