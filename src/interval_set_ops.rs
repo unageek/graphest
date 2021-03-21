@@ -514,7 +514,7 @@ impl TupperIntervalSet {
         }
     }
 
-    // For any integer m and positive odd integer n, we define
+    // For any integer m and any positive odd integer n, we define
     //
     //   x^(m/n) = rootn(x, n)^m,
     //
@@ -539,17 +539,39 @@ impl TupperIntervalSet {
             if y.is_singleton() {
                 match Self::exponentiation_parity(c) {
                     Parity::None => (x.pow(y), None),
-                    Parity::Even if c == 0.0 => {
-                        // The decoration is `Com` if a > 0, but that does not matter for graphing.
-                        let z = DecInterval::set_dec(const_interval!(1.0, 1.0), Decoration::Dac);
+                    Parity::Even => {
+                        let dec = if x.contains(0.0) && c < 0.0 {
+                            Decoration::Trv
+                        } else {
+                            if a > 0.0 {
+                                Decoration::Com
+                            } else {
+                                Decoration::Dac
+                            }
+                            .min(x.decoration())
+                            .min(y.decoration())
+                        };
+
+                        let x = x.interval().unwrap();
+                        let y = y.interval().unwrap();
+                        let mut z = x.abs().pow(y);
+                        if x.contains(0.0) && c == 0.0 {
+                            z = z.convex_hull(const_interval!(1.0, 1.0));
+                        }
+                        let z = DecInterval::set_dec(z, dec);
                         (z, None)
                     }
-                    Parity::Even => (x.abs().pow(y), None),
                     Parity::Odd => {
                         let dec = if x.contains(0.0) && c < 0.0 {
                             Decoration::Trv
                         } else {
-                            Decoration::Dac.min(x.decoration()).min(y.decoration())
+                            if a > 0.0 {
+                                Decoration::Com
+                            } else {
+                                Decoration::Dac
+                            }
+                            .min(x.decoration())
+                            .min(y.decoration())
                         };
 
                         let x = x.interval().unwrap();
@@ -1090,124 +1112,141 @@ pub(crate) fn sinc(x: Interval) -> Interval {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use const_interval as i;
+    use Decoration::*;
 
-    macro_rules! set {
-        ($($x:expr),*) => {{
-            #[allow(unused_mut)]
-            let mut x = TupperIntervalSet::empty();
-            $(x.insert(TupperInterval::new(
-                $x,
-                BranchMap::new(),
-            ));)*
-            x
-        }};
-    }
-
-    macro_rules! eq {
-        ($left:expr, $right:expr) => {{
-            let mut left = $left.clone();
-            let mut right = $right.clone();
-            left.normalize(true);
-            right.normalize(true);
-            assert_eq!(left, right);
-        }};
+    fn test_fn2<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
+    where
+        F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet,
+    {
+        let decs = [Com, Dac, Def, Trv];
+        for &dx in &decs {
+            for &dy in &decs {
+                let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
+                let y = TupperIntervalSet::from(DecInterval::set_dec(y, dy));
+                let mut z = f(x, y);
+                z.normalize(true);
+                let dz = if z.is_empty() {
+                    Decoration::Trv
+                } else {
+                    z.iter().next().unwrap().d
+                };
+                let mut z_exp = TupperIntervalSet::empty();
+                for &z in &expected.0 {
+                    z_exp.insert(TupperInterval::new(DecInterval::new(z), BranchMap::new()));
+                }
+                let dz_exp = expected.1.min(dx).min(dy);
+                assert_eq!(z, z_exp);
+                assert_eq!(dz, dz_exp);
+            }
+        }
     }
 
     #[test]
     fn pow() {
+        fn pow(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
+            x.pow(&y, None)
+        }
+
         // x^-3
-        let x = set![const_dec_interval!(-1.0, 1.0)];
-        let y = set![const_dec_interval!(-3.0, -3.0)];
-        eq!(
-            x.pow(&y, None),
-            set![
-                const_dec_interval!(f64::NEG_INFINITY, -1.0),
-                const_dec_interval!(1.0, f64::INFINITY)
-            ]
+        let y = i!(-3.0, -3.0);
+        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(-1.0, -1.0)], Dac));
+        test_fn2(pow, i!(0.0, 0.0), y, (vec![], Trv));
+        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(
+            pow,
+            i!(-1.0, 1.0),
+            y,
+            (
+                vec![i!(f64::NEG_INFINITY, -1.0), i!(1.0, f64::INFINITY)],
+                Trv,
+            ),
         );
 
         // x^-2
-        let x = set![const_dec_interval!(-1.0, 1.0)];
-        let y = set![const_dec_interval!(-2.0, -2.0)];
-        eq!(
-            x.pow(&y, None),
-            set![const_dec_interval!(1.0, f64::INFINITY)]
-        );
+        let y = i!(-2.0, -2.0);
+        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(pow, i!(0.0, 0.0), y, (vec![], Trv));
+        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
 
         // x^0
-        let x = set![const_dec_interval!(0.0, 0.0)];
-        let y = set![const_dec_interval!(0.0, 0.0)];
-        eq!(x.pow(&y, None), set![const_dec_interval!(1.0, 1.0)]);
+        let y = i!(0.0, 0.0);
+        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(pow, i!(0.0, 0.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(1.0, 1.0)], Dac));
 
         // x^2
-        let x = set![const_dec_interval!(-1.0, 1.0)];
-        let y = set![const_dec_interval!(2.0, 2.0)];
-        eq!(x.pow(&y, None), set![const_dec_interval!(0.0, 1.0)]);
+        let y = i!(2.0, 2.0);
+        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(pow, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Dac));
+        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Dac));
 
         // x^3
-        let x = set![const_dec_interval!(-1.0, 1.0)];
-        let y = set![const_dec_interval!(3.0, 3.0)];
-        eq!(x.pow(&y, None), set![const_dec_interval!(-1.0, 1.0)]);
+        let y = i!(3.0, 3.0);
+        test_fn2(pow, i!(-1.0, -1.0), y, (vec![i!(-1.0, -1.0)], Dac));
+        test_fn2(pow, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Dac));
+        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Dac));
 
         // x^e (or any inexact positive number)
-        let y = set![DecInterval::E];
-
-        let x = set![const_dec_interval!(-1.0, -1.0)];
-        eq!(
-            x.pow(&y, None),
-            set![
-                const_dec_interval!(-1.0, -1.0),
-                const_dec_interval!(1.0, 1.0)
-            ]
+        let y = Interval::E;
+        test_fn2(
+            pow,
+            i!(-1.0, -1.0),
+            y,
+            (vec![i!(-1.0, -1.0), i!(1.0, 1.0)], Trv),
         );
-
-        let x = set![const_dec_interval!(0.0, 0.0)];
-        eq!(x.pow(&y, None), set![const_dec_interval!(0.0, 0.0)]);
-
-        let x = set![const_dec_interval!(1.0, 1.0)];
-        eq!(x.pow(&y, None), set![const_dec_interval!(1.0, 1.0)]);
-
-        let x = set![const_dec_interval!(-1.0, 1.0)];
-        eq!(x.pow(&y, None), set![const_dec_interval!(-1.0, 1.0)]);
+        test_fn2(pow, i!(0.0, 0.0), y, (vec![i!(0.0, 0.0)], Com));
+        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(pow, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Trv));
 
         // x^-e (or any inexact negative number)
-        let y = set![-DecInterval::E];
-
-        let x = set![const_dec_interval!(-1.0, -1.0)];
-        eq!(
-            x.pow(&y, None),
-            set![
-                const_dec_interval!(-1.0, -1.0),
-                const_dec_interval!(1.0, 1.0)
-            ]
+        let y = -Interval::E;
+        test_fn2(
+            pow,
+            i!(-1.0, -1.0),
+            y,
+            (vec![i!(-1.0, -1.0), i!(1.0, 1.0)], Trv),
+        );
+        test_fn2(pow, i!(0.0, 0.0), y, (vec![], Trv));
+        test_fn2(pow, i!(1.0, 1.0), y, (vec![i!(1.0, 1.0)], Com));
+        test_fn2(
+            pow,
+            i!(-1.0, 1.0),
+            y,
+            (
+                vec![i!(f64::NEG_INFINITY, -1.0), i!(1.0, f64::INFINITY)],
+                Trv,
+            ),
         );
 
-        let x = set![const_dec_interval!(0.0, 0.0)];
-        eq!(x.pow(&y, None), set![]);
-
-        let x = set![const_dec_interval!(1.0, 1.0)];
-        eq!(x.pow(&y, None), set![const_dec_interval!(1.0, 1.0)]);
-
-        let x = set![const_dec_interval!(-1.0, 1.0)];
-        eq!(
-            x.pow(&y, None),
-            set![
-                const_dec_interval!(f64::NEG_INFINITY, -1.0),
-                const_dec_interval!(1.0, f64::INFINITY)
-            ]
+        // 0^y
+        let x = i!(0.0, 0.0);
+        test_fn2(pow, x, i!(-1.0, -1.0), (vec![], Trv));
+        test_fn2(pow, x, i!(0.0, 0.0), (vec![i!(1.0, 1.0)], Dac));
+        test_fn2(pow, x, i!(1.0, 1.0), (vec![i!(0.0, 0.0)], Dac));
+        test_fn2(pow, x, i!(-1.0, -1.0), (vec![], Trv));
+        test_fn2(pow, x, i!(-1.0, 0.0), (vec![i!(1.0, 1.0)], Trv));
+        test_fn2(
+            pow,
+            x,
+            i!(0.0, 1.0),
+            (vec![i!(0.0, 0.0), i!(1.0, 1.0)], Def),
         );
-
-        // 0^x
-        let x = set![const_dec_interval!(0.0, 0.0)];
-        let y = set![const_dec_interval!(0.0, 1.0)];
-        eq!(
-            x.pow(&y, None),
-            set![const_dec_interval!(0.0, 0.0), const_dec_interval!(1.0, 1.0)]
+        test_fn2(
+            pow,
+            x,
+            i!(-1.0, 1.0),
+            (vec![i!(0.0, 0.0), i!(1.0, 1.0)], Trv),
         );
 
         // Others
-        let x = set![const_dec_interval!(0.0, 1.0)];
-        let y = set![const_dec_interval!(0.0, 1.0)];
-        eq!(x.pow(&y, None), set![const_dec_interval!(0.0, 1.0)]);
+        let x = i!(0.0, 1.0);
+        test_fn2(pow, x, i!(-1.0, 0.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test_fn2(pow, x, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Def));
+        test_fn2(pow, x, i!(-1.0, 1.0), (vec![i!(0.0, f64::INFINITY)], Trv));
     }
 }
