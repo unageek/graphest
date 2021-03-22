@@ -4,6 +4,7 @@ use smallvec::SmallVec;
 use std::{
     convert::From,
     hash::{Hash, Hasher},
+    iter::{Extend, FromIterator},
     mem::{size_of, transmute},
     slice::Iter,
 };
@@ -309,6 +310,14 @@ impl Hash for TupperIntervalSet {
     }
 }
 
+impl Extend<TupperInterval> for TupperIntervalSet {
+    fn extend<T: IntoIterator<Item = TupperInterval>>(&mut self, iter: T) {
+        for x in iter {
+            self.insert(x);
+        }
+    }
+}
+
 impl From<DecInterval> for TupperIntervalSet {
     fn from(x: DecInterval) -> Self {
         let mut xs = Self::empty();
@@ -321,6 +330,14 @@ impl From<TupperInterval> for TupperIntervalSet {
     fn from(x: TupperInterval) -> Self {
         let mut xs = Self::empty();
         xs.insert(x);
+        xs
+    }
+}
+
+impl FromIterator<TupperInterval> for TupperIntervalSet {
+    fn from_iter<T: IntoIterator<Item = TupperInterval>>(iter: T) -> Self {
+        let mut xs = Self::empty();
+        xs.extend(iter);
         xs
     }
 }
