@@ -318,6 +318,14 @@ impl Extend<TupperInterval> for TupperIntervalSet {
     }
 }
 
+impl<'a> Extend<&'a TupperInterval> for TupperIntervalSet {
+    fn extend<T: IntoIterator<Item = &'a TupperInterval>>(&mut self, iter: T) {
+        for x in iter {
+            self.insert(*x);
+        }
+    }
+}
+
 impl From<DecInterval> for TupperIntervalSet {
     fn from(x: DecInterval) -> Self {
         let mut xs = Self::empty();

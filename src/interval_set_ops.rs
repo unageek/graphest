@@ -278,7 +278,6 @@ impl TupperIntervalSet {
     #[cfg(not(feature = "arb"))]
     impl_op!(exp2(x), x.exp2());
 
-    // TODO: Use `extend` method to insert multiple intervals.
     pub fn gamma(&self, site: Option<Site>) -> Self {
         // argmin_{x > 0} Γ(x), rounded down/up.
         const ARGMIN_RD: f64 = 1.4616321449683622;
@@ -313,9 +312,7 @@ impl TupperIntervalSet {
                 let pi = Self::from(DecInterval::PI);
                 let mut xs = Self::empty();
                 xs.insert(*x);
-                for y in pi.div(&(&(&pi * &xs).sin() * &(&one - &xs).gamma(None)), site) {
-                    rs.insert(y);
-                }
+                rs.extend(pi.div(&(&(&pi * &xs).sin() * &(&one - &xs).gamma(None)), site));
             } else {
                 // a < 0 < b.
                 let dec = Decoration::Trv;
@@ -335,9 +332,7 @@ impl TupperIntervalSet {
                         _ => x.g,
                     },
                 ));
-                for y in xs.gamma(None) {
-                    rs.insert(y);
-                }
+                rs.extend(xs.gamma(None));
             }
         }
         rs.normalize(false);
@@ -392,9 +387,7 @@ impl TupperIntervalSet {
                     let mut ys = Self::from(TupperInterval::new(x.min(y), g));
                     loop {
                         if ys.iter().any(|y| y.x.contains(0.0)) {
-                            for x in &xs {
-                                rs.insert(*x);
-                            }
+                            rs.extend(&xs);
 
                             if xs == ys {
                                 // Here, in the first iteration, `xs` and `ys` consists of the same,
