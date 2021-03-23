@@ -19,7 +19,7 @@ use rug::{Integer, Rational};
 type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
 
 // Based on `inari::parse::parse_dec_float`.
-fn parse_dec_float(mant: &str, exp: &str) -> Option<Rational> {
+fn parse_decimal(mant: &str) -> Option<Rational> {
     fn pow(base: u32, exp: i32) -> Rational {
         let i = Integer::from(Integer::u_pow_u(base, exp.abs() as u32));
         let mut r = Rational::from(i);
@@ -29,7 +29,6 @@ fn parse_dec_float(mant: &str, exp: &str) -> Option<Rational> {
         r
     }
 
-    let e = exp.parse::<i32>().ok()?;
     let mut parts = mant.split('.');
     let int_part = parts.next().unwrap();
     let frac_part = match parts.next() {
@@ -37,8 +36,8 @@ fn parse_dec_float(mant: &str, exp: &str) -> Option<Rational> {
         _ => "",
     };
 
-    // 123.456e7 -> 123456e4 (ulp == 1e4)
-    let log_ulp = e.checked_sub(frac_part.len() as i32)?;
+    // 123.456 -> 123456e-3 (ulp == 1e-3)
+    let log_ulp = -(frac_part.len() as i32);
     let ulp = pow(10, log_ulp);
 
     let i_str = [int_part, frac_part].concat();
@@ -77,9 +76,9 @@ fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
 
 fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
     map(decimal_literal, |s| {
-        let interval_lit = ["[", s, ",", s, "]"].concat();
+        let interval_lit = ["[", s, "]"].concat();
         let x = TupperIntervalSet::from(dec_interval!(&interval_lit).unwrap());
-        let xr = parse_dec_float(s, "0");
+        let xr = parse_decimal(s);
         Expr::new(ExprKind::Constant(Box::new((x, xr))))
     })(i)
 }

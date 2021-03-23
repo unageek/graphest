@@ -59,7 +59,7 @@ fn print_statistics(cur: &GraphingStatistics, prev: &GraphingStatistics) {
 }
 
 fn to_interval(s: &str) -> Interval {
-    let ss = format!("[{},{}]", s, s);
+    let ss = format!("[{}]", s);
     interval!(&ss).unwrap_or_else(|_| panic!("{} is not a valid number", s))
 }
 
