@@ -328,7 +328,7 @@ pub fn parse_expr(i: &str, ctx: &Context) -> Result<Expr, String> {
     let i = InputWithContext::new(i, ctx);
     match all_consuming(delimited(space0, expr, space0))(i.clone()) {
         Ok((InputWithContext { i: "", ctx: _ }, x)) => Ok(x),
-        Err(NomErr::Error(e)) | Err(NomErr::Failure(e)) => Err(convert_error(i, e)),
+        Err(NomErr::Error(e) | NomErr::Failure(e)) => Err(convert_error(i, e)),
         _ => unreachable!(),
     }
 }

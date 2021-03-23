@@ -250,7 +250,7 @@ impl Expr {
             )),
             Binary(Sub, x, y) => x.eval2r(y, |x, y| &x - &y, |x, y| Some(x - y)),
             Rootn(x, n) => x.eval1(|x| x.rootn(*n)),
-            Unary(Exp10, _) | Unary(Exp2, _) | Unary(Recip, _) | Pown(_, _) => {
+            Unary(Exp10 | Exp2 | Recip, _) | Pown(_, _) => {
                 panic!("Pow should be used instead")
             }
             Uninit => panic!(),

@@ -204,7 +204,7 @@ impl VisitMut for SortTerms {
         traverse_expr_mut(self, e);
 
         match &mut e.kind {
-            Binary(Add, x, y) | Binary(Mul, x, y) if precedes(y, x) => {
+            Binary(Add | Mul, x, y) if precedes(y, x) => {
                 // (op x y) /; y ≺ x → (op y x)
                 swap(x, y);
                 self.modified = true;
@@ -457,22 +457,12 @@ impl AssignId {
         use {BinaryOp::*, ExprKind::*, UnaryOp::*};
         matches!(
             kind,
-            Unary(Ceil, _)
-                | Unary(Digamma, _)
-                | Unary(Floor, _)
-                | Unary(Gamma, _)
-                | Unary(Recip, _)
-                | Unary(Sign, _)
-                | Unary(Tan, _)
-                | Binary(Atan2, _, _)
-                | Binary(Div, _, _)
-                | Binary(Gcd, _, _)
-                | Binary(Lcm, _, _)
-                | Binary(Log, _, _)
-                | Binary(Mod, _, _)
-                | Binary(Pow, _, _)
-                | Binary(RankedMax, _, _)
-                | Binary(RankedMin, _, _)
+            Unary(Ceil | Digamma | Floor | Gamma | Recip | Sign | Tan, _)
+                | Binary(
+                    Atan2 | Div | Gcd | Lcm | Log | Mod | Pow | RankedMax | RankedMin,
+                    _,
+                    _
+                )
                 | Pown(_, _)
         )
     }
@@ -549,167 +539,84 @@ impl CollectStatic {
                 Constant(x) => Some(StaticTermKind::Constant(Box::new(x.0.clone()))),
                 Var(x) if x == "x" => Some(StaticTermKind::X),
                 Var(x) if x == "y" => Some(StaticTermKind::Y),
-                Unary(Abs, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Abs, self.ti(x))),
-                Unary(Acos, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Acos, self.ti(x))),
-                Unary(Acosh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Acosh, self.ti(x))),
-                Unary(AiryAi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::AiryAi, self.ti(x))),
-                Unary(AiryAiPrime, x) => Some(StaticTermKind::Unary(
-                    ScalarUnaryOp::AiryAiPrime,
-                    self.ti(x),
-                )),
-                Unary(AiryBi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::AiryBi, self.ti(x))),
-                Unary(AiryBiPrime, x) => Some(StaticTermKind::Unary(
-                    ScalarUnaryOp::AiryBiPrime,
-                    self.ti(x),
-                )),
-                Unary(Asin, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Asin, self.ti(x))),
-                Unary(Asinh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Asinh, self.ti(x))),
-                Unary(Atan, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Atan, self.ti(x))),
-                Unary(Atanh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Atanh, self.ti(x))),
-                Unary(Ceil, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Ceil, self.ti(x))),
-                Unary(Chi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Chi, self.ti(x))),
-                Unary(Ci, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Ci, self.ti(x))),
-                Unary(Cos, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Cos, self.ti(x))),
-                Unary(Cosh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Cosh, self.ti(x))),
-                Unary(Digamma, x) => {
-                    Some(StaticTermKind::Unary(ScalarUnaryOp::Digamma, self.ti(x)))
+                Unary(op, x) => match op {
+                    Abs => Some(ScalarUnaryOp::Abs),
+                    Acos => Some(ScalarUnaryOp::Acos),
+                    Acosh => Some(ScalarUnaryOp::Acosh),
+                    AiryAi => Some(ScalarUnaryOp::AiryAi),
+                    AiryAiPrime => Some(ScalarUnaryOp::AiryAiPrime),
+                    AiryBi => Some(ScalarUnaryOp::AiryBi),
+                    AiryBiPrime => Some(ScalarUnaryOp::AiryBiPrime),
+                    Asin => Some(ScalarUnaryOp::Asin),
+                    Asinh => Some(ScalarUnaryOp::Asinh),
+                    Atan => Some(ScalarUnaryOp::Atan),
+                    Atanh => Some(ScalarUnaryOp::Atanh),
+                    Ceil => Some(ScalarUnaryOp::Ceil),
+                    Chi => Some(ScalarUnaryOp::Chi),
+                    Ci => Some(ScalarUnaryOp::Ci),
+                    Cos => Some(ScalarUnaryOp::Cos),
+                    Cosh => Some(ScalarUnaryOp::Cosh),
+                    Digamma => Some(ScalarUnaryOp::Digamma),
+                    Ei => Some(ScalarUnaryOp::Ei),
+                    Erf => Some(ScalarUnaryOp::Erf),
+                    Erfc => Some(ScalarUnaryOp::Erfc),
+                    Erfi => Some(ScalarUnaryOp::Erfi),
+                    Exp => Some(ScalarUnaryOp::Exp),
+                    Exp10 => Some(ScalarUnaryOp::Exp10),
+                    Exp2 => Some(ScalarUnaryOp::Exp2),
+                    Floor => Some(ScalarUnaryOp::Floor),
+                    FresnelC => Some(ScalarUnaryOp::FresnelC),
+                    FresnelS => Some(ScalarUnaryOp::FresnelS),
+                    Gamma => Some(ScalarUnaryOp::Gamma),
+                    Li => Some(ScalarUnaryOp::Li),
+                    Ln => Some(ScalarUnaryOp::Ln),
+                    Log10 => Some(ScalarUnaryOp::Log10),
+                    Neg => Some(ScalarUnaryOp::Neg),
+                    One => Some(ScalarUnaryOp::One),
+                    Recip => Some(ScalarUnaryOp::Recip),
+                    Shi => Some(ScalarUnaryOp::Shi),
+                    Si => Some(ScalarUnaryOp::Si),
+                    Sign => Some(ScalarUnaryOp::Sign),
+                    Sin => Some(ScalarUnaryOp::Sin),
+                    Sinc => Some(ScalarUnaryOp::Sinc),
+                    Sinh => Some(ScalarUnaryOp::Sinh),
+                    Sqr => Some(ScalarUnaryOp::Sqr),
+                    Sqrt => Some(ScalarUnaryOp::Sqrt),
+                    Tan => Some(ScalarUnaryOp::Tan),
+                    Tanh => Some(ScalarUnaryOp::Tanh),
+                    UndefAt0 => Some(ScalarUnaryOp::UndefAt0),
+                    _ => None,
                 }
-                Unary(Ei, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Ei, self.ti(x))),
-                Unary(Erf, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Erf, self.ti(x))),
-                Unary(Erfc, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Erfc, self.ti(x))),
-                Unary(Erfi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Erfi, self.ti(x))),
-                Unary(Exp, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Exp, self.ti(x))),
-                Unary(Exp10, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Exp10, self.ti(x))),
-                Unary(Exp2, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Exp2, self.ti(x))),
-                Unary(Floor, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Floor, self.ti(x))),
-                Unary(FresnelC, x) => {
-                    Some(StaticTermKind::Unary(ScalarUnaryOp::FresnelC, self.ti(x)))
+                .map(|op| StaticTermKind::Unary(op, self.ti(x))),
+                Binary(op, x, y) => match op {
+                    Add => Some(ScalarBinaryOp::Add),
+                    Atan2 => Some(ScalarBinaryOp::Atan2),
+                    BesselI => Some(ScalarBinaryOp::BesselI),
+                    BesselJ => Some(ScalarBinaryOp::BesselJ),
+                    BesselK => Some(ScalarBinaryOp::BesselK),
+                    BesselY => Some(ScalarBinaryOp::BesselY),
+                    Div => Some(ScalarBinaryOp::Div),
+                    GammaInc => Some(ScalarBinaryOp::GammaInc),
+                    Gcd => Some(ScalarBinaryOp::Gcd),
+                    Lcm => Some(ScalarBinaryOp::Lcm),
+                    Log => Some(ScalarBinaryOp::Log),
+                    Max => Some(ScalarBinaryOp::Max),
+                    Min => Some(ScalarBinaryOp::Min),
+                    Mod => Some(ScalarBinaryOp::Mod),
+                    Mul => Some(ScalarBinaryOp::Mul),
+                    Pow => Some(ScalarBinaryOp::Pow),
+                    RankedMax => Some(ScalarBinaryOp::RankedMax),
+                    RankedMin => Some(ScalarBinaryOp::RankedMin),
+                    Sub => Some(ScalarBinaryOp::Sub),
+                    _ => None,
                 }
-                Unary(FresnelS, x) => {
-                    Some(StaticTermKind::Unary(ScalarUnaryOp::FresnelS, self.ti(x)))
-                }
-                Unary(Gamma, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Gamma, self.ti(x))),
-                Unary(Li, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Li, self.ti(x))),
-                Unary(Ln, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Ln, self.ti(x))),
-                Unary(Log10, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Log10, self.ti(x))),
-                Unary(Neg, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Neg, self.ti(x))),
-                Unary(One, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::One, self.ti(x))),
-                Unary(Recip, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Recip, self.ti(x))),
-                Unary(Shi, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Shi, self.ti(x))),
-                Unary(Si, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Si, self.ti(x))),
-                Unary(Sign, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sign, self.ti(x))),
-                Unary(Sin, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sin, self.ti(x))),
-                Unary(Sinc, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sinc, self.ti(x))),
-                Unary(Sinh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sinh, self.ti(x))),
-                Unary(Sqr, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sqr, self.ti(x))),
-                Unary(Sqrt, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Sqrt, self.ti(x))),
-                Unary(Tan, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Tan, self.ti(x))),
-                Unary(Tanh, x) => Some(StaticTermKind::Unary(ScalarUnaryOp::Tanh, self.ti(x))),
-                Unary(UndefAt0, x) => {
-                    Some(StaticTermKind::Unary(ScalarUnaryOp::UndefAt0, self.ti(x)))
-                }
-                Binary(Add, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Add,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(Atan2, y, x) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Atan2,
-                    self.ti(y),
-                    self.ti(x),
-                )),
-                Binary(BesselI, n, x) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::BesselI,
-                    self.ti(n),
-                    self.ti(x),
-                )),
-                Binary(BesselJ, n, x) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::BesselJ,
-                    self.ti(n),
-                    self.ti(x),
-                )),
-                Binary(BesselK, n, x) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::BesselK,
-                    self.ti(n),
-                    self.ti(x),
-                )),
-                Binary(BesselY, n, x) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::BesselY,
-                    self.ti(n),
-                    self.ti(x),
-                )),
-                Binary(Div, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Div,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(GammaInc, a, x) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::GammaInc,
-                    self.ti(a),
-                    self.ti(x),
-                )),
-                Binary(Gcd, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Gcd,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(Lcm, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Lcm,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(Log, b, x) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Log,
-                    self.ti(b),
-                    self.ti(x),
-                )),
-                Binary(Max, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Max,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(Min, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Min,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(Mod, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Mod,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(Mul, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Mul,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(Pow, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Pow,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(RankedMax, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::RankedMax,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(RankedMin, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::RankedMin,
-                    self.ti(x),
-                    self.ti(y),
-                )),
-                Binary(Sub, x, y) => Some(StaticTermKind::Binary(
-                    ScalarBinaryOp::Sub,
-                    self.ti(x),
-                    self.ti(y),
-                )),
+                .map(|op| StaticTermKind::Binary(op, self.ti(x), self.ti(y))),
                 Pown(x, n) => Some(StaticTermKind::Pown(self.ti(x), *n)),
                 Rootn(x, n) => Some(StaticTermKind::Rootn(self.ti(x), *n)),
                 List(xs) => Some(StaticTermKind::List(Box::new(
                     xs.iter().map(|x| self.ti(x)).collect(),
                 ))),
                 Var(_) | Uninit => panic!(),
-                _ => None,
             };
             if let Some(k) = k {
                 self.term_index.insert(t.id, self.terms.len() as TermIndex);
@@ -735,26 +642,20 @@ impl CollectStatic {
         use {BinaryOp::*, ExprKind::*};
         for t in self.exprs.iter().map(|t| &*t) {
             let k = match &t.kind {
-                Binary(Eq, x, y) => Some(StaticFormKind::Atomic(RelOp::Eq, self.ti(x), self.ti(y))),
-                Binary(Ge, x, y) => Some(StaticFormKind::Atomic(RelOp::Ge, self.ti(x), self.ti(y))),
-                Binary(Gt, x, y) => Some(StaticFormKind::Atomic(RelOp::Gt, self.ti(x), self.ti(y))),
-                Binary(Le, x, y) => Some(StaticFormKind::Atomic(RelOp::Le, self.ti(x), self.ti(y))),
-                Binary(Lt, x, y) => Some(StaticFormKind::Atomic(RelOp::Lt, self.ti(x), self.ti(y))),
-                Binary(Neq, x, y) => {
-                    Some(StaticFormKind::Atomic(RelOp::Neq, self.ti(x), self.ti(y)))
+                Binary(op, x, y) => match op {
+                    Eq => Some(RelOp::Eq),
+                    Ge => Some(RelOp::Ge),
+                    Gt => Some(RelOp::Gt),
+                    Le => Some(RelOp::Le),
+                    Lt => Some(RelOp::Lt),
+                    Neq => Some(RelOp::Neq),
+                    Nge => Some(RelOp::Nge),
+                    Ngt => Some(RelOp::Ngt),
+                    Nle => Some(RelOp::Nle),
+                    Nlt => Some(RelOp::Nlt),
+                    _ => None,
                 }
-                Binary(Nge, x, y) => {
-                    Some(StaticFormKind::Atomic(RelOp::Nge, self.ti(x), self.ti(y)))
-                }
-                Binary(Ngt, x, y) => {
-                    Some(StaticFormKind::Atomic(RelOp::Ngt, self.ti(x), self.ti(y)))
-                }
-                Binary(Nle, x, y) => {
-                    Some(StaticFormKind::Atomic(RelOp::Nle, self.ti(x), self.ti(y)))
-                }
-                Binary(Nlt, x, y) => {
-                    Some(StaticFormKind::Atomic(RelOp::Nlt, self.ti(x), self.ti(y)))
-                }
+                .map(|op| StaticFormKind::Atomic(op, self.ti(x), self.ti(y))),
                 _ => None,
             };
             if let Some(k) = k {
