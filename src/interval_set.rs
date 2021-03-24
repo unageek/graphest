@@ -101,16 +101,13 @@ struct _DecInterval {
 /// An interval with additional properties that are required by Tupper interval arithmetic.
 ///
 /// The decoration system is used instead of the interval properties `def` and `cont`,
-/// introduced by the original Tupper IA. Here is the relationship between them:
+/// which are used by Tupper IA. The following table describes the relationship between them:
 ///
 /// | Decoration   | def            | cont                   |
 /// | ------------ | -------------- | ---------------------- |
 /// | `Com`, `Dac` | [T, T]         | [T, T]                 |
 /// | `Def`        | [T, T]         | [F, F]; [F, T]         |
 /// | `Trv`        | [F, F]; [F, T] | [F, F]; [F, T]; [T, T] |
-///
-/// I'm not 100% certain if the above mapping is correct, but there should be no problem
-/// on implementing the graphing algorithms.
 ///
 /// [`Interval`] and [`Decoration`] are stored directly rather than through [`DecInterval`]
 /// to reduce the size of the struct to 32 bytes from 48, which is due to the alignment.

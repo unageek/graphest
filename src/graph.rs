@@ -510,7 +510,7 @@ impl Graph {
         let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache));
 
         let is_true = r_u_up
-            .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac)
+            .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
             .eval(&self.forms[..]);
         let is_false = !r_u_up
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
@@ -554,7 +554,7 @@ impl Graph {
 
         // Save `locally_zero_mask` for later use (see the comment below).
         let locally_zero_mask =
-            r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac);
+            r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def);
         if locally_zero_mask.eval(&self.forms[..]) {
             // The subpixel is true entirely.
             *self.im.pixel_mut(pixel) = C_TRUE;
@@ -603,11 +603,12 @@ impl Graph {
         for point in &points {
             let r = Self::eval_on_point(&mut self.rel, point.0, point.1, Some(cache_eval_on_point));
 
-            // `ss` is nonempty if the decoration is `Dac`, which is ensured by `dac_mask`.
+            // `ss` is nonempty if the decoration is ≥ `Def`, which will be ensured
+            // by taking bitand with `dac_mask`.
             neg_mask |= r.map(|DecSignSet(ss, _)| (SignSet::NEG | SignSet::ZERO).contains(ss));
             pos_mask |= r.map(|DecSignSet(ss, _)| (SignSet::POS | SignSet::ZERO).contains(ss));
 
-            if r.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Dac)
+            if r.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
                 .eval(&self.forms[..])
                 || (&(&neg_mask & &pos_mask) & &dac_mask)
                     .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
