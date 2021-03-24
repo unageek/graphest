@@ -185,7 +185,7 @@ pub struct TupperIntervalSet {
 
 impl TupperIntervalSet {
     /// Creates an empty [`TupperIntervalSet`].
-    pub fn empty() -> Self {
+    pub fn new() -> Self {
         Self {
             xs: TupperIntervalVec::new(),
             d: Decoration::Com,
@@ -310,6 +310,12 @@ impl Hash for TupperIntervalSet {
     }
 }
 
+impl Default for TupperIntervalSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Extend<TupperInterval> for TupperIntervalSet {
     fn extend<T: IntoIterator<Item = TupperInterval>>(&mut self, iter: T) {
         for x in iter {
@@ -328,7 +334,7 @@ impl<'a> Extend<&'a TupperInterval> for TupperIntervalSet {
 
 impl From<DecInterval> for TupperIntervalSet {
     fn from(x: DecInterval) -> Self {
-        let mut xs = Self::empty();
+        let mut xs = Self::new();
         xs.insert(TupperInterval::new(x, BranchMap::new()));
         xs
     }
@@ -336,7 +342,7 @@ impl From<DecInterval> for TupperIntervalSet {
 
 impl From<TupperInterval> for TupperIntervalSet {
     fn from(x: TupperInterval) -> Self {
-        let mut xs = Self::empty();
+        let mut xs = Self::new();
         xs.insert(x);
         xs
     }
@@ -344,7 +350,7 @@ impl From<TupperInterval> for TupperIntervalSet {
 
 impl FromIterator<TupperInterval> for TupperIntervalSet {
     fn from_iter<T: IntoIterator<Item = TupperInterval>>(iter: T) -> Self {
-        let mut xs = Self::empty();
+        let mut xs = Self::new();
         xs.extend(iter);
         xs
     }
@@ -379,13 +385,7 @@ bitflags! {
 
 /// A pair of [`SignSet`] and [`Decoration`].
 ///
-/// It is used as an efficient version of [`DecInterval`] when only the sign of the interval
+/// It is used as a compact version of [`DecInterval`] when only the sign of the interval
 /// is of interest.
 #[derive(Clone, Copy, Debug)]
 pub struct DecSignSet(pub SignSet, pub Decoration);
-
-impl DecSignSet {
-    pub fn empty() -> Self {
-        Self(SignSet::empty(), Decoration::Trv)
-    }
-}

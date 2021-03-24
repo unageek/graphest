@@ -13,7 +13,7 @@ impl Neg for &TupperIntervalSet {
     type Output = TupperIntervalSet;
 
     fn neg(self) -> Self::Output {
-        let mut rs = Self::Output::empty();
+        let mut rs = Self::Output::new();
         for x in self {
             rs.insert(TupperInterval::new(-x.to_dec_interval(), x.g));
         }
@@ -27,7 +27,7 @@ macro_rules! impl_arith_op {
             type Output = TupperIntervalSet;
 
             fn $op(self, rhs: &'b TupperIntervalSet) -> Self::Output {
-                let mut rs = Self::Output::empty();
+                let mut rs = Self::Output::new();
                 for x in self {
                     for y in rhs {
                         if let Some(g) = x.g.union(y.g) {
@@ -60,7 +60,7 @@ enum Parity {
 macro_rules! impl_op {
     ($op:ident($x:ident $(,$p:ident: $pt:ty)*), $result:expr) => {
         pub fn $op(&self, $($p: $pt,)*) -> Self {
-            let mut rs = Self::empty();
+            let mut rs = Self::new();
             for x in self {
                 let $x = x.to_dec_interval();
                 rs.insert(TupperInterval::new($result, x.g));
@@ -72,7 +72,7 @@ macro_rules! impl_op {
 
     ($op:ident($x:ident, $y:ident), $result:expr) => {
         pub fn $op(&self, rhs: &Self) -> Self {
-            let mut rs = Self::empty();
+            let mut rs = Self::new();
             for x in self {
                 for y in rhs {
                     if let Some(g) = x.g.union(y.g) {
@@ -130,7 +130,7 @@ fn insert_intervals(
 macro_rules! impl_op_cut {
     ($op:ident($x:ident $(,$p:ident: $pt:ty)*), $result:expr) => {
         pub fn $op(&self, $($p: $pt,)* site: Option<Site>) -> Self {
-            let mut rs = Self::empty();
+            let mut rs = Self::new();
             for x in self {
                 let $x = x.to_dec_interval();
                 insert_intervals(&mut rs, $result, x.g, site);
@@ -143,7 +143,7 @@ macro_rules! impl_op_cut {
     ($(#[$meta:meta])* $op:ident($x:ident, $y:ident), $result:expr) => {
         $(#[$meta])*
         pub fn $op(&self, rhs: &Self, site: Option<Site>) -> Self {
-            let mut rs = Self::empty();
+            let mut rs = Self::new();
             for x in self {
                 for y in rhs {
                     if let Some(g) = x.g.union(y.g) {
@@ -284,7 +284,7 @@ impl TupperIntervalSet {
         const ARGMIN_RU: f64 = 1.4616321449683625;
         // min_{x > 0} Γ(x), rounded down.
         const MIN_RD: f64 = 0.8856031944108886;
-        let mut rs = Self::empty();
+        let mut rs = Self::new();
         for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
@@ -310,14 +310,14 @@ impl TupperIntervalSet {
                 // Γ(x) = π / (sin(π x) Γ(1 - x)).
                 let one = Self::from(const_dec_interval!(1.0, 1.0));
                 let pi = Self::from(DecInterval::PI);
-                let mut xs = Self::empty();
+                let mut xs = Self::new();
                 xs.insert(*x);
                 rs.extend(pi.div(&(&(&pi * &xs).sin() * &(&one - &xs).gamma(None)), site));
             } else {
                 // a < 0 < b.
                 let dec = Decoration::Trv;
 
-                let mut xs = Self::empty();
+                let mut xs = Self::new();
                 xs.insert(TupperInterval::new(
                     DecInterval::set_dec(interval!(a, 0.0).unwrap(), dec),
                     match site {
@@ -366,7 +366,7 @@ impl TupperIntervalSet {
     // Thus ∀x, y ∈ X : gcd(x, y) ∈ |X|. ■
     pub fn gcd(&self, rhs: &Self, site: Option<Site>) -> Self {
         const ZERO: Interval = const_interval!(0.0, 0.0);
-        let mut rs = Self::empty();
+        let mut rs = Self::new();
         // gcd(X, Y)
         //   = gcd(|X|, |Y|)
         //   = {gcd(max(x, y), min(x, y)) | x ∈ |X|, y ∈ |Y|}
@@ -449,7 +449,7 @@ impl TupperIntervalSet {
     //                | |X Y| / gcd(X, Y)  otherwise.
     pub fn lcm(&self, rhs: &Self, site: Option<Site>) -> Self {
         const ZERO: Interval = const_interval!(0.0, 0.0);
-        let mut rs = TupperIntervalSet::empty();
+        let mut rs = TupperIntervalSet::new();
         for x in self {
             for y in rhs {
                 if let Some(g) = x.g.union(y.g) {
@@ -486,7 +486,7 @@ impl TupperIntervalSet {
     impl_op!(min(x, y), x.min(y));
 
     pub fn mul_add(&self, rhs: &Self, addend: &Self) -> Self {
-        let mut rs = Self::empty();
+        let mut rs = Self::new();
         for x in self {
             for y in rhs {
                 if let Some(g) = x.g.union(y.g) {
@@ -687,7 +687,7 @@ impl TupperIntervalSet {
     fn ranked_min_max(xs: Vec<&Self>, n: &Self, site: Option<Site>, max: bool) -> Self {
         use itertools::Itertools;
         assert!(!xs.is_empty());
-        let mut rs = Self::empty();
+        let mut rs = Self::new();
         let mut infs = vec![];
         let mut sups = vec![];
         for n in n {
@@ -908,7 +908,7 @@ impl TupperIntervalSet {
     pub fn eq(&self, rhs: &Self) -> DecSignSet {
         let xs = self - rhs;
         if xs.is_empty() {
-            return DecSignSet::empty();
+            return DecSignSet(SignSet::empty(), Decoration::Trv);
         }
 
         let mut ss = SignSet::empty();

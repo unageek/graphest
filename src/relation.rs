@@ -329,7 +329,7 @@ impl FromStr for Relation {
             terms,
             forms,
             n_atom_forms,
-            ts: ValueStore::new(TupperIntervalSet::empty(), n_scalar_terms),
+            ts: ValueStore::new(TupperIntervalSet::new(), n_scalar_terms),
             eval_count: 0,
             mx,
             my,

@@ -83,7 +83,7 @@ macro_rules! impl_arb_op {
 
     ($op:ident($x:ident), $result:expr, $def:expr) => {
         pub fn $op(&self) -> Self {
-            let mut rs = Self::empty();
+            let mut rs = Self::new();
             for x in self {
                 let $x = x.x;
                 let def = $def;
@@ -104,7 +104,7 @@ macro_rules! impl_arb_op {
 
     ($op:ident($x:ident, $y:ident), $result:expr, $def:expr) => {
         pub fn $op(&self, rhs: &Self) -> Self {
-            let mut rs = Self::empty();
+            let mut rs = Self::new();
             for x in self {
                 for y in rhs {
                     if let Some(g) = x.g.union(y.g) {
