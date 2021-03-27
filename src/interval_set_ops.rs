@@ -288,36 +288,36 @@ impl TupperIntervalSet {
         for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
-            if a == 0.0 && b == 0.0 {
-                // empty.
-            } else if a >= 0.0 {
-                let dec = if a == 0.0 { Decoration::Trv } else { x.d };
-                // gamma_rd/ru(±0.0) returns ±∞.
-                let a = if a == 0.0 { 0.0 } else { a };
-
-                let y = if b <= ARGMIN_RD {
-                    // b < x0, where x0 = argmin_{x > 0} Γ(x).
-                    interval!(gamma_rd(b), gamma_ru(a)).unwrap()
-                } else if a >= ARGMIN_RU {
-                    // x0 < a.
-                    interval!(gamma_rd(a), gamma_ru(b)).unwrap()
+            if b <= 0.0 {
+                // b ≤ 0.
+                if a == b && a == a.floor() {
+                    // Empty.
                 } else {
-                    // a < x0 < b.
-                    interval!(MIN_RD, gamma_ru(a).max(gamma_ru(b))).unwrap()
-                };
-                rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
-            } else if b <= 0.0 {
-                // Γ(x) = π / (sin(π x) Γ(1 - x)).
-                let one = Self::from(const_dec_interval!(1.0, 1.0));
-                let pi = Self::from(DecInterval::PI);
-                let mut xs = Self::new();
-                xs.insert(*x);
-                rs.extend(pi.div(&(&(&pi * &xs).sin() * &(&one - &xs).gamma(None)), site));
-            } else {
+                    // Γ(x) = π / (sin(π x) Γ(1 - x)).
+                    let one = Self::from(const_dec_interval!(1.0, 1.0));
+                    let pi = Self::from(DecInterval::PI);
+                    let mut xs = Self::new();
+                    xs.insert(*x);
+                    let mut sin = (&pi * &xs).sin();
+                    // `a.floor() + 1.0` can be inexact when the first condition is not met.
+                    if x.x.wid() <= 1.0 && b <= a.floor() + 1.0 {
+                        let zero = Self::from(const_dec_interval!(0.0, 0.0));
+                        sin = if a.floor() % 2.0 == 0.0 {
+                            // ∃k ∈ ℤ : 2k ≤ x ≤ 2k + 1 ⟹ sin(π x) ≥ 0.
+                            sin.max(&zero)
+                        } else {
+                            // ∃k ∈ ℤ : 2k - 1 ≤ x ≤ 2k ⟹ sin(π x) ≤ 0.
+                            sin.min(&zero)
+                        };
+                    }
+                    let gamma = pi.div(&(&sin * &(&one - &xs).gamma(None)), site);
+                    rs.extend(gamma);
+                }
+            } else if a < 0.0 {
                 // a < 0 < b.
-                let dec = Decoration::Trv;
-
                 let mut xs = Self::new();
+                let dec = Decoration::Trv;
+                // We cannot use `insert_intervals` here as it merges overlapping intervals.
                 xs.insert(TupperInterval::new(
                     DecInterval::set_dec(interval!(a, 0.0).unwrap(), dec),
                     match site {
@@ -333,6 +333,23 @@ impl TupperIntervalSet {
                     },
                 ));
                 rs.extend(xs.gamma(None));
+            } else {
+                // 0 ≤ a.
+                let dec = if a == 0.0 { Decoration::Trv } else { x.d };
+                // gamma_rd/ru(±0.0) returns ±∞.
+                let a = if a == 0.0 { 0.0 } else { a };
+
+                let y = if b <= ARGMIN_RD {
+                    // b < x0, where x0 = argmin_{x > 0} Γ(x).
+                    interval!(gamma_rd(b), gamma_ru(a)).unwrap()
+                } else if a >= ARGMIN_RU {
+                    // x0 < a.
+                    interval!(gamma_rd(a), gamma_ru(b)).unwrap()
+                } else {
+                    // a < x0 < b.
+                    interval!(MIN_RD, gamma_ru(a).max(gamma_ru(b))).unwrap()
+                };
+                rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
             }
         }
         rs.normalize(false);
@@ -1126,7 +1143,7 @@ pub(crate) fn sinc(x: Interval) -> Interval {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use Decoration::*;
+    use inari::{Decoration::*, *};
 
     macro_rules! i {
         ($a:expr) => {
@@ -1207,6 +1224,33 @@ mod tests {
         test_fn2(f, y, -x, expected.clone());
         test_fn2(f, -y, x, expected.clone());
         test_fn2(f, -y, -x, expected.clone());
+    }
+
+    #[test]
+    fn gamma() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.gamma(None)
+        }
+
+        test_fn(f, i!(-2.0), (vec![], Trv));
+        test_fn(f, i!(-1.0), (vec![], Trv));
+        test_fn(f, i!(0.0), (vec![], Trv));
+        test_fn(f, i!(1.0), (vec![i!(1.0)], Com));
+        test_fn(f, i!(2.0), (vec![i!(1.0)], Com));
+        test_fn(f, i!(20.0), (vec![i!(121645100408832000.0)], Com));
+
+        let x = TupperIntervalSet::from(dec_interval!("[1e-500]").unwrap());
+        assert!(x.gamma(None).iter().all(|x| x.x.inf() > 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[-1e-500]").unwrap());
+        assert!(x.gamma(None).iter().all(|x| x.x.sup() < 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[-0.99999999999999999999]").unwrap());
+        assert!(x.gamma(None).iter().all(|x| x.x.sup() < 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[-1.0000000000000000001]").unwrap());
+        assert!(x.gamma(None).iter().all(|x| x.x.inf() > 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[-1.9999999999999999999]").unwrap());
+        assert!(x.gamma(None).iter().all(|x| x.x.inf() > 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[-2.0000000000000000001]").unwrap());
+        assert!(x.gamma(None).iter().all(|x| x.x.sup() < 0.0));
     }
 
     #[test]
