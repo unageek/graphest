@@ -1155,16 +1155,20 @@ mod tests {
         };
     }
 
-    fn test_fn<F>(f: F, x: Interval, expected: (Vec<Interval>, Decoration))
+    // TODO: Use macros to recursively expand test cases that exploit symmetric properties
+    // of the function?
+
+    fn test1<F>(f: F, x: Interval, expected: (Vec<Interval>, Decoration))
     where
         F: Fn(TupperIntervalSet) -> TupperIntervalSet,
     {
         let decs = [Com, Dac, Def, Trv];
-        let y_exp = expected
+        let mut y_exp = expected
             .0
             .into_iter()
             .map(|x| TupperInterval::new(DecInterval::new(x), BranchMap::new()))
-            .collect();
+            .collect::<TupperIntervalSet>();
+        y_exp.normalize(true);
         for &dx in &decs {
             let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
             let mut y = f(x);
@@ -1180,16 +1184,34 @@ mod tests {
         }
     }
 
-    fn test_fn2<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
+    fn test1_even<F>(f: F, x: Interval, expected: (Vec<Interval>, Decoration))
+    where
+        F: Fn(TupperIntervalSet) -> TupperIntervalSet + Copy,
+    {
+        test1(f, x, expected.clone());
+        test1(f, -x, expected.clone());
+    }
+
+    fn test1_odd<F>(f: F, x: Interval, expected: (Vec<Interval>, Decoration))
+    where
+        F: Fn(TupperIntervalSet) -> TupperIntervalSet + Copy,
+    {
+        let neg_expected = (expected.0.iter().map(|&x| -x).collect(), expected.1);
+        test1(f, x, expected.clone());
+        test1(f, -x, neg_expected.clone());
+    }
+
+    fn test2<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
     where
         F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet,
     {
         let decs = [Com, Dac, Def, Trv];
-        let z_exp = expected
+        let mut z_exp = expected
             .0
             .into_iter()
             .map(|x| TupperInterval::new(DecInterval::new(x), BranchMap::new()))
-            .collect();
+            .collect::<TupperIntervalSet>();
+        z_exp.normalize(true);
         for &dx in &decs {
             for &dy in &decs {
                 let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
@@ -1208,22 +1230,81 @@ mod tests {
         }
     }
 
-    fn test_fn2_commut_even<F>(
-        f: F,
-        x: Interval,
-        y: Interval,
-        expected: (Vec<Interval>, Decoration),
-    ) where
+    fn test2_commut_even<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
+    where
         F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet + Copy,
     {
-        test_fn2(f, x, y, expected.clone());
-        test_fn2(f, x, -y, expected.clone());
-        test_fn2(f, -x, y, expected.clone());
-        test_fn2(f, -x, -y, expected.clone());
-        test_fn2(f, y, x, expected.clone());
-        test_fn2(f, y, -x, expected.clone());
-        test_fn2(f, -y, x, expected.clone());
-        test_fn2(f, -y, -x, expected.clone());
+        test2(f, x, y, expected.clone());
+        test2(f, x, -y, expected.clone());
+        test2(f, -x, y, expected.clone());
+        test2(f, -x, -y, expected.clone());
+        test2(f, y, x, expected.clone());
+        test2(f, y, -x, expected.clone());
+        test2(f, -y, x, expected.clone());
+        test2(f, -y, -x, expected.clone());
+    }
+
+    fn test2_odd<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
+    where
+        F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet + Copy,
+    {
+        let neg_expected = (expected.0.iter().map(|&x| -x).collect(), expected.1);
+        test2(f, x, y, expected.clone());
+        test2(f, x, -y, neg_expected.clone());
+        test2(f, -x, y, neg_expected.clone());
+        test2(f, -x, -y, expected.clone());
+    }
+
+    #[test]
+    fn div() {
+        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
+            x.div(&y, None)
+        }
+
+        // x / 0
+        let y = i!(0.0);
+        test2(f, i!(-1.0, 1.0), y, (vec![], Trv));
+
+        // x / 2
+        let y = i!(2.0);
+        test2(f, i!(0.0), y, (vec![i!(0.0)], Com));
+        test2_odd(f, i!(1.0), y, (vec![i!(0.5)], Com));
+        test2_odd(f, i!(0.0, 1.0), y, (vec![i!(0.0, 0.5)], Com));
+        test2(f, i!(-1.0, 1.0), y, (vec![i!(-0.5, 0.5)], Com));
+
+        // x / [0, 2]
+        let y = i!(0.0, 2.0);
+        test2(f, i!(0.0), y, (vec![i!(0.0)], Trv));
+        test2_odd(f, i!(1.0), y, (vec![i!(0.5, f64::INFINITY)], Trv));
+        test2_odd(f, i!(0.0, 1.0), y, (vec![i!(0.0, f64::INFINITY)], Trv));
+        test2(
+            f,
+            i!(-1.0, 1.0),
+            y,
+            (vec![i!(-f64::INFINITY, f64::INFINITY)], Trv),
+        );
+
+        // x / [-2, 2]
+        let y = i!(-2.0, 2.0);
+        test2(f, i!(0.0), y, (vec![i!(0.0)], Trv));
+        test2_odd(
+            f,
+            i!(1.0),
+            y,
+            (vec![i!(-f64::INFINITY, -0.5), i!(0.5, f64::INFINITY)], Trv),
+        );
+        test2_odd(
+            f,
+            i!(0.0, 1.0),
+            y,
+            (vec![i!(-f64::INFINITY, f64::INFINITY)], Trv),
+        );
+        test2(
+            f,
+            i!(-1.0, 1.0),
+            y,
+            (vec![i!(-f64::INFINITY, f64::INFINITY)], Trv),
+        );
     }
 
     #[test]
@@ -1232,12 +1313,12 @@ mod tests {
             x.gamma(None)
         }
 
-        test_fn(f, i!(-2.0), (vec![], Trv));
-        test_fn(f, i!(-1.0), (vec![], Trv));
-        test_fn(f, i!(0.0), (vec![], Trv));
-        test_fn(f, i!(1.0), (vec![i!(1.0)], Com));
-        test_fn(f, i!(2.0), (vec![i!(1.0)], Com));
-        test_fn(f, i!(20.0), (vec![i!(121645100408832000.0)], Com));
+        test1(f, i!(-2.0), (vec![], Trv));
+        test1(f, i!(-1.0), (vec![], Trv));
+        test1(f, i!(0.0), (vec![], Trv));
+        test1(f, i!(1.0), (vec![i!(1.0)], Com));
+        test1(f, i!(2.0), (vec![i!(1.0)], Com));
+        test1(f, i!(20.0), (vec![i!(121645100408832000.0)], Com));
 
         let x = TupperIntervalSet::from(dec_interval!("[1e-500]").unwrap());
         assert!(x.gamma(None).iter().all(|x| x.x.inf() > 0.0));
@@ -1259,12 +1340,12 @@ mod tests {
             x.gcd(&y, None)
         }
 
-        test_fn2_commut_even(f, i!(15.0), i!(30.0), (vec![i!(15.0)], Dac));
-        test_fn2_commut_even(f, i!(15.0), i!(21.0), (vec![i!(3.0)], Dac));
-        test_fn2_commut_even(f, i!(15.0), i!(17.0), (vec![i!(1.0)], Dac));
-        test_fn2_commut_even(f, i!(7.5), i!(10.5), (vec![i!(1.5)], Dac));
-        test_fn2_commut_even(f, i!(0.0), i!(5.0), (vec![i!(5.0)], Dac));
-        test_fn2(f, i!(0.0), i!(0.0), (vec![i!(0.0)], Dac));
+        test2_commut_even(f, i!(15.0), i!(30.0), (vec![i!(15.0)], Dac));
+        test2_commut_even(f, i!(15.0), i!(21.0), (vec![i!(3.0)], Dac));
+        test2_commut_even(f, i!(15.0), i!(17.0), (vec![i!(1.0)], Dac));
+        test2_commut_even(f, i!(7.5), i!(10.5), (vec![i!(1.5)], Dac));
+        test2_commut_even(f, i!(0.0), i!(5.0), (vec![i!(5.0)], Dac));
+        test2(f, i!(0.0), i!(0.0), (vec![i!(0.0)], Dac));
     }
 
     #[test]
@@ -1273,10 +1354,19 @@ mod tests {
             x.lcm(&y, None)
         }
 
-        test_fn2_commut_even(f, i!(3.0), i!(5.0), (vec![i!(15.0)], Dac));
-        test_fn2_commut_even(f, i!(1.5), i!(2.5), (vec![i!(7.5)], Dac));
-        test_fn2_commut_even(f, i!(0.0), i!(5.0), (vec![i!(0.0)], Dac));
-        test_fn2(f, i!(0.0), i!(0.0), (vec![i!(0.0)], Dac));
+        test2_commut_even(f, i!(3.0), i!(5.0), (vec![i!(15.0)], Dac));
+        test2_commut_even(f, i!(1.5), i!(2.5), (vec![i!(7.5)], Dac));
+        test2_commut_even(f, i!(0.0), i!(5.0), (vec![i!(0.0)], Dac));
+        test2(f, i!(0.0), i!(0.0), (vec![i!(0.0)], Dac));
+    }
+
+    #[test]
+    fn one() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.one()
+        }
+
+        test1(f, i!(-1.0, 1.0), (vec![i!(1.0)], Com));
     }
 
     #[test]
@@ -1287,12 +1377,12 @@ mod tests {
 
         // x^-3
         let y = i!(-3.0);
-        test_fn2(f, i!(-1.0), y, (vec![i!(-1.0)], Dac));
-        test_fn2(f, i!(0.0), y, (vec![], Trv));
-        test_fn2(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(-f64::INFINITY, -1.0)], Trv));
-        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn2(
+        test2(f, i!(-1.0), y, (vec![i!(-1.0)], Dac));
+        test2(f, i!(0.0), y, (vec![], Trv));
+        test2(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2(f, i!(-1.0, 0.0), y, (vec![i!(-f64::INFINITY, -1.0)], Trv));
+        test2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(
             f,
             i!(-1.0, 1.0),
             y,
@@ -1301,80 +1391,80 @@ mod tests {
 
         // x^-2
         let y = i!(-2.0);
-        test_fn2(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
-        test_fn2(f, i!(0.0), y, (vec![], Trv));
-        test_fn2(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
+        test2(f, i!(0.0), y, (vec![], Trv));
+        test2(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2(f, i!(-1.0, 0.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
 
         // x^(-1/2)
         let y = i!(-0.5);
-        test_fn2(f, i!(-1.0), y, (vec![], Trv));
-        test_fn2(f, i!(0.0), y, (vec![], Trv));
-        test_fn2(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test_fn2(f, i!(-1.0, 0.0), y, (vec![], Trv));
-        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(f, i!(-1.0), y, (vec![], Trv));
+        test2(f, i!(0.0), y, (vec![], Trv));
+        test2(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2(f, i!(-1.0, 0.0), y, (vec![], Trv));
+        test2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
 
         // x^0
         let y = i!(0.0);
-        test_fn2(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
-        test_fn2(f, i!(0.0), y, (vec![i!(1.0)], Dac));
-        test_fn2(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(1.0)], Dac));
-        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0)], Dac));
-        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(1.0)], Dac));
+        test2(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
+        test2(f, i!(0.0), y, (vec![i!(1.0)], Dac));
+        test2(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2(f, i!(-1.0, 0.0), y, (vec![i!(1.0)], Dac));
+        test2(f, i!(0.0, 1.0), y, (vec![i!(1.0)], Dac));
+        test2(f, i!(-1.0, 1.0), y, (vec![i!(1.0)], Dac));
 
         // x^(1/2)
         let y = i!(0.5);
-        test_fn2(f, i!(-1.0), y, (vec![], Trv));
-        test_fn2(f, i!(0.0), y, (vec![i!(0.0)], Com));
-        test_fn2(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(0.0)], Trv));
-        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
-        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Trv));
+        test2(f, i!(-1.0), y, (vec![], Trv));
+        test2(f, i!(0.0), y, (vec![i!(0.0)], Com));
+        test2(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2(f, i!(-1.0, 0.0), y, (vec![i!(0.0)], Trv));
+        test2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test2(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Trv));
 
         // x^2
         let y = i!(2.0);
-        test_fn2(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
-        test_fn2(f, i!(0.0), y, (vec![i!(0.0)], Com));
-        test_fn2(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(0.0, 1.0)], Dac));
-        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
-        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Dac));
+        test2(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
+        test2(f, i!(0.0), y, (vec![i!(0.0)], Com));
+        test2(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2(f, i!(-1.0, 0.0), y, (vec![i!(0.0, 1.0)], Dac));
+        test2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test2(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Dac));
 
         // x^3
         let y = i!(3.0);
-        test_fn2(f, i!(-1.0), y, (vec![i!(-1.0)], Dac));
-        test_fn2(f, i!(0.0), y, (vec![i!(0.0)], Com));
-        test_fn2(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(-1.0, 0.0)], Dac));
-        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
-        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Dac));
+        test2(f, i!(-1.0), y, (vec![i!(-1.0)], Dac));
+        test2(f, i!(0.0), y, (vec![i!(0.0)], Com));
+        test2(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2(f, i!(-1.0, 0.0), y, (vec![i!(-1.0, 0.0)], Dac));
+        test2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test2(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Dac));
 
         // x^e (or any inexact positive number)
         let y = Interval::E;
-        test_fn2(f, i!(-1.0), y, (vec![i!(-1.0), i!(1.0)], Trv));
-        test_fn2(f, i!(0.0), y, (vec![i!(0.0)], Com));
-        test_fn2(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test_fn2(f, i!(-1.0, 0.0), y, (vec![i!(-1.0, 1.0)], Trv));
-        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
-        test_fn2(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Trv));
+        test2(f, i!(-1.0), y, (vec![i!(-1.0), i!(1.0)], Trv));
+        test2(f, i!(0.0), y, (vec![i!(0.0)], Com));
+        test2(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2(f, i!(-1.0, 0.0), y, (vec![i!(-1.0, 1.0)], Trv));
+        test2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test2(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Trv));
 
         // x^-e (or any inexact negative number)
         let y = -Interval::E;
-        test_fn2(f, i!(-1.0), y, (vec![i!(-1.0), i!(1.0)], Trv));
-        test_fn2(f, i!(0.0), y, (vec![], Trv));
-        test_fn2(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test_fn2(
+        test2(f, i!(-1.0), y, (vec![i!(-1.0), i!(1.0)], Trv));
+        test2(f, i!(0.0), y, (vec![], Trv));
+        test2(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2(
             f,
             i!(-1.0, 0.0),
             y,
             (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
         );
-        test_fn2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn2(
+        test2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(
             f,
             i!(-1.0, 1.0),
             y,
@@ -1383,18 +1473,18 @@ mod tests {
 
         // 0^y
         let x = i!(0.0);
-        test_fn2(f, x, i!(-1.0), (vec![], Trv));
-        test_fn2(f, x, i!(0.0), (vec![i!(1.0)], Dac));
-        test_fn2(f, x, i!(1.0), (vec![i!(0.0)], Com));
-        test_fn2(f, x, i!(-1.0, 0.0), (vec![i!(1.0)], Trv));
-        test_fn2(f, x, i!(0.0, 1.0), (vec![i!(0.0), i!(1.0)], Def));
-        test_fn2(f, x, i!(-1.0, 1.0), (vec![i!(0.0), i!(1.0)], Trv));
+        test2(f, x, i!(-1.0), (vec![], Trv));
+        test2(f, x, i!(0.0), (vec![i!(1.0)], Dac));
+        test2(f, x, i!(1.0), (vec![i!(0.0)], Com));
+        test2(f, x, i!(-1.0, 0.0), (vec![i!(1.0)], Trv));
+        test2(f, x, i!(0.0, 1.0), (vec![i!(0.0), i!(1.0)], Def));
+        test2(f, x, i!(-1.0, 1.0), (vec![i!(0.0), i!(1.0)], Trv));
 
         // Others
         let x = i!(0.0, 1.0);
-        test_fn2(f, x, i!(-1.0, 0.0), (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn2(f, x, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Def));
-        test_fn2(f, x, i!(-1.0, 1.0), (vec![i!(0.0, f64::INFINITY)], Trv));
+        test2(f, x, i!(-1.0, 0.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(f, x, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Def));
+        test2(f, x, i!(-1.0, 1.0), (vec![i!(0.0, f64::INFINITY)], Trv));
     }
 
     #[test]
@@ -1405,21 +1495,17 @@ mod tests {
 
         // x^-2
         let f = |x| pown(x, -2);
-        test_fn(f, i!(-1.0), (vec![i!(1.0)], Com));
-        test_fn(f, i!(0.0), (vec![], Trv));
-        test_fn(f, i!(1.0), (vec![i!(1.0)], Com));
-        test_fn(f, i!(-1.0, 0.0), (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn(f, i!(-1.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test1(f, i!(0.0), (vec![], Trv));
+        test1_even(f, i!(1.0), (vec![i!(1.0)], Com));
+        test1_even(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test1(f, i!(-1.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
 
         // x^-1
         let f = |x| pown(x, -1);
-        test_fn(f, i!(-1.0), (vec![i!(-1.0)], Com));
-        test_fn(f, i!(0.0), (vec![], Trv));
-        test_fn(f, i!(1.0), (vec![i!(1.0)], Com));
-        test_fn(f, i!(-1.0, 0.0), (vec![i!(-f64::INFINITY, -1.0)], Trv));
-        test_fn(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn(
+        test1(f, i!(0.0), (vec![], Trv));
+        test1_odd(f, i!(1.0), (vec![i!(1.0)], Com));
+        test1_odd(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test1(
             f,
             i!(-1.0, 1.0),
             (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
@@ -1427,15 +1513,15 @@ mod tests {
 
         // x^0
         let f = |x| pown(x, 0);
-        test_fn(f, i!(-1.0, 1.0), (vec![i!(1.0)], Com));
+        test1(f, i!(-1.0, 1.0), (vec![i!(1.0)], Com));
 
         // x^2
         let f = |x| pown(x, 2);
-        test_fn(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Com));
+        test1(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Com));
 
         // x^3
         let f = |x| pown(x, 3);
-        test_fn(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
+        test1(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
     }
 
     #[test]
@@ -1444,12 +1530,10 @@ mod tests {
             x.recip(None)
         }
 
-        test_fn(f, i!(-1.0), (vec![i!(-1.0)], Com));
-        test_fn(f, i!(0.0), (vec![], Trv));
-        test_fn(f, i!(1.0), (vec![i!(1.0)], Com));
-        test_fn(f, i!(-1.0, 0.0), (vec![i!(-f64::INFINITY, -1.0)], Trv));
-        test_fn(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
-        test_fn(
+        test1(f, i!(0.0), (vec![], Trv));
+        test1_odd(f, i!(1.0), (vec![i!(1.0)], Com));
+        test1_odd(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test1(
             f,
             i!(-1.0, 1.0),
             (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
@@ -1464,20 +1548,20 @@ mod tests {
 
         // x^1/0
         let f = |x| rootn(x, 0);
-        test_fn(f, i!(-1.0, 1.0), (vec![], Trv));
+        test1(f, i!(-1.0, 1.0), (vec![], Trv));
 
         // x^1/2
         let f = |x| rootn(x, 2);
-        test_fn(f, i!(-1.0), (vec![], Trv));
-        test_fn(f, i!(0.0), (vec![i!(0.0)], Com));
-        test_fn(f, i!(1.0), (vec![i!(1.0)], Com));
-        test_fn(f, i!(-1.0, 0.0), (vec![i!(0.0)], Trv));
-        test_fn(f, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Com));
-        test_fn(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
+        test1(f, i!(-1.0), (vec![], Trv));
+        test1(f, i!(0.0), (vec![i!(0.0)], Com));
+        test1(f, i!(1.0), (vec![i!(1.0)], Com));
+        test1(f, i!(-1.0, 0.0), (vec![i!(0.0)], Trv));
+        test1(f, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Com));
+        test1(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
 
         // x^1/3
         let f = |x| rootn(x, 3);
-        test_fn(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
+        test1(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
     }
 
     #[test]
@@ -1486,11 +1570,9 @@ mod tests {
             x.undef_at_0()
         }
 
-        test_fn(f, i!(-1.0), (vec![i!(-1.0)], Com));
-        test_fn(f, i!(0.0), (vec![], Trv));
-        test_fn(f, i!(1.0), (vec![i!(1.0)], Com));
-        test_fn(f, i!(-1.0, 0.0), (vec![i!(-1.0, 0.0)], Trv));
-        test_fn(f, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
-        test_fn(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Trv));
+        test1(f, i!(0.0), (vec![], Trv));
+        test1_odd(f, i!(1.0), (vec![i!(1.0)], Com));
+        test1_odd(f, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
+        test1(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Trv));
     }
 }
