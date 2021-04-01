@@ -1411,6 +1411,18 @@ mod tests {
             y,
             (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
         );
+        test2(
+            f,
+            i!(-3.0, -2.0),
+            y,
+            (vec![interval!("[-1/8, -1/27]").unwrap()], Dac),
+        );
+        test2(
+            f,
+            i!(2.0, 3.0),
+            y,
+            (vec![interval!("[1/27, 1/8]").unwrap()], Com),
+        );
 
         // x^-2
         let y = i!(-2.0);
@@ -1420,6 +1432,18 @@ mod tests {
         test2(f, i!(-1.0, 0.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
         test2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
         test2(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(
+            f,
+            i!(-3.0, -2.0),
+            y,
+            (vec![interval!("[1/9, 1/4]").unwrap()], Dac),
+        );
+        test2(
+            f,
+            i!(2.0, 3.0),
+            y,
+            (vec![interval!("[1/9, 1/4]").unwrap()], Com),
+        );
 
         // x^(-1/2)
         let y = i!(-0.5);
@@ -1429,6 +1453,12 @@ mod tests {
         test2(f, i!(-1.0, 0.0), y, (vec![], Trv));
         test2(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
         test2(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test2(
+            f,
+            i!(4.0, 9.0),
+            y,
+            (vec![interval!("[1/3, 1/2]").unwrap()], Com),
+        );
 
         // x^0
         let y = i!(0.0);
@@ -1438,6 +1468,8 @@ mod tests {
         test2(f, i!(-1.0, 0.0), y, (vec![i!(1.0)], Dac));
         test2(f, i!(0.0, 1.0), y, (vec![i!(1.0)], Dac));
         test2(f, i!(-1.0, 1.0), y, (vec![i!(1.0)], Dac));
+        test2(f, i!(-3.0, -2.0), y, (vec![i!(1.0)], Dac));
+        test2(f, i!(2.0, 3.0), y, (vec![i!(1.0)], Com));
 
         // x^(1/2)
         let y = i!(0.5);
@@ -1447,6 +1479,7 @@ mod tests {
         test2(f, i!(-1.0, 0.0), y, (vec![i!(0.0)], Trv));
         test2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
         test2(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Trv));
+        test2(f, i!(4.0, 9.0), y, (vec![i!(2.0, 3.0)], Com));
 
         // x^2
         let y = i!(2.0);
@@ -1456,6 +1489,8 @@ mod tests {
         test2(f, i!(-1.0, 0.0), y, (vec![i!(0.0, 1.0)], Dac));
         test2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
         test2(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Dac));
+        test2(f, i!(-3.0, -2.0), y, (vec![i!(4.0, 9.0)], Dac));
+        test2(f, i!(2.0, 3.0), y, (vec![i!(4.0, 9.0)], Com));
 
         // x^3
         let y = i!(3.0);
@@ -1465,6 +1500,8 @@ mod tests {
         test2(f, i!(-1.0, 0.0), y, (vec![i!(-1.0, 0.0)], Dac));
         test2(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
         test2(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Dac));
+        test2(f, i!(-3.0, -2.0), y, (vec![i!(-27.0, -8.0)], Dac));
+        test2(f, i!(2.0, 3.0), y, (vec![i!(8.0, 27.0)], Com));
 
         // x^e (or any inexact positive number)
         let y = Interval::E;
@@ -1522,6 +1559,11 @@ mod tests {
         test1_even(f, i!(1.0), (vec![i!(1.0)], Com));
         test1_even(f, i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
         test1(f, i!(-1.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test1_even(
+            f,
+            i!(2.0, 3.0),
+            (vec![interval!("[1/9, 1/4]").unwrap()], Com),
+        );
 
         // x^-1
         let f = |x| pown(x, -1);
@@ -1533,18 +1575,26 @@ mod tests {
             i!(-1.0, 1.0),
             (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
         );
+        test1_odd(
+            f,
+            i!(2.0, 3.0),
+            (vec![interval!("[1/3, 1/2]").unwrap()], Com),
+        );
 
         // x^0
         let f = |x| pown(x, 0);
         test1(f, i!(-1.0, 1.0), (vec![i!(1.0)], Com));
+        test1_even(f, i!(2.0, 3.0), (vec![i!(1.0, 1.0)], Com));
 
         // x^2
         let f = |x| pown(x, 2);
         test1(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Com));
+        test1_even(f, i!(2.0, 3.0), (vec![i!(4.0, 9.0)], Com));
 
         // x^3
         let f = |x| pown(x, 3);
         test1(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
+        test1_odd(f, i!(2.0, 3.0), (vec![i!(8.0, 27.0)], Com));
     }
 
     #[test]
@@ -1560,6 +1610,11 @@ mod tests {
             f,
             i!(-1.0, 1.0),
             (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
+        );
+        test1_odd(
+            f,
+            i!(2.0, 3.0),
+            (vec![interval!("[1/3, 1/2]").unwrap()], Com),
         );
     }
 
@@ -1606,10 +1661,12 @@ mod tests {
         test1(f, i!(-1.0, 0.0), (vec![i!(0.0)], Trv));
         test1(f, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Com));
         test1(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
+        test1(f, i!(4.0, 9.0), (vec![i!(2.0, 3.0)], Com));
 
         // x^1/3
         let f = |x| rootn(x, 3);
         test1(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
+        test1_odd(f, i!(8.0, 27.0), (vec![i!(2.0, 3.0)], Com));
     }
 
     #[test]
