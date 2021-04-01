@@ -402,11 +402,12 @@ impl TupperIntervalSet {
                     let y = DecInterval::set_dec(y.x, dec);
                     let mut xs = Self::from(TupperInterval::new(x.max(y), g));
                     let mut ys = Self::from(TupperInterval::new(x.min(y), g));
+                    let mut prev_xs = xs.clone();
                     loop {
                         if ys.iter().any(|y| y.x.contains(0.0)) {
                             rs.extend(&xs);
 
-                            if xs == ys {
+                            if xs == ys || prev_xs == ys {
                                 // Here, in the first iteration, `xs` and `ys` consists of the same,
                                 // single, nonnegative interval that contains zero:
                                 //
@@ -428,6 +429,7 @@ impl TupperIntervalSet {
                         }
 
                         let xs_rem_ys = xs.rem_euclid(&ys, None);
+                        prev_xs = xs;
                         xs = ys;
                         ys = xs_rem_ys;
                         ys.normalize(true); // To compare it with `xs` in the next iteration.
@@ -760,20 +762,25 @@ impl TupperIntervalSet {
 
     impl_op_cut!(rem_euclid(x, y), {
         // Compute x - |y| ⌊x / |y|⌋.
-        const ZERO: DecInterval = const_dec_interval!(0.0, 0.0);
-        let y = y.abs(); // Take abs, normalize, then iterate would be better.
+        let y = y.abs(); // Take abs, normalize, then iterate over could be better.
         let q = (x / y).floor();
-        let a = q.inf();
-        let b = q.sup();
-        if b - a == 1.0 {
-            let q0 = DecInterval::set_dec(interval!(a, a).unwrap(), q.decoration());
-            let q1 = DecInterval::set_dec(interval!(b, b).unwrap(), q.decoration());
-            (
-                (-y).mul_add(q0, x).max(ZERO).min(y),
-                Some((-y).mul_add(q1, x).max(ZERO).min(y)),
-            )
+        let qa = q.inf();
+        let qb = q.sup();
+        let range = interval!(0.0, y.sup()).unwrap();
+        if qb - qa == 1.0 {
+            let q0 = DecInterval::set_dec(interval!(qa, qa).unwrap(), q.decoration());
+            let q1 = DecInterval::set_dec(interval!(qb, qb).unwrap(), q.decoration());
+            let z0 = (-y).mul_add(q0, x);
+            let z1 = (-y).mul_add(q1, x);
+            let z0 =
+                DecInterval::set_dec(z0.interval().unwrap().intersection(range), z0.decoration());
+            let z1 =
+                DecInterval::set_dec(z1.interval().unwrap().intersection(range), z1.decoration());
+            (z0, Some(z1))
         } else {
-            ((-y).mul_add(q, x).max(ZERO).min(y), None)
+            let z = (-y).mul_add(q, x);
+            let z = DecInterval::set_dec(z.interval().unwrap().intersection(range), z.decoration());
+            (z, None)
         }
     });
 
@@ -1244,6 +1251,14 @@ mod tests {
         test2(f, -y, -x, expected.clone());
     }
 
+    fn test2_even_y<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
+    where
+        F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet + Copy,
+    {
+        test2(f, x, y, expected.clone());
+        test2(f, x, -y, expected.clone());
+    }
+
     fn test2_odd<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
     where
         F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet + Copy,
@@ -1346,6 +1361,14 @@ mod tests {
         test2_commut_even(f, i!(7.5), i!(10.5), (vec![i!(1.5)], Dac));
         test2_commut_even(f, i!(0.0), i!(5.0), (vec![i!(5.0)], Dac));
         test2(f, i!(0.0), i!(0.0), (vec![i!(0.0)], Dac));
+
+        // This test fails into an infinite loop if you remove `prev_xs == ys`.
+        test2_commut_even(
+            f,
+            i!(4.0, 6.0),
+            i!(5.0, 6.0),
+            (vec![i!(0.0, 2.0), i!(4.0, 6.0)], Trv),
+        );
     }
 
     #[test]
@@ -1538,6 +1561,31 @@ mod tests {
             i!(-1.0, 1.0),
             (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv),
         );
+    }
+
+    #[test]
+    fn rem_euclid() {
+        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
+            x.rem_euclid(&y, None)
+        }
+
+        let y = i!(0.0);
+        test2(f, i!(-1.0, 1.0), y, (vec![], Trv));
+
+        let y = i!(3.0);
+        test2_even_y(f, i!(-1.0), y, (vec![i!(2.0)], Com));
+        test2_even_y(f, i!(0.0), y, (vec![i!(0.0)], Dac));
+        test2_even_y(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test2_even_y(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0), i!(2.0, 3.0)], Def));
+
+        let y = i!(1.5, 2.5);
+        // NOTE: This is not the tightest enclosure, which is {[0.0, 0.5], [1.0, 2.0]}.
+        test2_even_y(f, i!(-2.0), y, (vec![i!(0.0, 0.5), i!(1.0, 2.5)], Def));
+        test2_even_y(f, i!(2.0), y, (vec![i!(0.0, 0.5), i!(2.0)], Def));
+
+        let y = i!(-3.0, 3.0);
+        test2(f, i!(0.0), y, (vec![i!(0.0)], Trv));
+        test2(f, i!(-3.0, -3.0), y, (vec![i!(0.0, 3.0)], Trv));
     }
 
     #[test]
