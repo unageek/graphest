@@ -1381,6 +1381,57 @@ mod tests {
     }
 
     #[test]
+    fn digamma() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.digamma(None)
+        }
+
+        test1(f, i!(-3.0), (vec![], Trv));
+        test1(f, i!(-2.0), (vec![], Trv));
+        test1(f, i!(-1.0), (vec![], Trv));
+        test1(f, i!(0.0), (vec![], Trv));
+        test1(
+            f,
+            i!(1.0),
+            (vec![i!(-0.5772156649015329, -0.5772156649015328)], Com),
+        );
+
+        test1(
+            f,
+            i!(-2.5, -1.5),
+            (
+                vec![
+                    i!(-f64::INFINITY, 0.7031566406452432),
+                    i!(1.103156640645243, f64::INFINITY),
+                ],
+                Trv,
+            ),
+        );
+        test1(
+            f,
+            i!(-1.5, -0.5),
+            (
+                vec![
+                    i!(-f64::INFINITY, 3.648997397857653e-2),
+                    i!(0.7031566406452431, f64::INFINITY),
+                ],
+                Trv,
+            ),
+        );
+        test1(
+            f,
+            i!(-0.5, 0.5),
+            (
+                vec![
+                    i!(-f64::INFINITY, -1.9635100260214233),
+                    i!(3.648997397857652e-2, f64::INFINITY),
+                ],
+                Trv,
+            ),
+        );
+    }
+
+    #[test]
     fn div() {
         fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
             x.div(&y, None)
@@ -1438,25 +1489,34 @@ mod tests {
             x.gamma(None)
         }
 
+        test1(f, i!(-3.0), (vec![], Trv));
         test1(f, i!(-2.0), (vec![], Trv));
         test1(f, i!(-1.0), (vec![], Trv));
         test1(f, i!(0.0), (vec![], Trv));
         test1(f, i!(1.0), (vec![i!(1.0)], Com));
         test1(f, i!(2.0), (vec![i!(1.0)], Com));
-        test1(f, i!(20.0), (vec![i!(121645100408832000.0)], Com));
+        test1(f, i!(3.0), (vec![i!(2.0)], Com));
+        test1(
+            f,
+            i!(30.0),
+            (
+                vec![interval!("[8.841761993739701954543616e30]").unwrap()],
+                Com,
+            ),
+        );
 
-        let x = TupperIntervalSet::from(dec_interval!("[1e-500]").unwrap());
-        assert!(x.gamma(None).iter().all(|x| x.x.inf() > 0.0));
-        let x = TupperIntervalSet::from(dec_interval!("[-1e-500]").unwrap());
-        assert!(x.gamma(None).iter().all(|x| x.x.sup() < 0.0));
-        let x = TupperIntervalSet::from(dec_interval!("[-0.99999999999999999999]").unwrap());
-        assert!(x.gamma(None).iter().all(|x| x.x.sup() < 0.0));
-        let x = TupperIntervalSet::from(dec_interval!("[-1.0000000000000000001]").unwrap());
-        assert!(x.gamma(None).iter().all(|x| x.x.inf() > 0.0));
-        let x = TupperIntervalSet::from(dec_interval!("[-1.9999999999999999999]").unwrap());
-        assert!(x.gamma(None).iter().all(|x| x.x.inf() > 0.0));
         let x = TupperIntervalSet::from(dec_interval!("[-2.0000000000000000001]").unwrap());
-        assert!(x.gamma(None).iter().all(|x| x.x.sup() < 0.0));
+        assert!(f(x).iter().all(|x| x.x.sup() < 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[-1.9999999999999999999]").unwrap());
+        assert!(f(x).iter().all(|x| x.x.inf() > 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[-1.0000000000000000001]").unwrap());
+        assert!(f(x).iter().all(|x| x.x.inf() > 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[-0.99999999999999999999]").unwrap());
+        assert!(f(x).iter().all(|x| x.x.sup() < 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[-1e-500]").unwrap());
+        assert!(f(x).iter().all(|x| x.x.sup() < 0.0));
+        let x = TupperIntervalSet::from(dec_interval!("[1e-500]").unwrap());
+        assert!(f(x).iter().all(|x| x.x.inf() > 0.0));
     }
 
     #[test]
