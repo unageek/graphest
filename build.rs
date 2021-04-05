@@ -165,7 +165,7 @@ fn run_bindgen(env: &Environment) {
         .header(env.include_dir.join("arb_hypgeom.h").to_str().unwrap())
         .header(env.include_dir.join("arf.h").to_str().unwrap())
         .header(env.include_dir.join("mag.h").to_str().unwrap())
-        .whitelist_function("(arb_|arf_|mag_).*")
+        .allowlist_function("(arb_|arf_|mag_).*")
         .clang_args(&[
             "-DARB_INLINES_C",
             "-DARF_INLINES_C",
