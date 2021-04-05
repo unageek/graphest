@@ -188,6 +188,12 @@ impl TupperIntervalSet {
                 DecInterval::set_dec(-Interval::FRAC_PI_2, dec),
                 Some(DecInterval::set_dec(Interval::FRAC_PI_2, dec)),
             )
+        } else if a < 0.0 && b > 0.0 && c == 0.0 && d == 0.0 {
+            let dec = Decoration::Trv;
+            (
+                DecInterval::set_dec(const_interval!(0.0, 0.0), dec),
+                Some(DecInterval::set_dec(Interval::PI, dec)),
+            )
         } else if a < 0.0 && b <= 0.0 && c < 0.0 && d >= 0.0 {
             let dec = if b == 0.0 {
                 Decoration::Trv
@@ -1268,6 +1274,110 @@ mod tests {
         test2(f, x, -y, neg_expected.clone());
         test2(f, -x, y, neg_expected.clone());
         test2(f, -x, -y, expected.clone());
+    }
+
+    #[test]
+    fn atan2() {
+        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
+            x.atan2(&y, None)
+        }
+
+        let y = i!(0.0);
+        test2(f, y, i!(0.0), (vec![], Trv));
+        test2(f, y, i!(-1.0, -0.5), (vec![Interval::PI], Dac));
+        test2(f, y, i!(-1.0, 0.0), (vec![Interval::PI], Trv));
+        test2(f, y, i!(0.5, 1.0), (vec![i!(0.0)], Com));
+        test2(f, y, i!(0.0, 1.0), (vec![i!(0.0)], Trv));
+        test2(f, y, i!(-1.0, 1.0), (vec![i!(0.0), Interval::PI], Trv));
+
+        let y = i!(-1.0, -0.5);
+        test2(f, y, i!(0.0), (vec![-Interval::FRAC_PI_2], Com));
+
+        let y = i!(-1.0, 0.0);
+        test2(
+            f,
+            y,
+            i!(-1.0),
+            (
+                vec![
+                    -Interval::PI.convex_hull(i!(3.0) * Interval::FRAC_PI_4),
+                    Interval::PI,
+                ],
+                Def,
+            ),
+        );
+        test2(f, y, i!(0.0), (vec![-Interval::FRAC_PI_2], Trv));
+
+        let y = i!(0.5, 1.0);
+        test2(f, y, i!(0.0), (vec![Interval::FRAC_PI_2], Com));
+
+        let y = i!(0.0, 1.0);
+        test2(
+            f,
+            y,
+            i!(-1.0),
+            (
+                vec![Interval::PI.convex_hull(i!(3.0) * Interval::FRAC_PI_4)],
+                Dac,
+            ),
+        );
+        test2(f, y, i!(0.0), (vec![Interval::FRAC_PI_2], Trv));
+
+        let y = i!(-1.0, 1.0);
+        test2(
+            f,
+            y,
+            i!(-1.0),
+            (
+                vec![
+                    -Interval::PI.convex_hull(i!(3.0) * Interval::FRAC_PI_4),
+                    Interval::PI.convex_hull(i!(3.0) * Interval::FRAC_PI_4),
+                ],
+                Def,
+            ),
+        );
+        test2(
+            f,
+            y,
+            i!(0.0),
+            (vec![-Interval::FRAC_PI_2, Interval::FRAC_PI_2], Trv),
+        );
+        test2(
+            f,
+            y,
+            i!(1.0),
+            (
+                vec![(-Interval::FRAC_PI_4).convex_hull(Interval::FRAC_PI_4)],
+                Com,
+            ),
+        );
+        test2(
+            f,
+            y,
+            i!(-1.0, 0.0),
+            (
+                vec![
+                    -Interval::FRAC_PI_2.convex_hull(Interval::PI),
+                    Interval::FRAC_PI_2.convex_hull(Interval::PI),
+                ],
+                Trv,
+            ),
+        );
+        test2(
+            f,
+            y,
+            i!(0.0, 1.0),
+            (
+                vec![(-Interval::FRAC_PI_2).convex_hull(Interval::FRAC_PI_2)],
+                Trv,
+            ),
+        );
+        test2(
+            f,
+            y,
+            i!(-1.0, 1.0),
+            (vec![(-Interval::PI).convex_hull(Interval::PI)], Trv),
+        );
     }
 
     #[test]
