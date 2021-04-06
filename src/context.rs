@@ -1,7 +1,8 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprKind, UnaryOp},
     interval_set::TupperIntervalSet,
-    visit::{Substitute, VisitMut},
+    parse::parse_expr,
+    visit::{Parametrize, Substitute, VisitMut},
 };
 use inari::{const_dec_interval, DecInterval};
 use nom::{
@@ -81,7 +82,7 @@ impl Def {
         self
     }
 
-    /// Applies arguments to the function.
+    /// Applies the function to the arguments.
     ///
     /// Panics if `self` is not a function or the number of arguments does not match the arity.
     fn apply(&self, args: Vec<Expr>) -> Expr {
@@ -124,7 +125,7 @@ impl Context {
 
 static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
     const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
-    Context::new()
+    let ctx = Context::new()
         .def("e", Def::constant(DecInterval::E))
         .def("gamma", Def::constant(EULER_GAMMA))
         .def("γ", Def::constant(EULER_GAMMA))
@@ -165,7 +166,6 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("!", Def::unary(UnaryOp::Not))
         .def("Shi", Def::unary(UnaryOp::Shi))
         .def("Si", Def::unary(UnaryOp::Si))
-        .def("sign", Def::unary(UnaryOp::Sign))
         .def("sin", Def::unary(UnaryOp::Sin))
         .def("sinh", Def::unary(UnaryOp::Sinh))
         .def("sqrt", Def::unary(UnaryOp::Sqrt))
@@ -197,7 +197,16 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("^", Def::binary(BinaryOp::Pow))
         .def("ranked_max", Def::binary(BinaryOp::RankedMax))
         .def("ranked_min", Def::binary(BinaryOp::RankedMin))
-        .def("-", Def::binary(BinaryOp::Sub))
+        .def("-", Def::binary(BinaryOp::Sub));
+
+    let mut body = parse_expr("⌊min(max(x, -0.5), 0.5)⌋ + ⌈min(max(x, -0.5), 0.5)⌉", &ctx).unwrap();
+    Parametrize::new(vec!["x".into()]).visit_expr_mut(&mut body);
+    let def = Def::Function {
+        arity: 1,
+        body,
+        left_associative: false,
+    };
+    ctx.def("sgn", def.clone()).def("sign", def)
 });
 
 impl Context {

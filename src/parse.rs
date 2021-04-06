@@ -434,7 +434,6 @@ mod tests {
         test_parse_expr("log(x)", "(Log10 x)");
         test_parse_expr("Shi(x)", "(Shi x)");
         test_parse_expr("Si(x)", "(Si x)");
-        test_parse_expr("sign(x)", "(Sign x)");
         test_parse_expr("sin(x)", "(Sin x)");
         test_parse_expr("sinh(x)", "(Sinh x)");
         test_parse_expr("sqrt(x)", "(Sqrt x)");
@@ -485,6 +484,16 @@ mod tests {
         test_parse_expr(
             "(x = y || y = z) && z = x",
             "(And (Or (Eq x y) (Eq y z)) (Eq z x))",
+        );
+
+        // TODO: Do we need this?
+        test_parse_expr(
+            "sgn(x)",
+            "(Add (Floor (Min (Max x (Neg @)) @)) (Ceil (Min (Max x (Neg @)) @)))",
+        );
+        test_parse_expr(
+            "sign(x)",
+            "(Add (Floor (Min (Max x (Neg @)) @)) (Ceil (Min (Max x (Neg @)) @)))",
         );
     }
 

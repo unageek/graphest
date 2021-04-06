@@ -893,10 +893,6 @@ macro_rules! impl_integer_op {
 impl TupperIntervalSet {
     impl_integer_op!(ceil);
     impl_integer_op!(floor);
-    impl_integer_op!(round);
-    impl_integer_op!(round_ties_to_even);
-    impl_integer_op!(sign);
-    impl_integer_op!(trunc);
 }
 
 macro_rules! requires_arb {
@@ -1381,6 +1377,23 @@ mod tests {
     }
 
     #[test]
+    fn ceil() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.ceil(None)
+        }
+
+        test1(f, i!(-1.5), (vec![i!(-1.0)], Com));
+        test1(f, i!(-1.0), (vec![i!(-1.0)], Dac));
+        test1(f, i!(-0.5), (vec![i!(0.0)], Com));
+        test1(f, i!(0.0), (vec![i!(0.0)], Dac));
+        test1(f, i!(0.5), (vec![i!(1.0)], Com));
+        test1(f, i!(1.0), (vec![i!(1.0)], Dac));
+        test1(f, i!(1.5), (vec![i!(2.0)], Com));
+
+        test1(f, i!(-0.5, 0.5), (vec![i!(0.0), i!(1.0)], Def));
+    }
+
+    #[test]
     fn digamma() {
         fn f(x: TupperIntervalSet) -> TupperIntervalSet {
             x.digamma(None)
@@ -1481,6 +1494,23 @@ mod tests {
             y,
             (vec![i!(-f64::INFINITY, f64::INFINITY)], Trv),
         );
+    }
+
+    #[test]
+    fn floor() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.floor(None)
+        }
+
+        test1(f, i!(-1.5), (vec![i!(-2.0)], Com));
+        test1(f, i!(-1.0), (vec![i!(-1.0)], Dac));
+        test1(f, i!(-0.5), (vec![i!(-1.0)], Com));
+        test1(f, i!(0.0), (vec![i!(0.0)], Dac));
+        test1(f, i!(0.5), (vec![i!(0.0)], Com));
+        test1(f, i!(1.0), (vec![i!(1.0)], Dac));
+        test1(f, i!(1.5), (vec![i!(1.0)], Com));
+
+        test1(f, i!(-0.5, 0.5), (vec![i!(-1.0), i!(0.0)], Def));
     }
 
     #[test]

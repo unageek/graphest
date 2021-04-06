@@ -116,6 +116,31 @@ impl<T: Eq + Hash> Hash for UnsafeRef<T> {
     }
 }
 
+/// Replaces the names of [`ExprKind::Var`]s that are equal to `params[i]` with `i.to_string()`.
+pub struct Parametrize {
+    params: Vec<String>,
+}
+
+impl Parametrize {
+    pub fn new(params: Vec<String>) -> Self {
+        Self { params }
+    }
+}
+
+impl VisitMut for Parametrize {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        traverse_expr_mut(self, e);
+
+        if let ExprKind::Var(x) = &mut e.kind {
+            if let Some(i) = self.params.iter().position(|p| p == x) {
+                *x = i.to_string();
+            }
+        }
+    }
+}
+
+/// Replaces all expressions of the kind [`ExprKind::Var`] with name "0", "1", …
+/// with `args[0]`, `args[1]`, …, respectively.
 pub struct Substitute {
     args: Vec<Expr>,
 }
@@ -457,7 +482,7 @@ impl AssignId {
         use {BinaryOp::*, ExprKind::*, UnaryOp::*};
         matches!(
             kind,
-            Unary(Ceil | Digamma | Floor | Gamma | Recip | Sign | Tan, _)
+            Unary(Ceil | Digamma | Floor | Gamma | Recip | Tan, _)
                 | Binary(
                     Atan2 | Div | Gcd | Lcm | Log | Mod | Pow | RankedMax | RankedMin,
                     _,
@@ -576,7 +601,6 @@ impl CollectStatic {
                     Recip => Some(ScalarUnaryOp::Recip),
                     Shi => Some(ScalarUnaryOp::Shi),
                     Si => Some(ScalarUnaryOp::Si),
-                    Sign => Some(ScalarUnaryOp::Sign),
                     Sin => Some(ScalarUnaryOp::Sin),
                     Sinc => Some(ScalarUnaryOp::Sinc),
                     Sinh => Some(ScalarUnaryOp::Sinh),

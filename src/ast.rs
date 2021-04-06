@@ -50,7 +50,6 @@ pub enum UnaryOp {
     Recip,
     Shi,
     Si,
-    Sign,
     Sin,
     Sinc,
     Sinh,
@@ -194,7 +193,6 @@ impl Expr {
             Unary(One, x) => x.eval1(|x| x.one()),
             Unary(Shi, x) => x.eval1(|x| x.shi()),
             Unary(Si, x) => x.eval1(|x| x.si()),
-            Unary(Sign, x) => x.eval1r(|x| x.sign(None), |x| Some(x.signum())),
             Unary(Sin, x) => x.eval1(|x| x.sin()),
             Unary(Sinc, x) => x.eval1(|x| x.sinc()),
             Unary(Sinh, x) => x.eval1(|x| x.sinh()),
@@ -291,8 +289,7 @@ impl Expr {
                 Abs | Acos | Acosh | AiryAi | AiryAiPrime | AiryBi | AiryBiPrime | Asin | Asinh
                 | Atan | Atanh | Ceil | Chi | Ci | Cos | Cosh | Digamma | Ei | Erf | Erfc | Erfi
                 | Exp | Exp10 | Exp2 | Floor | FresnelC | FresnelS | Gamma | Li | Ln | Log10 | Neg
-                | One | Recip | Shi | Si | Sign | Sin | Sinc | Sinh | Sqr | Sqrt | Tan | Tanh
-                | UndefAt0,
+                | One | Recip | Shi | Si | Sin | Sinc | Sinh | Sqr | Sqrt | Tan | Tanh | UndefAt0,
                 x,
             ) if x.ty == Scalar => Scalar,
             Binary(
