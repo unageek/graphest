@@ -50,6 +50,7 @@ pub fn pow(x: Rational, y: Rational) -> Option<Rational> {
     let yn = y.numer().to_i32()?;
     let yd = y.denom().to_u32()?;
     if yd == 1 {
+        // y ∈ ℤ.
         if yn >= 0 {
             let n = yn as u32;
             let zn = xn.checked_pow(n)?;
@@ -66,7 +67,11 @@ pub fn pow(x: Rational, y: Rational) -> Option<Rational> {
         }
     } else {
         // y ∉ ℤ.
-        None
+        if xn == 0 && yn > 0 {
+            Some(Rational::from(0))
+        } else {
+            None
+        }
     }
 }
 
@@ -100,5 +105,124 @@ pub fn to_interval(r: &Rational) -> Interval {
         mpfr::set_emin(orig_emin);
         mpfr::set_emax(orig_emax);
         interval!(a, b).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! r {
+        ($i:literal) => {
+            Rational::from($i)
+        };
+
+        ($p:literal / $q:literal) => {
+            Rational::from(($p, $q))
+        };
+    }
+
+    macro_rules! test {
+        ($f:path, $x:expr, $y:expr, $z:expr) => {
+            assert_eq!($f($x, $y), $z);
+        };
+
+        (@commut $(@$af:ident)* $f:path, $(@$ax:ident)* $x:expr, $(@$ay:ident)* $y:expr, $z:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $z);
+            test!($(@$af)* $f, $(@$ax)* $y, $(@$ay)* $x, $z);
+        };
+
+        ($(@$af:ident)* $f:path, @even $(@$ax:ident)* $x:expr, $(@$ay:ident)* $y:expr, $z:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $z);
+            test!($(@$af)* $f, $(@$ax)* -$x, $(@$ay)* $y, $z);
+        };
+
+        ($(@$af:ident)* $f:path, @odd $(@$ax:ident)* $x:expr, $(@$ay:ident)* $y:expr, $z:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $z);
+            test!($(@$af)* $f, $(@$ax)* -$x, $(@$ay)* $y, $z.map(|z: Rational| -z));
+        };
+
+        ($(@$af:ident)* $f:path, $(@$ax:ident)* $x:expr, @even $(@$ay:ident)* $y:expr, $z:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $z);
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* -$y, $z);
+        };
+
+        ($(@$af:ident)* $f:path, $(@$ax:ident)* $x:expr, @odd $(@$ay:ident)* $y:expr, $z:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $z);
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* -$y, $z.map(|z: Rational| -z));
+        };
+    }
+
+    #[test]
+    fn div() {
+        use super::div;
+        test!(div, r!(0), r!(0), None);
+        test!(div, @odd r!(2 / 3), r!(0), None);
+        test!(div, @odd r!(2 / 3), @odd r!(4 / 5), Some(r!(5 / 6)));
+    }
+
+    #[test]
+    fn gcd() {
+        use super::gcd;
+        test!(gcd, r!(0), r!(0), Some(r!(0)));
+        test!(@commut gcd, @even r!(2 / 3), r!(0), Some(r!(2 / 3)));
+        test!(@commut gcd, @even r!(2 / 3), @even r!(4 / 5), Some(r!(2 / 15)));
+    }
+
+    #[test]
+    fn lcm() {
+        use super::lcm;
+        test!(lcm, r!(0), r!(0), Some(r!(0)));
+        test!(@commut lcm, @even r!(2 / 3), r!(0), Some(r!(0)));
+        test!(@commut lcm, @even r!(2 / 3), @even r!(4 / 5), Some(r!(4)));
+    }
+
+    #[test]
+    fn max() {
+        use super::max;
+        test!(@commut max, r!(2 / 3), r!(4 / 5), Some(r!(4 / 5)));
+    }
+
+    #[test]
+    fn min() {
+        use super::min;
+        test!(@commut min, r!(2 / 3), r!(4 / 5), Some(r!(2 / 3)));
+    }
+
+    #[test]
+    fn pow() {
+        use super::pow;
+        test!(pow, r!(0), r!(-4), None);
+        test!(pow, r!(0), r!(-3), None);
+        test!(pow, r!(0), r!(-4 / 5), None);
+        test!(pow, r!(0), r!(-3 / 5), None);
+        test!(pow, r!(0), r!(0), Some(r!(1)));
+        test!(pow, r!(0), r!(3 / 5), Some(r!(0)));
+        test!(pow, r!(0), r!(4 / 5), Some(r!(0)));
+        test!(pow, r!(0), r!(3), Some(r!(0)));
+        test!(pow, r!(0), r!(4), Some(r!(0)));
+        test!(pow, @even r!(2 / 3), r!(-4), Some(r!(81 / 16)));
+        test!(pow, @odd r!(2 / 3), r!(-3), Some(r!(27 / 8)));
+        test!(pow, @even r!(2 / 3), r!(-4 / 5), None);
+        test!(pow, @odd r!(2 / 3), r!(-3 / 5), None);
+        test!(pow, @even r!(2 / 3), r!(0), Some(r!(1)));
+        test!(pow, @odd r!(2 / 3), r!(3 / 5), None);
+        test!(pow, @even r!(2 / 3), r!(4 / 5), None);
+        test!(pow, @odd r!(2 / 3), r!(3), Some(r!(8 / 27)));
+        test!(pow, @even r!(2 / 3), r!(4), Some(r!(16 / 81)));
+
+        // The result is rational, but not computed.
+        test!(pow, r!(1), r!(1 / 2), None);
+    }
+
+    #[test]
+    fn rem_euclid() {
+        use super::rem_euclid;
+        test!(rem_euclid, r!(0), r!(0), None);
+        test!(rem_euclid, r!(2 / 3), r!(0), None);
+        test!(rem_euclid, r!(2 / 3), @even r!(4 / 5), Some(r!(2 / 3)));
+        test!(rem_euclid, r!(4 / 5), @even r!(2 / 3), Some(r!(2 / 15)));
+        test!(rem_euclid, r!(-2 / 3), @even r!(4 / 5), Some(r!(2 / 15)));
+        test!(rem_euclid, r!(-4 / 5), @even r!(2 / 3), Some(r!(8 / 15)));
     }
 }
