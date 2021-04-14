@@ -412,7 +412,7 @@ impl TupperIntervalSet {
     // Let r_0 := x, r_1 := y, r_k := r_{k-2} mod r_{k-1} for k ≥ 2.
     // Let P(k) :⟺ r_k ∈ R_k.  We show that P(k) holds for every k ≥ 0 by induction on k.
     // Base cases:  From r_0 = x ∈ X = R_0 and r_1 = y ∈ Y = R_1, P(0) and P(1) holds.
-    // Inductive step:  Suppose k ≥ 0, P(k), P(k + 1).
+    // Inductive step:  Let k ≥ 0.  Suppose P(k), P(k + 1).
     // Since X mod Y is an interval extension of x mod y, the following holds:
     //
     //   r_{k+2} = r_k mod r_{k+1} ∈ R_k mod R_{k+1} = R_{k+2}.
@@ -428,7 +428,7 @@ impl TupperIntervalSet {
     //
     // Proposition.  For any intervals X and Y, and any k ≥ 2,
     // ∃i ∈ {1, …, k - 1} : R_{i-1} = R_{k-1} ∧ R_i = R_k ∧ Z_{i-1} = Z_{k-1} ⟹ gcd(X, Y) = Z_{k-1}.
-    // This may look a bit awkward, but it makes the implementation easier.
+    // The statement may look a bit awkward, but it makes the implementation easier.
     //
     // Proof.  For any j ≥ 1, Z_j can be written in the form:
     //
@@ -556,7 +556,7 @@ impl TupperIntervalSet {
     // Then, |x y| / gcd(x, y) ∈ lcm(X, Y) = |X Y| / gcd(X, Y).
     // Therefore, lcm[X, Y] ⊆ lcm(X, Y).
     //
-    // Hence the result.  ■
+    // Hence, the result.  ■
     pub fn lcm(&self, rhs: &Self, site: Option<Site>) -> Self {
         const ZERO: Interval = const_interval!(0.0, 0.0);
         let mut rs = TupperIntervalSet::new();
