@@ -171,7 +171,7 @@ impl Expr {
             Unary(Asinh, x) => x.eval1(|x| x.asinh()),
             Unary(Atan, x) => x.eval1(|x| x.atan()),
             Unary(Atanh, x) => x.eval1(|x| x.atanh()),
-            Unary(Ceil, x) => x.eval1(|x| x.ceil(None)),
+            Unary(Ceil, x) => x.eval1r(|x| x.ceil(None), |x| Some(x.ceil())),
             Unary(Chi, x) => x.eval1(|x| x.chi()),
             Unary(Ci, x) => x.eval1(|x| x.ci()),
             Unary(Cos, x) => x.eval1(|x| x.cos()),
