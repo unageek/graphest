@@ -4,6 +4,7 @@ use crate::interval_set::{
 use gmp_mpfr_sys::mpfr;
 use inari::{const_dec_interval, const_interval, interval, DecInterval, Decoration, Interval};
 use rug::Float;
+use smallvec::{smallvec, SmallVec};
 use std::{
     convert::From,
     ops::{Add, Mul, Neg, Sub},
@@ -362,36 +363,92 @@ impl TupperIntervalSet {
         rs
     }
 
-    // For x, y ∈ ℚ, gcd(x, y) is defined recursively (the Euclidean algorithm) as:
+    // For any x, y ∈ ℚ, the GCD (greatest common divisor) of x and y is defined as an extension
+    // to the integer GCD as:
+    //
+    //   gcd(x, y) := gcd(q x, q y) / q,
+    //
+    // where q is any positive integer that satisfies q x, q y ∈ ℤ (the trivial one is the product
+    // of the denominators of |x| and |y|).  We leave the function undefined for irrational numbers.
+    // The Euclidean algorithm can be applied to compute the GCD of rational numbers:
     //
     //   gcd(x, y) = | |x|              if y = 0,
     //               | gcd(y, x mod y)  otherwise,
     //
-    // assuming the recursion terminates. We leave gcd undefined For irrational numbers.
-    // Here is an interval extension of it:
+    // which can be seen from a simple observation:
     //
-    //                | |X|                    if Y = {0} ∨ (X = Y ∧ 0 ∈ X ∧ X mod X ⊆ |X|),
-    //   gcd(X, Y) := | gcd(Y, X mod Y)        if 0 ∉ Y,
-    //                | |X| ∪ gcd(Y, X mod Y)  otherwise.
+    //   gcd(q x, q y) / q = | |q x| / q                      if y = 0,
+    //                       | gcd(q y, (q x) mod (q y)) / q  otherwise,
+    //                           (the Euclidean algorithm for the integer GCD)
+    //                     = | |x|                            if y = 0,
+    //                       | gcd(y, ((q x) mod (q y)) / q)  otherwise.
+    //                                ^^^^^^^^^^^^^^^^^^^^^ = x mod y
     //
-    // The second condition of the first case is justified by the following proposition.
-    // Let X ⊆ ℚ such that 0 ∈ X ∧ X mod X ⊆ |X|. Then
+    // We construct an interval extension of the function as follows:
     //
-    //   gcd(X, X) ⊆ |X|.
+    //   R_0(X, Y) := X,
+    //   R_1(X, Y) := Y,
+    //   R_k(X, Y) := R_{k-2}(X, Y) mod R_{k-1}(X, Y) for any k ∈ ℕ_{≥2},
     //
-    // Proof: From the definition of gcd,
+    //   Z_0(X, Y) := ∅,
+    //   Z_k(X, Y) := | Z_{k-1}(X, Y) ∪ |R_{k-1}(X, Y)|  if 0 ∈ R_k(X, Y),
+    //                | Z_{k-1}(X, Y)                    otherwise,
+    //                for any k ∈ ℕ_{≥1},
     //
-    //   ∀x, y ∈ X : ∃n ∈ ℕ_{≥1} : ∃z_0, …, z_n ∈ |X| :
-    //       z_0 = |x| ∧ z_1 = |y|
-    //     ∧ ∀k ∈ {2, …, n} : z_k = z_{k-2} mod z_{k-1}
-    //     ∧ z_n = 0 (thus z_{n-1} = gcd(x, y)).
+    //   gcd(X, Y) :=     ⋃      Z_k(X, Y).
+    //                k ∈ ℕ_{≥0}
     //
-    // Thus ∀x, y ∈ X : gcd(x, y) ∈ |X|. ■
+    // We will denote R_k(X, Y) and Z_k(X, Y) just by R_k and Z_k, respectively.
+    //
+    // Proposition.  gcd(X, Y) is an interval extension of gcd(x, y).
+    //
+    // Proof.  Let X and Y be any intervals.  There are two possibilities:
+    //
+    //   (1):  X ∩ ℚ = ∅ ∨ Y ∩ ℚ = ∅,
+    //   (2):  X ∩ ℚ ≠ ∅ ∧ Y ∩ ℚ ≠ ∅.
+    //
+    // Suppose (1).  Then, gcd[X, Y] = ∅ ⊆ gcd(X, Y).
+    // Suppose (2).  Let x ∈ X ∩ ℚ, y ∈ Y ∩ ℚ.
+    // Let r_0 := x, r_1 := y, r_k := r_{k-2} mod r_{k-1} for k ≥ 2.
+    // Let P(k) :⟺ r_k ∈ R_k.  We show that P(k) holds for every k ≥ 0 by induction on k.
+    // Base cases:  From r_0 = x ∈ X = R_0 and r_1 = y ∈ Y = R_1, P(0) and P(1) holds.
+    // Inductive step:  Let k ≥ 0.  Suppose P(k), P(k + 1).
+    // Since X mod Y is an interval extension of x mod y, the following holds:
+    //
+    //   r_{k+2} = r_k mod r_{k+1} ∈ R_k mod R_{k+1} = R_{k+2}.
+    //
+    // Thus, P(k + 2) holds.  Therefore, P(k) holds for every k ∈ ℕ_{≥0}.
+    // Since the Euclidean algorithm halts on any input, there exists n ≥ 1 such that
+    // r_n = 0 ∧ ∀k ∈ {2, …, n-1} : r_k ≠ 0, which leads to |r_{n-1}| = gcd(x, y).
+    // Let n be such a number.  Then from r_n = 0 and r_n ∈ R_n, 0 ∈ R_n.  Therefore:
+    //
+    //   gcd(x, y) = |r_{n-1}| ∈ |R_{n-1}| ⊆ Z_n ⊆ gcd(X, Y).
+    //
+    // Therefore, for any intervals X and Y, gcd[X, Y] ⊆ gcd(X, Y).  ■
+    //
+    // Proposition.  For any intervals X and Y, and any k ≥ 2,
+    // ∃i ∈ {1, …, k - 1} : R_{i-1} = R_{k-1} ∧ R_i = R_k ∧ Z_{i-1} = Z_{k-1} ⟹ gcd(X, Y) = Z_{k-1}.
+    // The statement may look a bit awkward, but it makes the implementation easier.
+    //
+    // Proof.  For any j ≥ 1, Z_j can be written in the form:
+    //
+    //   Z_j = f(Z_{j-1}, R_{j-1}, R_j),
+    //
+    // where f is common for every j.
+    // Suppose ∃i ∈ {1, …, k - 1} : R_{i-1} = R{k-1} ∧ R_i = R_k ∧ Z_{i-1} = Z_{k-1}.
+    // Let i be such a number.  Let n := k - i.  Then:
+    //
+    //   Z_{i+n} = f(Z_{i+n-1}, R_{i+n-1}, R_{i+n})
+    //           = f(Z_{i-1}, R_{i-1}, R_i)
+    //           = Z_i.
+    //
+    // By repeating the process, we get ∀m ∈ ℕ_{≥0} : Z_{i+mn} = Z_i.
+    // Therefore, ∀j ∈ ℕ_{≥i} : Z_j = Z_i.
+    // Therefore, gcd(X, Y) = Z_i = Z_{k-1}.  ■
     pub fn gcd(&self, rhs: &Self, site: Option<Site>) -> Self {
-        const ZERO: Interval = const_interval!(0.0, 0.0);
         let mut rs = Self::new();
-        // gcd(X, Y)
-        //   = gcd(|X|, |Y|)
+        // {gcd(x, y) | x ∈ X, y ∈ Y}
+        //   = {gcd(x, y) | x ∈ |X|, y ∈ |Y|}
         //   = {gcd(max(x, y), min(x, y)) | x ∈ |X|, y ∈ |Y|}
         //   ⊆ {gcd(x, y) | x ∈ max(|X|, |Y|), y ∈ min(|X|, |Y|)}.
         let xs = &self.abs();
@@ -406,40 +463,46 @@ impl TupperIntervalSet {
                     };
                     let x = DecInterval::set_dec(x.x, dec);
                     let y = DecInterval::set_dec(y.x, dec);
-                    let mut xs = Self::from(TupperInterval::new(x.max(y), g));
-                    let mut ys = Self::from(TupperInterval::new(x.min(y), g));
-                    let mut prev_xs = xs.clone();
-                    loop {
-                        if ys.iter().any(|y| y.x.contains(0.0)) {
-                            rs.extend(&xs);
-
-                            if xs == ys || prev_xs == ys {
-                                // Here, in the first iteration, `xs` and `ys` consists of the same,
-                                // single, nonnegative interval that contains zero:
-                                //
-                                //   X = Y = |X| = [0, a],
-                                //
-                                // where a ≥ 0.  Let x, y ∈ X.  Then:
-                                //
-                                //       0 ≤ x mod y < y ≤ a
-                                //   ⟹ x mod y ∈ X.
-                                //
-                                // Therefore, 0 ∈ X ∧ X mod X ⊆ |X|.
-                                break;
+                    let mut zs = TupperIntervalSet::new();
+                    let mut zs_prev = zs.clone();
+                    let mut rems: SmallVec<[_; 4]> = smallvec![
+                        Self::from(TupperInterval::new(x.max(y), g)),
+                        Self::from(TupperInterval::new(x.min(y), g))
+                    ];
+                    'outer: loop {
+                        // The iteration starts with k = 1.
+                        let xs = &rems[rems.len() - 2];
+                        let ys = &rems[rems.len() - 1];
+                        // R_{k-1} = `xs`, R_k = `ys`, Z_{k-1} = `zs_prev`.
+                        for i_prime in 0..rems.len() - 2 {
+                            // `i_prime` is i with some offset subtracted.
+                            // We have  (1): 1 ≤ i < k,  (2): Z_{i-1} = Z_i = … = Z_{k-1}.
+                            if &rems[i_prime] == xs && &rems[i_prime + 1] == ys {
+                                // We have R_{i-1} = R_{k-1} ∧ R_i = R_k.
+                                // Therefore, gcd(X, Y) = Z_{k-1}.
+                                break 'outer;
                             }
                         }
 
-                        ys.retain(|y| y.x != ZERO);
-                        if ys.is_empty() {
-                            break;
-                        }
+                        // (used later) R_{k+1} = `rem`.
+                        let mut rem = xs.rem_euclid(&ys, None);
+                        rem.normalize(true);
 
-                        let xs_rem_ys = xs.rem_euclid(&ys, None);
-                        prev_xs = xs;
-                        xs = ys;
-                        ys = xs_rem_ys;
-                        ys.normalize(true); // To compare it with `xs` in the next iteration.
+                        if ys.iter().any(|y| y.x.contains(0.0)) {
+                            zs.extend(xs);
+                            zs.normalize(true);
+                            // Z_k = `zs`.
+                            if zs != zs_prev {
+                                // Z_k ≠ Z_{k-1}.
+                                // Retain only R_k so that both (1) and (2) will hold
+                                // in subsequent iterations.
+                                rems = rems[rems.len() - 1..].into();
+                                zs_prev = zs.clone();
+                            }
+                        }
+                        rems.push(rem); // […, R_k, R_{k+1}]
                     }
+                    rs.extend(zs_prev);
                 }
             }
         }
@@ -462,16 +525,38 @@ impl TupperIntervalSet {
         rs
     }
 
-    // For x, y ∈ ℚ, lcm(x, y) is defined as:
+    // For x, y ∈ ℚ, the LCM (least common multiple) of x and y is defined as:
     //
     //   lcm(x, y) = | 0                  if x = y = 0,
     //               | |x y| / gcd(x, y)  otherwise.
     //
-    // We leave lcm undefined for irrational numbers.
-    // Here is an interval extension of it:
+    // We leave the function undefined for irrational numbers.
+    // Here is an interval extension of the function:
     //
     //   lcm(X, Y) := | {0}                if X = Y = {0},
     //                | |X Y| / gcd(X, Y)  otherwise.
+    //
+    // Proposition.  lcm(X, Y) is an interval extension of lcm(x, y).
+    //
+    // Proof.  Let X and Y be any intervals.  There are five possibilities:
+    //
+    //   (1):  X ∩ ℚ = ∅ ∨ Y ∩ ℚ = ∅,
+    //   (2):  X = Y = {0},
+    //   (3):  X = {0} ∧ Y ∩ ℚ\{0} ≠ ∅,
+    //   (4):  X ∩ ℚ\{0} ≠ ∅ ∧ Y = {0},
+    //   (5):  X ∩ ℚ\{0} ≠ ∅ ∧ Y ∩ ℚ\{0} ≠ ∅.
+    //
+    // Suppose (1).  Then, lcm[X, Y] = ∅ ⊆ lcm(X, Y).
+    // Suppose (2).  Then, lcm[X, Y] = lcm(X, Y) = {0}.
+    // Suppose (3).  As Y ≠ {0}, lcm(X, Y) = |X Y| / gcd(X, Y).
+    // Therefore, from 0 ∈ |X Y| and ∃y ∈ Y ∩ ℚ\{0} : |y| ∈ gcd(X, Y), 0 ∈ lcm(X, Y).
+    // Therefore, lcm[X, Y] = {0} ⊆ lcm(X, Y).
+    // Suppose (4).  In the same manner, lcm[X, Y] ⊆ lcm(X, Y).
+    // Suppose (5).  Let x ∈ X ∩ ℚ\{0}, y ∈ Y ∩ ℚ\{0} ≠ ∅.
+    // Then, |x y| / gcd(x, y) ∈ lcm(X, Y) = |X Y| / gcd(X, Y).
+    // Therefore, lcm[X, Y] ⊆ lcm(X, Y).
+    //
+    // Hence, the result.  ■
     pub fn lcm(&self, rhs: &Self, site: Option<Site>) -> Self {
         const ZERO: Interval = const_interval!(0.0, 0.0);
         let mut rs = TupperIntervalSet::new();
@@ -1551,14 +1636,18 @@ mod tests {
             x.gcd(&y, None)
         }
 
-        test!(@commut f, @even i!(15.0), @even i!(30.0), (vec![i!(15.0)], Dac));
-        test!(@commut f, @even i!(15.0), @even i!(21.0), (vec![i!(3.0)], Dac));
-        test!(@commut f, @even i!(15.0), @even i!(17.0), (vec![i!(1.0)], Dac));
-        test!(@commut f, @even i!(7.5), @even i!(10.5), (vec![i!(1.5)], Dac));
-        test!(@commut f, i!(0.0), @even i!(5.0), (vec![i!(5.0)], Dac));
         test!(f, i!(0.0), i!(0.0), (vec![i!(0.0)], Dac));
-
-        // This test fails into an infinite loop if you remove `prev_xs == ys`.
+        test!(@commut f, i!(0.0), @even i!(5.0), (vec![i!(5.0)], Dac));
+        test!(@commut f, @even i!(7.5), @even i!(10.5), (vec![i!(1.5)], Dac));
+        test!(@commut f, @even i!(15.0), @even i!(17.0), (vec![i!(1.0)], Dac));
+        test!(@commut f, @even i!(15.0), @even i!(21.0), (vec![i!(3.0)], Dac));
+        test!(@commut f, @even i!(15.0), @even i!(30.0), (vec![i!(15.0)], Dac));
+        test!(
+            @commut f,
+            @even i!(1348500621.0),
+            @even i!(18272779829.0),
+            (vec![i!(150991.0)], Dac)
+        );
         test!(
             @commut f,
             @even i!(4.0, 6.0),
@@ -1573,10 +1662,10 @@ mod tests {
             x.lcm(&y, None)
         }
 
-        test!(@commut f, @even i!(3.0), @even i!(5.0), (vec![i!(15.0)], Dac));
-        test!(@commut f, @even i!(1.5), @even i!(2.5), (vec![i!(7.5)], Dac));
-        test!(@commut f, i!(0.0), @even i!(5.0), (vec![i!(0.0)], Dac));
         test!(f, i!(0.0), i!(0.0), (vec![i!(0.0)], Dac));
+        test!(@commut f, i!(0.0), @even i!(5.0), (vec![i!(0.0)], Dac));
+        test!(@commut f, @even i!(1.5), @even i!(2.5), (vec![i!(7.5)], Dac));
+        test!(@commut f, @even i!(3.0), @even i!(5.0), (vec![i!(15.0)], Dac));
     }
 
     #[test]
