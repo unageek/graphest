@@ -92,7 +92,7 @@ struct PixelIndex {
 
 impl PixelIndex {
     /// Returns the [`ImageBlock`] that represents the same area as the pixel.
-    fn to_block(&self) -> ImageBlock {
+    fn as_block(&self) -> ImageBlock {
         ImageBlock {
             x: self.x << -MIN_K,
             y: self.y << -MIN_K,
@@ -542,7 +542,7 @@ impl Graph {
             return Ok(());
         }
 
-        let p_dn = self.block_to_region(pixel.to_block()).inner();
+        let p_dn = self.block_to_region(pixel.as_block()).inner();
         if p_dn.is_empty() {
             return Err(GraphingError {
                 kind: GraphingErrorKind::ReachedSubdivisionLimit,

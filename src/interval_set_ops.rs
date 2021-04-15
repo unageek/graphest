@@ -16,7 +16,7 @@ impl Neg for &TupperIntervalSet {
     fn neg(self) -> Self::Output {
         let mut rs = Self::Output::new();
         for x in self {
-            rs.insert(TupperInterval::new(-x.to_dec_interval(), x.g));
+            rs.insert(TupperInterval::new(-x.dec_interval(), x.g));
         }
         rs // Skip normalization since negation does not produce new overlapping intervals.
     }
@@ -33,7 +33,7 @@ macro_rules! impl_arith_op {
                     for y in rhs {
                         if let Some(g) = x.g.union(y.g) {
                             rs.insert(TupperInterval::new(
-                                x.to_dec_interval().$op(y.to_dec_interval()),
+                                x.dec_interval().$op(y.dec_interval()),
                                 g,
                             ));
                         }
@@ -63,7 +63,7 @@ macro_rules! impl_op {
         pub fn $op(&self, $($p: $pt,)*) -> Self {
             let mut rs = Self::new();
             for x in self {
-                let $x = x.to_dec_interval();
+                let $x = x.dec_interval();
                 rs.insert(TupperInterval::new($result, x.g));
             }
             rs.normalize(false);
@@ -77,8 +77,8 @@ macro_rules! impl_op {
             for x in self {
                 for y in rhs {
                     if let Some(g) = x.g.union(y.g) {
-                        let $x = x.to_dec_interval();
-                        let $y = y.to_dec_interval();
+                        let $x = x.dec_interval();
+                        let $y = y.dec_interval();
                         rs.insert(TupperInterval::new($result, g));
                     }
                 }
@@ -133,7 +133,7 @@ macro_rules! impl_op_cut {
         pub fn $op(&self, $($p: $pt,)* site: Option<Site>) -> Self {
             let mut rs = Self::new();
             for x in self {
-                let $x = x.to_dec_interval();
+                let $x = x.dec_interval();
                 insert_intervals(&mut rs, $result, x.g, site);
             }
             rs.normalize(false);
@@ -148,8 +148,8 @@ macro_rules! impl_op_cut {
             for x in self {
                 for y in rhs {
                     if let Some(g) = x.g.union(y.g) {
-                        let $x = x.to_dec_interval();
-                        let $y = y.to_dec_interval();
+                        let $x = x.dec_interval();
+                        let $y = y.dec_interval();
                         insert_intervals(&mut rs, $result, g, site);
                     }
                 }
@@ -515,7 +515,7 @@ impl TupperIntervalSet {
                     .enumerate()
                     .map(|(i, x)| {
                         TupperInterval::new(
-                            x.to_dec_interval(),
+                            x.dec_interval(),
                             x.g.inserted(site, Branch::new(i as u8)),
                         )
                     })
@@ -603,8 +603,7 @@ impl TupperIntervalSet {
                     for z in addend {
                         if let Some(g) = g.union(z.g) {
                             rs.insert(TupperInterval::new(
-                                x.to_dec_interval()
-                                    .mul_add(y.to_dec_interval(), z.to_dec_interval()),
+                                x.dec_interval().mul_add(y.dec_interval(), z.dec_interval()),
                                 g,
                             ));
                         }

@@ -135,7 +135,7 @@ impl TupperInterval {
     }
 
     /// Returns the [`DecInterval`] part of the interval.
-    pub fn to_dec_interval(self) -> DecInterval {
+    pub fn dec_interval(self) -> DecInterval {
         unsafe {
             transmute(_DecInterval {
                 x: self.x,
