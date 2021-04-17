@@ -1,0 +1,74 @@
+{
+  "name": "graphest",
+  "version": "1.0.0",
+  "description": "A faithful graphing calculator",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build-rust": "cd rust && cargo build --release --all-features && mkdir -p ../dist && cp target/release/inari-graph ../dist/",
+    "build-app": "webpack",
+    "build": "npm run build-rust && npm run build-app",
+    "start": "electron dist/main.js",
+    "pkg-mac": "electron-builder --mac"
+  },
+  "author": "Masashi Mizuno",
+  "license": "MIT",
+  "repository": "github:unageek/graphest",
+  "private": true,
+  "devDependencies": {
+    "@types/color": "^3.0.1",
+    "@types/css-font-loading-module": "0.0.4",
+    "@types/leaflet": "^1.7.0",
+    "@types/react": "^17.0.3",
+    "@types/react-beautiful-dnd": "^13.0.0",
+    "@types/react-dom": "^17.0.3",
+    "@types/react-redux": "^7.1.16",
+    "@types/resize-observer-browser": "^0.1.5",
+    "@typescript-eslint/eslint-plugin": "^4.21.0",
+    "@typescript-eslint/parser": "^4.21.0",
+    "css-loader": "^5.2.1",
+    "electron": "^12.0.2",
+    "electron-builder": "^22.10.5",
+    "eslint": "^7.24.0",
+    "eslint-plugin-react-hooks": "^4.2.0",
+    "eslint-webpack-plugin": "^2.5.3",
+    "html-webpack-plugin": "^5.3.1",
+    "style-loader": "^2.0.0",
+    "ts-loader": "^8.1.0",
+    "typescript": "^4.2.4",
+    "webpack": "^5.31.2",
+    "webpack-cli": "^4.6.0"
+  },
+  "dependencies": {
+    "@fluentui/react": "^8.9.4",
+    "@fontsource/noto-sans": "^4.2.3",
+    "@reduxjs/toolkit": "^1.5.1",
+    "bignumber.js": "^9.0.1",
+    "color": "^3.1.3",
+    "leaflet": "^1.7.1",
+    "leaflet-easybutton": "^2.4.0",
+    "react": "^17.0.1",
+    "react-beautiful-dnd": "^13.1.0",
+    "react-dom": "^17.0.2",
+    "react-redux": "^7.2.3"
+  },
+  "productName": "Graphest",
+  "build": {
+    "appId": "io.github.unageek.graphest",
+    "directories": {
+      "output": "./pkg"
+    },
+    "files": [
+      "./dist/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg"
+      ],
+      "identity": null,
+      "electronLanguages": [
+        "en"
+      ]
+    }
+  }
+}
