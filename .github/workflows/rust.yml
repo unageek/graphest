@@ -1,4 +1,4 @@
-name: build
+name: rust
 
 on:
   push:
@@ -23,6 +23,7 @@ jobs:
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
+          toolchain: nightly
           components: clippy, rustfmt
           profile: minimal
 
