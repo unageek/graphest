@@ -53,3 +53,5 @@ jobs:
       - run: npm run build-app
 
       #- run: npm test
+
+      - run: npm run lint

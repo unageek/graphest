@@ -115,5 +115,6 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
-# electron-builder output
+# Specific to Graphest
+.DS_Store
 pkg/
