@@ -1,0 +1,349 @@
+:toc:
+
+= Graphest User Guide
+
+== Builtin Definitions
+
+=== Numbers
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`123` +
+`123.5` +
+`.5`
+|123 +
+123.5 +
+0.5
+|
+
+|`e`
+|e
+|The base of natural logarithms.
+
+|`pi` or `π`
+|π
+|
+
+|`gamma` or `γ`
+|γ
+|The https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant[Euler–Mascheroni constant].
+|===
+
+=== Arithmetic
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`-x`
+|−_x_
+|
+
+|`x + y`
+|_x_ + _y_
+|
+
+|`x - y`
+|_x_ − _y_
+|
+
+|`x y` or `x * y`
+|_x_ _y_
+|
+
+|`x / y`
+|_x_ / _y_
+|
+
+|`abs(x)` or `\|x\|`
+|\|_x_\|
+|
+
+|`min(x1, …, xn)` +
+`max(x1, …, xn)`
+|min {_x_~1~, …, _x_~_n_~} +
+max {_x_~1~, …, _x_~_n_~}
+|The minimum/maximum of the set {_x_~1~, …, _x_~_n_~}.
+
+|`ranked_min([x1, …, xn], k)` +
+`ranked_max([x1, …, xn], k)`
+|
+|The __k__th smallest/largest value in the list [_x_~1~, …, _x_~_n_~].
+
+|`floor(x)` or `⌊x⌋`
+|⌊_x_⌋
+|The https://en.wikipedia.org/wiki/Floor_and_ceiling_functions[floor function].
+
+|`ceil(x)` or `⌈x⌉`
+|⌈_x_⌉
+|The https://en.wikipedia.org/wiki/Floor_and_ceiling_functions[ceiling function].
+
+|`sign(x)` or `sgn(x)`
+|sgn _x_
+|The https://en.wikipedia.org/wiki/Sign_function[sign function].
+
+|`mod(x, y)`
+|_x_ mod _y_
+|The non-negative remainder of _x_ / _y_ (https://en.wikipedia.org/wiki/Modulo_operation[modulo operation]). +
+0 ≤ _x_ mod _y_ < \|_y_\|.
+
+|`gcd(x1, …, xn)`
+|gcd(_x_~1~, …, _x_~_n_~)
+|The https://en.wikipedia.org/wiki/Greatest_common_divisor[greatest common divisor] of _x_~1~, …, _x_~_n_~. +
+gcd(_x_, 0) := \|_x_\| for any rational number _x_. +
+Undefined for irrational numbers.
+
+|`lcm(x1, …, xn)`
+|lcm(_x_~1~, …, _x_~_n_~)
+|The https://en.wikipedia.org/wiki/Least_common_multiple[least common multiple] of _x_~1~, …, _x_~_n_~. +
+lcm(_x_, 0) := 0 for any rational number _x_. +
+Undefined for irrational numbers.
+|===
+
+=== Power and Logarithmic
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`sqrt(x)`
+|√_x_
+|Undefined for _x_ < 0.
+
+|`x^y`
+|_x_^_y_^
+|`^` is right-associative: `x\^y^z` is equivalent to `x\^(y^z)`.
+
+|`exp(x)`
+|e^_x_^
+|
+
+|`ln(x)` +
+`log(x)` +
+`log(b, x)`
+|log~e~ _x_ +
+log~10~ _x_ +
+log~_b_~ _x_
+|Undefined for _x_ ≤ 0, _b_ ≤ 0 and _b_ = 1.
+|===
+
+Exponentiation is defined as follows, which is consistent with GrafEq.
+
+* For _x_ < 0, _x_^_y_^ is defined if and only if _y_ is a rational number with an odd denominator.
+** For any positive integers _m_ and _n_, _x_^±_m_/_n_^ := (^_n_^√_x_)^±_m_^, where ^_n_^√_x_ is the real, non-negative __n__th root of _x_.
+** _x_^±_m_/_n_^ is an even (odd) function of _x_ if _m_ is even (odd).
+* 0^0^ := 1.
+
+=== Trigonometric
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`sin(x)`
+|sin _x_
+|
+
+|`cos(x)`
+|cos _x_
+|
+
+|`tan(x)`
+|tan _x_
+|
+
+|`asin(x)`
+|sin^−1^ _x_
+|The range is [−π/2, π/2].
+
+|`acox(x)`
+|cos^−1^ _x_
+|The range is [0, π].
+
+|`atan(x)`
+|tan^−1^ _x_
+|The range is (−π/2, π/2).
+
+|`atan2(y, x)`
+|tan^−1^(_y_ / _x_)
+|The https://en.wikipedia.org/wiki/Atan2[two-argument arctangent]. +
+Undefined for (_x_, _y_) = (0, 0). +
+The range is (−π, π].
+|===
+
+=== Hyperbolic
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`sinh(x)`
+|sinh _x_
+|
+
+|`cosh(x)`
+|cosh _x_
+|
+
+|`tanh(x)`
+|tanh _x_
+|
+
+|`asinh(x)`
+|sinh^−1^ _x_
+|
+
+|`acosh(x)`
+|cosh^−1^ _x_
+|
+
+|`atanh(x)`
+|tanh^−1^ _x_
+|
+|===
+
+=== Special Functions
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`Gamma(x)` or `Γ(x)`
+|Γ(_x_)
+|The https://en.wikipedia.org/wiki/Gamma_function[gamma function].
+
+|`Gamma(a, x)` or `Γ(a, x)`
+|Γ(_a_, _x_)
+|The https://en.wikipedia.org/wiki/Incomplete_gamma_function[upper incomplete gamma function]. +
+_a_ must be an exact numberfootnote:[A number that can be represented as a double-precision floating-point number, such as 1.5 or −3.0625.].
+
+|`psi(x)` or `ψ(x)`
+|ψ(_x_)
+|The https://en.wikipedia.org/wiki/Digamma_function[digamma function].
+
+|`erf(x)`
+|erf(_x_)
+|The https://en.wikipedia.org/wiki/Error_function[error function].
+
+|`erfc(x)`
+|erfc(_x_)
+|The complementary error function.
+
+|`erfi(x)`
+|erfi(_x_)
+|The imaginary error function.
+
+|`Ei(x)`
+|Ei(_x_)
+|The https://en.wikipedia.org/wiki/Exponential_integral[exponential integral].
+
+|`li(x)`
+|li(_x_)
+|The https://en.wikipedia.org/wiki/Logarithmic_integral_function[logarithmic integral].
+
+|`Si(x)`
+|Si(_x_)
+|The https://en.wikipedia.org/wiki/Trigonometric_integral[sine integral].
+
+|`Ci(x)`
+|Ci(_x_)
+|The cosine integral.
+
+|`Shi(x)`
+|Shi(_x_)
+|The hyperbolic sine integral.
+
+|`Chi(x)`
+|Chi(_x_)
+|The hyperbolic cosine integral.
+
+|`S(x)` +
+`C(x)`
+|S(_x_) +
+C(_x_)
+|The https://en.wikipedia.org/wiki/Fresnel_integral[Fresnel integrals].
+
+|`J(n, x)` +
+`Y(n, x)`
+|J~_n_~(_x_) +
+Y~_n_~(_x_)
+|The https://en.wikipedia.org/wiki/Bessel_function[Bessel functions]. +
+_n_ must be an integer or a half-integer.
+
+|`I(n, x)` +
+`K(n, x)`
+|I~_n_~(_x_) +
+K~_n_~(_x_)
+|The modified Bessel functions. +
+_n_ must be an integer or a half-integer.
+
+|`Ai(x)` +
+`Bi(x)` +
+`Ai'(x)` +
+`Bi'(x)`
+|Ai(_x_) +
+Bi(_x_) +
+Ai′(_x_) +
+Bi′(_x_)
+|The https://en.wikipedia.org/wiki/Airy_function[Airy functions] and their derivatives.
+|===
+
+=== Relational
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`x = y`
+|_x_ = _y_
+|
+
+|`x < y`
+|_x_ < _y_
+|
+
+|`x <= y` or `x ≤ y`
+|_x_ ≤ _y_
+|
+
+|`x > y`
+|_x_ > _y_
+|
+
+|`x >= y` or `x ≥ y`
+|_x_ ≥ _y_
+|
+
+|`X && Y`
+|_X_ ∧ _Y_
+|https://en.wikipedia.org/wiki/Logical_conjunction[Logical conjunction]. +
+`X` and `Y` must be relations.
+
+|`X \|\| Y`
+|_X_ ∨ _Y_
+|https://en.wikipedia.org/wiki/Logical_disjunction[Logical disjunction]. +
+`X` and `Y` must be relations.
+
+|`!X`
+|¬_x_
+|https://en.wikipedia.org/wiki/Negation[Negation]. +
+`X` must be a relation.
+|===
+
+You can group any part of the expression with parentheses.

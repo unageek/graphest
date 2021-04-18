@@ -6,11 +6,11 @@
   <img src="docs/cover.png">
 </p>
 
-## Get started
+## Getting Started
 
 A prebuilt version of the app is available on the [releases](https://github.com/unageek/graphest/releases) page.
 
-## Build manually
+## Build from Source
 
 ### Prerequisites
 

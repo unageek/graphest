@@ -27,6 +27,13 @@ export interface NewRelation extends MessageToMain {
   result: { relId: string };
 }
 
+export const openUrl = "open-url";
+export interface OpenUrl extends MessageToMain {
+  channel: typeof openUrl;
+  args: [url: string];
+  result: void;
+}
+
 export const requestTile = "request-tile";
 export interface RequestTile extends MessageToMain {
   channel: typeof requestTile;

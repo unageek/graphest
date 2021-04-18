@@ -1,6 +1,6 @@
 import { BigNumber } from "bignumber.js";
 import { ChildProcess, execFile } from "child_process";
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, shell } from "electron";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -116,6 +116,25 @@ ipcMain.handle<ipc.AbortGraphingAll>(ipc.abortGraphingAll, async () => {
   abortGraphing();
 });
 
+ipcMain.handle<ipc.NewRelation>(ipc.newRelation, async (_, rel) => {
+  const relId = (nextRelId++).toString();
+  const outDir = path.join(baseOutDir, relId);
+  await fsPromises.mkdir(outDir);
+  relations.set(relId, {
+    id: relId,
+    nextTileNumber: 0,
+    outDir,
+    rel,
+    tiles: new Map(),
+  });
+  return { relId };
+});
+
+ipcMain.handle<ipc.OpenUrl>(ipc.openUrl, async (_, url) => {
+  if (!url.startsWith("https://")) return;
+  shell.openExternal(url);
+});
+
 ipcMain.handle<ipc.RequestTile>(
   ipc.requestTile,
   async (_, relId, tileId, coords) => {
@@ -174,20 +193,6 @@ ipcMain.handle<ipc.RequestTile>(
     }
   }
 );
-
-ipcMain.handle<ipc.NewRelation>(ipc.newRelation, async (_, rel) => {
-  const relId = (nextRelId++).toString();
-  const outDir = path.join(baseOutDir, relId);
-  await fsPromises.mkdir(outDir);
-  relations.set(relId, {
-    id: relId,
-    nextTileNumber: 0,
-    outDir,
-    rel,
-    tiles: new Map(),
-  });
-  return { relId };
-});
 
 ipcMain.handle<ipc.ValidateRelation>(ipc.validateRelation, async (_, rel) => {
   const error = await makePromise(execFile(graphExec, [rel, "--parse"]));
