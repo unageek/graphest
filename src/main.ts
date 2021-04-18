@@ -65,7 +65,7 @@ let suspendedJobs: Job[] = [];
 let queuedJobs: Job[] = [];
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "grafest-"));
-const graphExec: string = path.join(__dirname, "inari-graph");
+const graphExec: string = path.join(__dirname, "graph");
 let mainWindow: BrowserWindow | undefined;
 let nextRelId = 0;
 const relations = new Map<string, Relation>();

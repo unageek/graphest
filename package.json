@@ -4,7 +4,7 @@
   "description": "A faithful graphing calculator",
   "main": "./dist/main.js",
   "scripts": {
-    "build-rust": "cd rust && cargo build --release --all-features && mkdir -p ../dist && cp target/release/inari-graph ../dist/",
+    "build-rust": "cd rust && cargo build --release --all-features && mkdir -p ../dist && cp target/release/graph ../dist/",
     "build-app": "webpack",
     "build": "npm run build-rust && npm run build-app",
     "start": "electron dist/main.js",

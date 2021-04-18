@@ -1,6 +1,10 @@
 # Graphest
 
-## Build
+## Getting Started
+
+A prebuilt version of the app is available on the releases page.
+
+## Building Manually
 
 ### Install prerequisites
 

@@ -1,29 +1,8 @@
-#![allow(clippy::float_cmp)]
-#![feature(once_cell)]
-
-#[cfg(feature = "arb")]
-mod arb;
-#[cfg(feature = "arb")]
-mod arb_interval_set_ops;
-#[cfg(feature = "arb")]
-mod arb_sys;
-mod ast;
-mod context;
-mod eval_result;
-mod graph;
-mod interval_set;
-mod interval_set_ops;
-mod ops;
-mod parse;
-mod rational_ops;
-mod relation;
-mod visit;
-
-use crate::{
+use clap::{App, AppSettings, Arg, ArgSettings};
+use graphest::{
     graph::{Graph, GraphingStatistics, InexactRegion},
     relation::Relation,
 };
-use clap::{App, AppSettings, Arg, ArgSettings};
 use image::{GrayAlphaImage, RgbImage};
 use inari::{const_interval, interval, Interval};
 use std::time::Duration;
@@ -63,12 +42,9 @@ fn to_interval(s: &str) -> Interval {
 }
 
 fn main() {
-    let matches = App::new("inari-graph")
+    let matches = App::new("graph")
         .setting(AppSettings::AllowLeadingHyphen)
-        .about(
-            "Plots the graph of a mathematical relation to an image.\n\
-            See https://github.com/unageek/inari-graph for details.",
-        )
+        .about("Plots the graph of a mathematical relation to an image.")
         .arg(Arg::new("relation").index(1).about("Relation to plot."))
         .arg(
             Arg::new("bounds")
