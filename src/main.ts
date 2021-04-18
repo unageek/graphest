@@ -64,7 +64,7 @@ let activeJobs: Job[] = [];
 let suspendedJobs: Job[] = [];
 let queuedJobs: Job[] = [];
 
-const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "grafest-"));
+const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const graphExec: string = path.join(__dirname, "graph");
 let mainWindow: BrowserWindow | undefined;
 let nextRelId = 0;
