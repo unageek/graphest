@@ -5,13 +5,18 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
-
-env:
-  CARGO_TERM_COLOR: always
+  workflow_dispatch:
 
 jobs:
-  build:
+  rust:
     runs-on: ubuntu-latest
+
+    env:
+      CARGO_TERM_COLOR: always
+
+    defaults:
+      run:
+        working-directory: rust
 
     steps:
       - uses: actions/checkout@v2
@@ -19,6 +24,7 @@ jobs:
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
+          toolchain: nightly
           components: clippy, rustfmt
           profile: minimal
 
@@ -30,3 +36,22 @@ jobs:
 
       - name: Check format
         run: cargo fmt -- --check
+
+  app:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 10.x
+
+      - run: npm ci
+
+      - run: npm run build-app
+
+      #- run: npm test
+
+      - run: npm run lint

@@ -1,0 +1,15 @@
+html,
+body,
+#app {
+  height: 100%;
+}
+body {
+  font-family: "Noto Sans";
+  margin: 0;
+}
+:not(input):not(textarea) {
+  user-select: none;
+}
+a:not([draggable]) {
+  -webkit-user-drag: none;
+}
