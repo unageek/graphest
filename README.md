@@ -50,7 +50,7 @@ A prebuilt version of the app is available on the [releases](https://github.com/
    sudo apt install -y nodejs npm
    ```
 
-### Build the app
+### Build
 
 1. Clone the repo and install Node.js dependencies
 
@@ -60,9 +60,8 @@ A prebuilt version of the app is available on the [releases](https://github.com/
    npm install
    ```
 
-1. Build and run
+1. Debug the app
 
    ```bash
-   npm run build
    npm start
    ```
