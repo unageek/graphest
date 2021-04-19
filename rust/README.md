@@ -1,7 +1,5 @@
 # inari-graph
 
-[![build](https://img.shields.io/github/workflow/status/unageek/inari-graph/build/master)](https://github.com/unageek/inari-graph/actions?query=branch%3Amaster+workflow%3Abuild)
-
 <p align="center">
   <img src="images/cover.gif"><br>
   The graph of sin(<i>x</i> ± sin <i>y</i>) (sin <i>x</i> ± <i>y</i>) = cos(sin((sin <i>x</i> ± cos <i>y</i>) (sin <i>y</i> ± cos <i>x</i>))) over [4, 6.5] × [2, 4.5].
@@ -52,10 +50,3 @@ If you are running Windows, [install Ubuntu on WSL](https://ubuntu.com/wsl) and 
 - ![White](images/white.png) There are no solutions in the pixel.
 
 "Solution" here means any point that satisfies the relation.
-
-## References
-
-- [Ped] Pedagoguery Software Inc. GrafEq™. http://www.peda.com/grafeq
-- [Tup96] Jeffrey Allen Tupper. *Graphing Equations with Generalized Interval Arithmetic.* Master's thesis, University of Toronto, 1996. http://www.dgp.toronto.edu/~mooncake/thesis.pdf
-- [Tup01] Jeff Tupper. *Reliable Two-Dimensional Graphing Methods for Mathematical Formulae with Two Free Variables.* SIGGRAPH 2001 Conference Proceedings, 2001. http://www.dgp.toronto.edu/~mooncake/papers/SIGGRAPH2001_Tupper.pdf
-
