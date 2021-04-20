@@ -40,23 +40,21 @@ A prebuilt version of the app for Macs with Apple silicon is available on the [r
 
 1. A X11 server such as [VcXsrv](https://sourceforge.net/projects/vcxsrv/) or [Xming](https://sourceforge.net/projects/xming/)
 
-1. Everything in the [Ubuntu](#ubuntu) section on WSL
+1. Everything listed in [Ubuntu](#ubuntu) section installed on WSL
 
 #### Ubuntu
 
-1. Command line tools
+1. Command line tools and libraries
 
    ```bash
-   sudo apt install -y build-essential curl git m4
+   sudo apt update
+   sudo apt upgrade -y
+   sudo apt install -y build-essential curl git libclang-dev m4 nodejs npm
    ```
+
+   TODO: List [libraries required to run Electron](https://github.com/electron/electron/issues/26673)
 
 1. [Rust](https://rustup.rs)
-
-1. Node.js and npm
-
-   ```bash
-   sudo apt install -y nodejs npm
-   ```
 
 ### Build
 
