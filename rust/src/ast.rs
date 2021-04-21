@@ -31,6 +31,8 @@ pub enum UnaryOp {
     Cosh,
     Digamma,
     Ei,
+    EllipticE,
+    EllipticK,
     Erf,
     Erfc,
     Erfi,
@@ -178,6 +180,8 @@ impl Expr {
             Unary(Cosh, x) => x.eval1(|x| x.cosh()),
             Unary(Digamma, x) => x.eval1(|x| x.digamma(None)),
             Unary(Ei, x) => x.eval1(|x| x.ei()),
+            Unary(EllipticE, x) => x.eval1(|x| x.elliptic_e()),
+            Unary(EllipticK, x) => x.eval1(|x| x.elliptic_k()),
             Unary(Erf, x) => x.eval1(|x| x.erf()),
             Unary(Erfc, x) => x.eval1(|x| x.erfc()),
             Unary(Erfi, x) => x.eval1(|x| x.erfi()),
@@ -287,9 +291,10 @@ impl Expr {
             Constant(_) => Scalar,
             Unary(
                 Abs | Acos | Acosh | AiryAi | AiryAiPrime | AiryBi | AiryBiPrime | Asin | Asinh
-                | Atan | Atanh | Ceil | Chi | Ci | Cos | Cosh | Digamma | Ei | Erf | Erfc | Erfi
-                | Exp | Exp10 | Exp2 | Floor | FresnelC | FresnelS | Gamma | Li | Ln | Log10 | Neg
-                | One | Recip | Shi | Si | Sin | Sinc | Sinh | Sqr | Sqrt | Tan | Tanh | UndefAt0,
+                | Atan | Atanh | Ceil | Chi | Ci | Cos | Cosh | Digamma | Ei | EllipticE
+                | EllipticK | Erf | Erfc | Erfi | Exp | Exp10 | Exp2 | Floor | FresnelC | FresnelS
+                | Gamma | Li | Ln | Log10 | Neg | One | Recip | Shi | Si | Sin | Sinc | Sinh | Sqr
+                | Sqrt | Tan | Tanh | UndefAt0,
                 x,
             ) if x.ty == Scalar => Scalar,
             Binary(

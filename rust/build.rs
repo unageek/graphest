@@ -161,12 +161,15 @@ fn run_bindgen(env: &Environment) {
         return;
     }
     bindgen::Builder::default()
+        .header(env.include_dir.join("acb.h").to_str().unwrap())
+        .header(env.include_dir.join("acb_elliptic.h").to_str().unwrap())
         .header(env.include_dir.join("arb.h").to_str().unwrap())
         .header(env.include_dir.join("arb_hypgeom.h").to_str().unwrap())
         .header(env.include_dir.join("arf.h").to_str().unwrap())
         .header(env.include_dir.join("mag.h").to_str().unwrap())
-        .allowlist_function("(arb_|arf_|mag_).*")
+        .allowlist_function("(acb_|arb_|arf_|mag_).*")
         .clang_args(&[
+            "-DACB_INLINES_C",
             "-DARB_INLINES_C",
             "-DARF_INLINES_C",
             "-DMAG_INLINES_C",

@@ -13,6 +13,9 @@ pub enum Round {
     // Near = 4,
 }
 
+// Arb structs needs to be passed as mut due to:
+// https://github.com/rust-lang/rust-bindgen/issues/1962
+
 /// A wrapper for `arf_t`.
 pub struct Arf(arf_struct);
 
@@ -49,7 +52,7 @@ impl Drop for Arf {
 pub struct Arb(arb_struct);
 
 impl Arb {
-    /// Creates an `Arb` interval initialized to be `[0.0 ± 0.0]`.
+    /// Creates an `Arb` interval initialized to be `[0 ± 0]`.
     pub fn new() -> Self {
         unsafe {
             let mut x = MaybeUninit::uninit();
@@ -62,7 +65,7 @@ impl Arb {
         &mut self.0
     }
 
-    /// Creates an `Arb` interval `[x ± 0.0]`.
+    /// Creates an `Arb` interval `[x ± 0]`.
     pub fn from_f64(x: f64) -> Self {
         let mut y = Self::new();
         unsafe {
@@ -129,6 +132,51 @@ impl Drop for Arb {
         unsafe {
             arb_clear(self.as_raw_mut());
         }
+    }
+}
+
+/// A wrapper for `acb_t`.
+pub struct Acb(acb_struct);
+
+impl Acb {
+    /// Creates an `Acb` interval initialized to be `[0 ± 0] + [0 ± 0]i`.
+    pub fn new() -> Self {
+        unsafe {
+            let mut x = MaybeUninit::uninit();
+            acb_init(x.as_mut_ptr());
+            Self(x.assume_init())
+        }
+    }
+
+    pub fn as_raw_mut(&mut self) -> acb_ptr {
+        &mut self.0
+    }
+
+    /// Returns the real part of `self`.
+    pub fn real(&mut self) -> Arb {
+        let mut x = Arb::new();
+        unsafe {
+            acb_get_real(x.as_raw_mut(), self.as_raw_mut());
+        }
+        x
+    }
+}
+
+impl Drop for Acb {
+    fn drop(&mut self) {
+        unsafe {
+            acb_clear(self.as_raw_mut());
+        }
+    }
+}
+
+impl From<Arb> for Acb {
+    fn from(mut x: Arb) -> Self {
+        let mut z = Acb::new();
+        unsafe {
+            acb_set_arb(z.as_raw_mut(), x.as_raw_mut());
+        }
+        z
     }
 }
 

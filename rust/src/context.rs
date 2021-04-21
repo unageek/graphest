@@ -150,6 +150,8 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("psi", Def::unary(UnaryOp::Digamma))
         .def("ψ", Def::unary(UnaryOp::Digamma))
         .def("Ei", Def::unary(UnaryOp::Ei))
+        .def("E", Def::unary(UnaryOp::EllipticE))
+        .def("K", Def::unary(UnaryOp::EllipticK))
         .def("erf", Def::unary(UnaryOp::Erf))
         .def("erfc", Def::unary(UnaryOp::Erfc))
         .def("erfi", Def::unary(UnaryOp::Erfi))

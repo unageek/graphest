@@ -583,6 +583,8 @@ impl CollectStatic {
                     Cosh => Some(ScalarUnaryOp::Cosh),
                     Digamma => Some(ScalarUnaryOp::Digamma),
                     Ei => Some(ScalarUnaryOp::Ei),
+                    EllipticE => Some(ScalarUnaryOp::EllipticE),
+                    EllipticK => Some(ScalarUnaryOp::EllipticK),
                     Erf => Some(ScalarUnaryOp::Erf),
                     Erfc => Some(ScalarUnaryOp::Erfc),
                     Erfi => Some(ScalarUnaryOp::Erfi),

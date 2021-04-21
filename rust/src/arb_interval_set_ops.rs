@@ -555,6 +555,40 @@ impl TupperIntervalSet {
         ne!(x, 0.0)
     );
     impl_arb_op!(
+        elliptic_e(x),
+        {
+            let a = x.inf();
+            let b = x.sup();
+            if a == f64::NEG_INFINITY && b >= 1.0 {
+                const_interval!(1.0, f64::INFINITY)
+            } else if a == f64::NEG_INFINITY {
+                interval!(arb_elliptic_e(i(b)).inf(), f64::INFINITY).unwrap()
+            } else if b >= 1.0 {
+                interval!(1.0, arb_elliptic_e(i(a)).sup()).unwrap()
+            } else {
+                arb_elliptic_e(x)
+            }
+        },
+        le!(x, 1.0)
+    );
+    impl_arb_op!(
+        elliptic_k(x),
+        {
+            let a = x.inf();
+            let b = x.sup();
+            if a == f64::NEG_INFINITY && b >= 1.0 {
+                const_interval!(0.0, f64::INFINITY)
+            } else if a == f64::NEG_INFINITY {
+                interval!(0.0, arb_elliptic_k(i(b)).sup()).unwrap()
+            } else if b >= 1.0 {
+                interval!(arb_elliptic_k(i(a)).inf(), f64::INFINITY).unwrap()
+            } else {
+                arb_elliptic_k(x)
+            }
+        },
+        lt!(x, 1.0)
+    );
+    impl_arb_op!(
         erf(x),
         if x.is_common_interval() {
             arb_erf(x)
@@ -827,6 +861,24 @@ macro_rules! arb_fn {
     };
 }
 
+macro_rules! acb_fn_reals {
+    ($f:ident($x:ident $(,$y:ident)*), $acb_f:ident($($args:expr),*), $range:expr) => {
+        fn $f($x: Interval, $($y: Interval,)*) -> Interval {
+            use crate::arb::{Acb, Arb};
+            let mut $x = Acb::from(Arb::from_interval($x));
+            $(let mut $y = Acb::from(Arb::from_interval($y));)*
+            unsafe {
+                #[allow(unused_imports)]
+                use std::ptr::null_mut as null;
+                let $x = $x.as_raw_mut();
+                $(let $y = $y.as_raw_mut();)*
+                crate::arb_sys::$acb_f($($args),*);
+            }
+            $x.real().to_interval().intersection($range)
+        }
+    };
+}
+
 arb_fn!(
     arb_acos(x),
     arb_acos(x, x, f64::MANTISSA_DIGITS.into()),
@@ -921,6 +973,16 @@ arb_fn!(
     arb_ei(x),
     arb_hypgeom_ei(x, x, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE
+);
+acb_fn_reals!(
+    arb_elliptic_e(x),
+    acb_elliptic_e(x, x, f64::MANTISSA_DIGITS.into()),
+    ONE_TO_INF
+);
+acb_fn_reals!(
+    arb_elliptic_k(x),
+    acb_elliptic_k(x, x, f64::MANTISSA_DIGITS.into()),
+    ZERO_TO_INF
 );
 arb_fn!(
     arb_erf(x),
@@ -1096,6 +1158,8 @@ mod tests {
             TupperIntervalSet::cos,
             TupperIntervalSet::cosh,
             TupperIntervalSet::ei,
+            TupperIntervalSet::elliptic_e,
+            TupperIntervalSet::elliptic_k,
             TupperIntervalSet::erf,
             TupperIntervalSet::erfc,
             TupperIntervalSet::erfi,

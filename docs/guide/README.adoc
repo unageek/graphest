@@ -300,6 +300,14 @@ Bi(_x_) +
 Ai′(_x_) +
 Bi′(_x_)
 |The https://en.wikipedia.org/wiki/Airy_function[Airy functions] and their derivatives.
+
+|`K(m)`
+|K(_m_)
+|The https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_first_kind[complete elliptic integral of the first kind].
+
+|`E(m)`
+|E(_m_)
+|The https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_second_kind[complete elliptic integral of the second kind].
 |===
 
 === Relational

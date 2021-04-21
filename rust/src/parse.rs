@@ -420,6 +420,8 @@ mod tests {
         test_parse_expr("psi(x)", "(Digamma x)");
         test_parse_expr("ψ(x)", "(Digamma x)");
         test_parse_expr("Ei(x)", "(Ei x)");
+        test_parse_expr("E(x)", "(EllipticE x)");
+        test_parse_expr("K(x)", "(EllipticK x)");
         test_parse_expr("erf(x)", "(Erf x)");
         test_parse_expr("erfc(x)", "(Erfc x)");
         test_parse_expr("erfi(x)", "(Erfi x)");
