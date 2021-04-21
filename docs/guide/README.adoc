@@ -232,7 +232,7 @@ The range is (−π, π].
 _a_ must be an exact numberfootnote:[A number that can be represented as a double-precision floating-point number, such as 1.5 or −3.0625.].
 
 |`psi(x)` or `ψ(x)`
-|ψ(_x_)
+|_ψ_(_x_)
 |The https://en.wikipedia.org/wiki/Digamma_function[digamma function].
 
 |`erf(x)`
@@ -273,21 +273,21 @@ _a_ must be an exact numberfootnote:[A number that can be represented as a doubl
 
 |`S(x)` +
 `C(x)`
-|S(_x_) +
-C(_x_)
+|_S_(_x_) +
+_C_(_x_)
 |The https://en.wikipedia.org/wiki/Fresnel_integral[Fresnel integrals].
 
 |`J(n, x)` +
 `Y(n, x)`
-|J~_n_~(_x_) +
-Y~_n_~(_x_)
+|_J_~_n_~(_x_) +
+_Y_~_n_~(_x_)
 |The https://en.wikipedia.org/wiki/Bessel_function[Bessel functions]. +
 _n_ must be an integer or a half-integer.
 
 |`I(n, x)` +
 `K(n, x)`
-|I~_n_~(_x_) +
-K~_n_~(_x_)
+|_I_~_n_~(_x_) +
+_K_~_n_~(_x_)
 |The modified Bessel functions. +
 _n_ must be an integer or a half-integer.
 
@@ -302,11 +302,11 @@ Bi′(_x_)
 |The https://en.wikipedia.org/wiki/Airy_function[Airy functions] and their derivatives.
 
 |`K(m)`
-|K(_m_)
+|_K_(_m_)
 |The https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_first_kind[complete elliptic integral of the first kind].
 
 |`E(m)`
-|E(_m_)
+|_E_(_m_)
 |The https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_second_kind[complete elliptic integral of the second kind].
 |===
 
@@ -349,7 +349,7 @@ Bi′(_x_)
 `X` and `Y` must be relations.
 
 |`!X`
-|¬_x_
+|¬_X_
 |https://en.wikipedia.org/wiki/Negation[Negation]. +
 `X` must be a relation.
 |===
