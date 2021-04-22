@@ -1,9 +1,10 @@
-const path = require("path");
 const ESLintPlugin = require("eslint-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const path = require("path");
+const process = require("process");
 
-function baseConfig(mode) {
-  switch (mode) {
+function baseConfig() {
+  switch (process.env.NODE_ENV) {
     case "development":
       return {
         devtool: "cheap-source-map",
@@ -16,7 +17,7 @@ function baseConfig(mode) {
         stats: "errors-warnings",
       };
     default:
-      throw "mode must be either 'development' or 'production'";
+      throw new Error("specify NODE_ENV={development|production}");
   }
 }
 
@@ -29,14 +30,16 @@ const tsLoaderRule = {
   use: "ts-loader",
 };
 
-const esLintPlugin = new ESLintPlugin({
-  extensions: ["js", "ts", "tsx"],
-  fix: true,
-});
+const plugins = [
+  new ESLintPlugin({
+    extensions: ["js", "ts", "tsx"],
+    fix: true,
+  }),
+];
 
-function mainConfig(mode) {
+function mainConfig() {
   return {
-    ...baseConfig(mode),
+    ...baseConfig(),
     target: "electron-main",
     entry: "./src/main.ts",
     module: {
@@ -46,13 +49,13 @@ function mainConfig(mode) {
       path: path.join(__dirname, "dist"),
       filename: "main.js",
     },
-    plugins: [esLintPlugin],
+    plugins,
   };
 }
 
-function preloadConfig(mode) {
+function preloadConfig() {
   return {
-    ...baseConfig(mode),
+    ...baseConfig(),
     target: "electron-preload",
     entry: "./src/preload.ts",
     module: {
@@ -62,13 +65,13 @@ function preloadConfig(mode) {
       path: path.join(__dirname, "dist"),
       filename: "preload.js",
     },
-    plugins: [esLintPlugin],
+    plugins,
   };
 }
 
-function rendererConfig(mode) {
+function rendererConfig() {
   return {
-    ...baseConfig(mode),
+    ...baseConfig(),
     target: "electron-renderer",
     entry: {
       bundle: "./src/App.tsx",
@@ -97,7 +100,7 @@ function rendererConfig(mode) {
       filename: "[name].js",
     },
     plugins: [
-      esLintPlugin,
+      ...plugins,
       new HtmlWebpackPlugin({
         template: "./src/index.html",
       }),
@@ -105,8 +108,4 @@ function rendererConfig(mode) {
   };
 }
 
-module.exports = (env, argv) => {
-  return [mainConfig, preloadConfig, rendererConfig].map((cfg) =>
-    cfg(argv.mode)
-  );
-};
+module.exports = [mainConfig(), preloadConfig(), rendererConfig()];

@@ -117,4 +117,4 @@ dist
 
 # Specific to Graphest
 .DS_Store
-pkg/
+release/

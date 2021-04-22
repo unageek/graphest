@@ -4,13 +4,13 @@
   "description": "A faithful graphing calculator",
   "main": "./dist/main.js",
   "scripts": {
-    "build": "npm run build-rust && npm run build-app",
-    "build-app": "webpack --mode=production",
-    "build-rust": "cd rust && cargo build --release --all-features && mkdir -p ../dist && cp target/release/graph ../dist/",
-    "clean": "rm -rf dist && rm -rf pkg",
+    "build": "npm-run-all build:*",
+    "build:app": "webpack",
+    "build:rust": "cd rust && cargo build --release --all-features && mkdir -p ../dist && cp target/release/graph ../dist/",
+    "clean": "rm -rf dist && rm -rf release",
     "lint": "prettier --check .",
-    "package": "npm run lint && npm run clean && npm run build && electron-builder --mac",
-    "start": "npm run build-rust && webpack --mode=development && electron dist/main.js"
+    "package:mac": "npm run lint && npm run clean && NODE_ENV=production npm run build && electron-builder --mac",
+    "start": "NODE_ENV=development npm run build && electron ."
   },
   "author": "Masashi Mizuno",
   "license": "MIT",
@@ -30,10 +30,12 @@
     "css-loader": "^5.2.1",
     "electron": "^12.0.2",
     "electron-builder": "^22.10.5",
+    "electron-notarize": "^1.0.0",
     "eslint": "^7.24.0",
     "eslint-plugin-react-hooks": "^4.2.0",
     "eslint-webpack-plugin": "^2.5.3",
     "html-webpack-plugin": "^5.3.1",
+    "npm-run-all": "^4.1.5",
     "prettier": "^2.2.1",
     "style-loader": "^2.0.0",
     "ts-loader": "^8.1.0",
@@ -54,25 +56,5 @@
     "react-dom": "^17.0.2",
     "react-redux": "^7.2.3"
   },
-  "productName": "Graphest",
-  "build": {
-    "appId": "io.github.unageek.graphest",
-    "directories": {
-      "output": "./pkg"
-    },
-    "files": [
-      "./dist/**/*",
-      "!**/*.js.map"
-    ],
-    "mac": {
-      "category": "public.app-category.utilities",
-      "target": [
-        "dmg"
-      ],
-      "identity": null,
-      "electronLanguages": [
-        "en"
-      ]
-    }
-  }
+  "productName": "Graphest"
 }
