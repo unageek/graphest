@@ -38,9 +38,12 @@ A prebuilt version of the app for Macs with Apple silicon is available on the [r
 
 1. [Ubuntu on WSL](https://www.microsoft.com/store/productId/9NBLGGH4MSV6)
 
-1. A X11 server such as [VcXsrv](https://sourceforge.net/projects/vcxsrv/) or [Xming](https://sourceforge.net/projects/xming/)
+1. Either:
 
-1. Everything listed in [Ubuntu](#ubuntu) section installed on WSL
+   - A X11 server such as [VcXsrv](https://sourceforge.net/projects/vcxsrv/) or [Xming](https://sourceforge.net/projects/xming/)
+   - [WSLg](https://github.com/microsoft/wslg#installing-wslg)
+
+1. Everything listed in [Ubuntu](#ubuntu) section, installed on WSL
 
 #### Ubuntu
 
@@ -52,7 +55,11 @@ A prebuilt version of the app for Macs with Apple silicon is available on the [r
    sudo apt install -y build-essential curl git libclang-dev m4 nodejs npm
    ```
 
-   TODO: List [libraries required to run Electron](https://github.com/electron/electron/issues/26673)
+   [libraries required to run Electron](https://github.com/electron/electron/issues/26673):
+
+   ```bash
+   sudo apt install -y libatk-bridge2.0-0 libatk1.0-0 libgconf-2-4 libgdk-pixbuf2.0-0 libgtk-3-0 libnss3-dev
+   ```
 
 1. [Rust](https://rustup.rs)
 
