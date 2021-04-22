@@ -50,7 +50,9 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build-app
+      - run: npm run build:app
+        env:
+          NODE_ENV: production
 
       #- run: npm test
 
