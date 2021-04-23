@@ -1,10 +1,4 @@
-use std::{
-    env::var_os,
-    ffi::OsString,
-    fs::create_dir_all,
-    path::PathBuf,
-    process::{Command, Stdio},
-};
+use std::{env::var_os, ffi::OsString, fs::create_dir_all, path::PathBuf, process::Command};
 
 // https://gitlab.com/tspiteri/gmp-mpfr-sys/-/blob/master/build.rs
 
@@ -54,8 +48,9 @@ fn build_flint(env: &Environment) {
     }
 
     let build_dir = env.build_dir.join("flint-build");
-    execute(
-        Command::new("git").current_dir(&env.build_dir).args(&[
+
+    if !build_dir.exists() {
+        execute(Command::new("git").current_dir(&env.build_dir).args(&[
             "clone",
             "--branch",
             &env.flint_branch.to_str().unwrap(),
@@ -63,41 +58,38 @@ fn build_flint(env: &Environment) {
             "1",
             "https://github.com/fredrik-johansson/flint2.git",
             build_dir.to_str().unwrap(),
-        ]),
-        "checkout FLINT",
-    );
+        ]));
+    }
     execute(
-        Command::new("sh").current_dir(&build_dir).arg("-c").arg(
-            [
-                "./configure",
-                " --prefix=",
-                env.out_dir.to_str().unwrap(),
-                " --with-gmp=",
-                env.gmp_dir.to_str().unwrap(),
-                " --with-mpfr=",
-                env.gmp_dir.to_str().unwrap(),
-            ]
-            .concat(),
-        ),
-        "configure FLINT",
+        Command::new("sh")
+            .current_dir(&build_dir)
+            .arg("-c")
+            .arg(
+                [
+                    "./configure",
+                    " --prefix=",
+                    env.out_dir.to_str().unwrap(),
+                    " --with-gmp=",
+                    env.gmp_dir.to_str().unwrap(),
+                    " --with-mpfr=",
+                    env.gmp_dir.to_str().unwrap(),
+                ]
+                .concat(),
+            )
+            .env("CFLAGS", "-Wno-error"),
     );
     execute(
         Command::new("make")
             .current_dir(&build_dir)
             .env("MAKEFLAGS", &env.makeflags),
-        "build FLINT",
     );
     execute(
         Command::new("make")
             .current_dir(&build_dir)
             .arg("check")
             .env("MAKEFLAGS", &env.makeflags),
-        "check FLINT",
     );
-    execute(
-        Command::new("make").current_dir(&build_dir).arg("install"),
-        "install FLINT",
-    );
+    execute(Command::new("make").current_dir(&build_dir).arg("install"));
 }
 
 fn build_arb(env: &Environment) {
@@ -106,8 +98,8 @@ fn build_arb(env: &Environment) {
     }
 
     let build_dir = env.build_dir.join("arb-build");
-    execute(
-        Command::new("git").current_dir(&env.build_dir).args(&[
+    if !build_dir.exists() {
+        execute(Command::new("git").current_dir(&env.build_dir).args(&[
             "clone",
             "--branch",
             &env.arb_branch.to_str().unwrap(),
@@ -115,43 +107,40 @@ fn build_arb(env: &Environment) {
             "1",
             "https://github.com/fredrik-johansson/arb.git",
             build_dir.to_str().unwrap(),
-        ]),
-        "checkout Arb",
-    );
+        ]));
+    }
     execute(
-        Command::new("sh").current_dir(&build_dir).arg("-c").arg(
-            [
-                "./configure",
-                " --prefix=",
-                env.out_dir.to_str().unwrap(),
-                " --with-gmp=",
-                env.gmp_dir.to_str().unwrap(),
-                " --with-mpfr=",
-                env.gmp_dir.to_str().unwrap(),
-                " --with-flint=",
-                env.out_dir.to_str().unwrap(),
-            ]
-            .concat(),
-        ),
-        "configure Arb",
+        Command::new("sh")
+            .current_dir(&build_dir)
+            .arg("-c")
+            .arg(
+                [
+                    "./configure",
+                    " --prefix=",
+                    env.out_dir.to_str().unwrap(),
+                    " --with-gmp=",
+                    env.gmp_dir.to_str().unwrap(),
+                    " --with-mpfr=",
+                    env.gmp_dir.to_str().unwrap(),
+                    " --with-flint=",
+                    env.out_dir.to_str().unwrap(),
+                ]
+                .concat(),
+            )
+            .env("CFLAGS", "-Wno-error"),
     );
     execute(
         Command::new("make")
             .current_dir(&build_dir)
             .env("MAKEFLAGS", &env.makeflags),
-        "build Arb",
     );
+    execute(Command::new("make").current_dir(&build_dir).arg("install"));
     execute(
         Command::new("make")
             .current_dir(&build_dir)
             .arg("check")
             .env("ARB_TEST_MULTIPLIER", "0.1")
             .env("MAKEFLAGS", &env.makeflags),
-        "check Arb",
-    );
-    execute(
-        Command::new("make").current_dir(&build_dir).arg("install"),
-        "install Arb",
     );
 }
 
@@ -202,9 +191,15 @@ fn write_link_info(env: &Environment) {
     println!("cargo:rustc-link-lib=static=arb");
 }
 
-fn execute(cmd: &mut Command, descr: &str) {
-    cmd.stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
+fn execute(cmd: &mut Command) {
+    let status = cmd
         .status()
-        .unwrap_or_else(|_| panic!("failed to {}", descr));
+        .unwrap_or_else(|_| panic!("failed to run the command: {:?}", cmd));
+    if !status.success() {
+        if let Some(code) = status.code() {
+            panic!("command exited with code {}: {:?}", code, cmd);
+        } else {
+            panic!("command failed: {:?}", cmd);
+        }
+    }
 }

@@ -21,6 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - uses: actions/cache@v
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}-build-script-${{ hashFiles('build.rs') }}
+
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -30,6 +35,9 @@ jobs:
 
       - name: Run tests
         run: cargo test --release
+
+      - name: Run tests with Arb
+        run: cargo test --release --features "arb"
 
       - name: Clippy
         run: cargo clippy --all-targets -- -Dwarnings
