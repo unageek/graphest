@@ -73,6 +73,7 @@ fn build_flint(env: &Environment) {
                     env.gmp_dir.to_str().unwrap(),
                     " --with-mpfr=",
                     env.gmp_dir.to_str().unwrap(),
+                    " --disable-shared",
                 ]
                 .concat(),
             )
@@ -124,6 +125,7 @@ fn build_arb(env: &Environment) {
                     env.gmp_dir.to_str().unwrap(),
                     " --with-flint=",
                     env.out_dir.to_str().unwrap(),
+                    " --disable-shared",
                 ]
                 .concat(),
             )
@@ -134,7 +136,6 @@ fn build_arb(env: &Environment) {
             .current_dir(&build_dir)
             .env("MAKEFLAGS", &env.makeflags),
     );
-    execute(Command::new("make").current_dir(&build_dir).arg("install"));
     execute(
         Command::new("make")
             .current_dir(&build_dir)
@@ -142,6 +143,7 @@ fn build_arb(env: &Environment) {
             .env("ARB_TEST_MULTIPLIER", "0.1")
             .env("MAKEFLAGS", &env.makeflags),
     );
+    execute(Command::new("make").current_dir(&build_dir).arg("install"));
 }
 
 fn run_bindgen(env: &Environment) {
