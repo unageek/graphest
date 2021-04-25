@@ -44,7 +44,7 @@
     "webpack-cli": "^4.6.0"
   },
   "dependencies": {
-    "@fluentui/react": "^8.9.4",
+    "@fluentui/react": "^8.12.0",
     "@fontsource/noto-sans": "^4.2.3",
     "@reduxjs/toolkit": "^1.5.1",
     "bignumber.js": "^9.0.1",
