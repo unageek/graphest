@@ -319,6 +319,7 @@ mod tests {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GraphingErrorKind {
     ReachedMemLimit,
+    ReachedPrecisionLimit,
     ReachedSubdivisionLimit,
 }
 
@@ -330,8 +331,11 @@ pub struct GraphingError {
 impl fmt::Display for GraphingError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
-            GraphingErrorKind::ReachedMemLimit => write!(f, "reached memory usage limit"),
-            GraphingErrorKind::ReachedSubdivisionLimit => write!(f, "reached subdivision limit"),
+            GraphingErrorKind::ReachedMemLimit => write!(f, "reached the memory usage limit"),
+            GraphingErrorKind::ReachedPrecisionLimit => write!(f, "reached the precision limit"),
+            GraphingErrorKind::ReachedSubdivisionLimit => {
+                write!(f, "reached the subdivision limit")
+            }
         }
     }
 }
@@ -545,7 +549,7 @@ impl Graph {
         let p_dn = self.block_to_region(pixel.as_block()).inner();
         if p_dn.is_empty() {
             return Err(GraphingError {
-                kind: GraphingErrorKind::ReachedSubdivisionLimit,
+                kind: GraphingErrorKind::ReachedPrecisionLimit,
             });
         }
 
