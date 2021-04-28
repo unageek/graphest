@@ -6,6 +6,13 @@ updates:
       interval: weekly
       timezone: Asia/Tokyo
     open-pull-requests-limit: 10
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      timezone: Asia/Tokyo
+
   - package-ecosystem: npm
     directory: "/"
     schedule:
