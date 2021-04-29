@@ -852,8 +852,8 @@ macro_rules! arb_fn {
             unsafe {
                 #[allow(unused_imports)]
                 use std::ptr::null_mut as null;
-                let $x = $x.as_raw_mut();
-                $(let $y = $y.as_raw_mut();)*
+                let $x = $x.as_mut_ptr();
+                $(let $y = $y.as_mut_ptr();)*
                 crate::arb_sys::$arb_f($($args),*);
             }
             $x.to_interval().intersection($range)
@@ -870,8 +870,8 @@ macro_rules! acb_fn_reals {
             unsafe {
                 #[allow(unused_imports)]
                 use std::ptr::null_mut as null;
-                let $x = $x.as_raw_mut();
-                $(let $y = $y.as_raw_mut();)*
+                let $x = $x.as_mut_ptr();
+                $(let $y = $y.as_mut_ptr();)*
                 crate::arb_sys::$acb_f($($args),*);
             }
             $x.real().to_interval().intersection($range)
@@ -1010,7 +1010,7 @@ arb_fn!(
     arb_exp10(x),
     arb_pow(
         x,
-        Arb::from_f64(10.0).as_raw_mut(), // TODO: lazy_static
+        Arb::from_f64(10.0).as_mut_ptr(), // TODO: `SyncLazy`
         x,
         f64::MANTISSA_DIGITS.into()
     ),
@@ -1020,7 +1020,7 @@ arb_fn!(
     arb_exp2(x),
     arb_pow(
         x,
-        Arb::from_f64(2.0).as_raw_mut(), // TODO: lazy_static
+        Arb::from_f64(2.0).as_mut_ptr(), // TODO: `SyncLazy`
         x,
         f64::MANTISSA_DIGITS.into()
     ),

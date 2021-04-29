@@ -2,10 +2,20 @@ use crate::arb_sys::*;
 use inari::{interval, Interval};
 use std::{mem::MaybeUninit, ops::Drop};
 
-/// The size of the mantissa of `mag_t`.
+// Notes:
+//
+// - We always need to pass Arb pointers as `*_ptr` to Arb functions even if they expect `*_srcptr`,
+//   due to: https://github.com/rust-lang/rust-bindgen/issues/1962
+//
+// - Arb is thread-safe, thus we implement `Send` and `Sync` for Arb types.
+//   https://arblib.org/issues.html#thread-safety-and-caches
+
+/// The precision of the `mag_t` type.
 const MAG_BITS: u32 = 30;
 
-pub enum Round {
+/// Constants that correspond to the values of `arf_rnd_t`.
+#[derive(Clone, Copy, Debug)]
+enum ArfRound {
     // Down = 0,
     // Up = 1,
     Floor = 2,
@@ -13,11 +23,8 @@ pub enum Round {
     // Near = 4,
 }
 
-// Arb structs needs to be passed as mut due to:
-// https://github.com/rust-lang/rust-bindgen/issues/1962
-
-/// A wrapper for `arf_t`.
-pub struct Arf(arf_struct);
+/// A wrapper for the `arf_t` type.
+struct Arf(arf_struct);
 
 impl Arf {
     /// Creates an `Arf` value initialized to be zero.
@@ -29,26 +36,35 @@ impl Arf {
         }
     }
 
-    pub fn as_raw_mut(&mut self) -> arf_ptr {
+    /// Returns an unsafe mutable pointer to the underlying `arf_t`.
+    pub fn as_mut_ptr(&mut self) -> arf_ptr {
         &mut self.0
     }
 
-    /// Rounds `self` to a `f64` value with the given rounding mode.
+    /// Returns an unsafe pointer to the underlying `arf_t`.
+    pub fn as_ptr(&self) -> arf_srcptr {
+        &self.0
+    }
+
+    /// Rounds `self` to a `f64` value using the given rounding mode.
     #[allow(clippy::wrong_self_convention)]
-    pub fn to_f64_round(&mut self, round: Round) -> f64 {
-        unsafe { arf_get_d(self.as_raw_mut(), round as i32) }
+    pub fn to_f64_round(&self, round: ArfRound) -> f64 {
+        unsafe { arf_get_d(self.as_ptr() as arf_ptr, round as i32) }
     }
 }
 
 impl Drop for Arf {
     fn drop(&mut self) {
         unsafe {
-            arf_clear(self.as_raw_mut());
+            arf_clear(self.as_mut_ptr());
         }
     }
 }
 
-/// A wrapper for `arb_t`.
+unsafe impl Send for Arf {}
+unsafe impl Sync for Arf {}
+
+/// A wrapper for the `arb_t` type.
 pub struct Arb(arb_struct);
 
 impl Arb {
@@ -61,15 +77,21 @@ impl Arb {
         }
     }
 
-    pub fn as_raw_mut(&mut self) -> arb_ptr {
+    /// Returns an unsafe mutable pointer to the underlying `arb_t`.
+    pub fn as_mut_ptr(&mut self) -> arb_ptr {
         &mut self.0
+    }
+
+    /// Returns an unsafe pointer to the underlying `arb_t`.
+    pub fn as_ptr(&self) -> arb_srcptr {
+        &self.0
     }
 
     /// Creates an `Arb` interval `[x ± 0]`.
     pub fn from_f64(x: f64) -> Self {
         let mut y = Self::new();
         unsafe {
-            arb_set_d(y.as_raw_mut(), x);
+            arb_set_d(y.as_mut_ptr(), x);
         }
         y
     }
@@ -79,7 +101,7 @@ impl Arb {
         let mut y = Self::new();
         if !x.is_common_interval() {
             unsafe {
-                arb_zero_pm_inf(y.as_raw_mut());
+                arb_zero_pm_inf(y.as_mut_ptr());
             }
         } else {
             // Construct an `Arb` interval faster and more precisely than
@@ -111,31 +133,37 @@ impl Arb {
 
     /// Returns an `Interval` that encloses `self`.
     #[allow(clippy::wrong_self_convention)]
-    pub fn to_interval(&mut self) -> Interval {
+    pub fn to_interval(&self) -> Interval {
         let mut a = Arf::new();
         let mut b = Arf::new();
         unsafe {
             arb_get_interval_arf(
-                a.as_raw_mut(),
-                b.as_raw_mut(),
-                self.as_raw_mut(),
+                a.as_mut_ptr(),
+                b.as_mut_ptr(),
+                self.as_ptr() as arb_ptr,
                 f64::MANTISSA_DIGITS.into(),
             );
         }
-        interval!(a.to_f64_round(Round::Floor), b.to_f64_round(Round::Ceil))
-            .unwrap_or(Interval::ENTIRE) // [+∞ ± c], [-∞ ± c] or [NaN ± c]
+        interval!(
+            a.to_f64_round(ArfRound::Floor),
+            b.to_f64_round(ArfRound::Ceil)
+        )
+        .unwrap_or(Interval::ENTIRE) // [+∞ ± c], [-∞ ± c] or [NaN ± c]
     }
 }
 
 impl Drop for Arb {
     fn drop(&mut self) {
         unsafe {
-            arb_clear(self.as_raw_mut());
+            arb_clear(self.as_mut_ptr());
         }
     }
 }
 
-/// A wrapper for `acb_t`.
+unsafe impl Send for Arb {}
+unsafe impl Sync for Arb {}
+
+/// A wrapper for the `acb_t` type.
 pub struct Acb(acb_struct);
 
 impl Acb {
@@ -148,15 +176,21 @@ impl Acb {
         }
     }
 
-    pub fn as_raw_mut(&mut self) -> acb_ptr {
+    /// Returns an unsafe mutable pointer to the underlying `acb_t`.
+    pub fn as_mut_ptr(&mut self) -> acb_ptr {
         &mut self.0
     }
 
+    /// Returns an unsafe pointer to the underlying `acb_t`.
+    pub fn as_ptr(&self) -> acb_srcptr {
+        &self.0
+    }
+
     /// Returns the real part of `self`.
-    pub fn real(&mut self) -> Arb {
+    pub fn real(&self) -> Arb {
         let mut x = Arb::new();
         unsafe {
-            acb_get_real(x.as_raw_mut(), self.as_raw_mut());
+            acb_get_real(x.as_mut_ptr(), self.as_ptr() as acb_ptr);
         }
         x
     }
@@ -165,7 +199,7 @@ impl Acb {
 impl Drop for Acb {
     fn drop(&mut self) {
         unsafe {
-            acb_clear(self.as_raw_mut());
+            acb_clear(self.as_mut_ptr());
         }
     }
 }
@@ -174,11 +208,14 @@ impl From<Arb> for Acb {
     fn from(mut x: Arb) -> Self {
         let mut z = Acb::new();
         unsafe {
-            acb_set_arb(z.as_raw_mut(), x.as_raw_mut());
+            acb_set_arb(z.as_mut_ptr(), x.as_mut_ptr());
         }
         z
     }
 }
+
+unsafe impl Send for Acb {}
+unsafe impl Sync for Acb {}
 
 // A copy-paste of https://github.com/rust-lang/libm/blob/master/src/math/frexp.rs
 fn frexp(x: f64) -> (f64, i32) {
