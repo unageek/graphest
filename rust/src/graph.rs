@@ -48,6 +48,9 @@ const C_TRUE: u32 = !0u32;
 struct Image {
     width: u32,
     height: u32,
+    // TODO: Instead of the uncertain area, should we store the per-pixel proof status
+    // and the (wrapped) index of the last subpixel block of the pixel in the queue
+    // in separate arrays?
     data: Vec<u32>,
 }
 
