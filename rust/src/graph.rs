@@ -1,5 +1,6 @@
 use crate::{
     eval_result::EvalResult,
+    image_block_queue::ImageBlockQueue,
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationType},
@@ -7,7 +8,6 @@ use crate::{
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{interval, Decoration, Interval};
 use std::{
-    collections::VecDeque,
     error, fmt,
     mem::size_of,
     time::{Duration, Instant},
@@ -48,6 +48,9 @@ const C_TRUE: u32 = !0u32;
 struct Image {
     width: u32,
     height: u32,
+    // TODO: Instead of the uncertain area, should we store the per-pixel proof status
+    // and the (wrapped) index of the last subpixel block of the pixel in the queue
+    // in separate arrays?
     data: Vec<u32>,
 }
 
@@ -104,14 +107,16 @@ impl PixelIndex {
 
 /// A rectangular region of an [`Image`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct ImageBlock {
+pub struct ImageBlock {
     /// The horizontal index of the first subpixel in the block.
     /// The index is represented in multiples of [`MIN_WIDTH`].
-    x: u32,
+    pub x: u32,
     /// The vertical index of the first subpixel.
-    y: u32,
-    kx: i8,
-    ky: i8,
+    pub y: u32,
+    /// The horizontal subdivision level.
+    pub kx: i8,
+    /// The vertical subdivision level.
+    pub ky: i8,
 }
 
 impl ImageBlock {
@@ -275,47 +280,6 @@ impl InexactRegion {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use inari::*;
-
-    #[test]
-    fn subpixel_outer() {
-        let u = InexactRegion {
-            l: const_interval!(0.33, 0.34),
-            r: const_interval!(0.66, 0.67),
-            b: const_interval!(1.33, 1.34),
-            t: const_interval!(1.66, 1.67),
-        };
-
-        // The bottom/left sides are pixel boundaries.
-        let b = ImageBlock {
-            x: 5 * PIXEL_ALIGNMENT,
-            y: 7 * PIXEL_ALIGNMENT,
-            kx: -2,
-            ky: -2,
-        };
-        let u_up = u.subpixel_outer(b);
-        assert_eq!(u_up.0.inf(), u.l.inf());
-        assert_eq!(u_up.0.sup(), u.r.mid());
-        assert_eq!(u_up.1.inf(), u.b.inf());
-        assert_eq!(u_up.1.sup(), u.t.mid());
-
-        // The top/right sides are pixel boundaries.
-        let b = ImageBlock {
-            x: b.x + 3 * PIXEL_ALIGNMENT / 4,
-            y: b.y + 3 * PIXEL_ALIGNMENT / 4,
-            ..b
-        };
-        let u_up = u.subpixel_outer(b);
-        assert_eq!(u_up.0.inf(), u.l.mid());
-        assert_eq!(u_up.0.sup(), u.r.sup());
-        assert_eq!(u_up.1.inf(), u.b.mid());
-        assert_eq!(u_up.1.sup(), u.t.sup());
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GraphingErrorKind {
     ReachedMemLimit,
@@ -350,13 +314,12 @@ pub struct GraphingStatistics {
     pub time_elapsed: Duration,
 }
 
-#[derive(Debug)]
 pub struct Graph {
     rel: Relation,
     forms: Vec<StaticForm>,
     relation_type: RelationType,
     im: Image,
-    bs_to_subdivide: VecDeque<ImageBlock>,
+    bs_to_subdivide: ImageBlockQueue,
     bx_end: u32,
     by_end: u32,
     // Affine transformation from subpixel coordinates (bx, by) to real coordinates (x, y):
@@ -387,7 +350,7 @@ impl Graph {
             forms,
             relation_type,
             im: Image::new(im_width, im_height),
-            bs_to_subdivide: VecDeque::new(),
+            bs_to_subdivide: ImageBlockQueue::new(),
             bx_end: im_width << -MIN_K,
             by_end: im_height << -MIN_K,
             sx: region.width() / Self::point_interval(im_width as f64 / MIN_WIDTH),
@@ -485,7 +448,7 @@ impl Graph {
 
             let mut clear_cache_and_retry = true;
             while self.im.size_in_heap()
-                + self.bs_to_subdivide.capacity() * size_of::<ImageBlock>()
+                + self.bs_to_subdivide.size_in_heap()
                 + cache_eval_on_region.size_in_heap()
                 + cache_eval_on_point.size_in_heap()
                 > self.mem_limit
@@ -805,5 +768,46 @@ impl Graph {
                 ky,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use inari::*;
+
+    #[test]
+    fn subpixel_outer() {
+        let u = InexactRegion {
+            l: const_interval!(0.33, 0.34),
+            r: const_interval!(0.66, 0.67),
+            b: const_interval!(1.33, 1.34),
+            t: const_interval!(1.66, 1.67),
+        };
+
+        // The bottom/left sides are pixel boundaries.
+        let b = ImageBlock {
+            x: 5 * PIXEL_ALIGNMENT,
+            y: 7 * PIXEL_ALIGNMENT,
+            kx: -2,
+            ky: -2,
+        };
+        let u_up = u.subpixel_outer(b);
+        assert_eq!(u_up.0.inf(), u.l.inf());
+        assert_eq!(u_up.0.sup(), u.r.mid());
+        assert_eq!(u_up.1.inf(), u.b.inf());
+        assert_eq!(u_up.1.sup(), u.t.mid());
+
+        // The top/right sides are pixel boundaries.
+        let b = ImageBlock {
+            x: b.x + 3 * PIXEL_ALIGNMENT / 4,
+            y: b.y + 3 * PIXEL_ALIGNMENT / 4,
+            ..b
+        };
+        let u_up = u.subpixel_outer(b);
+        assert_eq!(u_up.0.inf(), u.l.mid());
+        assert_eq!(u_up.0.sup(), u.r.sup());
+        assert_eq!(u_up.1.inf(), u.b.mid());
+        assert_eq!(u_up.1.sup(), u.t.sup());
     }
 }

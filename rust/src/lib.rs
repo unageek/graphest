@@ -13,6 +13,7 @@ mod arb_sys;
 mod ast;
 mod context;
 mod eval_result;
+mod image_block_queue;
 mod interval_set;
 mod interval_set_ops;
 mod ops;
