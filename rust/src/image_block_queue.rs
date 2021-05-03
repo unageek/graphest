@@ -115,7 +115,7 @@ impl ImageBlockQueue {
             0x80..=0x3fff => 1,
             0x4000..=0x1fffff => 2,
             0x200000..=0xfffffff => 3,
-            0x10000000..=0xFFFFFFFF => 4,
+            0x10000000..=0xffffffff => 4,
         };
         self.seq.push_back((((x << 1) | 0x1) << zeros) as u8);
         let y = x >> (7 - zeros);
@@ -134,60 +134,60 @@ mod tests {
         let blocks = [
             ImageBlock {
                 x: 0,
-                y: 0xFFFFFFFF,
+                y: 0xffffffff,
                 kx: -128,
                 ky: 127,
             },
             ImageBlock {
-                x: 0x7F,
+                x: 0x7f,
                 y: 0x10000000,
                 kx: -128,
                 ky: 127,
             },
             ImageBlock {
                 x: 0x80,
-                y: 0xFFFFFFF,
+                y: 0xfffffff,
                 kx: -127,
                 ky: 64,
             },
             ImageBlock {
-                x: 0x3FFF,
+                x: 0x3fff,
                 y: 0x200000,
                 kx: -64,
                 ky: 63,
             },
             ImageBlock {
                 x: 0x4000,
-                y: 0x1FFFFF,
+                y: 0x1fffff,
                 kx: -63,
                 ky: 0,
             },
             ImageBlock {
-                x: 0x1FFFFF,
+                x: 0x1fffff,
                 y: 0x4000,
                 kx: 0,
                 ky: -63,
             },
             ImageBlock {
                 x: 0x200000,
-                y: 0x3FFF,
+                y: 0x3fff,
                 kx: 63,
                 ky: -64,
             },
             ImageBlock {
-                x: 0xFFFFFFF,
+                x: 0xfffffff,
                 y: 0x80,
                 kx: 64,
                 ky: -127,
             },
             ImageBlock {
                 x: 0x10000000,
-                y: 0x7F,
+                y: 0x7f,
                 kx: 127,
                 ky: -128,
             },
             ImageBlock {
-                x: 0xFFFFFFFF,
+                x: 0xffffffff,
                 y: 0,
                 kx: -128,
                 ky: 127,
