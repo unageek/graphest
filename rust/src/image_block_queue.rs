@@ -10,6 +10,8 @@ pub struct ImageBlockQueue {
     y_front: u32,
     x_back: u32,
     y_back: u32,
+    front_index: usize,
+    back_index: usize,
 }
 
 impl ImageBlockQueue {
@@ -21,6 +23,8 @@ impl ImageBlockQueue {
             y_front: 0,
             x_back: 0,
             y_back: 0,
+            front_index: 0,
+            back_index: 0,
         }
     }
 
@@ -29,28 +33,34 @@ impl ImageBlockQueue {
         self.seq.is_empty()
     }
 
-    /// Removes the first element and returns it if the queue is nonempty; otherwise `None`.
-    pub fn pop_front(&mut self) -> Option<ImageBlock> {
+    /// Removes the first element and returns it with its original index
+    /// if the queue is nonempty; otherwise `None`.
+    pub fn pop_front(&mut self) -> Option<(usize, ImageBlock)> {
         let x = self.x_front ^ self.pop_small_u32()?;
         let y = self.y_front ^ self.pop_small_u32()?;
         let kx = self.pop_i8()?;
         let ky = self.pop_i8()?;
         self.x_front = x;
         self.y_front = y;
-        Some(ImageBlock { x, y, kx, ky })
+        let front_index = self.front_index;
+        self.front_index += 1;
+        Some((front_index, ImageBlock { x, y, kx, ky }))
     }
 
-    /// Appends an element to the back of the queue.
-    pub fn push_back(&mut self, b: ImageBlock) {
+    /// Appends an element to the back of the queue and returns the unique index where it is stored.
+    pub fn push_back(&mut self, b: ImageBlock) -> usize {
         self.push_small_u32(b.x ^ self.x_back);
         self.push_small_u32(b.y ^ self.y_back);
         self.push_i8(b.kx);
         self.push_i8(b.ky);
         self.x_back = b.x;
         self.y_back = b.y;
+        let back_index = self.back_index;
+        self.back_index += 1;
+        back_index
     }
 
-    /// Returns the approximate size in bytes allocated by the [`ImageBlockQueue`].
+    /// Returns the approximate size allocated by the [`ImageBlockQueue`] in bytes.
     pub fn size_in_heap(&self) -> usize {
         self.seq.capacity() * size_of::<u8>()
     }
@@ -193,11 +203,14 @@ mod tests {
                 ky: 127,
             },
         ];
-        for b in blocks.iter().copied() {
-            queue.push_back(b);
+        for (i, b) in blocks.iter().copied().enumerate() {
+            let back_index = queue.push_back(b);
+            assert_eq!(back_index, i);
         }
-        for b in blocks.iter().copied() {
-            assert_eq!(queue.pop_front().unwrap(), b);
+        for (i, b) in blocks.iter().copied().enumerate() {
+            let (front_index, front) = queue.pop_front().unwrap();
+            assert_eq!(front_index, i);
+            assert_eq!(front, b);
         }
     }
 }

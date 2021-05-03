@@ -8,6 +8,7 @@ use crate::{
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{interval, Decoration, Interval};
 use std::{
+    convert::TryFrom,
     error, fmt,
     mem::size_of,
     time::{Duration, Instant},
@@ -30,59 +31,74 @@ const MIN_WIDTH: f64 = 1.0 / ((1u32 << -MIN_K) as f64);
 /// The width of the pixels in multiples of [`MIN_WIDTH`].
 const PIXEL_ALIGNMENT: u32 = 1u32 << -MIN_K;
 
-const C_FALSE: u32 = 0;
-const C_UNCERTAIN: u32 = 1u32 << (2 * -MIN_K);
-const C_TRUE: u32 = !0u32;
+/// The graphing status of a pixel.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PixelStat {
+    /// There may be or may not be a solution in the pixel.
+    Uncertain,
+    /// There are no solutions in the pixel.
+    False,
+    /// There is at least one solution in the pixel.
+    True,
+}
 
-/// A rendering of a graph.
+/// The index of an [`ImageBlock`] in an [`ImageBlockQueue`].
 ///
-/// Each pixel stores the existence or absence of the solution:
-///
-/// - [`C_FALSE`] : There are no solutions in the pixel.
-/// - `1..C_UNCERTAIN` : Uncertain, but we have shown that there are no solutions
-///   in some parts of the pixel.
-///   `value / C_UNCERTAIN` gives the ratio of the parts remaining uncertain.
-/// - [`C_UNCERTAIN`] : Uncertain.
-/// - [`C_TRUE`] : There is at least one solution in the pixel.
+/// Indices returned by [`ImageBlockQueue`] are `usize`, but `u32` would be large enough.
+type BlockIndex = u32;
+
+/// A rendering of a graph. Each pixel stores the existence or absence of the solution:
 #[derive(Debug)]
 struct Image {
     width: u32,
     height: u32,
-    // TODO: Instead of the uncertain area, should we store the per-pixel proof status
-    // and the (wrapped) index of the last subpixel block of the pixel in the queue
-    // in separate arrays?
-    data: Vec<u32>,
+    last_blocks: Vec<BlockIndex>,
+    stats: Vec<PixelStat>,
 }
 
 impl Image {
-    /// Creates a new [`Image`] with all pixels set to [`C_UNCERTAIN`].
+    /// Creates a new [`Image`] with all pixels set to [`PixelStat::Uncertain`].
     fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && width <= MAX_IMAGE_WIDTH && height > 0 && height <= MAX_IMAGE_WIDTH);
         Self {
             width,
             height,
-            data: vec![C_UNCERTAIN; height as usize * width as usize],
+            last_blocks: vec![0; height as usize * width as usize],
+            stats: vec![PixelStat::Uncertain; height as usize * width as usize],
         }
     }
 
-    /// Returns the index in `self.data` where the value of the pixel is stored.
+    /// Returns the flattened index of the pixel.
     fn index(&self, p: PixelIndex) -> usize {
         p.y as usize * self.width as usize + p.x as usize
     }
 
-    /// Returns the value of the pixel.
-    fn pixel(&self, p: PixelIndex) -> u32 {
-        self.data[self.index(p)]
+    /// Returns the index of the last block of the pixel in the queue.
+    fn last_block(&self, p: PixelIndex) -> BlockIndex {
+        self.last_blocks[self.index(p)]
     }
 
-    /// Returns a mutable reference to the value of the pixel.
-    fn pixel_mut(&mut self, p: PixelIndex) -> &mut u32 {
+    /// Returns a mutable reference to the index of the last block of the pixel in the queue.
+    fn last_block_mut(&mut self, p: PixelIndex) -> &mut BlockIndex {
         let i = self.index(p);
-        &mut self.data[i]
+        &mut self.last_blocks[i]
     }
 
+    /// Returns the size allocated by the [`Image`] in bytes.
     fn size_in_heap(&self) -> usize {
-        self.data.capacity() * size_of::<u32>()
+        self.stats.capacity() * size_of::<PixelStat>()
+            + self.last_blocks.capacity() * size_of::<BlockIndex>()
+    }
+
+    /// Returns the graphing status of the pixel.
+    fn stat(&self, p: PixelIndex) -> PixelStat {
+        self.stats[self.index(p)]
+    }
+
+    /// Returns a mutable reference to the graphing status of the pixel.
+    fn stat_mut(&mut self, p: PixelIndex) -> &mut PixelStat {
+        let i = self.index(p);
+        &mut self.stats[i]
     }
 }
 
@@ -120,13 +136,6 @@ pub struct ImageBlock {
 }
 
 impl ImageBlock {
-    /// Returns the area of the block in multiples of `MIN_WIDTH^2`.
-    ///
-    /// Precondition: k ≤ 0, to prevent overflow.
-    fn area(&self) -> u32 {
-        1u32 << ((self.kx - MIN_K) + (self.ky - MIN_K))
-    }
-
     /// Returns the height of the block in multiples of [`MIN_WIDTH`].
     fn height(&self) -> u32 {
         1u32 << (self.ky - MIN_K)
@@ -282,6 +291,7 @@ impl InexactRegion {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GraphingErrorKind {
+    BlockIndexOverflow,
     ReachedMemLimit,
     ReachedPrecisionLimit,
     ReachedSubdivisionLimit,
@@ -295,6 +305,7 @@ pub struct GraphingError {
 impl fmt::Display for GraphingError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
+            GraphingErrorKind::BlockIndexOverflow => write!(f, "block index overflow"),
             GraphingErrorKind::ReachedMemLimit => write!(f, "reached the memory usage limit"),
             GraphingErrorKind::ReachedPrecisionLimit => write!(f, "reached the precision limit"),
             GraphingErrorKind::ReachedSubdivisionLimit => {
@@ -319,6 +330,7 @@ pub struct Graph {
     forms: Vec<StaticForm>,
     relation_type: RelationType,
     im: Image,
+    // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: ImageBlockQueue,
     bx_end: u32,
     by_end: u32,
@@ -377,10 +389,10 @@ impl Graph {
 
     pub fn get_gray_alpha_image(&self, im: &mut GrayAlphaImage) {
         assert!(im.width() == self.im.width && im.height() == self.im.height);
-        for (src, dst) in self.im.data.iter().zip(im.pixels_mut()) {
+        for (src, dst) in self.im.stats.iter().zip(im.pixels_mut()) {
             *dst = match *src {
-                C_TRUE => LumaA([0, 255]),
-                C_FALSE => LumaA([0, 0]),
+                PixelStat::True => LumaA([0, 255]),
+                PixelStat::False => LumaA([0, 0]),
                 _ => LumaA([0, 128]),
             }
         }
@@ -389,10 +401,10 @@ impl Graph {
 
     pub fn get_image(&self, im: &mut RgbImage) {
         assert!(im.width() == self.im.width && im.height() == self.im.height);
-        for (src, dst) in self.im.data.iter().zip(im.pixels_mut()) {
+        for (src, dst) in self.im.stats.iter().zip(im.pixels_mut()) {
             *dst = match *src {
-                C_TRUE => Rgb([0, 0, 0]),
-                C_FALSE => Rgb([255, 255, 255]),
+                PixelStat::True => Rgb([0, 0, 0]),
+                PixelStat::False => Rgb([255, 255, 255]),
                 _ => Rgb([64, 128, 192]),
             }
         }
@@ -403,9 +415,9 @@ impl Graph {
         GraphingStatistics {
             pixels_proven: self
                 .im
-                .data
+                .stats
                 .iter()
-                .filter(|&&s| s == C_TRUE || s == C_FALSE)
+                .filter(|&&s| s != PixelStat::Uncertain)
                 .count(),
             eval_count: self.rel.eval_count(),
             ..self.stats
@@ -424,22 +436,24 @@ impl Graph {
 
     fn refine_impl(&mut self, timeout: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = Vec::<ImageBlock>::new();
-        // The blocks are queued in the Morton order. Thus, the cache should work effectively.
+        // Blocks are queued in the Morton order. Thus, the caches should work efficiently.
         let mut cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
         let mut cache_eval_on_point = EvalCache::new(EvalCacheLevel::Full);
-        while let Some(b) = self.bs_to_subdivide.pop_front() {
+        while let Some((bi, b)) = self.bs_to_subdivide.pop_front() {
             if b.is_superpixel() {
                 self.push_sub_blocks_clipped(&mut sub_bs, b);
             } else {
                 self.push_sub_blocks(&mut sub_bs, b);
             }
 
-            for sub_b in sub_bs.drain(..) {
+            for (sibling_index, sub_b) in sub_bs.drain(..).enumerate() {
                 if !sub_b.is_subpixel() {
                     self.refine_pixel(sub_b, &mut cache_eval_on_region);
                 } else {
                     self.refine_subpixel(
                         sub_b,
+                        sibling_index == 3,
+                        BlockIndex::try_from(bi).unwrap(),
                         &mut cache_eval_on_region,
                         &mut cache_eval_on_point,
                     )?;
@@ -486,10 +500,14 @@ impl Graph {
         if is_true || is_false {
             let pixel = b.pixel_index();
             let pixel_width = b.pixel_width();
-            let stat = if is_true { C_TRUE } else { C_FALSE };
+            let stat = if is_true {
+                PixelStat::True
+            } else {
+                PixelStat::False
+            };
             for y in pixel.y..(pixel.y + pixel_width).min(self.im.height) {
                 for x in pixel.x..(pixel.x + pixel_width).min(self.im.width) {
-                    *self.im.pixel_mut(PixelIndex { x, y }) = stat;
+                    *self.im.stat_mut(PixelIndex { x, y }) = stat;
                 }
             }
         } else {
@@ -500,11 +518,13 @@ impl Graph {
     fn refine_subpixel(
         &mut self,
         b: ImageBlock,
+        last_sibling: bool,
+        parent_block_index: BlockIndex,
         cache_eval_on_region: &mut EvalCache,
         cache_eval_on_point: &mut EvalCache,
     ) -> Result<(), GraphingError> {
         let pixel = b.pixel_index();
-        if self.im.pixel(pixel) == C_TRUE {
+        if self.im.stat(pixel) == PixelStat::True {
             // This pixel has already been proven to be true.
             return Ok(());
         }
@@ -523,16 +543,18 @@ impl Graph {
         let locally_zero_mask =
             r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def);
         if locally_zero_mask.eval(&self.forms[..]) {
-            // The subpixel is true entirely.
-            *self.im.pixel_mut(pixel) = C_TRUE;
+            // The relation is true everywhere in the subpixel.
+            *self.im.stat_mut(pixel) = PixelStat::True;
             return Ok(());
         }
         if !r_u_up
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..])
         {
-            // The subpixel is false entirely.
-            *self.im.pixel_mut(pixel) -= b.area();
+            // The relation is false everywhere in the subpixel.
+            if last_sibling && self.im.last_block(pixel) == parent_block_index {
+                *self.im.stat_mut(pixel) = PixelStat::False;
+            }
             return Ok(());
         }
 
@@ -581,14 +603,21 @@ impl Graph {
                     .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
             {
                 // Found a solution.
-                *self.im.pixel_mut(pixel) = C_TRUE;
+                *self.im.stat_mut(pixel) = PixelStat::True;
                 return Ok(());
             }
         }
 
         if b.is_subdivisible() {
-            self.bs_to_subdivide.push_back(b);
-            Ok(())
+            let block_index = self.bs_to_subdivide.push_back(b);
+            if let Ok(block_index) = BlockIndex::try_from(block_index) {
+                *self.im.last_block_mut(pixel) = block_index;
+                Ok(())
+            } else {
+                Err(GraphingError {
+                    kind: GraphingErrorKind::BlockIndexOverflow,
+                })
+            }
         } else {
             Err(GraphingError {
                 kind: GraphingErrorKind::ReachedSubdivisionLimit,
