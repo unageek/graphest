@@ -1,6 +1,6 @@
 use crate::{
     eval_result::EvalResult,
-    image_block_queue::ImageBlockQueue,
+    image::{Image, ImageBlock, ImageBlockQueue, PixelIndex, PixelState, QueuedBlockIndex},
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationType},
@@ -10,201 +10,8 @@ use inari::{interval, Decoration, Interval};
 use std::{
     convert::TryFrom,
     error, fmt,
-    mem::size_of,
     time::{Duration, Instant},
 };
-
-/// The limit of the width/height of [`Image`]s in pixels.
-const MAX_IMAGE_WIDTH: u32 = 32768;
-
-/// The level of the smallest subdivision.
-///
-/// The value is currently fixed, but it could be determined based on the size of the image.
-const MIN_K: i8 = -15;
-
-/// The graphing status of a pixel.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum PixelStat {
-    /// There may be or may not be a solution in the pixel.
-    Uncertain,
-    /// There are no solutions in the pixel.
-    False,
-    /// There is at least one solution in the pixel.
-    True,
-}
-
-/// The index of an [`ImageBlock`] in an [`ImageBlockQueue`].
-///
-/// Indices returned by [`ImageBlockQueue`] are `usize`, but `u32` would be large enough.
-type BlockIndex = u32;
-
-/// A rendering of a graph. Each pixel stores the existence or absence of the solution:
-#[derive(Debug)]
-struct Image {
-    width: u32,
-    height: u32,
-    last_blocks: Vec<BlockIndex>,
-    stats: Vec<PixelStat>,
-}
-
-impl Image {
-    /// Creates a new [`Image`] with all pixels set to [`PixelStat::Uncertain`].
-    fn new(width: u32, height: u32) -> Self {
-        assert!(width > 0 && width <= MAX_IMAGE_WIDTH && height > 0 && height <= MAX_IMAGE_WIDTH);
-        Self {
-            width,
-            height,
-            last_blocks: vec![0; height as usize * width as usize],
-            stats: vec![PixelStat::Uncertain; height as usize * width as usize],
-        }
-    }
-
-    /// Returns the flattened index of the pixel.
-    fn index(&self, p: PixelIndex) -> usize {
-        p.y as usize * self.width as usize + p.x as usize
-    }
-
-    /// Returns the index of the last block of the pixel in the queue.
-    fn last_block(&self, p: PixelIndex) -> BlockIndex {
-        self.last_blocks[self.index(p)]
-    }
-
-    /// Returns a mutable reference to the index of the last block of the pixel in the queue.
-    fn last_block_mut(&mut self, p: PixelIndex) -> &mut BlockIndex {
-        let i = self.index(p);
-        &mut self.last_blocks[i]
-    }
-
-    /// Returns the size allocated by the [`Image`] in bytes.
-    fn size_in_heap(&self) -> usize {
-        self.stats.capacity() * size_of::<PixelStat>()
-            + self.last_blocks.capacity() * size_of::<BlockIndex>()
-    }
-
-    /// Returns the graphing status of the pixel.
-    fn stat(&self, p: PixelIndex) -> PixelStat {
-        self.stats[self.index(p)]
-    }
-
-    /// Returns a mutable reference to the graphing status of the pixel.
-    fn stat_mut(&mut self, p: PixelIndex) -> &mut PixelStat {
-        let i = self.index(p);
-        &mut self.stats[i]
-    }
-}
-
-/// The index of a pixel of an [`Image`].
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct PixelIndex {
-    x: u32,
-    y: u32,
-}
-
-impl PixelIndex {
-    /// Returns the [`ImageBlock`] that represents the same area as the pixel.
-    fn as_block(&self) -> ImageBlock {
-        ImageBlock {
-            x: self.x,
-            y: self.y,
-            kx: 0,
-            ky: 0,
-        }
-    }
-}
-
-/// A rectangular region of an [`Image`].
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ImageBlock {
-    /// The horizontal index of the block in multiples of the block width.
-    pub x: u32,
-    /// The vertical index of the block in multiples of the block height.
-    pub y: u32,
-    /// The horizontal subdivision level.
-    ///
-    /// The width of the block is `2^kx` px.
-    pub kx: i8,
-    /// The vertical subdivision level.
-    ///
-    /// The height of the block is `2^ky` px.
-    pub ky: i8,
-}
-
-impl ImageBlock {
-    /// Returns the height of the block in pixels.
-    ///
-    /// Precondition: `self.ky ≥ 0`.
-    fn height(&self) -> u32 {
-        1u32 << self.ky
-    }
-
-    /// Returns the height of the block in pixels.
-    fn heightf(&self) -> f64 {
-        Self::exp2(self.ky)
-    }
-
-    /// Returns `true` if the block can be divided both horizontally and vertically.
-    fn is_subdivisible(&self) -> bool {
-        self.kx > MIN_K && self.ky > MIN_K
-    }
-
-    /// Returns `true` if the width *or* the height of the block is smaller than a pixel.
-    fn is_subpixel(&self) -> bool {
-        self.kx < 0 || self.ky < 0
-    }
-
-    /// Returns `true` if the width *or* the height of the block is larger than a pixel.
-    fn is_superpixel(&self) -> bool {
-        self.kx > 0 || self.ky > 0
-    }
-
-    /// The width of a pixel in multiples of the block's width.
-    ///
-    /// Precondition: `self.kx ≤ 0`.
-    fn pixel_align_x(&self) -> u32 {
-        1u32 << -self.kx
-    }
-
-    /// The height of a pixel in multiples of the block's height.
-    ///
-    /// Precondition: `self.ky ≤ 0`.
-    fn pixel_align_y(&self) -> u32 {
-        1u32 << -self.ky
-    }
-
-    /// Returns the index of the pixel that contains the block.
-    /// If the block spans multiple pixels, the least index is returned.
-    fn pixel_index(&self) -> PixelIndex {
-        PixelIndex {
-            x: if self.kx >= 0 {
-                self.x << self.kx
-            } else {
-                self.x >> -self.kx
-            },
-            y: if self.ky >= 0 {
-                self.y << self.ky
-            } else {
-                self.y >> -self.ky
-            },
-        }
-    }
-
-    /// Returns the width of the block in pixels.
-    ///
-    /// Precondition: `self.kx ≥ 0`.
-    fn width(&self) -> u32 {
-        1u32 << self.kx
-    }
-
-    /// Returns the width of the block in pixels.
-    fn widthf(&self) -> f64 {
-        Self::exp2(self.kx)
-    }
-
-    /// Returns `2^k`.
-    fn exp2(k: i8) -> f64 {
-        f64::from_bits(((1023 + k as i32) as u64) << 52)
-    }
-}
 
 /// A possibly empty rectangular region of the Cartesian plane.
 #[derive(Clone, Debug)]
@@ -224,7 +31,7 @@ impl Region {
 
 /// A rectangular region of the Cartesian plane with inexact bounds.
 ///
-/// Conceptually, it is a pair of two rectangular regions *inner* and *outer*
+/// Conceptually, it is a pair of two rectangular regions: *inner* and *outer*
 /// that satisfy `inner ⊆ outer`. The inner region can be empty, while the outer one cannot.
 #[derive(Clone, Debug)]
 pub struct InexactRegion {
@@ -403,21 +210,16 @@ impl Graph {
             mem_limit,
         };
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
-        g.bs_to_subdivide.push_back(ImageBlock {
-            x: 0,
-            y: 0,
-            kx: k,
-            ky: k,
-        });
+        g.bs_to_subdivide.push_back(ImageBlock::new(0, 0, k, k));
         g
     }
 
     pub fn get_gray_alpha_image(&self, im: &mut GrayAlphaImage) {
         assert!(im.width() == self.im.width && im.height() == self.im.height);
-        for (src, dst) in self.im.stats.iter().zip(im.pixels_mut()) {
+        for (src, dst) in self.im.states.iter().zip(im.pixels_mut()) {
             *dst = match *src {
-                PixelStat::True => LumaA([0, 255]),
-                PixelStat::False => LumaA([0, 0]),
+                PixelState::True => LumaA([0, 255]),
+                PixelState::False => LumaA([0, 0]),
                 _ => LumaA([0, 128]),
             }
         }
@@ -426,10 +228,10 @@ impl Graph {
 
     pub fn get_image(&self, im: &mut RgbImage) {
         assert!(im.width() == self.im.width && im.height() == self.im.height);
-        for (src, dst) in self.im.stats.iter().zip(im.pixels_mut()) {
+        for (src, dst) in self.im.states.iter().zip(im.pixels_mut()) {
             *dst = match *src {
-                PixelStat::True => Rgb([0, 0, 0]),
-                PixelStat::False => Rgb([255, 255, 255]),
+                PixelState::True => Rgb([0, 0, 0]),
+                PixelState::False => Rgb([255, 255, 255]),
                 _ => Rgb([64, 128, 192]),
             }
         }
@@ -440,9 +242,9 @@ impl Graph {
         GraphingStatistics {
             pixels_proven: self
                 .im
-                .stats
+                .states
                 .iter()
-                .filter(|&&s| s != PixelStat::Uncertain)
+                .filter(|&&s| s != PixelState::Uncertain)
                 .count(),
             eval_count: self.rel.eval_count(),
             ..self.stats
@@ -478,7 +280,7 @@ impl Graph {
                     self.refine_subpixel(
                         sub_b,
                         sibling_index == 3,
-                        BlockIndex::try_from(bi).unwrap(),
+                        QueuedBlockIndex::try_from(bi).unwrap(),
                         &mut cache_eval_on_region,
                         &mut cache_eval_on_point,
                     )?;
@@ -529,13 +331,13 @@ impl Graph {
                 y: (pixel_begin.y + b.height()).min(self.im.height),
             };
             let stat = if is_true {
-                PixelStat::True
+                PixelState::True
             } else {
-                PixelStat::False
+                PixelState::False
             };
             for y in pixel_begin.y..pixel_end.y {
                 for x in pixel_begin.x..pixel_end.x {
-                    *self.im.stat_mut(PixelIndex { x, y }) = stat;
+                    *self.im.state_mut(PixelIndex { x, y }) = stat;
                 }
             }
         } else {
@@ -546,13 +348,13 @@ impl Graph {
     fn refine_subpixel(
         &mut self,
         b: ImageBlock,
-        last_sibling: bool,
-        parent_block_index: BlockIndex,
+        b_is_last_sibling: bool,
+        parent_block_index: QueuedBlockIndex,
         cache_eval_on_region: &mut EvalCache,
         cache_eval_on_point: &mut EvalCache,
     ) -> Result<(), GraphingError> {
         let pixel = b.pixel_index();
-        if self.im.stat(pixel) == PixelStat::True {
+        if self.im.state(pixel) == PixelState::True {
             // This pixel has already been proven to be true.
             return Ok(());
         }
@@ -572,7 +374,7 @@ impl Graph {
             r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def);
         if locally_zero_mask.eval(&self.forms[..]) {
             // The relation is true everywhere in the subpixel.
-            *self.im.stat_mut(pixel) = PixelStat::True;
+            *self.im.state_mut(pixel) = PixelState::True;
             return Ok(());
         }
         if !r_u_up
@@ -580,8 +382,8 @@ impl Graph {
             .eval(&self.forms[..])
         {
             // The relation is false everywhere in the subpixel.
-            if last_sibling && self.im.last_block(pixel) == parent_block_index {
-                *self.im.stat_mut(pixel) = PixelStat::False;
+            if b_is_last_sibling && self.im.last_queued_block(pixel) == parent_block_index {
+                *self.im.state_mut(pixel) = PixelState::False;
             }
             return Ok(());
         }
@@ -631,15 +433,15 @@ impl Graph {
                     .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
             {
                 // Found a solution.
-                *self.im.stat_mut(pixel) = PixelStat::True;
+                *self.im.state_mut(pixel) = PixelState::True;
                 return Ok(());
             }
         }
 
         if b.is_subdivisible() {
             let block_index = self.bs_to_subdivide.push_back(b);
-            if let Ok(block_index) = BlockIndex::try_from(block_index) {
-                *self.im.last_block_mut(pixel) = block_index;
+            if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
+                *self.im.last_queued_block_mut(pixel) = block_index;
                 Ok(())
             } else {
                 Err(GraphingError {
@@ -707,7 +509,7 @@ impl Graph {
         }
     }
 
-    /// Returns the region that corresponds to a non-subpixel block `b`.
+    /// Returns the region that corresponds to a pixel or superpixel block `b`.
     fn block_to_region_clipped(&self, b: ImageBlock) -> InexactRegion {
         let pw = b.widthf();
         let ph = b.heightf();
@@ -725,7 +527,7 @@ impl Graph {
         interval!(x, x).unwrap()
     }
 
-    /// Subdivides a non-superpixel block `b` and appends them to `sub_bs`.
+    /// Subdivides a pixel or subpixel block `b` and appends them to `sub_bs`.
     fn push_sub_blocks(&self, sub_bs: &mut Vec<ImageBlock>, b: ImageBlock) {
         match self.relation_type {
             RelationType::FunctionOfX => {
@@ -734,8 +536,8 @@ impl Graph {
                 let y = b.y;
                 let kx = b.kx - 1;
                 let ky = b.ky;
-                sub_bs.push(ImageBlock { x: x0, y, kx, ky });
-                sub_bs.push(ImageBlock { x: x1, y, kx, ky });
+                sub_bs.push(ImageBlock::new(x0, y, kx, ky));
+                sub_bs.push(ImageBlock::new(x1, y, kx, ky));
             }
             RelationType::FunctionOfY => {
                 let x = b.x;
@@ -743,8 +545,8 @@ impl Graph {
                 let y1 = y0 + 1;
                 let kx = b.kx;
                 let ky = b.ky - 1;
-                sub_bs.push(ImageBlock { x, y: y0, kx, ky });
-                sub_bs.push(ImageBlock { x, y: y1, kx, ky });
+                sub_bs.push(ImageBlock::new(x, y0, kx, ky));
+                sub_bs.push(ImageBlock::new(x, y1, kx, ky));
             }
             _ => {
                 let x0 = 2 * b.x;
@@ -753,30 +555,10 @@ impl Graph {
                 let y1 = y0 + 1;
                 let kx = b.kx - 1;
                 let ky = b.ky - 1;
-                sub_bs.push(ImageBlock {
-                    x: x0,
-                    y: y0,
-                    kx,
-                    ky,
-                });
-                sub_bs.push(ImageBlock {
-                    x: x1,
-                    y: y0,
-                    kx,
-                    ky,
-                });
-                sub_bs.push(ImageBlock {
-                    x: x0,
-                    y: y1,
-                    kx,
-                    ky,
-                });
-                sub_bs.push(ImageBlock {
-                    x: x1,
-                    y: y1,
-                    kx,
-                    ky,
-                });
+                sub_bs.push(ImageBlock::new(x0, y0, kx, ky));
+                sub_bs.push(ImageBlock::new(x1, y0, kx, ky));
+                sub_bs.push(ImageBlock::new(x0, y1, kx, ky));
+                sub_bs.push(ImageBlock::new(x1, y1, kx, ky));
             }
         }
     }
@@ -789,36 +571,16 @@ impl Graph {
         let y1 = y0 + 1;
         let kx = b.kx - 1;
         let ky = b.ky - 1;
-        let b00 = ImageBlock {
-            x: x0,
-            y: y0,
-            kx,
-            ky,
-        };
+        let b00 = ImageBlock::new(x0, y0, kx, ky);
         sub_bs.push(b00);
         if y1 * b00.height() < self.im.height {
-            sub_bs.push(ImageBlock {
-                x: x0,
-                y: y1,
-                kx,
-                ky,
-            });
+            sub_bs.push(ImageBlock::new(x0, y1, kx, ky));
         }
         if x1 * b00.width() < self.im.width {
-            sub_bs.push(ImageBlock {
-                x: x1,
-                y: y0,
-                kx,
-                ky,
-            });
+            sub_bs.push(ImageBlock::new(x1, y0, kx, ky));
         }
         if x1 * b00.width() < self.im.width && y1 * b00.height() < self.im.height {
-            sub_bs.push(ImageBlock {
-                x: x1,
-                y: y1,
-                kx,
-                ky,
-            });
+            sub_bs.push(ImageBlock::new(x1, y1, kx, ky));
         }
     }
 }
@@ -827,47 +589,6 @@ impl Graph {
 mod tests {
     use super::*;
     use inari::*;
-
-    #[test]
-    fn image_block() {
-        let b = ImageBlock {
-            x: 42,
-            y: 42,
-            kx: 3,
-            ky: 5,
-        };
-        assert_eq!(b.width(), 8);
-        assert_eq!(b.height(), 32);
-        assert_eq!(b.widthf(), 8.0);
-        assert_eq!(b.heightf(), 32.0);
-        assert_eq!(b.pixel_index(), PixelIndex { x: 336, y: 1344 });
-
-        let b = ImageBlock {
-            x: 42,
-            y: 42,
-            kx: 0,
-            ky: 0,
-        };
-        assert_eq!(b.width(), 1);
-        assert_eq!(b.height(), 1);
-        assert_eq!(b.widthf(), 1.0);
-        assert_eq!(b.heightf(), 1.0);
-        assert_eq!(b.pixel_align_x(), 1);
-        assert_eq!(b.pixel_align_y(), 1);
-        assert_eq!(b.pixel_index(), PixelIndex { x: 42, y: 42 });
-
-        let b = ImageBlock {
-            x: 42,
-            y: 42,
-            kx: -3,
-            ky: -5,
-        };
-        assert_eq!(b.widthf(), 0.125);
-        assert_eq!(b.heightf(), 0.03125);
-        assert_eq!(b.pixel_align_x(), 8);
-        assert_eq!(b.pixel_align_y(), 32);
-        assert_eq!(b.pixel_index(), PixelIndex { x: 5, y: 1 });
-    }
 
     #[test]
     fn subpixel_outer() {
@@ -879,12 +600,7 @@ mod tests {
         };
 
         // The bottom/left sides are pixel boundaries.
-        let b = ImageBlock {
-            x: 4,
-            y: 8,
-            kx: -2,
-            ky: -2,
-        };
+        let b = ImageBlock::new(4, 8, -2, -2);
         let u_up = u.subpixel_outer(b);
         assert_eq!(u_up.0.inf(), u.l.inf());
         assert_eq!(u_up.0.sup(), u.r.mid());
@@ -892,11 +608,7 @@ mod tests {
         assert_eq!(u_up.1.sup(), u.t.mid());
 
         // The top/right sides are pixel boundaries.
-        let b = ImageBlock {
-            x: b.x + 3,
-            y: b.y + 3,
-            ..b
-        };
+        let b = ImageBlock::new(b.x + 3, b.y + 3, -2, -2);
         let u_up = u.subpixel_outer(b);
         assert_eq!(u_up.0.inf(), u.l.mid());
         assert_eq!(u_up.0.sup(), u.r.sup());
