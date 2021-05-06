@@ -14,11 +14,11 @@ use std::{
 };
 
 /// A possibly empty rectangular region of the Cartesian plane.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct Region(Interval, Interval);
 
 impl Region {
-    /// Returns the intersection of the two regions.
+    /// Returns the intersection of the regions.
     fn intersection(&self, rhs: &Self) -> Self {
         Self(self.0.intersection(rhs.0), self.1.intersection(rhs.1))
     }
@@ -516,12 +516,12 @@ impl Graph {
         let ph = b.heightf();
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
-        InexactRegion {
-            l: Self::point_interval(px).mul_add(self.sx, self.tx),
-            r: Self::point_interval(px + pw).mul_add(self.sx, self.tx),
-            b: Self::point_interval(py).mul_add(self.sy, self.ty),
-            t: Self::point_interval(py + ph).mul_add(self.sy, self.ty),
-        }
+        InexactRegion::new(
+            Self::point_interval(px).mul_add(self.sx, self.tx),
+            Self::point_interval(px + pw).mul_add(self.sx, self.tx),
+            Self::point_interval(py).mul_add(self.sy, self.ty),
+            Self::point_interval(py + ph).mul_add(self.sy, self.ty),
+        )
     }
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
@@ -530,12 +530,12 @@ impl Graph {
         let ph = b.heightf();
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
-        InexactRegion {
-            l: Self::point_interval(px).mul_add(self.sx, self.tx),
-            r: Self::point_interval((px + pw).min(self.im.width as f64)).mul_add(self.sx, self.tx),
-            b: Self::point_interval(py).mul_add(self.sy, self.ty),
-            t: Self::point_interval((py + ph).min(self.im.height as f64)).mul_add(self.sy, self.ty),
-        }
+        InexactRegion::new(
+            Self::point_interval(px).mul_add(self.sx, self.tx),
+            Self::point_interval((px + pw).min(self.im.width as f64)).mul_add(self.sx, self.tx),
+            Self::point_interval(py).mul_add(self.sy, self.ty),
+            Self::point_interval((py + ph).min(self.im.height as f64)).mul_add(self.sy, self.ty),
+        )
     }
 
     fn point_interval(x: f64) -> Interval {
@@ -606,13 +606,23 @@ mod tests {
     use inari::*;
 
     #[test]
-    fn subpixel_outer() {
-        let u = InexactRegion {
-            l: const_interval!(0.33, 0.34),
-            r: const_interval!(0.66, 0.67),
-            b: const_interval!(1.33, 1.34),
-            t: const_interval!(1.66, 1.67),
-        };
+    fn inexact_region() {
+        let u = InexactRegion::new(
+            const_interval!(0.33, 0.34),
+            const_interval!(0.66, 0.67),
+            const_interval!(1.33, 1.34),
+            const_interval!(1.66, 1.67),
+        );
+
+        assert_eq!(
+            u.inner(),
+            Region(const_interval!(0.34, 0.66), const_interval!(1.34, 1.66))
+        );
+
+        assert_eq!(
+            u.outer(),
+            Region(const_interval!(0.33, 0.67), const_interval!(1.33, 1.67))
+        );
 
         // The bottom/left sides are pixel boundaries.
         let b = ImageBlock::new(4, 8, -2, -2);
@@ -629,5 +639,19 @@ mod tests {
         assert_eq!(u_up.0.sup(), u.r.sup());
         assert_eq!(u_up.1.inf(), u.b.mid());
         assert_eq!(u_up.1.sup(), u.t.sup());
+
+        let u = InexactRegion::new(
+            const_interval!(0.33, 0.66),
+            const_interval!(0.34, 0.67),
+            const_interval!(1.33, 1.66),
+            const_interval!(1.34, 1.67),
+        );
+
+        assert_eq!(u.inner(), Region(Interval::EMPTY, Interval::EMPTY));
+
+        assert_eq!(
+            u.outer(),
+            Region(const_interval!(0.33, 0.67), const_interval!(1.33, 1.67))
+        );
     }
 }
