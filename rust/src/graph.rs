@@ -273,13 +273,14 @@ impl Graph {
                 self.push_sub_blocks(&mut sub_bs, b);
             }
 
+            let n_siblings = sub_bs.len();
             for (sibling_index, sub_b) in sub_bs.drain(..).enumerate() {
                 if !sub_b.is_subpixel() {
-                    self.refine_pixel(sub_b, &mut cache_eval_on_region);
+                    self.refine_pixel(sub_b, &mut cache_eval_on_region)?;
                 } else {
                     self.refine_subpixel(
                         sub_b,
-                        sibling_index == 3,
+                        sibling_index == n_siblings - 1,
                         QueuedBlockIndex::try_from(bi).unwrap(),
                         &mut cache_eval_on_region,
                         &mut cache_eval_on_point,
@@ -313,7 +314,7 @@ impl Graph {
         Ok(self.bs_to_subdivide.is_empty())
     }
 
-    fn refine_pixel(&mut self, b: ImageBlock, cache: &mut EvalCache) {
+    fn refine_pixel(&mut self, b: ImageBlock, cache: &mut EvalCache) -> Result<(), GraphingError> {
         let u_up = self.block_to_region_clipped(b).outer();
         let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache));
 
@@ -340,8 +341,22 @@ impl Graph {
                     *self.im.state_mut(PixelIndex { x, y }) = stat;
                 }
             }
+            Ok(())
         } else {
-            self.bs_to_subdivide.push_back(b);
+            let block_index = self.bs_to_subdivide.push_back(b);
+            if b.is_pixel() {
+                if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
+                    let pixel = b.pixel_index();
+                    *self.im.last_queued_block_mut(pixel) = block_index;
+                    Ok(())
+                } else {
+                    Err(GraphingError {
+                        kind: GraphingErrorKind::BlockIndexOverflow,
+                    })
+                }
+            } else {
+                Ok(())
+            }
         }
     }
 

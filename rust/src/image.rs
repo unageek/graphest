@@ -45,12 +45,12 @@ impl Image {
         }
     }
 
-    /// Returns the index of the last block of the pixel in the queue.
+    /// Returns the index of the last-queued block of the pixel.
     pub fn last_queued_block(&self, p: PixelIndex) -> QueuedBlockIndex {
         self.last_queued_blocks[self.index(p)]
     }
 
-    /// Returns a mutable reference to the index of the last block of the pixel in the queue.
+    /// Returns a mutable reference to the index of the last-queued block of the pixel.
     pub fn last_queued_block_mut(&mut self, p: PixelIndex) -> &mut QueuedBlockIndex {
         let i = self.index(p);
         &mut self.last_queued_blocks[i]
@@ -139,17 +139,22 @@ impl ImageBlock {
         Self::exp2(self.ky)
     }
 
+    /// Returns `true` if the block is a pixel.
+    pub fn is_pixel(&self) -> bool {
+        self.kx == 0 && self.ky == 0
+    }
+
     /// Returns `true` if the block can be divided both horizontally and vertically.
     pub fn is_subdivisible(&self) -> bool {
         self.kx > MIN_K && self.ky > MIN_K
     }
 
-    /// Returns `true` if the width *or* the height of the block is smaller than a pixel.
+    /// Returns `true` if the block is a subpixel.
     pub fn is_subpixel(&self) -> bool {
         self.kx < 0 || self.ky < 0
     }
 
-    /// Returns `true` if the width *or* the height of the block is larger than a pixel.
+    /// Returns `true` if the block is a superpixel.
     pub fn is_superpixel(&self) -> bool {
         self.kx > 0 || self.ky > 0
     }
@@ -271,7 +276,7 @@ impl ImageBlockQueue {
         Some(self.seq.pop_front()? as i8)
     }
 
-    // PrefixVarint[0][1] is used to encode unsigned numbers:
+    // PrefixVarint[1,2] is used to encode unsigned numbers:
     //
     //    Range   `zeros`  Encoded bytes in `seq`
     //   ------  --------  ----------------------------------------------------------------------
@@ -290,8 +295,8 @@ impl ImageBlockQueue {
     //                  |               in little endian.
     //                  The number of trailing zeros in the first byte.
     //
-    // [0]: https://github.com/stoklund/varint#prefixvarint
-    // [1]: https://news.ycombinator.com/item?id=11263667
+    // [1]: https://github.com/stoklund/varint#prefixvarint
+    // [2]: https://news.ycombinator.com/item?id=11263667
     fn pop_small_u32(&mut self) -> Option<u32> {
         let head = self.seq.pop_front()?;
         let zeros = head.trailing_zeros();
@@ -348,6 +353,9 @@ mod tests {
         assert_eq!(b.widthf(), 8.0);
         assert_eq!(b.heightf(), 32.0);
         assert_eq!(b.pixel_index(), PixelIndex { x: 336, y: 1344 });
+        assert!(b.is_superpixel());
+        assert!(!b.is_pixel());
+        assert!(!b.is_subpixel());
 
         let b = ImageBlock::new(42, 42, 0, 0);
         assert_eq!(b.width(), 1);
@@ -357,6 +365,9 @@ mod tests {
         assert_eq!(b.pixel_align_x(), 1);
         assert_eq!(b.pixel_align_y(), 1);
         assert_eq!(b.pixel_index(), PixelIndex { x: 42, y: 42 });
+        assert!(!b.is_superpixel());
+        assert!(b.is_pixel());
+        assert!(!b.is_subpixel());
 
         let b = ImageBlock::new(42, 42, -3, -5);
         assert_eq!(b.widthf(), 0.125);
@@ -364,6 +375,9 @@ mod tests {
         assert_eq!(b.pixel_align_x(), 8);
         assert_eq!(b.pixel_align_y(), 32);
         assert_eq!(b.pixel_index(), PixelIndex { x: 5, y: 1 });
+        assert!(!b.is_superpixel());
+        assert!(!b.is_pixel());
+        assert!(b.is_subpixel());
     }
 
     #[test]
