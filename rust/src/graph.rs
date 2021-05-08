@@ -327,10 +327,10 @@ impl Graph {
 
         if is_true || is_false {
             let pixel_begin = b.pixel_index();
-            let pixel_end = PixelIndex {
-                x: (pixel_begin.x + b.width()).min(self.im.width),
-                y: (pixel_begin.y + b.height()).min(self.im.height),
-            };
+            let pixel_end = PixelIndex::new(
+                (pixel_begin.x + b.width()).min(self.im.width),
+                (pixel_begin.y + b.height()).min(self.im.height),
+            );
             let stat = if is_true {
                 PixelState::True
             } else {
@@ -338,7 +338,7 @@ impl Graph {
             };
             for y in pixel_begin.y..pixel_end.y {
                 for x in pixel_begin.x..pixel_end.x {
-                    *self.im.state_mut(PixelIndex { x, y }) = stat;
+                    *self.im.state_mut(PixelIndex::new(x, y)) = stat;
                 }
             }
             Ok(())

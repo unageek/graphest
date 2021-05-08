@@ -82,8 +82,17 @@ impl Image {
 /// The index of a pixel of an [`Image`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PixelIndex {
+    /// The horizontal index of the pixel.
     pub x: u32,
+    /// The vertical index of the pixel.
     pub y: u32,
+}
+
+impl PixelIndex {
+    /// Creates a new [`PixelIndex`] with the coordinates.
+    pub fn new(x: u32, y: u32) -> Self {
+        Self { x, y }
+    }
 }
 
 /// A rectangular region of an [`Image`] with the following bounds in pixels:
@@ -178,18 +187,18 @@ impl ImageBlock {
     /// Returns the index of the pixel that contains the block.
     /// If the block spans multiple pixels, the least index is returned.
     pub fn pixel_index(&self) -> PixelIndex {
-        PixelIndex {
-            x: if self.kx >= 0 {
+        PixelIndex::new(
+            if self.kx >= 0 {
                 self.x << self.kx
             } else {
                 self.x >> -self.kx
             },
-            y: if self.ky >= 0 {
+            if self.ky >= 0 {
                 self.y << self.ky
             } else {
                 self.y >> -self.ky
             },
-        }
+        )
     }
 
     /// Returns the width of the block in pixels.
@@ -354,7 +363,7 @@ mod tests {
         assert_eq!(b.height(), 32);
         assert_eq!(b.widthf(), 8.0);
         assert_eq!(b.heightf(), 32.0);
-        assert_eq!(b.pixel_index(), PixelIndex { x: 336, y: 1344 });
+        assert_eq!(b.pixel_index(), PixelIndex::new(336, 1344));
         assert!(b.is_superpixel());
         assert!(!b.is_pixel());
         assert!(!b.is_subpixel());
@@ -366,7 +375,8 @@ mod tests {
         assert_eq!(b.heightf(), 1.0);
         assert_eq!(b.pixel_align_x(), 1);
         assert_eq!(b.pixel_align_y(), 1);
-        assert_eq!(b.pixel_index(), PixelIndex { x: 42, y: 42 });
+        assert_eq!(b.pixel_block(), b);
+        assert_eq!(b.pixel_index(), PixelIndex::new(42, 42));
         assert!(!b.is_superpixel());
         assert!(b.is_pixel());
         assert!(!b.is_subpixel());
@@ -376,7 +386,8 @@ mod tests {
         assert_eq!(b.heightf(), 0.03125);
         assert_eq!(b.pixel_align_x(), 8);
         assert_eq!(b.pixel_align_y(), 32);
-        assert_eq!(b.pixel_index(), PixelIndex { x: 5, y: 1 });
+        assert_eq!(b.pixel_block(), ImageBlock::new(5, 1, 0, 0));
+        assert_eq!(b.pixel_index(), PixelIndex::new(5, 1));
         assert!(!b.is_superpixel());
         assert!(!b.is_pixel());
         assert!(b.is_subpixel());
