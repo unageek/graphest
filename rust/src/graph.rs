@@ -215,9 +215,9 @@ impl Graph {
     }
 
     pub fn get_gray_alpha_image(&self, im: &mut GrayAlphaImage) {
-        assert!(im.width() == self.im.width && im.height() == self.im.height);
-        for (src, dst) in self.im.states.iter().zip(im.pixels_mut()) {
-            *dst = match *src {
+        assert!(im.width() == self.im.width() && im.height() == self.im.height());
+        for (src, dst) in self.im.state_iter().copied().zip(im.pixels_mut()) {
+            *dst = match src {
                 PixelState::True => LumaA([0, 255]),
                 PixelState::False => LumaA([0, 0]),
                 _ => LumaA([0, 128]),
@@ -227,9 +227,9 @@ impl Graph {
     }
 
     pub fn get_image(&self, im: &mut RgbImage) {
-        assert!(im.width() == self.im.width && im.height() == self.im.height);
-        for (src, dst) in self.im.states.iter().zip(im.pixels_mut()) {
-            *dst = match *src {
+        assert!(im.width() == self.im.width() && im.height() == self.im.height());
+        for (src, dst) in self.im.state_iter().copied().zip(im.pixels_mut()) {
+            *dst = match src {
                 PixelState::True => Rgb([0, 0, 0]),
                 PixelState::False => Rgb([255, 255, 255]),
                 _ => Rgb([64, 128, 192]),
@@ -242,9 +242,9 @@ impl Graph {
         GraphingStatistics {
             pixels_proven: self
                 .im
-                .states
-                .iter()
-                .filter(|&&s| s != PixelState::Uncertain)
+                .state_iter()
+                .copied()
+                .filter(|&s| s != PixelState::Uncertain)
                 .count(),
             eval_count: self.rel.eval_count(),
             ..self.stats
@@ -328,8 +328,8 @@ impl Graph {
         if is_true || is_false {
             let pixel_begin = b.pixel_index();
             let pixel_end = PixelIndex::new(
-                (pixel_begin.x + b.width()).min(self.im.width),
-                (pixel_begin.y + b.height()).min(self.im.height),
+                (pixel_begin.x + b.width()).min(self.im.width()),
+                (pixel_begin.y + b.height()).min(self.im.height()),
             );
             let stat = if is_true {
                 PixelState::True
@@ -532,9 +532,9 @@ impl Graph {
         let py = b.y as f64 * ph;
         InexactRegion::new(
             Self::point_interval(px).mul_add(self.sx, self.tx),
-            Self::point_interval((px + pw).min(self.im.width as f64)).mul_add(self.sx, self.tx),
+            Self::point_interval((px + pw).min(self.im.width() as f64)).mul_add(self.sx, self.tx),
             Self::point_interval(py).mul_add(self.sy, self.ty),
-            Self::point_interval((py + ph).min(self.im.height as f64)).mul_add(self.sy, self.ty),
+            Self::point_interval((py + ph).min(self.im.height() as f64)).mul_add(self.sy, self.ty),
         )
     }
 
@@ -588,13 +588,13 @@ impl Graph {
         let ky = b.ky - 1;
         let b00 = ImageBlock::new(x0, y0, kx, ky);
         sub_bs.push(b00);
-        if y1 * b00.height() < self.im.height {
+        if y1 * b00.height() < self.im.height() {
             sub_bs.push(ImageBlock::new(x0, y1, kx, ky));
         }
-        if x1 * b00.width() < self.im.width {
+        if x1 * b00.width() < self.im.width() {
             sub_bs.push(ImageBlock::new(x1, y0, kx, ky));
         }
-        if x1 * b00.width() < self.im.width && y1 * b00.height() < self.im.height {
+        if x1 * b00.width() < self.im.width() && y1 * b00.height() < self.im.height() {
             sub_bs.push(ImageBlock::new(x1, y1, kx, ky));
         }
     }

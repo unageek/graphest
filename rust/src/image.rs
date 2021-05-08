@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping};
+use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping, slice::Iter};
 
 /// The limit of the width/height of [`Image`]s in pixels.
 const MAX_IMAGE_WIDTH: u32 = 32768;
@@ -27,10 +27,10 @@ pub type QueuedBlockIndex = u32;
 /// A rendering of a graph. Each pixel stores the existence or absence of the solution:
 #[derive(Debug)]
 pub struct Image {
-    pub width: u32,
-    pub height: u32,
+    width: u32,
+    height: u32,
     last_queued_blocks: Vec<QueuedBlockIndex>,
-    pub states: Vec<PixelState>,
+    states: Vec<PixelState>,
 }
 
 impl Image {
@@ -43,6 +43,11 @@ impl Image {
             last_queued_blocks: vec![0; height as usize * width as usize],
             states: vec![PixelState::Uncertain; height as usize * width as usize],
         }
+    }
+
+    /// Returns the height of the image in pixels.
+    pub fn height(&self) -> u32 {
+        self.height
     }
 
     /// Returns the index of the last-queued block of the pixel.
@@ -67,10 +72,21 @@ impl Image {
         self.states[self.index(p)]
     }
 
+    /// Returns the iterator over the graphing status of pixels
+    /// in the lexicographical order of (y, x).
+    pub fn state_iter(&self) -> Iter<'_, PixelState> {
+        self.states.iter()
+    }
+
     /// Returns a mutable reference to the graphing status of the pixel.
     pub fn state_mut(&mut self, p: PixelIndex) -> &mut PixelState {
         let i = self.index(p);
         &mut self.states[i]
+    }
+
+    /// Returns the width of the image in pixels.
+    pub fn width(&self) -> u32 {
+        self.width
     }
 
     /// Returns the flattened index of the pixel.
@@ -361,6 +377,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn image() {
+        let mut im = Image::new(34, 45);
+        let p = PixelIndex::new(12, 23);
+
+        assert_eq!(im.width(), 34);
+        assert_eq!(im.height(), 45);
+
+        assert_eq!(im.state(p), PixelState::Uncertain);
+        *im.state_mut(p) = PixelState::True;
+        assert_eq!(im.state(p), PixelState::True);
+        assert_eq!(
+            im.state_iter()
+                .copied()
+                .nth((p.y * im.width() + p.x) as usize),
+            Some(PixelState::True)
+        );
+
+        assert_eq!(im.last_queued_block(p), 0);
+        *im.last_queued_block_mut(p) = 123456;
+        assert_eq!(im.last_queued_block(p), 123456);
+    }
+
+    #[test]
     fn image_block() {
         let b = ImageBlock::new(42, 42, 3, 5);
         assert_eq!(b.width(), 8);
@@ -401,66 +440,16 @@ mod tests {
     fn image_block_queue() {
         let mut queue = ImageBlockQueue::new();
         let blocks = [
-            ImageBlock {
-                x: 0,
-                y: 0xffffffff,
-                kx: -128,
-                ky: 127,
-            },
-            ImageBlock {
-                x: 0x7f,
-                y: 0x10000000,
-                kx: -128,
-                ky: 127,
-            },
-            ImageBlock {
-                x: 0x80,
-                y: 0xfffffff,
-                kx: -127,
-                ky: 64,
-            },
-            ImageBlock {
-                x: 0x3fff,
-                y: 0x200000,
-                kx: -64,
-                ky: 63,
-            },
-            ImageBlock {
-                x: 0x4000,
-                y: 0x1fffff,
-                kx: -63,
-                ky: 0,
-            },
-            ImageBlock {
-                x: 0x1fffff,
-                y: 0x4000,
-                kx: 0,
-                ky: -63,
-            },
-            ImageBlock {
-                x: 0x200000,
-                y: 0x3fff,
-                kx: 63,
-                ky: -64,
-            },
-            ImageBlock {
-                x: 0xfffffff,
-                y: 0x80,
-                kx: 64,
-                ky: -127,
-            },
-            ImageBlock {
-                x: 0x10000000,
-                y: 0x7f,
-                kx: 127,
-                ky: -128,
-            },
-            ImageBlock {
-                x: 0xffffffff,
-                y: 0,
-                kx: -128,
-                ky: 127,
-            },
+            ImageBlock::new(0, 0xffffffff, -128, -64),
+            ImageBlock::new(0x7f, 0x10000000, -32, 0),
+            ImageBlock::new(0x80, 0xfffffff, 0, 32),
+            ImageBlock::new(0x3fff, 0x200000, 64, 127),
+            ImageBlock::new(0x4000, 0x1fffff, 0, 0),
+            ImageBlock::new(0x1fffff, 0x4000, 0, 0),
+            ImageBlock::new(0x200000, 0x3fff, 0, 0),
+            ImageBlock::new(0xfffffff, 0x80, 0, 0),
+            ImageBlock::new(0x10000000, 0x7f, 0, 0),
+            ImageBlock::new(0xffffffff, 0, 0, 0),
         ];
         for (i, b) in blocks.iter().copied().enumerate() {
             let back_index = queue.push_back(b);
