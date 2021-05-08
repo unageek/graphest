@@ -86,18 +86,6 @@ pub struct PixelIndex {
     pub y: u32,
 }
 
-impl PixelIndex {
-    /// Returns the [`ImageBlock`] that represents the same area as the pixel.
-    pub fn as_block(&self) -> ImageBlock {
-        ImageBlock {
-            x: self.x,
-            y: self.y,
-            kx: 0,
-            ky: 0,
-        }
-    }
-}
-
 /// A rectangular region of an [`Image`] with the following bounds in pixels:
 /// `[x 2^kx, (x + 1) 2^kx] × [y 2^ky, (y + 1) 1^ky]`.
 ///
@@ -171,6 +159,20 @@ impl ImageBlock {
     /// Precondition: `self.ky ≤ 0`.
     pub fn pixel_align_y(&self) -> u32 {
         1u32 << -self.ky
+    }
+
+    /// Returns the pixel-level block that contains the given block.
+    ///
+    /// Panics if the block is a superpixel.
+    pub fn pixel_block(&self) -> Self {
+        assert!(!self.is_superpixel());
+        let pixel = self.pixel_index();
+        Self {
+            x: pixel.x,
+            y: pixel.y,
+            kx: 0,
+            ky: 0,
+        }
     }
 
     /// Returns the index of the pixel that contains the block.

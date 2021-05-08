@@ -374,7 +374,7 @@ impl Graph {
             return Ok(());
         }
 
-        let p_dn = self.block_to_region(pixel.as_block()).inner();
+        let p_dn = self.block_to_region(b.pixel_block()).inner();
         if p_dn.is_empty() {
             return Err(GraphingError {
                 kind: GraphingErrorKind::ReachedPrecisionLimit,
