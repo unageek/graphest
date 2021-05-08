@@ -126,8 +126,9 @@ impl ImageBlock {
 
     /// Returns the height of the block in pixels.
     ///
-    /// Precondition: `self.ky ≥ 0`.
+    /// Panics if `self.ky < 0`.
     pub fn height(&self) -> u32 {
+        assert!(self.ky >= 0);
         1u32 << self.ky
     }
 
@@ -156,17 +157,19 @@ impl ImageBlock {
         self.kx > 0 || self.ky > 0
     }
 
-    /// The width of a pixel in multiples of the block's width.
+    /// Returns the width of a pixel in multiples of the block's width.
     ///
-    /// Precondition: `self.kx ≤ 0`.
+    /// Panics if `self.kx > 0`.
     pub fn pixel_align_x(&self) -> u32 {
+        assert!(self.kx <= 0);
         1u32 << -self.kx
     }
 
-    /// The height of a pixel in multiples of the block's height.
+    /// Returns the height of a pixel in multiples of the block's height.
     ///
-    /// Precondition: `self.ky ≤ 0`.
+    /// Panics if `self.ky > 0`.
     pub fn pixel_align_y(&self) -> u32 {
+        assert!(self.ky <= 0);
         1u32 << -self.ky
     }
 
@@ -203,8 +206,9 @@ impl ImageBlock {
 
     /// Returns the width of the block in pixels.
     ///
-    /// Precondition: `self.kx ≥ 0`.
+    /// Panics if `self.kx < 0`.
     pub fn width(&self) -> u32 {
+        assert!(self.kx >= 0);
         1u32 << self.kx
     }
 
