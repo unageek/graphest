@@ -24,7 +24,7 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: rust/target
-          key: ubuntu-cargo-${{ hashFiles('rust/Cargo.lock') }}-build-script-${{ hashFiles('rust/build.rs') }}
+          key: ubuntu-${{ hashFiles('rust/Cargo.lock', 'rust/build.rs') }}-${{ secrets.CACHE_VERSION }}
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
