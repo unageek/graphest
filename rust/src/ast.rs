@@ -120,12 +120,13 @@ pub enum ValueType {
 }
 
 bitflags! {
-    /// A set of free variables: x or y.
+    /// A set of free variables, subset of {x, y, n_θ}.
     pub struct VarSet: u8 {
-        const EMPTY = 0b00;
+        const EMPTY = 0;
         const X = 0b01;
         const Y = 0b10;
         const XY = 0b11;
+        const N_THETA = 0b100;
     }
 }
 
@@ -271,6 +272,7 @@ impl Expr {
             Constant(_) => VarSet::EMPTY,
             Var(x) if x == "x" => VarSet::X,
             Var(x) if x == "y" => VarSet::Y,
+            Var(x) if x == "<n-theta>" => VarSet::N_THETA,
             Var(_) => VarSet::EMPTY,
             Unary(_, x) | Pown(x, _) | Rootn(x, _) => x.vars,
             Binary(_, x, y) => x.vars | y.vars,
@@ -313,7 +315,7 @@ impl Expr {
             {
                 Boolean
             }
-            Var(x) if x == "x" || x == "y" => Scalar,
+            Var(x) if x == "x" || x == "y" || x == "<n-theta>" => Scalar,
             Uninit => panic!(),
             _ => Unknown,
         }

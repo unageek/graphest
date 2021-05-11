@@ -126,6 +126,7 @@ pub enum StaticTermKind {
     Constant(Box<TupperIntervalSet>),
     X,
     Y,
+    NTheta,
     Unary(ScalarUnaryOp, TermIndex),
     Binary(ScalarBinaryOp, TermIndex, TermIndex),
     Pown(TermIndex, i32),
@@ -330,7 +331,7 @@ impl StaticTerm {
             Pown(x, n) => self.put(ts, terms[*x as usize].get(ts).pown(*n, self.site)),
             Rootn(x, n) => self.put(ts, terms[*x as usize].get(ts).rootn(*n)),
             List(_) => (),
-            X | Y => panic!("this term cannot be evaluated"),
+            X | Y | NTheta => panic!("this term cannot be evaluated"),
         }
     }
 }
