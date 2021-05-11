@@ -1,5 +1,5 @@
 use crate::{
-    ast::{ValueType, VarSet},
+    ast::{BinaryOp, Expr, ExprKind, UnaryOp, ValueType, VarSet},
     context::Context,
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
@@ -100,11 +100,25 @@ impl EvalCache {
     }
 }
 
+/// Type of the relation, which should be used to choose the optimal graphing strategy.
+///
+/// The following relationships hold:
+///
+/// - `FunctionOfX` ⟹ `Implicit`
+/// - `FunctionOfY` ⟹ `Implicit`
+/// - `Implicit` ⟹ `Polar`
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
-    FunctionOfX, // y = f(x)
-    FunctionOfY, // x = f(y)
+    /// y is a function of x.
+    /// More generally, the relation is of the form y R_1 f_1(x) ∨ … ∨ y R_n f_n(x).
+    FunctionOfX,
+    /// x is a function of y.
+    /// More generally, the relation is of the form x R_1 f_1(y) ∨ … ∨ x R_n f_n(y).
+    FunctionOfY,
+    /// Implicit relation of x and y.
     Implicit,
+    /// Implicit relation of x, y and θ.
+    Polar,
 }
 
 #[derive(Clone, Debug)]
@@ -119,11 +133,17 @@ pub struct Relation {
 }
 
 impl Relation {
-    pub fn eval(&mut self, x: Interval, y: Interval, cache: Option<&mut EvalCache>) -> EvalResult {
+    pub fn eval(
+        &mut self,
+        x: Interval,
+        y: Interval,
+        n_theta: Interval,
+        cache: Option<&mut EvalCache>,
+    ) -> EvalResult {
         self.eval_count += 1;
         match cache {
-            Some(cache) => self.eval_with_cache(x, y, cache),
-            _ => self.eval_without_cache(x, y),
+            Some(cache) => self.eval_with_cache(x, y, n_theta, cache),
+            _ => self.eval_without_cache(x, y, n_theta),
         }
     }
 
@@ -140,6 +160,7 @@ impl Relation {
     }
 
     fn relation_type_impl(&self, i: usize) -> RelationType {
+        use RelationType::*;
         match self.forms[i].kind {
             StaticFormKind::Atomic(_, i, j) => {
                 match (
@@ -149,53 +170,73 @@ impl Relation {
                     &self.terms[j as usize].kind,
                 ) {
                     (StaticTermKind::Y, t, _, _) | (_, _, t, StaticTermKind::Y)
-                        if !t.vars.contains(VarSet::Y) =>
+                        if VarSet::X.contains(t.vars) =>
                     {
                         // y = f(x) or f(x) = y
-                        RelationType::FunctionOfX
+                        FunctionOfX
                     }
                     (StaticTermKind::X, t, _, _) | (_, _, t, StaticTermKind::X)
-                        if !t.vars.contains(VarSet::X) =>
+                        if VarSet::Y.contains(t.vars) =>
                     {
                         // x = f(y) or f(y) = x
-                        RelationType::FunctionOfY
+                        FunctionOfY
                     }
-                    _ => RelationType::Implicit,
+                    (_, tj, ti, _)
+                        if VarSet::XY.contains(ti.vars) && VarSet::XY.contains(tj.vars) =>
+                    {
+                        Implicit
+                    }
+                    _ => Polar,
                 }
             }
-            StaticFormKind::And(_, _) => {
-                // This should not be `FunctionOfX` nor `FunctionOfY`.
-                // Example: "y = x && y = x + 0.0001"
-                //                              /
-                //                 +--+       +/-+
-                //                 |  |       /  |
-                //   FunctionOfX:  |  |/  ∧  /|  |   =   ?
-                //                 |  / T     |  | T
-                //                 +-/+       +--+
-                //                  /
-                //                              /
-                //                 +--+       +/-+       +--+
-                //                 |  | F     /  | T     |  | F
-                //      Implicit:  +--+/  ∧  /+--+   =   +--+
-                //                 |  / T     |  | F     |  | F
-                //                 +-/+       +--+       +--+
-                //                  /
-                // See `EvalResultMask::solution_certainly_exists` for how conjunctions are evaluated.
-                RelationType::Implicit
+            StaticFormKind::And(i, j) => {
+                match (
+                    self.relation_type_impl(i as usize),
+                    self.relation_type_impl(j as usize),
+                ) {
+                    (Polar, _) | (_, Polar) => Polar,
+                    _ => {
+                        // This should not be `FunctionOfX` nor `FunctionOfY`.
+                        // Example: "y = x && y = x + 0.0001"
+                        //                              /
+                        //                 +--+       +/-+
+                        //                 |  |       /  |
+                        //   FunctionOfX:  |  |/  ∧  /|  |   =   ?
+                        //                 |  / T     |  | T
+                        //                 +-/+       +--+
+                        //                  /
+                        //                              /
+                        //                 +--+       +/-+       +--+
+                        //                 |  | F     /  | T     |  | F
+                        //      Implicit:  +--+/  ∧  /+--+   =   +--+
+                        //                 |  / T     |  | F     |  | F
+                        //                 +-/+       +--+       +--+
+                        //                  /
+                        // See `EvalResultMask::solution_certainly_exists` for how conjunctions are evaluated.
+                        Implicit
+                    }
+                }
             }
             StaticFormKind::Or(i, j) => {
                 match (
                     self.relation_type_impl(i as usize),
                     self.relation_type_impl(j as usize),
                 ) {
+                    (Polar, _) | (_, Polar) => Polar,
                     (x, y) if x == y => x,
-                    _ => RelationType::Implicit,
+                    _ => Implicit,
                 }
             }
         }
     }
 
-    fn eval_with_cache(&mut self, x: Interval, y: Interval, cache: &mut EvalCache) -> EvalResult {
+    fn eval_with_cache(
+        &mut self,
+        x: Interval,
+        y: Interval,
+        n_theta: Interval,
+        cache: &mut EvalCache,
+    ) -> EvalResult {
         let kx = [x.inf().to_bits(), x.sup().to_bits()];
         let ky = [y.inf().to_bits(), y.sup().to_bits()];
         let kxy = [kx[0], kx[1], ky[0], ky[1]];
@@ -225,18 +266,16 @@ impl Relation {
             match t.kind {
                 StaticTermKind::X => t.put(ts, TupperIntervalSet::from(DecInterval::new(x))),
                 StaticTermKind::Y => t.put(ts, TupperIntervalSet::from(DecInterval::new(y))),
-                _ => match t.vars {
-                    VarSet::X if mx_ts == None => {
-                        t.put_eval(terms, ts);
-                    }
-                    VarSet::Y if my_ts == None => {
-                        t.put_eval(terms, ts);
-                    }
-                    VarSet::XY => {
-                        t.put_eval(terms, ts);
-                    }
-                    _ => (), // Constant or cached subexpression.
-                },
+                StaticTermKind::NTheta => {
+                    t.put(ts, TupperIntervalSet::from(DecInterval::new(n_theta)))
+                }
+                _ if t.vars == VarSet::EMPTY
+                    || t.vars == VarSet::X && mx_ts.is_some()
+                    || t.vars == VarSet::Y && my_ts.is_some() =>
+                {
+                    // Constant or cached subexpression.
+                }
+                _ => t.put_eval(terms, ts),
             }
         }
 
@@ -254,17 +293,20 @@ impl Relation {
         r
     }
 
-    fn eval_without_cache(&mut self, x: Interval, y: Interval) -> EvalResult {
+    fn eval_without_cache(&mut self, x: Interval, y: Interval, n_theta: Interval) -> EvalResult {
         let ts = &mut self.ts;
         let terms = &self.terms;
         for t in terms {
             match t.kind {
                 StaticTermKind::X => t.put(ts, TupperIntervalSet::from(DecInterval::new(x))),
                 StaticTermKind::Y => t.put(ts, TupperIntervalSet::from(DecInterval::new(y))),
-                _ => match t.vars {
-                    VarSet::EMPTY => (), // Constant subexpression.
-                    _ => t.put_eval(terms, ts),
-                },
+                StaticTermKind::NTheta => {
+                    t.put(ts, TupperIntervalSet::from(DecInterval::new(n_theta)))
+                }
+                _ if t.vars == VarSet::EMPTY => {
+                    // Constant subexpression.
+                }
+                _ => t.put_eval(terms, ts),
             }
         }
 
@@ -293,6 +335,7 @@ impl FromStr for Relation {
     fn from_str(s: &str) -> Result<Self, String> {
         let mut e = parse_expr(s, Context::builtin_context())?;
         // TODO: Check types and return a pretty error message.
+        expand_polar_coords(&mut e);
         PreTransform.visit_expr_mut(&mut e);
         loop {
             let mut s = SortTerms::default();
@@ -339,6 +382,97 @@ impl FromStr for Relation {
     }
 }
 
+fn expand_polar_coords(e: &mut Expr) {
+    // e1 = e /. {r → sqrt(x^2 + y^2), θ → atan2(y, x) + 2π n_θ}.
+    let mut e1 = e.clone();
+    let mut v = ReplaceAll::new(|e| match &e.kind {
+        ExprKind::Var(x) if x == "r" => Some(Expr::new(ExprKind::Unary(
+            UnaryOp::Sqrt,
+            Box::new(Expr::new(ExprKind::Binary(
+                BinaryOp::Add,
+                Box::new(Expr::new(ExprKind::Unary(
+                    UnaryOp::Sqr,
+                    Box::new(Expr::new(ExprKind::Var("x".into()))),
+                ))),
+                Box::new(Expr::new(ExprKind::Unary(
+                    UnaryOp::Sqr,
+                    Box::new(Expr::new(ExprKind::Var("y".into()))),
+                ))),
+            ))),
+        ))),
+        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::new(ExprKind::Binary(
+            BinaryOp::Add,
+            Box::new(Expr::new(ExprKind::Binary(
+                BinaryOp::Atan2,
+                Box::new(Expr::new(ExprKind::Var("y".into()))),
+                Box::new(Expr::new(ExprKind::Var("x".into()))),
+            ))),
+            Box::new(Expr::new(ExprKind::Binary(
+                BinaryOp::Mul,
+                Box::new(Expr::new(ExprKind::Constant(Box::new((
+                    TupperIntervalSet::from(DecInterval::TAU),
+                    None,
+                ))))),
+                Box::new(Expr::new(ExprKind::Var("<n-theta>".into()))),
+            ))),
+        ))),
+        _ => None,
+    });
+    v.visit_expr_mut(&mut e1);
+    if !v.modified {
+        // `e` does not contain r nor θ.
+        return;
+    }
+
+    // e2 = e /. {r → -sqrt(x^2 + y^2), θ → atan2(-y, -x) + 2π n_θ}.
+    let mut e2 = e.clone();
+    let mut v = ReplaceAll::new(|e| match &e.kind {
+        ExprKind::Var(x) if x == "r" => Some(Expr::new(ExprKind::Unary(
+            UnaryOp::Neg,
+            Box::new(Expr::new(ExprKind::Unary(
+                UnaryOp::Sqrt,
+                Box::new(Expr::new(ExprKind::Binary(
+                    BinaryOp::Add,
+                    Box::new(Expr::new(ExprKind::Unary(
+                        UnaryOp::Sqr,
+                        Box::new(Expr::new(ExprKind::Var("x".into()))),
+                    ))),
+                    Box::new(Expr::new(ExprKind::Unary(
+                        UnaryOp::Sqr,
+                        Box::new(Expr::new(ExprKind::Var("y".into()))),
+                    ))),
+                ))),
+            ))),
+        ))),
+        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::new(ExprKind::Binary(
+            BinaryOp::Add,
+            Box::new(Expr::new(ExprKind::Binary(
+                BinaryOp::Atan2,
+                Box::new(Expr::new(ExprKind::Unary(
+                    UnaryOp::Neg,
+                    Box::new(Expr::new(ExprKind::Var("y".into()))),
+                ))),
+                Box::new(Expr::new(ExprKind::Unary(
+                    UnaryOp::Neg,
+                    Box::new(Expr::new(ExprKind::Var("x".into()))),
+                ))),
+            ))),
+            Box::new(Expr::new(ExprKind::Binary(
+                BinaryOp::Mul,
+                Box::new(Expr::new(ExprKind::Constant(Box::new((
+                    TupperIntervalSet::from(DecInterval::TAU),
+                    None,
+                ))))),
+                Box::new(Expr::new(ExprKind::Var("<n-theta>".into()))),
+            ))),
+        ))),
+        _ => None,
+    });
+    v.visit_expr_mut(&mut e2);
+
+    *e = Expr::new(ExprKind::Binary(BinaryOp::Or, Box::new(e1), Box::new(e2)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -363,5 +497,10 @@ mod tests {
         assert_eq!(t("sin(y) = 0"), Implicit);
         assert_eq!(t("y < sin(x) || sin(x) < y"), FunctionOfX);
         assert_eq!(t("y < sin(x) && sin(x) < y"), Implicit);
+        assert_eq!(t("r = 1"), Implicit);
+        assert_eq!(t("x = θ"), Polar);
+        assert_eq!(t("x = theta"), Polar);
+        assert_eq!(t("x = θ || θ = x"), Polar);
+        assert_eq!(t("x = θ && θ = x"), Polar);
     }
 }

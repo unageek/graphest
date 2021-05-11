@@ -1,12 +1,15 @@
 use crate::{
     eval_result::EvalResult,
-    image::{Image, ImageBlock, ImageBlockQueue, PixelIndex, PixelState, QueuedBlockIndex},
+    image::{
+        Image, ImageBlock, ImageBlockQueue, PixelIndex, PixelState, QueuedBlockIndex,
+        SubdivisionDir, MAX_DISCRETE_N_THETA,
+    },
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationType},
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
-use inari::{interval, Decoration, Interval};
+use inari::{const_interval, interval, Decoration, Interval};
 use std::{
     convert::TryFrom,
     error, fmt,
@@ -129,7 +132,6 @@ impl InexactRegion {
 pub enum GraphingErrorKind {
     BlockIndexOverflow,
     ReachedMemLimit,
-    ReachedPrecisionLimit,
     ReachedSubdivisionLimit,
 }
 
@@ -143,7 +145,6 @@ impl fmt::Display for GraphingError {
         match self.kind {
             GraphingErrorKind::BlockIndexOverflow => write!(f, "block index overflow"),
             GraphingErrorKind::ReachedMemLimit => write!(f, "reached the memory usage limit"),
-            GraphingErrorKind::ReachedPrecisionLimit => write!(f, "reached the precision limit"),
             GraphingErrorKind::ReachedSubdivisionLimit => {
                 write!(f, "reached the subdivision limit")
             }
@@ -196,7 +197,7 @@ impl Graph {
             forms,
             relation_type,
             im: Image::new(im_width, im_height),
-            bs_to_subdivide: ImageBlockQueue::new(),
+            bs_to_subdivide: ImageBlockQueue::new(relation_type == RelationType::Polar),
             sx: region.width() / Self::point_interval(im_width as f64),
             sy: region.height() / Self::point_interval(im_height as f64),
             tx: region.l,
@@ -210,7 +211,23 @@ impl Graph {
             mem_limit,
         };
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
-        g.bs_to_subdivide.push_back(ImageBlock::new(0, 0, k, k));
+        if relation_type == RelationType::Polar {
+            let bs = [
+                const_interval!(f64::NEG_INFINITY, -1.0),
+                const_interval!(0.0, 0.0),
+                const_interval!(1.0, f64::INFINITY),
+            ]
+            .iter()
+            .map(|&n_theta| ImageBlock::new(0, 0, k, k, n_theta))
+            .collect::<Vec<_>>();
+            g.set_last_queued_block(&bs[2], 2).unwrap();
+            for b in bs {
+                g.bs_to_subdivide.push_back(b);
+            }
+        } else {
+            g.bs_to_subdivide
+                .push_back(ImageBlock::new(0, 0, k, k, Interval::ENTIRE));
+        }
         g
     }
 
@@ -262,30 +279,93 @@ impl Graph {
     }
 
     fn refine_impl(&mut self, timeout: Duration, now: &Instant) -> Result<bool, GraphingError> {
-        let mut sub_bs = Vec::<ImageBlock>::new();
+        let mut sub_bs = vec![];
+        let mut incomplete_sub_bs = vec![];
         // Blocks are queued in the Morton order. Thus, the caches should work efficiently.
         let mut cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
         let mut cache_eval_on_point = EvalCache::new(EvalCacheLevel::Full);
         while let Some((bi, b)) = self.bs_to_subdivide.pop_front() {
-            if b.is_superpixel() {
-                self.push_sub_blocks_clipped(&mut sub_bs, b);
-            } else {
-                self.push_sub_blocks(&mut sub_bs, b);
+            match b.next_dir {
+                SubdivisionDir::NTheta => Self::subdivide_on_n_theta(&mut sub_bs, b),
+                SubdivisionDir::XY => self.subdivide_on_xy(&mut sub_bs, b),
             }
 
-            let n_siblings = sub_bs.len();
-            for (sibling_index, sub_b) in sub_bs.drain(..).enumerate() {
-                if !sub_b.is_subpixel() {
-                    self.refine_pixel(sub_b, &mut cache_eval_on_region)?;
+            let n_sub_bs = sub_bs.len();
+            for (sub_b, is_last_sibling) in sub_bs.drain(..) {
+                let complete = if !sub_b.is_subpixel() {
+                    self.refine_pixel(
+                        sub_b,
+                        is_last_sibling,
+                        QueuedBlockIndex::try_from(bi).unwrap(),
+                        &mut cache_eval_on_region,
+                    )
                 } else {
                     self.refine_subpixel(
                         sub_b,
-                        sibling_index == n_siblings - 1,
+                        is_last_sibling,
                         QueuedBlockIndex::try_from(bi).unwrap(),
                         &mut cache_eval_on_region,
                         &mut cache_eval_on_point,
-                    )?;
+                    )
                 };
+                if !complete {
+                    // We can't queue the block yet because we need to modify `sub_b.next_dir`
+                    // after all sub-blocks are processed.
+                    self.set_last_queued_block(
+                        &sub_b,
+                        self.bs_to_subdivide.next_back_index() + incomplete_sub_bs.len(),
+                    )?;
+                    incomplete_sub_bs.push(sub_b);
+                }
+            }
+
+            let next_dir = if self.relation_type == RelationType::Polar {
+                (if 4 * incomplete_sub_bs.len() <= n_sub_bs {
+                    // Subdivide in the same direction again.
+                    match b.next_dir {
+                        SubdivisionDir::NTheta if b.is_subdivisible_on_n_theta() => {
+                            Some(SubdivisionDir::NTheta)
+                        }
+                        SubdivisionDir::XY if b.is_subdivisible_on_xy() => Some(SubdivisionDir::XY),
+                        _ => None,
+                    }
+                } else {
+                    // Subdivide in other direction.
+                    match b.next_dir {
+                        SubdivisionDir::NTheta if b.is_subdivisible_on_xy() => {
+                            Some(SubdivisionDir::XY)
+                        }
+                        SubdivisionDir::XY if b.is_subdivisible_on_n_theta() => {
+                            Some(SubdivisionDir::NTheta)
+                        }
+                        _ => None,
+                    }
+                })
+                .unwrap_or({
+                    // Fallback.
+                    if b.is_subdivisible_on_n_theta() {
+                        SubdivisionDir::NTheta
+                    } else if b.is_subdivisible_on_xy() {
+                        SubdivisionDir::XY
+                    } else {
+                        // TODO: Continue processing remaining blocks.
+                        return Err(GraphingError {
+                            kind: GraphingErrorKind::ReachedSubdivisionLimit,
+                        });
+                    }
+                })
+            } else if b.is_subdivisible_on_xy() {
+                SubdivisionDir::XY
+            } else {
+                // TODO: Continue processing remaining blocks.
+                return Err(GraphingError {
+                    kind: GraphingErrorKind::ReachedSubdivisionLimit,
+                });
+            };
+
+            for mut sub_b in incomplete_sub_bs.drain(..) {
+                sub_b.next_dir = next_dir;
+                self.bs_to_subdivide.push_back(sub_b);
             }
 
             let mut clear_cache_and_retry = true;
@@ -314,10 +394,71 @@ impl Graph {
         Ok(self.bs_to_subdivide.is_empty())
     }
 
-    fn refine_pixel(&mut self, b: ImageBlock, cache: &mut EvalCache) -> Result<(), GraphingError> {
-        let u_up = self.block_to_region_clipped(b).outer();
-        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache));
+    fn set_last_queued_block(
+        &mut self,
+        b: &ImageBlock,
+        block_index: usize,
+    ) -> Result<(), GraphingError> {
+        if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
+            #[allow(clippy::branches_sharing_code)]
+            if b.is_superpixel() {
+                let pixel_begin = b.pixel_index();
+                let pixel_end = PixelIndex::new(
+                    (pixel_begin.x + b.width()).min(self.im.width()),
+                    (pixel_begin.y + b.height()).min(self.im.height()),
+                );
+                for y in pixel_begin.y..pixel_end.y {
+                    for x in pixel_begin.x..pixel_end.x {
+                        let pixel = PixelIndex::new(x, y);
+                        *self.im.last_queued_block_mut(pixel) = block_index;
+                    }
+                }
+            } else {
+                let pixel = b.pixel_index();
+                *self.im.last_queued_block_mut(pixel) = block_index;
+            }
+            Ok(())
+        } else {
+            Err(GraphingError {
+                kind: GraphingErrorKind::BlockIndexOverflow,
+            })
+        }
+    }
 
+    /// Refine the block and returns `true` if refinement is complete.
+    ///
+    /// Precondition: the block must be a pixel or a superpixel.
+    fn refine_pixel(
+        &mut self,
+        b: ImageBlock,
+        b_is_last_sibling: bool,
+        parent_block_index: QueuedBlockIndex,
+        cache: &mut EvalCache,
+    ) -> bool {
+        let pixel_begin = b.pixel_index();
+        let pixel_end = PixelIndex::new(
+            (pixel_begin.x + b.width()).min(self.im.width()),
+            (pixel_begin.y + b.height()).min(self.im.height()),
+        );
+
+        let mut all_true = true;
+        'outer: for y in pixel_begin.y..pixel_end.y {
+            for x in pixel_begin.x..pixel_end.x {
+                let pixel = PixelIndex::new(x, y);
+                let state = self.im.state(pixel);
+                if state != PixelState::True {
+                    all_true = false;
+                    break 'outer;
+                }
+            }
+        }
+        if all_true {
+            // All pixels have already been proven to be true.
+            return true;
+        }
+
+        let u_up = self.block_to_region_clipped(b).outer();
+        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, b.n_theta, Some(cache));
         let is_true = r_u_up
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
             .eval(&self.forms[..]);
@@ -325,41 +466,36 @@ impl Graph {
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..]);
 
-        if is_true || is_false {
-            let pixel_begin = b.pixel_index();
-            let pixel_end = PixelIndex::new(
-                (pixel_begin.x + b.width()).min(self.im.width()),
-                (pixel_begin.y + b.height()).min(self.im.height()),
-            );
-            let stat = if is_true {
-                PixelState::True
-            } else {
-                PixelState::False
-            };
-            for y in pixel_begin.y..pixel_end.y {
-                for x in pixel_begin.x..pixel_end.x {
-                    *self.im.state_mut(PixelIndex::new(x, y)) = stat;
+        if !(is_true || is_false) {
+            return false;
+        }
+
+        for y in pixel_begin.y..pixel_end.y {
+            for x in pixel_begin.x..pixel_end.x {
+                let pixel = PixelIndex::new(x, y);
+                let state = self.im.state(pixel);
+                assert_ne!(state, PixelState::False);
+                if state == PixelState::True {
+                    // This pixel has already been proven to be true.
+                    continue;
                 }
-            }
-            Ok(())
-        } else {
-            let block_index = self.bs_to_subdivide.push_back(b);
-            if b.is_pixel() {
-                if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-                    let pixel = b.pixel_index();
-                    *self.im.last_queued_block_mut(pixel) = block_index;
-                    Ok(())
-                } else {
-                    Err(GraphingError {
-                        kind: GraphingErrorKind::BlockIndexOverflow,
-                    })
+
+                if is_true {
+                    *self.im.state_mut(pixel) = PixelState::True;
+                } else if is_false
+                    && b_is_last_sibling
+                    && self.im.last_queued_block(pixel) == parent_block_index
+                {
+                    *self.im.state_mut(pixel) = PixelState::False;
                 }
-            } else {
-                Ok(())
             }
         }
+        true
     }
 
+    /// Refine the block and returns `true` if refinement is complete.
+    ///
+    /// Precondition: the block must be a subpixel.
     fn refine_subpixel(
         &mut self,
         b: ImageBlock,
@@ -367,30 +503,30 @@ impl Graph {
         parent_block_index: QueuedBlockIndex,
         cache_eval_on_region: &mut EvalCache,
         cache_eval_on_point: &mut EvalCache,
-    ) -> Result<(), GraphingError> {
+    ) -> bool {
         let pixel = b.pixel_index();
-        if self.im.state(pixel) == PixelState::True {
+        let state = self.im.state(pixel);
+        assert_ne!(state, PixelState::False);
+        if state == PixelState::True {
             // This pixel has already been proven to be true.
-            return Ok(());
-        }
-
-        let p_dn = self.block_to_region(b.pixel_block()).inner();
-        if p_dn.is_empty() {
-            return Err(GraphingError {
-                kind: GraphingErrorKind::ReachedPrecisionLimit,
-            });
+            return true;
         }
 
         let u_up = self.block_to_region(b).subpixel_outer(b);
-        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, Some(cache_eval_on_region));
+        let r_u_up =
+            Self::eval_on_region(&mut self.rel, &u_up, b.n_theta, Some(cache_eval_on_region));
+
+        let p_dn = self.block_to_region(b.pixel_block()).inner();
+        let inter = u_up.intersection(&p_dn);
 
         // Save `locally_zero_mask` for later use (see the comment below).
         let locally_zero_mask =
             r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def);
-        if locally_zero_mask.eval(&self.forms[..]) {
-            // The relation is true everywhere in the subpixel.
+        if locally_zero_mask.eval(&self.forms[..]) && !inter.is_empty() {
+            // The relation is true everywhere in the subpixel, and the subpixel certainly overlaps
+            // with the pixel. Therefore, the pixel contains a solution.
             *self.im.state_mut(pixel) = PixelState::True;
-            return Ok(());
+            return true;
         }
         if !r_u_up
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
@@ -400,12 +536,11 @@ impl Graph {
             if b_is_last_sibling && self.im.last_queued_block(pixel) == parent_block_index {
                 *self.im.state_mut(pixel) = PixelState::False;
             }
-            return Ok(());
+            return true;
         }
 
-        let inter = u_up.intersection(&p_dn);
         if inter.is_empty() {
-            return Ok(());
+            return false;
         }
 
         // Evaluate the relation for some sample points within the inner bounds of the subpixel
@@ -435,7 +570,13 @@ impl Graph {
         let mut neg_mask = r_u_up.map(|_| false);
         let mut pos_mask = neg_mask.clone();
         for point in &points {
-            let r = Self::eval_on_point(&mut self.rel, point.0, point.1, Some(cache_eval_on_point));
+            let r = Self::eval_on_point(
+                &mut self.rel,
+                point.0,
+                point.1,
+                b.n_theta,
+                Some(cache_eval_on_point),
+            );
 
             // `ss` is nonempty if the decoration is ≥ `Def`, which will be ensured
             // by taking bitand with `dac_mask`.
@@ -449,38 +590,35 @@ impl Graph {
             {
                 // Found a solution.
                 *self.im.state_mut(pixel) = PixelState::True;
-                return Ok(());
+                return true;
             }
         }
 
-        if b.is_subdivisible() {
-            let block_index = self.bs_to_subdivide.push_back(b);
-            if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-                *self.im.last_queued_block_mut(pixel) = block_index;
-                Ok(())
-            } else {
-                Err(GraphingError {
-                    kind: GraphingErrorKind::BlockIndexOverflow,
-                })
-            }
-        } else {
-            Err(GraphingError {
-                kind: GraphingErrorKind::ReachedSubdivisionLimit,
-            })
-        }
+        false
     }
 
     fn eval_on_point(
         rel: &mut Relation,
         x: f64,
         y: f64,
+        n_theta: Interval,
         cache: Option<&mut EvalCache>,
     ) -> EvalResult {
-        rel.eval(Self::point_interval(x), Self::point_interval(y), cache)
+        rel.eval(
+            Self::point_interval(x),
+            Self::point_interval(y),
+            n_theta,
+            cache,
+        )
     }
 
-    fn eval_on_region(rel: &mut Relation, r: &Region, cache: Option<&mut EvalCache>) -> EvalResult {
-        rel.eval(r.0, r.1, cache)
+    fn eval_on_region(
+        rel: &mut Relation,
+        r: &Region,
+        n_theta: Interval,
+        cache: Option<&mut EvalCache>,
+    ) -> EvalResult {
+        rel.eval(r.0, r.1, n_theta, cache)
     }
 
     /// Returns a point within the given region whose coordinates have as many trailing zeros
@@ -542,60 +680,102 @@ impl Graph {
         interval!(x, x).unwrap()
     }
 
-    /// Subdivides a pixel or subpixel block `b` and appends them to `sub_bs`.
-    fn push_sub_blocks(&self, sub_bs: &mut Vec<ImageBlock>, b: ImageBlock) {
-        match self.relation_type {
-            RelationType::FunctionOfX => {
-                let x0 = 2 * b.x;
-                let x1 = x0 + 1;
-                let y = b.y;
-                let kx = b.kx - 1;
-                let ky = b.ky;
-                sub_bs.push(ImageBlock::new(x0, y, kx, ky));
-                sub_bs.push(ImageBlock::new(x1, y, kx, ky));
+    /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
+    fn subdivide_on_xy(&self, sub_bs: &mut Vec<(ImageBlock, bool)>, b: ImageBlock) {
+        if b.is_superpixel() {
+            let x0 = 2 * b.x;
+            let y0 = 2 * b.y;
+            let x1 = x0 + 1;
+            let y1 = y0 + 1;
+            let kx = b.kx - 1;
+            let ky = b.ky - 1;
+            let b00 = ImageBlock::new(x0, y0, kx, ky, b.n_theta);
+            sub_bs.push((b00, true));
+            if y1 * b00.height() < self.im.height() {
+                sub_bs.push((ImageBlock::new(x0, y1, kx, ky, b.n_theta), true));
             }
-            RelationType::FunctionOfY => {
-                let x = b.x;
-                let y0 = 2 * b.y;
-                let y1 = y0 + 1;
-                let kx = b.kx;
-                let ky = b.ky - 1;
-                sub_bs.push(ImageBlock::new(x, y0, kx, ky));
-                sub_bs.push(ImageBlock::new(x, y1, kx, ky));
+            if x1 * b00.width() < self.im.width() {
+                sub_bs.push((ImageBlock::new(x1, y0, kx, ky, b.n_theta), true));
             }
-            _ => {
-                let x0 = 2 * b.x;
-                let y0 = 2 * b.y;
-                let x1 = x0 + 1;
-                let y1 = y0 + 1;
-                let kx = b.kx - 1;
-                let ky = b.ky - 1;
-                sub_bs.push(ImageBlock::new(x0, y0, kx, ky));
-                sub_bs.push(ImageBlock::new(x1, y0, kx, ky));
-                sub_bs.push(ImageBlock::new(x0, y1, kx, ky));
-                sub_bs.push(ImageBlock::new(x1, y1, kx, ky));
+            if x1 * b00.width() < self.im.width() && y1 * b00.height() < self.im.height() {
+                sub_bs.push((ImageBlock::new(x1, y1, kx, ky, b.n_theta), true));
+            }
+        } else {
+            match self.relation_type {
+                RelationType::FunctionOfX => {
+                    // Subdivide only horizontally.
+                    let x0 = 2 * b.x;
+                    let x1 = x0 + 1;
+                    let y = b.y;
+                    let kx = b.kx - 1;
+                    let ky = b.ky;
+                    sub_bs.push((ImageBlock::new(x0, y, kx, ky, b.n_theta), false));
+                    sub_bs.push((ImageBlock::new(x1, y, kx, ky, b.n_theta), true));
+                }
+                RelationType::FunctionOfY => {
+                    // Subdivide only vertically.
+                    let x = b.x;
+                    let y0 = 2 * b.y;
+                    let y1 = y0 + 1;
+                    let kx = b.kx;
+                    let ky = b.ky - 1;
+                    sub_bs.push((ImageBlock::new(x, y0, kx, ky, b.n_theta), false));
+                    sub_bs.push((ImageBlock::new(x, y1, kx, ky, b.n_theta), true));
+                }
+                _ => {
+                    let x0 = 2 * b.x;
+                    let y0 = 2 * b.y;
+                    let x1 = x0 + 1;
+                    let y1 = y0 + 1;
+                    let kx = b.kx - 1;
+                    let ky = b.ky - 1;
+                    sub_bs.push((ImageBlock::new(x0, y0, kx, ky, b.n_theta), false));
+                    sub_bs.push((ImageBlock::new(x1, y0, kx, ky, b.n_theta), false));
+                    sub_bs.push((ImageBlock::new(x0, y1, kx, ky, b.n_theta), false));
+                    sub_bs.push((ImageBlock::new(x1, y1, kx, ky, b.n_theta), true));
+                }
             }
         }
     }
 
-    /// Subdivides a superpixel block `b` and appends them to `sub_bs`.
-    fn push_sub_blocks_clipped(&self, sub_bs: &mut Vec<ImageBlock>, b: ImageBlock) {
-        let x0 = 2 * b.x;
-        let y0 = 2 * b.y;
-        let x1 = x0 + 1;
-        let y1 = y0 + 1;
-        let kx = b.kx - 1;
-        let ky = b.ky - 1;
-        let b00 = ImageBlock::new(x0, y0, kx, ky);
-        sub_bs.push(b00);
-        if y1 * b00.height() < self.im.height() {
-            sub_bs.push(ImageBlock::new(x0, y1, kx, ky));
+    /// Subdivides `b.n_theta` and appends the sub-blocks to `sub_bs`.
+    fn subdivide_on_n_theta(sub_bs: &mut Vec<(ImageBlock, bool)>, b: ImageBlock) {
+        fn bisect(n: Interval) -> [Option<Interval>; 2] {
+            let na = n.inf();
+            let nb = n.sup();
+            if n.is_singleton() || n.mig() > MAX_DISCRETE_N_THETA {
+                [Some(n), None]
+            } else if na + 1.0 == nb {
+                [
+                    Some(interval!(na, na).unwrap()),
+                    Some(interval!(nb, nb).unwrap()),
+                ]
+            } else {
+                let mid = if na == f64::NEG_INFINITY {
+                    2.0 * nb
+                } else if nb == f64::INFINITY {
+                    2.0 * na
+                } else {
+                    (na + nb) / 2.0
+                };
+                [
+                    Some(interval!(na, mid).unwrap()),
+                    Some(interval!(mid, nb).unwrap()),
+                ]
+            }
         }
-        if x1 * b00.width() < self.im.width() {
-            sub_bs.push(ImageBlock::new(x1, y0, kx, ky));
-        }
-        if x1 * b00.width() < self.im.width() && y1 * b00.height() < self.im.height() {
-            sub_bs.push(ImageBlock::new(x1, y1, kx, ky));
+
+        // Bisect twice to get four sub-blocks at most.
+        let ns = bisect(b.n_theta);
+        sub_bs.extend(
+            ns.iter()
+                .filter_map(|&n| n)
+                .flat_map(bisect)
+                .flatten()
+                .map(|n| (ImageBlock { n_theta: n, ..b }, false)),
+        );
+        if let Some(last) = sub_bs.last_mut() {
+            last.1 = true;
         }
     }
 }
@@ -603,7 +783,6 @@ impl Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use inari::*;
 
     #[test]
     fn inexact_region() {
@@ -625,7 +804,7 @@ mod tests {
         );
 
         // The bottom/left sides are pixel boundaries.
-        let b = ImageBlock::new(4, 8, -2, -2);
+        let b = ImageBlock::new(4, 8, -2, -2, Interval::ENTIRE);
         let u_up = u.subpixel_outer(b);
         assert_eq!(u_up.0.inf(), u.l.inf());
         assert_eq!(u_up.0.sup(), u.r.mid());
@@ -633,7 +812,7 @@ mod tests {
         assert_eq!(u_up.1.sup(), u.t.mid());
 
         // The top/right sides are pixel boundaries.
-        let b = ImageBlock::new(b.x + 3, b.y + 3, -2, -2);
+        let b = ImageBlock::new(b.x + 3, b.y + 3, -2, -2, Interval::ENTIRE);
         let u_up = u.subpixel_outer(b);
         assert_eq!(u_up.0.inf(), u.l.mid());
         assert_eq!(u_up.0.sup(), u.r.sup());

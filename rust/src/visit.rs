@@ -163,6 +163,40 @@ impl VisitMut for Substitute {
     }
 }
 
+pub struct ReplaceAll<Rule>
+where
+    Rule: Fn(&Expr) -> Option<Expr>,
+{
+    pub modified: bool,
+    rule: Rule,
+}
+
+impl<Rule> ReplaceAll<Rule>
+where
+    Rule: Fn(&Expr) -> Option<Expr>,
+{
+    pub fn new(rule: Rule) -> Self {
+        Self {
+            modified: false,
+            rule,
+        }
+    }
+}
+
+impl<Rule> VisitMut for ReplaceAll<Rule>
+where
+    Rule: Fn(&Expr) -> Option<Expr>,
+{
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        traverse_expr_mut(self, e);
+
+        if let Some(replacement) = (self.rule)(e) {
+            *e = replacement;
+            self.modified = true;
+        }
+    }
+}
+
 /// Replaces a - b with a + (-b) and does some special transformations.
 pub struct PreTransform;
 
@@ -564,6 +598,7 @@ impl CollectStatic {
                 Constant(x) => Some(StaticTermKind::Constant(Box::new(x.0.clone()))),
                 Var(x) if x == "x" => Some(StaticTermKind::X),
                 Var(x) if x == "y" => Some(StaticTermKind::Y),
+                Var(x) if x == "<n-theta>" => Some(StaticTermKind::NTheta),
                 Unary(op, x) => match op {
                     Abs => Some(ScalarUnaryOp::Abs),
                     Acos => Some(ScalarUnaryOp::Acos),
