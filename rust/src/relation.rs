@@ -382,6 +382,7 @@ impl FromStr for Relation {
     }
 }
 
+/// Replaces polar coordinates with the equivalent family of Cartesian coordinates.
 fn expand_polar_coords(e: &mut Expr) {
     // e1 = e /. {r → sqrt(x^2 + y^2), θ → atan2(y, x) + 2π n_θ}.
     let mut e1 = e.clone();
