@@ -7,12 +7,6 @@ use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping};
 /// The value is currently fixed, but it could be determined based on the size of the image.
 const MIN_K: i8 = -15;
 
-/// The largest value of [`Block::n_theta`] that can be obtained as a point interval by subdivision.
-///
-/// As n_θ represents an integer, it would be reasonable to subdivide the interval
-/// only while it contains so-called safe integers.
-pub const MAX_DISCRETE_N_THETA: f64 = 9007199254740991.0; // 2^53 - 1
-
 /// The direction of subdivision.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -77,7 +71,9 @@ impl Block {
 
     /// Returns `true` if [`self.n_theta`] can be subdivided.
     pub fn is_subdivisible_on_n_theta(&self) -> bool {
-        !self.n_theta.is_singleton() && self.n_theta.mig() <= MAX_DISCRETE_N_THETA
+        let n = self.n_theta;
+        let mid = n.mid().round();
+        n.inf() != mid && n.sup() != mid
     }
 
     /// Returns `true` if the block can be subdivided both horizontally and vertically.

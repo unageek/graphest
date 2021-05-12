@@ -1,5 +1,5 @@
 use crate::{
-    block::{Block, BlockQueue, SubdivisionDir, MAX_DISCRETE_N_THETA},
+    block::{Block, BlockQueue, SubdivisionDir},
     eval_result::EvalResult,
     image::{Image, PixelIndex},
     interval_set::{DecSignSet, SignSet},
@@ -236,13 +236,15 @@ impl Graph {
         if relation_type == RelationType::Polar {
             let bs = [
                 const_interval!(f64::NEG_INFINITY, -1.0),
+                const_interval!(-1.0, -1.0),
                 const_interval!(0.0, 0.0),
+                const_interval!(1.0, 1.0),
                 const_interval!(1.0, f64::INFINITY),
             ]
             .iter()
             .map(|&n_theta| Block::new(0, 0, k, k, n_theta))
             .collect::<Vec<_>>();
-            g.set_last_queued_block(&bs[2], 2).unwrap();
+            g.set_last_queued_block(&bs[4], 4).unwrap();
             for b in bs {
                 g.bs_to_subdivide.push_back(b);
             }
@@ -341,52 +343,38 @@ impl Graph {
                 }
             }
 
-            let next_dir = if self.relation_type == RelationType::Polar {
-                (if 4 * incomplete_sub_bs.len() <= n_sub_bs {
+            let preferred_next_dir = if self.relation_type == RelationType::Polar {
+                let n_max = match b.next_dir {
+                    SubdivisionDir::NTheta => 3,
+                    SubdivisionDir::XY => 4,
+                };
+                if n_max * incomplete_sub_bs.len() <= n_sub_bs {
                     // Subdivide in the same direction again.
-                    match b.next_dir {
-                        SubdivisionDir::NTheta if b.is_subdivisible_on_n_theta() => {
-                            Some(SubdivisionDir::NTheta)
-                        }
-                        SubdivisionDir::XY if b.is_subdivisible_on_xy() => Some(SubdivisionDir::XY),
-                        _ => None,
-                    }
+                    b.next_dir
                 } else {
                     // Subdivide in other direction.
                     match b.next_dir {
-                        SubdivisionDir::NTheta if b.is_subdivisible_on_xy() => {
-                            Some(SubdivisionDir::XY)
-                        }
-                        SubdivisionDir::XY if b.is_subdivisible_on_n_theta() => {
-                            Some(SubdivisionDir::NTheta)
-                        }
-                        _ => None,
+                        SubdivisionDir::NTheta => SubdivisionDir::XY,
+                        SubdivisionDir::XY => SubdivisionDir::NTheta,
                     }
-                })
-                .unwrap_or({
-                    // Fallback.
-                    if b.is_subdivisible_on_n_theta() {
-                        SubdivisionDir::NTheta
-                    } else if b.is_subdivisible_on_xy() {
-                        SubdivisionDir::XY
-                    } else {
-                        // TODO: Continue processing remaining blocks.
-                        return Err(GraphingError {
-                            kind: GraphingErrorKind::ReachedSubdivisionLimit,
-                        });
-                    }
-                })
-            } else if b.is_subdivisible_on_xy() {
-                SubdivisionDir::XY
+                }
             } else {
-                // TODO: Continue processing remaining blocks.
-                return Err(GraphingError {
-                    kind: GraphingErrorKind::ReachedSubdivisionLimit,
-                });
+                SubdivisionDir::XY
             };
 
             for mut sub_b in incomplete_sub_bs.drain(..) {
-                sub_b.next_dir = next_dir;
+                sub_b.next_dir = if preferred_next_dir == SubdivisionDir::NTheta
+                    && sub_b.is_subdivisible_on_n_theta()
+                {
+                    SubdivisionDir::NTheta
+                } else if sub_b.is_subdivisible_on_xy() {
+                    SubdivisionDir::XY
+                } else {
+                    // TODO: Continue processing remaining blocks.
+                    return Err(GraphingError {
+                        kind: GraphingErrorKind::ReachedSubdivisionLimit,
+                    });
+                };
                 self.bs_to_subdivide.push_back(sub_b);
             }
 
@@ -705,6 +693,8 @@ impl Graph {
     }
 
     /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
+    ///
+    /// Precondition: `b.subdivide_on_xy()`.
     fn subdivide_on_xy(&self, sub_bs: &mut Vec<(Block, bool)>, b: Block) {
         if b.is_superpixel() {
             let x0 = 2 * b.x;
@@ -763,40 +753,30 @@ impl Graph {
     }
 
     /// Subdivides `b.n_theta` and appends the sub-blocks to `sub_bs`.
+    ///
+    /// Precondition: `b.is_subdivisible_on_n_theta()`.
     fn subdivide_on_n_theta(sub_bs: &mut Vec<(Block, bool)>, b: Block) {
-        fn bisect(n: Interval) -> [Option<Interval>; 2] {
-            let na = n.inf();
-            let nb = n.sup();
-            if n.is_singleton() || n.mig() > MAX_DISCRETE_N_THETA {
-                [Some(n), None]
-            } else if na + 1.0 == nb {
-                [
-                    Some(interval!(na, na).unwrap()),
-                    Some(interval!(nb, nb).unwrap()),
-                ]
-            } else {
-                let mid = if na == f64::NEG_INFINITY {
-                    2.0 * nb
-                } else if nb == f64::INFINITY {
-                    2.0 * na
-                } else {
-                    (na + nb) / 2.0
-                };
-                [
-                    Some(interval!(na, mid).unwrap()),
-                    Some(interval!(mid, nb).unwrap()),
-                ]
-            }
-        }
-
-        // Bisect twice to get four sub-blocks at most.
-        let ns = bisect(b.n_theta);
+        let n = b.n_theta;
+        let na = n.inf();
+        let nb = n.sup();
+        let mid = if na == f64::NEG_INFINITY {
+            (2.0 * nb).max(f64::MIN)
+        } else if nb == f64::INFINITY {
+            (2.0 * na).min(f64::MAX)
+        } else {
+            n.mid().round()
+        };
+        let ns = [
+            interval!(na, mid).unwrap(),
+            interval!(mid, mid).unwrap(),
+            interval!(mid, nb).unwrap(),
+        ];
         sub_bs.extend(
+            // Any interval whose width is 1 can be discarded since its endpoints are
+            // already processed as point intervals and there are no integers between them.
             ns.iter()
-                .filter_map(|&n| n)
-                .flat_map(bisect)
-                .flatten()
-                .map(|n| (Block { n_theta: n, ..b }, false)),
+                .filter(|n| n.wid() != 1.0)
+                .map(|&n| (Block { n_theta: n, ..b }, false)),
         );
         if let Some(last) = sub_bs.last_mut() {
             last.1 = true;
