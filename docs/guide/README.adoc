@@ -33,6 +33,44 @@
 |The https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant[Euler–Mascheroni constant].
 |===
 
+=== Variables
+
+==== Cartesian Coordinate System
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`x`
+|_x_
+|The horizontal coordinate.
+
+|`y`
+|_y_
+|The vertical coordinate.
+
+|===
+
+==== Polar Coordinate System
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`r`
+|_r_
+|The radial coordinate.
+
+|`theta` or `θ`
+|_θ_
+|The angular coordinate.
+
+|===
+
 === Arithmetic
 
 [cols=",,", options="header"]
