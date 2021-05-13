@@ -307,7 +307,11 @@ impl Graph {
         let mut incomplete_sub_bs = vec![];
         // Blocks are queued in the Morton order. Thanks to that, the caches should work efficiently.
         let mut cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
-        let mut cache_eval_on_point = EvalCache::new(EvalCacheLevel::Full);
+        let mut cache_eval_on_point = if self.relation_type == RelationType::Polar {
+            EvalCache::new(EvalCacheLevel::PerAxis)
+        } else {
+            EvalCache::new(EvalCacheLevel::Full)
+        };
         while let Some((bi, b)) = self.bs_to_subdivide.pop_front() {
             match b.next_dir {
                 SubdivisionDir::NTheta => Self::subdivide_on_n_theta(&mut sub_bs, b),
@@ -388,7 +392,11 @@ impl Graph {
             {
                 if clear_cache_and_retry {
                     cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
-                    cache_eval_on_point = EvalCache::new(EvalCacheLevel::Full);
+                    cache_eval_on_point = if self.relation_type == RelationType::Polar {
+                        EvalCache::new(EvalCacheLevel::PerAxis)
+                    } else {
+                        EvalCache::new(EvalCacheLevel::Full)
+                    };
                     clear_cache_and_retry = false;
                 } else {
                     return Err(GraphingError {
