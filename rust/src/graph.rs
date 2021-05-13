@@ -19,6 +19,8 @@ use std::{
 pub enum PixelState {
     /// There may be or may not be a solution in the pixel.
     Uncertain,
+    /// Uncertain but we can't prove absence of solutions due to subdivision limit.
+    UncertainNeverFalse,
     /// There are no solutions in the pixel.
     False,
     /// There is at least one solution in the pixel.
@@ -285,7 +287,7 @@ impl Graph {
                 .im
                 .iter()
                 .copied()
-                .filter(|&s| s != PixelState::Uncertain)
+                .filter(|&s| s == PixelState::False || s == PixelState::True)
                 .count(),
             eval_count: self.rel.eval_count(),
             ..self.stats
@@ -373,11 +375,15 @@ impl Graph {
                     SubdivisionDir::NTheta
                 } else if sub_b.is_subdivisible_on_xy() {
                     SubdivisionDir::XY
+                } else if self.relation_type == RelationType::Polar
+                    && sub_b.is_subdivisible_on_n_theta()
+                {
+                    SubdivisionDir::NTheta
                 } else {
-                    // TODO: Continue processing remaining blocks.
-                    return Err(GraphingError {
-                        kind: GraphingErrorKind::ReachedSubdivisionLimit,
-                    });
+                    assert!(sub_b.is_subpixel());
+                    let pixel = b.pixel_index();
+                    *self.im.get_mut(pixel) = PixelState::UncertainNeverFalse;
+                    continue;
                 };
                 self.bs_to_subdivide.push_back(sub_b);
             }
@@ -410,7 +416,21 @@ impl Graph {
             }
         }
 
-        Ok(self.bs_to_subdivide.is_empty())
+        if self.bs_to_subdivide.is_empty() {
+            if self
+                .im
+                .iter()
+                .any(|&s| s == PixelState::UncertainNeverFalse)
+            {
+                Err(GraphingError {
+                    kind: GraphingErrorKind::ReachedSubdivisionLimit,
+                })
+            } else {
+                Ok(true)
+            }
+        } else {
+            Ok(false)
+        }
     }
 
     fn set_last_queued_block(
@@ -504,6 +524,7 @@ impl Graph {
                 } else if is_false
                     && b_is_last_sibling
                     && self.last_queued_blocks.get(pixel) == parent_block_index
+                    && state != PixelState::UncertainNeverFalse
                 {
                     *self.im.get_mut(pixel) = PixelState::False;
                 }
@@ -552,7 +573,10 @@ impl Graph {
             .eval(&self.forms[..])
         {
             // The relation is false everywhere in the subpixel.
-            if b_is_last_sibling && self.last_queued_blocks.get(pixel) == parent_block_index {
+            if b_is_last_sibling
+                && self.last_queued_blocks.get(pixel) == parent_block_index
+                && state != PixelState::UncertainNeverFalse
+            {
                 *self.im.get_mut(pixel) = PixelState::False;
             }
             return true;
