@@ -762,7 +762,10 @@ impl Graph {
 
     /// Subdivides `b.n_theta` and appends the sub-blocks to `sub_bs`.
     ///
-    /// Precondition: `b.is_subdivisible_on_n_theta()`.
+    /// Preconditions:
+    ///
+    /// - `b.is_subdivisible_on_n_theta()`
+    /// - `b` does not contain zero
     fn subdivide_on_n_theta(sub_bs: &mut Vec<(Block, bool)>, b: Block) {
         let n = b.n_theta;
         let na = n.inf();

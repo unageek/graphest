@@ -7,7 +7,7 @@ use crate::{
     parse::parse_expr,
     visit::*,
 };
-use inari::{DecInterval, Interval};
+use inari::{const_dec_interval, DecInterval, Interval};
 use std::{
     collections::{hash_map::Entry, HashMap},
     mem::size_of,
@@ -425,7 +425,10 @@ fn expand_polar_coords(e: &mut Expr) {
         return;
     }
 
-    // e2 = e /. {r → -sqrt(x^2 + y^2), θ → atan2(-y, -x) + 2π n_θ}.
+    // e2 = e /. {r → -sqrt(x^2 + y^2), θ → atan2(y, x) + 2π (1/2 + n_θ)}.
+    // θ can alternatively be replaced by atan2(-y, -x) + 2π n_θ,
+    // which will be a little more precise for some n_θ,
+    // but much slower since we have to evaluate `atan2` separately for `e1` and `e2`.
     let mut e2 = e.clone();
     let mut v = ReplaceAll::new(|e| match &e.kind {
         ExprKind::Var(x) if x == "r" => Some(Expr::new(ExprKind::Unary(
@@ -449,14 +452,8 @@ fn expand_polar_coords(e: &mut Expr) {
             BinaryOp::Add,
             Box::new(Expr::new(ExprKind::Binary(
                 BinaryOp::Atan2,
-                Box::new(Expr::new(ExprKind::Unary(
-                    UnaryOp::Neg,
-                    Box::new(Expr::new(ExprKind::Var("y".into()))),
-                ))),
-                Box::new(Expr::new(ExprKind::Unary(
-                    UnaryOp::Neg,
-                    Box::new(Expr::new(ExprKind::Var("x".into()))),
-                ))),
+                Box::new(Expr::new(ExprKind::Var("y".into()))),
+                Box::new(Expr::new(ExprKind::Var("x".into()))),
             ))),
             Box::new(Expr::new(ExprKind::Binary(
                 BinaryOp::Mul,
@@ -464,7 +461,14 @@ fn expand_polar_coords(e: &mut Expr) {
                     TupperIntervalSet::from(DecInterval::TAU),
                     None,
                 ))))),
-                Box::new(Expr::new(ExprKind::Var("<n-theta>".into()))),
+                Box::new(Expr::new(ExprKind::Binary(
+                    BinaryOp::Add,
+                    Box::new(Expr::new(ExprKind::Constant(Box::new((
+                        TupperIntervalSet::from(const_dec_interval!(0.5, 0.5)),
+                        None,
+                    ))))),
+                    Box::new(Expr::new(ExprKind::Var("<n-theta>".into()))),
+                ))),
             ))),
         ))),
         _ => None,
