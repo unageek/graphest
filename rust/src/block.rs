@@ -45,7 +45,11 @@ pub struct Block {
 impl Block {
     /// Creates a new block.
     pub fn new(x: u32, y: u32, kx: i8, ky: i8, n_theta: Interval) -> Self {
-        assert!(kx >= 0 && ky >= 0 || kx <= 0 && ky <= 0 && !n_theta.is_empty());
+        assert!(
+            (kx >= 0 && ky >= 0 || kx <= 0 && ky <= 0)
+                && !n_theta.is_empty()
+                && n_theta == n_theta.trunc()
+        );
         Self {
             x,
             y,

@@ -237,16 +237,14 @@ impl Graph {
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
         if relation_type == RelationType::Polar {
             let bs = [
-                const_interval!(f64::NEG_INFINITY, -1.0),
-                const_interval!(-1.0, -1.0),
+                const_interval!(f64::NEG_INFINITY, 0.0),
                 const_interval!(0.0, 0.0),
-                const_interval!(1.0, 1.0),
-                const_interval!(1.0, f64::INFINITY),
+                const_interval!(0.0, f64::INFINITY),
             ]
             .iter()
             .map(|&n_theta| Block::new(0, 0, k, k, n_theta))
             .collect::<Vec<_>>();
-            g.set_last_queued_block(&bs[4], 4).unwrap();
+            g.set_last_queued_block(&bs[2], 2).unwrap();
             for b in bs {
                 g.bs_to_subdivide.push_back(b);
             }
@@ -330,6 +328,17 @@ impl Graph {
                         &mut cache_eval_on_region,
                     )
                 } else {
+                    if self.relation_type == RelationType::Polar && !sub_b.n_theta.is_singleton() {
+                        // Try finding a solution earlier.
+                        let n = Self::point_interval(Self::simple_number(sub_b.n_theta));
+                        self.refine_subpixel(
+                            Block::new(sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n),
+                            false,
+                            0,
+                            &mut cache_eval_on_region,
+                            &mut cache_eval_on_point,
+                        );
+                    }
                     self.refine_subpixel(
                         sub_b,
                         is_last_sibling,
@@ -604,7 +613,7 @@ impl Graph {
         let dac_mask = r_u_up.map(|DecSignSet(_, d)| d >= Decoration::Dac);
 
         let points = [
-            Self::simple_eval_point(&inter),
+            (Self::simple_number(inter.0), Self::simple_number(inter.1)),
             (inter.0.inf(), inter.1.inf()), // bottom left
             (inter.0.sup(), inter.1.inf()), // bottom right
             (inter.0.inf(), inter.1.sup()), // top left
@@ -665,33 +674,6 @@ impl Graph {
         rel.eval(r.0, r.1, n_theta, cache)
     }
 
-    /// Returns a point within the given region whose coordinates have as many trailing zeros
-    /// as they can in their significand bits.
-    /// At such a point, arithmetic expressions are more likely to be evaluated to exact numbers.
-    fn simple_eval_point(r: &Region) -> (f64, f64) {
-        fn f(x: Interval) -> f64 {
-            let a = x.inf();
-            let b = x.sup();
-            let a_bits = a.to_bits();
-            let b_bits = b.to_bits();
-            let diff = a_bits ^ b_bits;
-            // The number of leading equal bits.
-            let n = diff.leading_zeros();
-            if n == 64 {
-                return a;
-            }
-            // Set all bits from the MSB through the first differing bit.
-            let mask = !0u64 << (64 - n - 1);
-            if a <= 0.0 {
-                f64::from_bits(a_bits & mask)
-            } else {
-                f64::from_bits(b_bits & mask)
-            }
-        }
-
-        (f(r.0), f(r.1))
-    }
-
     /// Returns the region that corresponds to a subpixel block `b`.
     fn block_to_region(&self, b: Block) -> InexactRegion {
         let pw = b.widthf();
@@ -722,6 +704,31 @@ impl Graph {
 
     fn point_interval(x: f64) -> Interval {
         interval!(x, x).unwrap()
+    }
+
+    /// Returns a number within the interval whose significand is as short as possible in the binary
+    /// representation. For such inputs, arithmetic expressions are more likely to be evaluated
+    /// exactly.
+    ///
+    /// Precondition: the interval is nonempty.
+    fn simple_number(x: Interval) -> f64 {
+        let a = x.inf();
+        let b = x.sup();
+        let a_bits = a.to_bits();
+        let b_bits = b.to_bits();
+        let diff = a_bits ^ b_bits;
+        // The number of leading equal bits.
+        let n = diff.leading_zeros();
+        if n == 64 {
+            return a;
+        }
+        // Set all bits from the MSB through the first differing bit.
+        let mask = !0u64 << (64 - n - 1);
+        if a <= 0.0 {
+            f64::from_bits(a_bits & mask)
+        } else {
+            f64::from_bits(b_bits & mask)
+        }
     }
 
     /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
@@ -788,16 +795,17 @@ impl Graph {
     ///
     /// Preconditions:
     ///
-    /// - `b.is_subdivisible_on_n_theta()`
-    /// - `b` does not contain zero
+    /// - `b.is_subdivisible_on_n_theta()`.
+    /// - `b.n_theta` is subset of \[-∞, 0\] or \[0, +∞\].
     fn subdivide_on_n_theta(sub_bs: &mut Vec<(Block, bool)>, b: Block) {
+        const MULT: f64 = 2.0; // The optimal value may depend on the relation.
         let n = b.n_theta;
         let na = n.inf();
         let nb = n.sup();
         let mid = if na == f64::NEG_INFINITY {
-            (2.0 * nb).max(f64::MIN)
+            (MULT * nb).max(f64::MIN).min(-1.0)
         } else if nb == f64::INFINITY {
-            (2.0 * na).min(f64::MAX)
+            (MULT * na).max(1.0).min(f64::MAX)
         } else {
             n.mid().round()
         };
@@ -806,12 +814,12 @@ impl Graph {
             interval!(mid, mid).unwrap(),
             interval!(mid, nb).unwrap(),
         ];
+        // Any interval with width 1 can be discarded since its endpoints are already processed
+        // as point intervals and there are no integers in between them.
         sub_bs.extend(
-            // Any interval whose width is 1 can be discarded since its endpoints are
-            // already processed as point intervals and there are no integers between them.
             ns.iter()
                 .filter(|n| n.wid() != 1.0)
-                .map(|&n| (Block { n_theta: n, ..b }, false)),
+                .map(|&n| (Block::new(b.x, b.y, b.kx, b.ky, n), false)),
         );
         if let Some(last) = sub_bs.last_mut() {
             last.1 = true;
