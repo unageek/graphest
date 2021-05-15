@@ -225,20 +225,20 @@ function bignum(x: number) {
   return new BigNumber(x);
 }
 
-async function deprioritize(job: Job) {
+function deprioritize(job: Job) {
   if (activeJobs.length <= MAX_ACTIVE_JOBS && suspendedJobs.length === 0) {
     return;
   }
   activeJobs = activeJobs.filter((j) => j !== job);
   job.proc?.kill("SIGSTOP");
   suspendedJobs.push(job);
-  await updateQueue();
+  updateQueue();
 }
 
-async function dequeue(job: Job) {
+function dequeue(job: Job) {
   activeJobs = activeJobs.filter((j) => j !== job);
   suspendedJobs = suspendedJobs.filter((j) => j !== job);
-  await updateQueue();
+  updateQueue();
 
   const relId = job.relId;
   if (
@@ -309,7 +309,7 @@ function notifyTileReady(
   );
 }
 
-async function updateQueue() {
+function updateQueue() {
   while (activeJobs.length < MAX_ACTIVE_JOBS && suspendedJobs.length > 0) {
     const job = suspendedJobs.shift();
     if (job !== undefined) {
@@ -324,8 +324,9 @@ async function updateQueue() {
   ) {
     const job = queuedJobs.shift();
     if (job !== undefined) {
-      const f = await fsPromises.open(job.outFile, "w");
-      await f.close();
+      // Don't do `await fsPromises.open(...)` here,
+      // which can break the order of execution of `requestTile`/`abortGraphing`.
+      fs.closeSync(fs.openSync(job.outFile, "w"));
 
       const onFileChange = function () {
         if (!job.aborted) {
