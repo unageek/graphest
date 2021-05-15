@@ -169,9 +169,11 @@ impl Block {
 pub struct BlockQueue {
     seq: VecDeque<u8>,
     x_front: u32,
-    y_front: u32,
     x_back: u32,
+    y_front: u32,
     y_back: u32,
+    n_theta_front: Interval,
+    n_theta_back: Interval,
     front_index: usize,
     back_index: usize,
     polar: bool,
@@ -183,9 +185,11 @@ impl BlockQueue {
         Self {
             seq: VecDeque::new(),
             x_front: 0,
-            y_front: 0,
             x_back: 0,
+            y_front: 0,
             y_back: 0,
+            n_theta_front: Interval::EMPTY,
+            n_theta_back: Interval::EMPTY,
             front_index: 0,
             back_index: 0,
             polar,
@@ -210,7 +214,7 @@ impl BlockQueue {
         let kx = self.pop_i8()?;
         let ky = self.pop_i8()?;
         let (n_theta, axis) = if self.polar {
-            (self.pop_interval()?, self.pop_subdivision_dir()?)
+            (self.pop_n_theta()?, self.pop_subdivision_dir()?)
         } else {
             (Interval::ENTIRE, SubdivisionDir::XY)
         };
@@ -238,7 +242,7 @@ impl BlockQueue {
         self.push_i8(b.kx);
         self.push_i8(b.ky);
         if self.polar {
-            self.push_interval(b.n_theta);
+            self.push_n_theta(b.n_theta);
             self.push_subdivision_dir(b.next_dir);
         }
         self.x_back = b.x;
@@ -257,12 +261,18 @@ impl BlockQueue {
         Some(self.seq.pop_front()? as i8)
     }
 
-    fn pop_interval(&mut self) -> Option<Interval> {
+    fn pop_n_theta(&mut self) -> Option<Interval> {
         let mut bytes = [0u8; 16];
-        for (src, dst) in self.seq.drain(..16).zip(bytes.iter_mut()) {
+        for (src, dst) in self.seq.drain(..2).zip(bytes.iter_mut()) {
             *dst = src;
         }
-        Some(Interval::try_from_ne_bytes(bytes).unwrap())
+        if bytes[0] != 0xff || bytes[1] != 0xff {
+            for (src, dst) in self.seq.drain(..14).zip(bytes.iter_mut().skip(2)) {
+                *dst = src;
+            }
+            self.n_theta_front = Interval::try_from_be_bytes(bytes).unwrap();
+        }
+        Some(self.n_theta_front)
     }
 
     // PrefixVarint[1,2] is used to encode unsigned numbers:
@@ -324,8 +334,14 @@ impl BlockQueue {
         self.seq.push_back(x as u8);
     }
 
-    fn push_interval(&mut self, x: Interval) {
-        self.seq.extend(x.to_ne_bytes())
+    fn push_n_theta(&mut self, x: Interval) {
+        if x == self.n_theta_back {
+            // A `f64` that starts with 0xffff is NaN, which never appears in interval bounds.
+            self.seq.extend([0xff, 0xff]);
+        } else {
+            self.seq.extend(x.to_be_bytes());
+            self.n_theta_back = x;
+        }
     }
 
     fn push_small_u32(&mut self, x: u32) {
