@@ -55,10 +55,7 @@ const slice = createSlice({
   },
 });
 
-export const {
-  setGraphColor,
-  setGraphIsProcessing,
-  setGraphRelation,
-} = slice.actions;
+export const { setGraphColor, setGraphIsProcessing, setGraphRelation } =
+  slice.actions;
 
 export const graphReducer = slice.reducer;

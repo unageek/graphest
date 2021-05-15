@@ -110,12 +110,8 @@ function moveElement<T>(array: T[], fromIndex: number, toIndex: number): T[] {
   return result;
 }
 
-export const {
-  newGraph,
-  removeGraph,
-  reorderGraph,
-  setShowGrid,
-} = slice.actions;
+export const { newGraph, removeGraph, reorderGraph, setShowGrid } =
+  slice.actions;
 
 export const appReducer = slice.reducer;
 
