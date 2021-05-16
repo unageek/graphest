@@ -79,7 +79,7 @@ fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
         let interval_lit = ["[", s, "]"].concat();
         let x = TupperIntervalSet::from(dec_interval!(&interval_lit).unwrap());
         let xr = parse_decimal(s);
-        Expr::new(ExprKind::Constant(Box::new((x, xr))))
+        Expr::new(ExprKind::Constant(box (x, xr)))
     })(i)
 }
 

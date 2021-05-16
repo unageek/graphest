@@ -208,36 +208,29 @@ impl VisitMut for PreTransform {
         match &mut e.kind {
             Binary(Sub, x, y) => {
                 // (Sub x y) → (Add x (Neg y))
-                *e = Expr::new(Binary(
-                    Add,
-                    take(x),
-                    Box::new(Expr::new(Unary(Neg, take(y)))),
-                ));
+                *e = Expr::new(Binary(Add, take(x), box Expr::new(Unary(Neg, take(y)))));
             }
             // Ad-hoc transformations mainly for demonstrational purposes.
             Binary(Div, x, y) => {
                 match (&x.kind, &y.kind) {
                     (Unary(Sin, x1), _) if x1 == y => {
                         // (Div (Sin y) y) → (Sinc (UndefAt0 y))
-                        *e = Expr::new(Unary(Sinc, Box::new(Expr::new(Unary(UndefAt0, take(y))))));
+                        *e = Expr::new(Unary(Sinc, box Expr::new(Unary(UndefAt0, take(y)))));
                     }
                     (_, Unary(Sin, y1)) if y1 == x => {
                         // (Div x (Sin x)) → (Pow (Sinc (UndefAt0 x)) -1)
                         *e = Expr::new(Binary(
                             Pow,
-                            Box::new(Expr::new(Unary(
-                                Sinc,
-                                Box::new(Expr::new(Unary(UndefAt0, take(x)))),
-                            ))),
-                            Box::new(Expr::new(Constant(Box::new((
+                            box Expr::new(Unary(Sinc, box Expr::new(Unary(UndefAt0, take(x))))),
+                            box Expr::new(Constant(box (
                                 TupperIntervalSet::from(const_dec_interval!(-1.0, -1.0)),
                                 Some(Rational::from(-1)),
-                            ))))),
+                            ))),
                         ));
                     }
                     _ if x == y => {
                         // (Div x x) → (One (UndefAt0 x))
-                        *e = Expr::new(Unary(One, Box::new(Expr::new(Unary(UndefAt0, take(x))))));
+                        *e = Expr::new(Unary(One, box Expr::new(Unary(UndefAt0, take(x)))));
                     }
                     _ => (),
                 };
@@ -296,8 +289,8 @@ impl VisitMut for Transform {
                         // (Neg (Add x1 x2)) → (Add (Neg x1) (Neg x2))
                         *e = Expr::new(Binary(
                             Add,
-                            Box::new(Expr::new(Unary(Neg, take(x1)))),
-                            Box::new(Expr::new(Unary(Neg, take(x2)))),
+                            box Expr::new(Unary(Neg, take(x1))),
+                            box Expr::new(Unary(Neg, take(x2))),
                         ));
                         self.modified = true;
                     }
@@ -315,7 +308,7 @@ impl VisitMut for Transform {
                         // (Add x (Add y1 y2)) → (Add (Add x y1) y2)
                         *e = Expr::new(Binary(
                             Add,
-                            Box::new(Expr::new(Binary(Add, take(x), take(y1)))),
+                            box Expr::new(Binary(Add, take(x), take(y1))),
                             take(y2),
                         ));
                         self.modified = true;
@@ -337,25 +330,19 @@ impl VisitMut for Transform {
                     }
                     (Unary(Neg, x), _) => {
                         // (Mul (Neg x) y) → (Neg (Mul x y))
-                        *e = Expr::new(Unary(
-                            Neg,
-                            Box::new(Expr::new(Binary(Mul, take(x), take(y)))),
-                        ));
+                        *e = Expr::new(Unary(Neg, box Expr::new(Binary(Mul, take(x), take(y)))));
                         self.modified = true;
                     }
                     (_, Unary(Neg, y)) => {
                         // (Mul x (Neg y)) → (Neg (Mul x y))
-                        *e = Expr::new(Unary(
-                            Neg,
-                            Box::new(Expr::new(Binary(Mul, take(x), take(y)))),
-                        ));
+                        *e = Expr::new(Unary(Neg, box Expr::new(Binary(Mul, take(x), take(y)))));
                         self.modified = true;
                     }
                     (_, Binary(Mul, y1, y2)) => {
                         // (Mul x (Mul y1 y2)) → (Mul (Mul x y1) y2)
                         *e = Expr::new(Binary(
                             Mul,
-                            Box::new(Expr::new(Binary(Mul, take(x), take(y1)))),
+                            box Expr::new(Binary(Mul, take(x), take(y1))),
                             take(y2),
                         ));
                         self.modified = true;
@@ -387,8 +374,8 @@ impl VisitMut for Transform {
                         // (And (x1 x2)) → (Or (Not x1) (Not x2))
                         *e = Expr::new(Binary(
                             Or,
-                            Box::new(Expr::new(Unary(Not, take(x1)))),
-                            Box::new(Expr::new(Unary(Not, take(x2)))),
+                            box Expr::new(Unary(Not, take(x1))),
+                            box Expr::new(Unary(Not, take(x2))),
                         ));
                         self.modified = true;
                     }
@@ -396,8 +383,8 @@ impl VisitMut for Transform {
                         // (Or (x1 x2)) → (And (Not x1) (Not x2))
                         *e = Expr::new(Binary(
                             And,
-                            Box::new(Expr::new(Unary(Not, take(x1)))),
-                            Box::new(Expr::new(Unary(Not, take(x2)))),
+                            box Expr::new(Unary(Not, take(x1))),
+                            box Expr::new(Unary(Not, take(x2))),
                         ));
                         self.modified = true;
                     }
@@ -425,7 +412,7 @@ impl VisitMut for FoldConstant {
                 // Only fold constants which evaluate to the empty or a single interval
                 // since the branch cut tracking is not possible with the AST.
                 if x.len() <= 1 {
-                    *e = Expr::new(Constant(Box::new((x, xr))));
+                    *e = Expr::new(Constant(box (x, xr)));
                     self.modified = true;
                 }
             }
@@ -459,8 +446,8 @@ impl VisitMut for PostTransform {
                         if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
                             let root = match d {
                                 1 => take(x),
-                                2 => Box::new(Expr::new(Unary(Sqrt, take(x)))),
-                                _ => Box::new(Expr::new(Rootn(take(x), d))),
+                                2 => box Expr::new(Unary(Sqrt, take(x))),
+                                _ => box Expr::new(Rootn(take(x), d)),
                             };
                             *e = match n {
                                 -1 => Expr::new(Unary(Recip, root)),
@@ -595,7 +582,7 @@ impl CollectStatic {
         use {BinaryOp::*, ExprKind::*, UnaryOp::*};
         for t in self.exprs.iter().map(|t| &*t) {
             let k = match &t.kind {
-                Constant(x) => Some(StaticTermKind::Constant(Box::new(x.0.clone()))),
+                Constant(x) => Some(StaticTermKind::Constant(box x.0.clone())),
                 Var(x) if x == "x" => Some(StaticTermKind::X),
                 Var(x) if x == "y" => Some(StaticTermKind::Y),
                 Var(x) if x == "<n-theta>" => Some(StaticTermKind::NTheta),
@@ -674,9 +661,9 @@ impl CollectStatic {
                 .map(|op| StaticTermKind::Binary(op, self.ti(x), self.ti(y))),
                 Pown(x, n) => Some(StaticTermKind::Pown(self.ti(x), *n)),
                 Rootn(x, n) => Some(StaticTermKind::Rootn(self.ti(x), *n)),
-                List(xs) => Some(StaticTermKind::List(Box::new(
-                    xs.iter().map(|x| self.ti(x)).collect(),
-                ))),
+                List(xs) => Some(StaticTermKind::List(
+                    box xs.iter().map(|x| self.ti(x)).collect(),
+                )),
                 Var(_) | Uninit => panic!(),
             };
             if let Some(k) = k {

@@ -1,5 +1,5 @@
 #![allow(clippy::float_cmp)]
-#![feature(once_cell)]
+#![feature(box_syntax, once_cell)]
 
 pub mod graph;
 pub mod relation;

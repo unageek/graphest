@@ -389,33 +389,33 @@ fn expand_polar_coords(e: &mut Expr) {
     let mut v = ReplaceAll::new(|e| match &e.kind {
         ExprKind::Var(x) if x == "r" => Some(Expr::new(ExprKind::Unary(
             UnaryOp::Sqrt,
-            Box::new(Expr::new(ExprKind::Binary(
+            box Expr::new(ExprKind::Binary(
                 BinaryOp::Add,
-                Box::new(Expr::new(ExprKind::Unary(
+                box Expr::new(ExprKind::Unary(
                     UnaryOp::Sqr,
-                    Box::new(Expr::new(ExprKind::Var("x".into()))),
-                ))),
-                Box::new(Expr::new(ExprKind::Unary(
+                    box Expr::new(ExprKind::Var("x".into())),
+                )),
+                box Expr::new(ExprKind::Unary(
                     UnaryOp::Sqr,
-                    Box::new(Expr::new(ExprKind::Var("y".into()))),
-                ))),
-            ))),
+                    box Expr::new(ExprKind::Var("y".into())),
+                )),
+            )),
         ))),
         ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::new(ExprKind::Binary(
             BinaryOp::Add,
-            Box::new(Expr::new(ExprKind::Binary(
+            box Expr::new(ExprKind::Binary(
                 BinaryOp::Atan2,
-                Box::new(Expr::new(ExprKind::Var("y".into()))),
-                Box::new(Expr::new(ExprKind::Var("x".into()))),
-            ))),
-            Box::new(Expr::new(ExprKind::Binary(
+                box Expr::new(ExprKind::Var("y".into())),
+                box Expr::new(ExprKind::Var("x".into())),
+            )),
+            box Expr::new(ExprKind::Binary(
                 BinaryOp::Mul,
-                Box::new(Expr::new(ExprKind::Constant(Box::new((
+                box Expr::new(ExprKind::Constant(box (
                     TupperIntervalSet::from(DecInterval::TAU),
                     None,
-                ))))),
-                Box::new(Expr::new(ExprKind::Var("<n-theta>".into()))),
-            ))),
+                ))),
+                box Expr::new(ExprKind::Var("<n-theta>".into())),
+            )),
         ))),
         _ => None,
     });
@@ -433,49 +433,49 @@ fn expand_polar_coords(e: &mut Expr) {
     let mut v = ReplaceAll::new(|e| match &e.kind {
         ExprKind::Var(x) if x == "r" => Some(Expr::new(ExprKind::Unary(
             UnaryOp::Neg,
-            Box::new(Expr::new(ExprKind::Unary(
+            box Expr::new(ExprKind::Unary(
                 UnaryOp::Sqrt,
-                Box::new(Expr::new(ExprKind::Binary(
+                box Expr::new(ExprKind::Binary(
                     BinaryOp::Add,
-                    Box::new(Expr::new(ExprKind::Unary(
+                    box Expr::new(ExprKind::Unary(
                         UnaryOp::Sqr,
-                        Box::new(Expr::new(ExprKind::Var("x".into()))),
-                    ))),
-                    Box::new(Expr::new(ExprKind::Unary(
+                        box Expr::new(ExprKind::Var("x".into())),
+                    )),
+                    box Expr::new(ExprKind::Unary(
                         UnaryOp::Sqr,
-                        Box::new(Expr::new(ExprKind::Var("y".into()))),
-                    ))),
-                ))),
-            ))),
+                        box Expr::new(ExprKind::Var("y".into())),
+                    )),
+                )),
+            )),
         ))),
         ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::new(ExprKind::Binary(
             BinaryOp::Add,
-            Box::new(Expr::new(ExprKind::Binary(
+            box Expr::new(ExprKind::Binary(
                 BinaryOp::Atan2,
-                Box::new(Expr::new(ExprKind::Var("y".into()))),
-                Box::new(Expr::new(ExprKind::Var("x".into()))),
-            ))),
-            Box::new(Expr::new(ExprKind::Binary(
+                box Expr::new(ExprKind::Var("y".into())),
+                box Expr::new(ExprKind::Var("x".into())),
+            )),
+            box Expr::new(ExprKind::Binary(
                 BinaryOp::Mul,
-                Box::new(Expr::new(ExprKind::Constant(Box::new((
+                box Expr::new(ExprKind::Constant(box (
                     TupperIntervalSet::from(DecInterval::TAU),
                     None,
-                ))))),
-                Box::new(Expr::new(ExprKind::Binary(
+                ))),
+                box Expr::new(ExprKind::Binary(
                     BinaryOp::Add,
-                    Box::new(Expr::new(ExprKind::Constant(Box::new((
+                    box Expr::new(ExprKind::Constant(box (
                         TupperIntervalSet::from(const_dec_interval!(0.5, 0.5)),
                         None,
-                    ))))),
-                    Box::new(Expr::new(ExprKind::Var("<n-theta>".into()))),
-                ))),
-            ))),
+                    ))),
+                    box Expr::new(ExprKind::Var("<n-theta>".into())),
+                )),
+            )),
         ))),
         _ => None,
     });
     v.visit_expr_mut(&mut e2);
 
-    *e = Expr::new(ExprKind::Binary(BinaryOp::Or, Box::new(e1), Box::new(e2)))
+    *e = Expr::new(ExprKind::Binary(BinaryOp::Or, box e1, box e2))
 }
 
 #[cfg(test)]
