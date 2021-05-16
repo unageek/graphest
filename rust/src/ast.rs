@@ -1,7 +1,7 @@
 use crate::{interval_set::TupperIntervalSet, rational_ops};
 use bitflags::*;
 use inari::DecInterval;
-use rug::Rational;
+use rug::{Integer, Rational};
 use std::{
     collections::hash_map::DefaultHasher,
     fmt,
@@ -136,6 +136,9 @@ pub struct Expr {
     pub id: ExprId,
     pub kind: ExprKind,
     pub ty: ValueType,
+    /// The period of a function of θ in multiples of 2π, i.e., any p that satisfies
+    /// (e /. θ → θ + 2π p) = e. If the period is 0, the expression is independent of θ.
+    pub polar_period: Option<Integer>,
     /// The set of the free variables in the expression.
     pub vars: VarSet,
     internal_hash: u64,
@@ -148,6 +151,7 @@ impl Expr {
             id: UNINIT_EXPR_ID,
             kind,
             ty: ValueType::Unknown,
+            polar_period: None,
             vars: VarSet::EMPTY,
             internal_hash: 0,
         }
@@ -411,6 +415,7 @@ impl Default for Expr {
             id: UNINIT_EXPR_ID,
             kind: ExprKind::Uninit,
             ty: ValueType::Unknown,
+            polar_period: None,
             vars: VarSet::EMPTY,
             internal_hash: 0,
         }

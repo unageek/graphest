@@ -8,6 +8,7 @@ use crate::{
 };
 use inari::const_dec_interval;
 use std::{
+    cmp::Ordering,
     collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
     marker::Sized,
@@ -245,8 +246,23 @@ pub struct SortTerms {
     pub modified: bool,
 }
 
-fn precedes(x: &Expr, y: &Expr) -> bool {
-    matches!(x.kind, ExprKind::Constant(_)) && !matches!(y.kind, ExprKind::Constant(_))
+fn cmp_terms(x: &Expr, y: &Expr) -> Ordering {
+    use {BinaryOp::*, ExprKind::*};
+    match (&x.kind, &y.kind) {
+        (Constant(_), Constant(_)) => Ordering::Equal,
+        (Constant(_), _) => Ordering::Less,
+        (_, Constant(_)) => Ordering::Greater,
+        (Var(x), Var(y)) => x.cmp(y),
+        (Var(_), _) => Ordering::Less,
+        (_, Var(_)) => Ordering::Greater,
+        (Binary(Mul, x1, y1), Binary(Mul, x2, y2)) => {
+            cmp_terms(y1, y2).then_with(|| cmp_terms(x1, x2))
+        }
+        (Binary(Pow, x1, y1), Binary(Pow, x2, y2)) => {
+            cmp_terms(x1, x2).then_with(|| cmp_terms(y1, y2))
+        }
+        _ => Ordering::Equal,
+    }
 }
 
 impl VisitMut for SortTerms {
@@ -255,7 +271,7 @@ impl VisitMut for SortTerms {
         traverse_expr_mut(self, e);
 
         match &mut e.kind {
-            Binary(Add | Mul, x, y) if precedes(y, x) => {
+            Binary(Add | Mul, x, y) if cmp_terms(y, x) == Ordering::Less => {
                 // (op x y) /; y ≺ x → (op y x)
                 swap(x, y);
                 self.modified = true;
@@ -451,6 +467,61 @@ impl VisitMut for PostTransform {
                 }
                 _ => (),
             }
+        }
+    }
+}
+
+pub struct UpdatePolarPeriod;
+
+impl VisitMut for UpdatePolarPeriod {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
+
+        match &mut e.kind {
+            Constant(_) => e.polar_period = Some(0.into()),
+            Var(name) if name != "theta" && name != "θ" => e.polar_period = Some(0.into()),
+            Unary(_, x) if x.polar_period.is_some() => {
+                e.polar_period = x.polar_period.clone();
+            }
+            Binary(_, x, y) if x.polar_period.is_some() && y.polar_period.is_some() => {
+                let xp = x.polar_period.as_ref().unwrap();
+                let yp = y.polar_period.as_ref().unwrap();
+                e.polar_period = Some(xp.gcd_ref(yp).into());
+            }
+            Unary(Cos | Sin | Tan, x) => match &x.kind {
+                Var(name) if name == "theta" || name == "θ" => {
+                    // sin(θ)
+                    e.polar_period = Some(1.into());
+                }
+                Binary(Mul, x, y) => match (&x.kind, &y.kind) {
+                    (Constant(a), Var(name)) if name == "theta" || name == "θ" => {
+                        // sin(a θ)
+                        if let Some(a) = &a.1 {
+                            e.polar_period = Some(a.denom().clone())
+                        }
+                    }
+                    _ => (),
+                },
+                Binary(Add, x, y) => match (&x.kind, &y.kind) {
+                    (Constant(_), Var(name)) if name == "theta" || name == "θ" => {
+                        // sin(b + θ)
+                        e.polar_period = Some(1.into());
+                    }
+                    (Constant(_), Binary(Mul, x, y)) => match (&x.kind, &y.kind) {
+                        (Constant(a), Var(name)) if name == "theta" || name == "θ" => {
+                            // sin(b + a θ)
+                            if let Some(a) = &a.1 {
+                                e.polar_period = Some(a.denom().clone())
+                            }
+                        }
+                        _ => (),
+                    },
+                    _ => (),
+                },
+                _ => (),
+            },
+            _ => (),
         }
     }
 }
@@ -784,96 +855,121 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms {
 mod tests {
     use super::*;
     use crate::{context::Context, parse::parse_expr};
-
-    fn test_pre_transform(input: &str, expected: &str) {
-        let mut f = parse_expr(input, Context::builtin_context()).unwrap();
-        PreTransform.visit_expr_mut(&mut f);
-        assert_eq!(format!("{}", f.dump_structure()), expected);
-    }
+    use rug::Integer;
 
     #[test]
     fn pre_transform() {
-        test_pre_transform("x - y", "(Add x (Neg y))");
-        test_pre_transform("sin(x)/x", "(Sinc (UndefAt0 x))");
-        test_pre_transform("x/sin(x)", "(Pow (Sinc (UndefAt0 x)) @)");
-        test_pre_transform("x/x", "(One (UndefAt0 x))");
-    }
+        fn test(input: &str, expected: &str) {
+            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
+            PreTransform.visit_expr_mut(&mut f);
+            assert_eq!(format!("{}", f.dump_structure()), expected);
+        }
 
-    fn test_sort_terms(input: &str, expected: &str) {
-        let mut f = parse_expr(input, Context::builtin_context()).unwrap();
-        let input = format!("{}", f.dump_structure());
-        let mut v = SortTerms::default();
-        v.visit_expr_mut(&mut f);
-        let output = format!("{}", f.dump_structure());
-        assert_eq!(output, expected);
-        assert_eq!(v.modified, input != output);
+        test("x - y", "(Add x (Neg y))");
+        test("sin(x)/x", "(Sinc (UndefAt0 x))");
+        test("x/sin(x)", "(Pow (Sinc (UndefAt0 x)) @)");
+        test("x/x", "(One (UndefAt0 x))");
     }
 
     #[test]
     fn sort_terms() {
-        test_sort_terms("1 + x", "(Add @ x)");
-        test_sort_terms("x + 1", "(Add @ x)");
-        test_sort_terms("2 x", "(Mul @ x)");
-        test_sort_terms("x 2", "(Mul @ x)");
-    }
+        fn test(input: &str, expected: &str) {
+            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
+            let input = format!("{}", f.dump_structure());
+            let mut v = SortTerms::default();
+            v.visit_expr_mut(&mut f);
+            let output = format!("{}", f.dump_structure());
+            assert_eq!(output, expected);
+            assert_eq!(v.modified, input != output);
+        }
 
-    fn test_transform(input: &str, expected: &str) {
-        let mut f = parse_expr(input, Context::builtin_context()).unwrap();
-        FoldConstant::default().visit_expr_mut(&mut f);
-        let input = format!("{}", f.dump_structure());
-        let mut v = Transform::default();
-        v.visit_expr_mut(&mut f);
-        let output = format!("{}", f.dump_structure());
-        assert_eq!(output, expected);
-        assert_eq!(v.modified, input != output);
+        test("1 + x", "(Add @ x)");
+        test("x + 1", "(Add @ x)");
+        test("2 x", "(Mul @ x)");
+        test("x 2", "(Mul @ x)");
     }
 
     #[test]
     fn transform() {
-        test_transform("--x", "x");
-        test_transform("-(x + y)", "(Add (Neg x) (Neg y))");
-        test_transform("0 + x", "x");
-        test_transform("x + (y + z)", "(Add (Add x y) z)");
-        test_transform("1 x", "x");
-        test_transform("-1 x", "(Neg x)"); // Needs constant folding
-        test_transform("(-x) y", "(Neg (Mul x y))");
-        test_transform("x (-y)", "(Neg (Mul x y))");
-        test_transform("x (y z)", "(Mul (Mul x y) z)");
-        test_transform("!(x = y)", "(Neq x y)");
-        test_transform("!(x ≤ y)", "(Nle x y)");
-        test_transform("!(x < y)", "(Nlt x y)");
-        test_transform("!(x ≥ y)", "(Nge x y)");
-        test_transform("!(x > y)", "(Ngt x y)");
-        test_transform("!!(x = y)", "(Eq x y)");
-        test_transform("!!(x ≤ y)", "(Le x y)");
-        test_transform("!!(x < y)", "(Lt x y)");
-        test_transform("!!(x ≥ y)", "(Ge x y)");
-        test_transform("!!(x > y)", "(Gt x y)");
-        test_transform("!(x = y && y = z)", "(Or (Not (Eq x y)) (Not (Eq y z)))");
-        test_transform("!(x = y || y = z)", "(And (Not (Eq x y)) (Not (Eq y z)))");
-    }
+        fn test(input: &str, expected: &str) {
+            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
+            FoldConstant::default().visit_expr_mut(&mut f);
+            let input = format!("{}", f.dump_structure());
+            let mut v = Transform::default();
+            v.visit_expr_mut(&mut f);
+            let output = format!("{}", f.dump_structure());
+            assert_eq!(output, expected);
+            assert_eq!(v.modified, input != output);
+        }
 
-    fn test_post_transform(input: &str, expected: &str) {
-        let mut f = parse_expr(input, Context::builtin_context()).unwrap();
-        FoldConstant::default().visit_expr_mut(&mut f);
-        PostTransform.visit_expr_mut(&mut f);
-        assert_eq!(format!("{}", f.dump_structure()), expected);
+        test("--x", "x");
+        test("-(x + y)", "(Add (Neg x) (Neg y))");
+        test("0 + x", "x");
+        test("x + (y + z)", "(Add (Add x y) z)");
+        test("1 x", "x");
+        test("-1 x", "(Neg x)"); // Needs constant folding
+        test("(-x) y", "(Neg (Mul x y))");
+        test("x (-y)", "(Neg (Mul x y))");
+        test("x (y z)", "(Mul (Mul x y) z)");
+        test("!(x = y)", "(Neq x y)");
+        test("!(x ≤ y)", "(Nle x y)");
+        test("!(x < y)", "(Nlt x y)");
+        test("!(x ≥ y)", "(Nge x y)");
+        test("!(x > y)", "(Ngt x y)");
+        test("!!(x = y)", "(Eq x y)");
+        test("!!(x ≤ y)", "(Le x y)");
+        test("!!(x < y)", "(Lt x y)");
+        test("!!(x ≥ y)", "(Ge x y)");
+        test("!!(x > y)", "(Gt x y)");
+        test("!(x = y && y = z)", "(Or (Not (Eq x y)) (Not (Eq y z)))");
+        test("!(x = y || y = z)", "(And (Not (Eq x y)) (Not (Eq y z)))");
     }
 
     #[test]
     fn post_transform() {
-        test_post_transform("2^x", "(Exp2 x)");
-        test_post_transform("10^x", "(Exp10 x)");
-        test_post_transform("x^-1", "(Recip x)");
-        test_post_transform("x^0", "(One x)");
-        test_post_transform("x^1", "x");
-        test_post_transform("x^2", "(Sqr x)");
-        test_post_transform("x^3", "(Pown x 3)");
-        test_post_transform("x^(1/2)", "(Sqrt x)");
-        test_post_transform("x^(3/2)", "(Pown (Sqrt x) 3)");
-        test_post_transform("x^(-2/3)", "(Pown (Rootn x 3) -2)");
-        test_post_transform("x^(-1/3)", "(Recip (Rootn x 3))");
-        test_post_transform("x^(1/3)", "(Rootn x 3)");
-        test_post_transform("x^(2/3)", "(Sqr (Rootn x 3))");
+        fn test(input: &str, expected: &str) {
+            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
+            FoldConstant::default().visit_expr_mut(&mut f);
+            PostTransform.visit_expr_mut(&mut f);
+            assert_eq!(format!("{}", f.dump_structure()), expected);
+        }
+
+        test("2^x", "(Exp2 x)");
+        test("10^x", "(Exp10 x)");
+        test("x^-1", "(Recip x)");
+        test("x^0", "(One x)");
+        test("x^1", "x");
+        test("x^2", "(Sqr x)");
+        test("x^3", "(Pown x 3)");
+        test("x^(1/2)", "(Sqrt x)");
+        test("x^(3/2)", "(Pown (Sqrt x) 3)");
+        test("x^(-2/3)", "(Pown (Rootn x 3) -2)");
+        test("x^(-1/3)", "(Recip (Rootn x 3))");
+        test("x^(1/3)", "(Rootn x 3)");
+        test("x^(2/3)", "(Sqr (Rootn x 3))");
+    }
+
+    #[test]
+    fn update_polar_period() {
+        fn test(input: &str, expected_period: Option<Integer>) {
+            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
+            FoldConstant::default().visit_expr_mut(&mut f);
+            UpdatePolarPeriod.visit_expr_mut(&mut f);
+            assert_eq!(f.polar_period, expected_period);
+        }
+
+        test("42", Some(0.into()));
+        test("x", Some(0.into()));
+        test("y", Some(0.into()));
+        test("r", Some(0.into()));
+        test("θ", None);
+        test("sin(θ)", Some(1.into()));
+        test("cos(θ)", Some(1.into()));
+        test("tan(θ)", Some(1.into()));
+        test("sin(3/5θ)", Some(5.into()));
+        test("sin(θ) + θ", None);
+        test("r = sin(θ)", Some(1.into()));
+        // TODO
+        // test("sin(3θ/5)", Some(5.into()));
     }
 }
