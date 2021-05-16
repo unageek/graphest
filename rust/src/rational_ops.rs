@@ -55,12 +55,12 @@ pub fn pow(x: Rational, y: Rational) -> Option<Rational> {
             let n = yn as u32;
             let zn = xn.checked_pow(n)?;
             let zd = xd.checked_pow(n)?;
-            Some(Rational::from((zn, zd)))
+            Some((zn, zd).into())
         } else if xn != 0 {
             let n = -yn as u32;
             let zn = xd.checked_pow(n)?;
             let zd = xn.checked_pow(n)?;
-            Some(Rational::from((zn, zd)))
+            Some((zn, zd).into())
         } else {
             // y < 0 ∧ x = 0.
             None
@@ -68,7 +68,7 @@ pub fn pow(x: Rational, y: Rational) -> Option<Rational> {
     } else {
         // y ∉ ℤ.
         if xn == 0 && yn > 0 {
-            Some(Rational::from(0))
+            Some(0.into())
         } else {
             None
         }

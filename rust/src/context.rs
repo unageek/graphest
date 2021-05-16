@@ -1,6 +1,5 @@
 use crate::{
     ast::{BinaryOp, Expr, UnaryOp},
-    interval_set::TupperIntervalSet,
     parse::parse_expr,
     visit::{Parametrize, Substitute, VisitMut},
 };
@@ -33,7 +32,7 @@ impl Def {
     /// Creates a definition of a constant.
     fn constant(x: DecInterval) -> Self {
         Self::Constant {
-            body: Expr::constant(TupperIntervalSet::from(x), None),
+            body: Expr::constant(x.into(), None),
         }
     }
 

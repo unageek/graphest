@@ -1,13 +1,12 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprId, ExprKind, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
-    interval_set::{Site, TupperIntervalSet},
+    interval_set::Site,
     ops::{
         FormIndex, RelOp, ScalarBinaryOp, ScalarUnaryOp, StaticForm, StaticFormKind, StaticTerm,
         StaticTermKind, StoreIndex, TermIndex,
     },
 };
 use inari::const_dec_interval;
-use rug::Rational;
 use std::{
     collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
@@ -223,8 +222,8 @@ impl VisitMut for PreTransform {
                             Pow,
                             box Expr::unary(Sinc, box Expr::unary(UndefAt0, take(x))),
                             box Expr::constant(
-                                TupperIntervalSet::from(const_dec_interval!(-1.0, -1.0)),
-                                Some(Rational::from(-1)),
+                                const_dec_interval!(-1.0, -1.0).into(),
+                                Some((-1).into()),
                             ),
                         );
                     }

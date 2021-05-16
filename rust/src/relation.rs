@@ -264,11 +264,9 @@ impl Relation {
 
         for t in terms {
             match t.kind {
-                StaticTermKind::X => t.put(ts, TupperIntervalSet::from(DecInterval::new(x))),
-                StaticTermKind::Y => t.put(ts, TupperIntervalSet::from(DecInterval::new(y))),
-                StaticTermKind::NTheta => {
-                    t.put(ts, TupperIntervalSet::from(DecInterval::new(n_theta)))
-                }
+                StaticTermKind::X => t.put(ts, DecInterval::new(x).into()),
+                StaticTermKind::Y => t.put(ts, DecInterval::new(y).into()),
+                StaticTermKind::NTheta => t.put(ts, DecInterval::new(n_theta).into()),
                 _ if t.vars == VarSet::EMPTY
                     || t.vars == VarSet::X && mx_ts.is_some()
                     || t.vars == VarSet::Y && my_ts.is_some() =>
@@ -298,11 +296,9 @@ impl Relation {
         let terms = &self.terms;
         for t in terms {
             match t.kind {
-                StaticTermKind::X => t.put(ts, TupperIntervalSet::from(DecInterval::new(x))),
-                StaticTermKind::Y => t.put(ts, TupperIntervalSet::from(DecInterval::new(y))),
-                StaticTermKind::NTheta => {
-                    t.put(ts, TupperIntervalSet::from(DecInterval::new(n_theta)))
-                }
+                StaticTermKind::X => t.put(ts, DecInterval::new(x).into()),
+                StaticTermKind::Y => t.put(ts, DecInterval::new(y).into()),
+                StaticTermKind::NTheta => t.put(ts, DecInterval::new(n_theta).into()),
                 _ if t.vars == VarSet::EMPTY => {
                     // Constant subexpression.
                 }
@@ -400,7 +396,7 @@ fn expand_polar_coords(e: &mut Expr) {
             box Expr::binary(BinaryOp::Atan2, box Expr::var("y"), box Expr::var("x")),
             box Expr::binary(
                 BinaryOp::Mul,
-                box Expr::constant(TupperIntervalSet::from(DecInterval::TAU), None),
+                box Expr::constant(DecInterval::TAU.into(), None),
                 box Expr::var("<n-theta>"),
             ),
         )),
@@ -434,13 +430,10 @@ fn expand_polar_coords(e: &mut Expr) {
             box Expr::binary(BinaryOp::Atan2, box Expr::var("y"), box Expr::var("x")),
             box Expr::binary(
                 BinaryOp::Mul,
-                box Expr::constant(TupperIntervalSet::from(DecInterval::TAU), None),
+                box Expr::constant(DecInterval::TAU.into(), None),
                 box Expr::binary(
                     BinaryOp::Add,
-                    box Expr::constant(
-                        TupperIntervalSet::from(const_dec_interval!(0.5, 0.5)),
-                        None,
-                    ),
+                    box Expr::constant(const_dec_interval!(0.5, 0.5).into(), Some((1, 2).into())),
                     box Expr::var("<n-theta>"),
                 ),
             ),
