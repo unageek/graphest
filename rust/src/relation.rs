@@ -387,36 +387,23 @@ fn expand_polar_coords(e: &mut Expr) {
     // e1 = e /. {r → sqrt(x^2 + y^2), θ → atan2(y, x) + 2π n_θ}.
     let mut e1 = e.clone();
     let mut v = ReplaceAll::new(|e| match &e.kind {
-        ExprKind::Var(x) if x == "r" => Some(Expr::new(ExprKind::Unary(
+        ExprKind::Var(x) if x == "r" => Some(Expr::unary(
             UnaryOp::Sqrt,
-            box Expr::new(ExprKind::Binary(
+            box Expr::binary(
                 BinaryOp::Add,
-                box Expr::new(ExprKind::Unary(
-                    UnaryOp::Sqr,
-                    box Expr::new(ExprKind::Var("x".into())),
-                )),
-                box Expr::new(ExprKind::Unary(
-                    UnaryOp::Sqr,
-                    box Expr::new(ExprKind::Var("y".into())),
-                )),
-            )),
-        ))),
-        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::new(ExprKind::Binary(
+                box Expr::unary(UnaryOp::Sqr, box Expr::var("x")),
+                box Expr::unary(UnaryOp::Sqr, box Expr::var("y")),
+            ),
+        )),
+        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::binary(
             BinaryOp::Add,
-            box Expr::new(ExprKind::Binary(
-                BinaryOp::Atan2,
-                box Expr::new(ExprKind::Var("y".into())),
-                box Expr::new(ExprKind::Var("x".into())),
-            )),
-            box Expr::new(ExprKind::Binary(
+            box Expr::binary(BinaryOp::Atan2, box Expr::var("y"), box Expr::var("x")),
+            box Expr::binary(
                 BinaryOp::Mul,
-                box Expr::new(ExprKind::Constant(box (
-                    TupperIntervalSet::from(DecInterval::TAU),
-                    None,
-                ))),
-                box Expr::new(ExprKind::Var("<n-theta>".into())),
-            )),
-        ))),
+                box Expr::constant(TupperIntervalSet::from(DecInterval::TAU), None),
+                box Expr::var("<n-theta>"),
+            ),
+        )),
         _ => None,
     });
     v.visit_expr_mut(&mut e1);
@@ -431,51 +418,38 @@ fn expand_polar_coords(e: &mut Expr) {
     // but much slower since we have to evaluate `atan2` separately for `e1` and `e2`.
     let mut e2 = e.clone();
     let mut v = ReplaceAll::new(|e| match &e.kind {
-        ExprKind::Var(x) if x == "r" => Some(Expr::new(ExprKind::Unary(
+        ExprKind::Var(x) if x == "r" => Some(Expr::unary(
             UnaryOp::Neg,
-            box Expr::new(ExprKind::Unary(
+            box Expr::unary(
                 UnaryOp::Sqrt,
-                box Expr::new(ExprKind::Binary(
+                box Expr::binary(
                     BinaryOp::Add,
-                    box Expr::new(ExprKind::Unary(
-                        UnaryOp::Sqr,
-                        box Expr::new(ExprKind::Var("x".into())),
-                    )),
-                    box Expr::new(ExprKind::Unary(
-                        UnaryOp::Sqr,
-                        box Expr::new(ExprKind::Var("y".into())),
-                    )),
-                )),
-            )),
-        ))),
-        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::new(ExprKind::Binary(
+                    box Expr::unary(UnaryOp::Sqr, box Expr::var("x")),
+                    box Expr::unary(UnaryOp::Sqr, box Expr::var("y")),
+                ),
+            ),
+        )),
+        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::binary(
             BinaryOp::Add,
-            box Expr::new(ExprKind::Binary(
-                BinaryOp::Atan2,
-                box Expr::new(ExprKind::Var("y".into())),
-                box Expr::new(ExprKind::Var("x".into())),
-            )),
-            box Expr::new(ExprKind::Binary(
+            box Expr::binary(BinaryOp::Atan2, box Expr::var("y"), box Expr::var("x")),
+            box Expr::binary(
                 BinaryOp::Mul,
-                box Expr::new(ExprKind::Constant(box (
-                    TupperIntervalSet::from(DecInterval::TAU),
-                    None,
-                ))),
-                box Expr::new(ExprKind::Binary(
+                box Expr::constant(TupperIntervalSet::from(DecInterval::TAU), None),
+                box Expr::binary(
                     BinaryOp::Add,
-                    box Expr::new(ExprKind::Constant(box (
+                    box Expr::constant(
                         TupperIntervalSet::from(const_dec_interval!(0.5, 0.5)),
                         None,
-                    ))),
-                    box Expr::new(ExprKind::Var("<n-theta>".into())),
-                )),
-            )),
-        ))),
+                    ),
+                    box Expr::var("<n-theta>"),
+                ),
+            ),
+        )),
         _ => None,
     });
     v.visit_expr_mut(&mut e2);
 
-    *e = Expr::new(ExprKind::Binary(BinaryOp::Or, box e1, box e2))
+    *e = Expr::binary(BinaryOp::Or, box e1, box e2)
 }
 
 #[cfg(test)]

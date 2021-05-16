@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, ExprKind, UnaryOp},
+    ast::{BinaryOp, Expr, UnaryOp},
     interval_set::TupperIntervalSet,
     parse::parse_expr,
     visit::{Parametrize, Substitute, VisitMut},
@@ -33,7 +33,7 @@ impl Def {
     /// Creates a definition of a constant.
     fn constant(x: DecInterval) -> Self {
         Self::Constant {
-            body: Expr::new(ExprKind::Constant(box (TupperIntervalSet::from(x), None))),
+            body: Expr::constant(TupperIntervalSet::from(x), None),
         }
     }
 
@@ -41,10 +41,7 @@ impl Def {
     fn unary(op: UnaryOp) -> Self {
         Self::Function {
             arity: 1,
-            body: Expr::new(ExprKind::Unary(
-                op,
-                box Expr::new(ExprKind::Var("0".into())),
-            )),
+            body: Expr::unary(op, box Expr::var("0")),
             left_associative: false,
         }
     }
@@ -53,11 +50,7 @@ impl Def {
     fn binary(op: BinaryOp) -> Self {
         Self::Function {
             arity: 2,
-            body: Expr::new(ExprKind::Binary(
-                op,
-                box Expr::new(ExprKind::Var("0".into())),
-                box Expr::new(ExprKind::Var("1".into())),
-            )),
+            body: Expr::binary(op, box Expr::var("0"), box Expr::var("1")),
             left_associative: false,
         }
     }

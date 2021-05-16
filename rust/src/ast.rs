@@ -142,6 +142,7 @@ pub struct Expr {
 }
 
 impl Expr {
+    /// Creates a new expression.
     pub fn new(kind: ExprKind) -> Self {
         Self {
             id: UNINIT_EXPR_ID,
@@ -150,6 +151,36 @@ impl Expr {
             vars: VarSet::EMPTY,
             internal_hash: 0,
         }
+    }
+
+    /// Creates a new expression of kind [`ExprKind::Binary`].
+    pub fn binary(op: BinaryOp, x: Box<Expr>, y: Box<Expr>) -> Self {
+        Self::new(ExprKind::Binary(op, x, y))
+    }
+
+    /// Creates a new expression of kind [`ExprKind::Constant`].
+    pub fn constant(x: TupperIntervalSet, xr: Option<Rational>) -> Self {
+        Self::new(ExprKind::Constant(box (x, xr)))
+    }
+
+    /// Creates a new expression of kind [`ExprKind::Pown`].
+    pub fn pown(x: Box<Expr>, n: i32) -> Self {
+        Self::new(ExprKind::Pown(x, n))
+    }
+
+    /// Creates a new expression of kind [`ExprKind::Rootn`].
+    pub fn rootn(x: Box<Expr>, n: u32) -> Self {
+        Self::new(ExprKind::Rootn(x, n))
+    }
+
+    /// Creates a new expression of kind [`ExprKind::Unary`].
+    pub fn unary(op: UnaryOp, x: Box<Expr>) -> Self {
+        Self::new(ExprKind::Unary(op, x))
+    }
+
+    /// Creates a new expression of kind [`ExprKind::Var`].
+    pub fn var(name: &str) -> Self {
+        Self::new(ExprKind::Var(name.into()))
     }
 
     pub fn dump_structure(&self) -> impl fmt::Display + '_ {

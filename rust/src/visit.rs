@@ -208,29 +208,29 @@ impl VisitMut for PreTransform {
         match &mut e.kind {
             Binary(Sub, x, y) => {
                 // (Sub x y) → (Add x (Neg y))
-                *e = Expr::new(Binary(Add, take(x), box Expr::new(Unary(Neg, take(y)))));
+                *e = Expr::binary(Add, take(x), box Expr::unary(Neg, take(y)));
             }
             // Ad-hoc transformations mainly for demonstrational purposes.
             Binary(Div, x, y) => {
                 match (&x.kind, &y.kind) {
                     (Unary(Sin, x1), _) if x1 == y => {
                         // (Div (Sin y) y) → (Sinc (UndefAt0 y))
-                        *e = Expr::new(Unary(Sinc, box Expr::new(Unary(UndefAt0, take(y)))));
+                        *e = Expr::unary(Sinc, box Expr::unary(UndefAt0, take(y)));
                     }
                     (_, Unary(Sin, y1)) if y1 == x => {
                         // (Div x (Sin x)) → (Pow (Sinc (UndefAt0 x)) -1)
-                        *e = Expr::new(Binary(
+                        *e = Expr::binary(
                             Pow,
-                            box Expr::new(Unary(Sinc, box Expr::new(Unary(UndefAt0, take(x))))),
-                            box Expr::new(Constant(box (
+                            box Expr::unary(Sinc, box Expr::unary(UndefAt0, take(x))),
+                            box Expr::constant(
                                 TupperIntervalSet::from(const_dec_interval!(-1.0, -1.0)),
                                 Some(Rational::from(-1)),
-                            ))),
-                        ));
+                            ),
+                        );
                     }
                     _ if x == y => {
                         // (Div x x) → (One (UndefAt0 x))
-                        *e = Expr::new(Unary(One, box Expr::new(Unary(UndefAt0, take(x)))));
+                        *e = Expr::unary(One, box Expr::unary(UndefAt0, take(x)));
                     }
                     _ => (),
                 };
@@ -287,11 +287,11 @@ impl VisitMut for Transform {
                     }
                     Binary(Add, x1, x2) => {
                         // (Neg (Add x1 x2)) → (Add (Neg x1) (Neg x2))
-                        *e = Expr::new(Binary(
+                        *e = Expr::binary(
                             Add,
-                            box Expr::new(Unary(Neg, take(x1))),
-                            box Expr::new(Unary(Neg, take(x2))),
-                        ));
+                            box Expr::unary(Neg, take(x1)),
+                            box Expr::unary(Neg, take(x2)),
+                        );
                         self.modified = true;
                     }
                     _ => (),
@@ -306,11 +306,7 @@ impl VisitMut for Transform {
                     }
                     (_, Binary(Add, y1, y2)) => {
                         // (Add x (Add y1 y2)) → (Add (Add x y1) y2)
-                        *e = Expr::new(Binary(
-                            Add,
-                            box Expr::new(Binary(Add, take(x), take(y1))),
-                            take(y2),
-                        ));
+                        *e = Expr::binary(Add, box Expr::binary(Add, take(x), take(y1)), take(y2));
                         self.modified = true;
                     }
                     _ => (),
@@ -325,26 +321,22 @@ impl VisitMut for Transform {
                     }
                     (Constant(a), _) if a.0.to_f64() == Some(-1.0) => {
                         // (Mul -1 y) → (Neg y)
-                        *e = Expr::new(Unary(Neg, take(y)));
+                        *e = Expr::unary(Neg, take(y));
                         self.modified = true;
                     }
                     (Unary(Neg, x), _) => {
                         // (Mul (Neg x) y) → (Neg (Mul x y))
-                        *e = Expr::new(Unary(Neg, box Expr::new(Binary(Mul, take(x), take(y)))));
+                        *e = Expr::unary(Neg, box Expr::binary(Mul, take(x), take(y)));
                         self.modified = true;
                     }
                     (_, Unary(Neg, y)) => {
                         // (Mul x (Neg y)) → (Neg (Mul x y))
-                        *e = Expr::new(Unary(Neg, box Expr::new(Binary(Mul, take(x), take(y)))));
+                        *e = Expr::unary(Neg, box Expr::binary(Mul, take(x), take(y)));
                         self.modified = true;
                     }
                     (_, Binary(Mul, y1, y2)) => {
                         // (Mul x (Mul y1 y2)) → (Mul (Mul x y1) y2)
-                        *e = Expr::new(Binary(
-                            Mul,
-                            box Expr::new(Binary(Mul, take(x), take(y1))),
-                            take(y2),
-                        ));
+                        *e = Expr::binary(Mul, box Expr::binary(Mul, take(x), take(y1)), take(y2));
                         self.modified = true;
                     }
                     _ => (),
@@ -367,25 +359,25 @@ impl VisitMut for Transform {
                             Nlt => Lt,
                             _ => unreachable!(),
                         };
-                        *e = Expr::new(Binary(neg_op, take(x1), take(x2)));
+                        *e = Expr::binary(neg_op, take(x1), take(x2));
                         self.modified = true;
                     }
                     Binary(And, x1, x2) => {
                         // (And (x1 x2)) → (Or (Not x1) (Not x2))
-                        *e = Expr::new(Binary(
+                        *e = Expr::binary(
                             Or,
-                            box Expr::new(Unary(Not, take(x1))),
-                            box Expr::new(Unary(Not, take(x2))),
-                        ));
+                            box Expr::unary(Not, take(x1)),
+                            box Expr::unary(Not, take(x2)),
+                        );
                         self.modified = true;
                     }
                     Binary(Or, x1, x2) => {
                         // (Or (x1 x2)) → (And (Not x1) (Not x2))
-                        *e = Expr::new(Binary(
+                        *e = Expr::binary(
                             And,
-                            box Expr::new(Unary(Not, take(x1))),
-                            box Expr::new(Unary(Not, take(x2))),
-                        ));
+                            box Expr::unary(Not, take(x1)),
+                            box Expr::unary(Not, take(x2)),
+                        );
                         self.modified = true;
                     }
                     _ => (),
@@ -404,7 +396,6 @@ pub struct FoldConstant {
 
 impl VisitMut for FoldConstant {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use ExprKind::*;
         traverse_expr_mut(self, e);
 
         if !matches!(e.kind, ExprKind::Constant(_)) {
@@ -412,7 +403,7 @@ impl VisitMut for FoldConstant {
                 // Only fold constants which evaluate to the empty or a single interval
                 // since the branch cut tracking is not possible with the AST.
                 if x.len() <= 1 {
-                    *e = Expr::new(Constant(box (x, xr)));
+                    *e = Expr::constant(x, xr);
                     self.modified = true;
                 }
             }
@@ -434,10 +425,10 @@ impl VisitMut for PostTransform {
                     if let Some(a) = a.0.to_f64() {
                         if a == 2.0 {
                             // (Pow 2 x) → (Exp2 x)
-                            *e = Expr::new(Unary(Exp2, take(y)));
+                            *e = Expr::unary(Exp2, take(y));
                         } else if a == 10.0 {
                             // (Pow 10 x) → (Exp10 x)
-                            *e = Expr::new(Unary(Exp10, take(y)));
+                            *e = Expr::unary(Exp10, take(y));
                         }
                     }
                 }
@@ -446,15 +437,15 @@ impl VisitMut for PostTransform {
                         if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
                             let root = match d {
                                 1 => take(x),
-                                2 => box Expr::new(Unary(Sqrt, take(x))),
-                                _ => box Expr::new(Rootn(take(x), d)),
+                                2 => box Expr::unary(Sqrt, take(x)),
+                                _ => box Expr::rootn(take(x), d),
                             };
                             *e = match n {
-                                -1 => Expr::new(Unary(Recip, root)),
-                                0 => Expr::new(Unary(One, root)),
+                                -1 => Expr::unary(Recip, root),
+                                0 => Expr::unary(One, root),
                                 1 => *root,
-                                2 => Expr::new(Unary(Sqr, root)),
-                                _ => Expr::new(Pown(root, n)),
+                                2 => Expr::unary(Sqr, root),
+                                _ => Expr::pown(root, n),
                             }
                         }
                     }

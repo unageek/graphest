@@ -79,7 +79,7 @@ fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
         let interval_lit = ["[", s, "]"].concat();
         let x = TupperIntervalSet::from(dec_interval!(&interval_lit).unwrap());
         let xr = parse_decimal(s);
-        Expr::new(ExprKind::Constant(box (x, xr)))
+        Expr::constant(x, xr)
     })(i)
 }
 
@@ -119,7 +119,7 @@ fn function_application(i: InputWithContext) -> ParseResult<Expr> {
 }
 
 fn variable(i: InputWithContext) -> ParseResult<Expr> {
-    map(identifier, |s| Expr::new(ExprKind::Var(s.into())))(i)
+    map(identifier, |s| Expr::var(s))(i)
 }
 
 fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
