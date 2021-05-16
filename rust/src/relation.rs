@@ -7,7 +7,8 @@ use crate::{
     parse::parse_expr,
     visit::*,
 };
-use inari::{const_dec_interval, DecInterval, Interval};
+use inari::{const_dec_interval, dec_interval, DecInterval, Interval};
+use rug::Integer;
 use std::{
     collections::{hash_map::Entry, HashMap},
     mem::size_of,
@@ -331,7 +332,6 @@ impl FromStr for Relation {
     fn from_str(s: &str) -> Result<Self, String> {
         let mut e = parse_expr(s, Context::builtin_context())?;
         // TODO: Check types and return a pretty error message.
-        expand_polar_coords(&mut e);
         PreTransform.visit_expr_mut(&mut e);
         loop {
             let mut s = SortTerms::default();
@@ -344,6 +344,8 @@ impl FromStr for Relation {
                 break;
             }
         }
+        UpdatePolarPeriod.visit_expr_mut(&mut e);
+        expand_polar_coords(&mut e);
         PostTransform.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
         if e.ty != ValueType::Boolean {
@@ -442,7 +444,33 @@ fn expand_polar_coords(e: &mut Expr) {
     });
     v.visit_expr_mut(&mut e2);
 
-    *e = Expr::binary(BinaryOp::Or, box e1, box e2)
+    let e3 = Expr::binary(BinaryOp::Or, box e1, box e2);
+
+    *e = match &e.polar_period {
+        Some(period) if *period != Integer::from(0) => {
+            // constraint ≡ 0 ≤ n_θ < period.
+            let constraint = Expr::binary(
+                BinaryOp::And,
+                box Expr::binary(
+                    BinaryOp::Le,
+                    box Expr::constant(const_dec_interval!(0.0, 0.0).into(), Some(0.into())),
+                    box Expr::var("<n-theta>"),
+                ),
+                box Expr::binary(
+                    BinaryOp::Lt,
+                    box Expr::var("<n-theta>"),
+                    box Expr::constant(
+                        dec_interval!(&format!("[{}]", period.to_string()))
+                            .unwrap()
+                            .into(),
+                        Some(period.into()),
+                    ),
+                ),
+            );
+            Expr::binary(BinaryOp::And, box e3, box constraint)
+        }
+        _ => e3,
+    }
 }
 
 #[cfg(test)]
