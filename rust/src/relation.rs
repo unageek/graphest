@@ -8,7 +8,6 @@ use crate::{
     visit::*,
 };
 use inari::{const_dec_interval, dec_interval, DecInterval, Interval};
-use rug::Integer;
 use std::{
     collections::{hash_map::Entry, HashMap},
     mem::size_of,
@@ -447,7 +446,7 @@ fn expand_polar_coords(e: &mut Expr) {
     let e3 = Expr::binary(BinaryOp::Or, box e1, box e2);
 
     *e = match &e.polar_period {
-        Some(period) if *period != Integer::from(0) => {
+        Some(period) if *period != 0 => {
             // constraint ≡ 0 ≤ n_θ < period.
             let constraint = Expr::binary(
                 BinaryOp::And,
