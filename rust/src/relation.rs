@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, ExprKind, UnaryOp, ValueType, VarSet},
+    ast::{BinaryOp, Expr, ExprKind, NaryOp, UnaryOp, ValueType, VarSet},
     context::Context,
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
@@ -332,19 +332,10 @@ impl FromStr for Relation {
         let mut e = parse_expr(s, Context::builtin_context())?;
         // TODO: Check types and return a pretty error message.
         PreTransform.visit_expr_mut(&mut e);
-        loop {
-            let mut s = SortTerms::default();
-            s.visit_expr_mut(&mut e);
-            let mut t = Transform::default();
-            t.visit_expr_mut(&mut e);
-            let mut f = FoldConstant::default();
-            f.visit_expr_mut(&mut e);
-            if !s.modified && !t.modified && !f.modified {
-                break;
-            }
-        }
+        simplify(&mut e);
         UpdatePolarPeriod.visit_expr_mut(&mut e);
         expand_polar_coords(&mut e);
+        simplify(&mut e);
         PostTransform.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
         if e.ty != ValueType::Boolean {
@@ -379,27 +370,52 @@ impl FromStr for Relation {
     }
 }
 
+fn simplify(e: &mut Expr) {
+    loop {
+        let mut fl = Flatten::default();
+        fl.visit_expr_mut(e);
+        let mut s = SortTerms::default();
+        s.visit_expr_mut(e);
+        let mut f = FoldConstant::default();
+        f.visit_expr_mut(e);
+        let mut t = Transform::default();
+        t.visit_expr_mut(e);
+        if !fl.modified && !s.modified && !f.modified && !t.modified {
+            break;
+        }
+    }
+}
+
 /// Replaces polar coordinates with the equivalent family of Cartesian coordinates.
 fn expand_polar_coords(e: &mut Expr) {
+    use {BinaryOp::*, NaryOp::*};
+
     // e1 = e /. {r → sqrt(x^2 + y^2), θ → atan2(y, x) + 2π n_θ}.
     let mut e1 = e.clone();
     let mut v = ReplaceAll::new(|e| match &e.kind {
-        ExprKind::Var(x) if x == "r" => Some(Expr::unary(
-            UnaryOp::Sqrt,
-            box Expr::binary(
-                BinaryOp::Add,
-                box Expr::unary(UnaryOp::Sqr, box Expr::var("x")),
-                box Expr::unary(UnaryOp::Sqr, box Expr::var("y")),
+        ExprKind::Var(x) if x == "r" => Some(Expr::binary(
+            Pow,
+            box Expr::nary(
+                Plus,
+                vec![
+                    Expr::binary(Pow, box Expr::var("x"), box Expr::two()),
+                    Expr::binary(Pow, box Expr::var("y"), box Expr::two()),
+                ],
             ),
+            box Expr::one_half(),
         )),
-        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::binary(
-            BinaryOp::Add,
-            box Expr::binary(BinaryOp::Atan2, box Expr::var("y"), box Expr::var("x")),
-            box Expr::binary(
-                BinaryOp::Mul,
-                box Expr::constant(DecInterval::TAU.into(), None),
-                box Expr::var("<n-theta>"),
-            ),
+        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::nary(
+            Plus,
+            vec![
+                Expr::binary(Atan2, box Expr::var("y"), box Expr::var("x")),
+                Expr::nary(
+                    Times,
+                    vec![
+                        Expr::constant(DecInterval::TAU.into(), None),
+                        Expr::var("<n-theta>"),
+                    ],
+                ),
+            ],
         )),
         _ => None,
     });
@@ -417,27 +433,30 @@ fn expand_polar_coords(e: &mut Expr) {
     let mut v = ReplaceAll::new(|e| match &e.kind {
         ExprKind::Var(x) if x == "r" => Some(Expr::unary(
             UnaryOp::Neg,
-            box Expr::unary(
-                UnaryOp::Sqrt,
-                box Expr::binary(
-                    BinaryOp::Add,
-                    box Expr::unary(UnaryOp::Sqr, box Expr::var("x")),
-                    box Expr::unary(UnaryOp::Sqr, box Expr::var("y")),
+            box Expr::binary(
+                Pow,
+                box Expr::nary(
+                    Plus,
+                    vec![
+                        Expr::binary(Pow, box Expr::var("x"), box Expr::two()),
+                        Expr::binary(Pow, box Expr::var("y"), box Expr::two()),
+                    ],
                 ),
+                box Expr::one_half(),
             ),
         )),
-        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::binary(
-            BinaryOp::Add,
-            box Expr::binary(BinaryOp::Atan2, box Expr::var("y"), box Expr::var("x")),
-            box Expr::binary(
-                BinaryOp::Mul,
-                box Expr::constant(DecInterval::TAU.into(), None),
-                box Expr::binary(
-                    BinaryOp::Add,
-                    box Expr::constant(const_dec_interval!(0.5, 0.5).into(), Some((1, 2).into())),
-                    box Expr::var("<n-theta>"),
+        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::nary(
+            Plus,
+            vec![
+                Expr::binary(Atan2, box Expr::var("y"), box Expr::var("x")),
+                Expr::nary(
+                    Times,
+                    vec![
+                        Expr::constant(DecInterval::TAU.into(), None),
+                        Expr::nary(Plus, vec![Expr::one_half(), Expr::var("<n-theta>")]),
+                    ],
                 ),
-            ),
+            ],
         )),
         _ => None,
     });
@@ -449,14 +468,14 @@ fn expand_polar_coords(e: &mut Expr) {
         Some(period) if *period != 0 => {
             // constraint ≡ 0 ≤ n_θ < period.
             let constraint = Expr::binary(
-                BinaryOp::And,
+                And,
                 box Expr::binary(
-                    BinaryOp::Le,
+                    Le,
                     box Expr::constant(const_dec_interval!(0.0, 0.0).into(), Some(0.into())),
                     box Expr::var("<n-theta>"),
                 ),
                 box Expr::binary(
-                    BinaryOp::Lt,
+                    Lt,
                     box Expr::var("<n-theta>"),
                     box Expr::constant(
                         dec_interval!(&format!("[{}]", period.to_string()))
@@ -466,7 +485,7 @@ fn expand_polar_coords(e: &mut Expr) {
                     ),
                 ),
             );
-            Expr::binary(BinaryOp::And, box e3, box constraint)
+            Expr::binary(And, box e3, box constraint)
         }
         _ => e3,
     }

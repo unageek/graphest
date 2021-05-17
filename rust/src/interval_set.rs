@@ -286,7 +286,8 @@ impl TupperIntervalSet {
 
         let x = self.xs[0].x;
         if x.is_singleton() && self.d >= Decoration::Def {
-            Some(x.inf())
+            // Use `sup` instead of `inf` to return +0.0.
+            Some(x.sup())
         } else {
             None
         }

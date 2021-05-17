@@ -1,6 +1,6 @@
 use crate::{interval_set::TupperIntervalSet, rational_ops};
 use bitflags::*;
-use inari::DecInterval;
+use inari::{const_dec_interval, DecInterval};
 use rug::{Integer, Rational};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -97,12 +97,19 @@ pub enum BinaryOp {
     Sub,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum NaryOp {
+    Plus,
+    Times,
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum ExprKind {
     // == Scalar-valued expressions ==
     Constant(Box<(TupperIntervalSet, Option<Rational>)>),
     Unary(UnaryOp, Box<Expr>),
     Binary(BinaryOp, Box<Expr>, Box<Expr>),
+    Nary(NaryOp, Vec<Expr>),
     Pown(Box<Expr>, i32),
     Rootn(Box<Expr>, u32),
     // == Others ==
@@ -167,6 +174,27 @@ impl Expr {
         Self::new(ExprKind::Constant(box (x, xr)))
     }
 
+    /// Creates a constant node with value -1.
+    pub fn minus_one() -> Self {
+        Self::constant(const_dec_interval!(-1.0, -1.0).into(), Some((-1).into()))
+    }
+
+    /// Creates a new expression of kind [`ExprKind::Nary`].
+    pub fn nary(op: NaryOp, xs: Vec<Expr>) -> Self {
+        assert!(!xs.is_empty());
+        Self::new(ExprKind::Nary(op, xs))
+    }
+
+    /// Creates a constant node with value 1.
+    pub fn one() -> Self {
+        Self::constant(const_dec_interval!(1.0, 1.0).into(), Some((1).into()))
+    }
+
+    /// Creates a constant node with value 1/2.
+    pub fn one_half() -> Self {
+        Self::constant(const_dec_interval!(0.5, 0.5).into(), Some((1, 2).into()))
+    }
+
     /// Creates a new expression of kind [`ExprKind::Pown`].
     pub fn pown(x: Box<Expr>, n: i32) -> Self {
         Self::new(ExprKind::Pown(x, n))
@@ -175,6 +203,11 @@ impl Expr {
     /// Creates a new expression of kind [`ExprKind::Rootn`].
     pub fn rootn(x: Box<Expr>, n: u32) -> Self {
         Self::new(ExprKind::Rootn(x, n))
+    }
+
+    /// Creates a constant node with value 2.
+    pub fn two() -> Self {
+        Self::constant(const_dec_interval!(2.0, 2.0).into(), Some((2).into()))
     }
 
     /// Creates a new expression of kind [`ExprKind::Unary`].
@@ -312,7 +345,7 @@ impl Expr {
             Unary(_, x) | Pown(x, _) | Rootn(x, _) => x.vars,
             Binary(_, x, y) => x.vars | y.vars,
             List(xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
-            Uninit => panic!(),
+            Nary(_, _) | Uninit => panic!(),
         };
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
@@ -441,8 +474,14 @@ struct DumpStructure<'a>(&'a Expr);
 impl<'a> fmt::Display for DumpStructure<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.0.kind {
-            ExprKind::Constant(_) => write!(f, "@"),
-            ExprKind::Var(x) => write!(f, "{}", x),
+            ExprKind::Constant(a) => {
+                if let Some(a) = a.0.to_f64() {
+                    write!(f, "{}", a)
+                } else {
+                    write!(f, "@")
+                }
+            }
+            ExprKind::Var(name) => write!(f, "{}", name),
             ExprKind::Unary(op, x) => write!(f, "({:?} {})", op, x.dump_structure()),
             ExprKind::Binary(op, x, y) => write!(
                 f,
@@ -451,12 +490,28 @@ impl<'a> fmt::Display for DumpStructure<'a> {
                 x.dump_structure(),
                 y.dump_structure()
             ),
-            ExprKind::Pown(x, y) => write!(f, "(Pown {} {})", x.dump_structure(), y),
-            ExprKind::Rootn(x, y) => write!(f, "(Rootn {} {})", x.dump_structure(), y),
+            ExprKind::Nary(op, xs) => {
+                write!(
+                    f,
+                    "({:?} {})",
+                    op,
+                    xs.iter()
+                        .map(|x| format!("{}", x.dump_structure()))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                )
+            }
+            ExprKind::Pown(x, n) => write!(f, "(Pown {} {})", x.dump_structure(), n),
+            ExprKind::Rootn(x, n) => write!(f, "(Rootn {} {})", x.dump_structure(), n),
             ExprKind::List(xs) => {
-                let mut parts = vec!["List".to_string()];
-                parts.extend(xs.iter().map(|x| format!("{}", x.dump_structure())));
-                write!(f, "({})", parts.join(" "))
+                write!(
+                    f,
+                    "(List {})",
+                    xs.iter()
+                        .map(|x| format!("{}", x.dump_structure()))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                )
             }
             ExprKind::Uninit => panic!(),
         }
