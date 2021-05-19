@@ -343,7 +343,8 @@ impl VisitMut for Flatten {
                     *e = match op {
                         Plus => Expr::zero(),
                         Times => Expr::one(),
-                    }
+                    };
+                    self.modified = true;
                 }
                 [x] => {
                     *e = take(x);
@@ -1244,6 +1245,7 @@ mod tests {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
             PreTransform.visit_expr_mut(&mut e);
+            Transform::default().visit_expr_mut(&mut e);
             let input = format!("{}", e.dump_structure());
             let mut v = Flatten::default();
             v.visit_expr_mut(&mut e);
@@ -1258,6 +1260,8 @@ mod tests {
         test("x y z", "(Times x y z)");
         test("(x y) z", "(Times x y z)");
         test("x (y z)", "(Times x y z)");
+        test("0 + 0", "0");
+        test("1*1", "1");
     }
 
     #[test]
