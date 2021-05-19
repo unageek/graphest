@@ -181,7 +181,6 @@ impl Expr {
 
     /// Creates a new expression of kind [`ExprKind::Nary`].
     pub fn nary(op: NaryOp, xs: Vec<Expr>) -> Self {
-        assert!(!xs.is_empty());
         Self::new(ExprKind::Nary(op, xs))
     }
 
@@ -218,6 +217,11 @@ impl Expr {
     /// Creates a new expression of kind [`ExprKind::Var`].
     pub fn var(name: &str) -> Self {
         Self::new(ExprKind::Var(name.into()))
+    }
+
+    /// Creates a constant node with value 0.
+    pub fn zero() -> Self {
+        Self::constant(const_dec_interval!(0.0, 0.0).into(), Some(0.into()))
     }
 
     pub fn dump_structure(&self) -> impl fmt::Display + '_ {

@@ -324,6 +324,7 @@ impl VisitMut for PreTransform {
     }
 }
 
+// TODO: Update doc comment
 /// Flattens out terms nested inside [`NaryOp::Plus`] and [`NaryOp::Times`].
 /// If an expression contains only one term, it is replaced by the term.
 #[derive(Default)]
@@ -338,7 +339,12 @@ impl VisitMut for Flatten {
 
         if let nary!(op @ (Plus | Times), xs) = e {
             match &mut xs[..] {
-                [] => panic!(),
+                [] => {
+                    *e = match op {
+                        Plus => Expr::zero(),
+                        Times => Expr::one(),
+                    }
+                }
                 [x] => {
                     *e = take(x);
                     self.modified = true;
