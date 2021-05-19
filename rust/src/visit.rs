@@ -327,9 +327,14 @@ impl VisitMut for PreTransform {
     }
 }
 
-// TODO: Update doc comment
-/// Flattens out terms nested inside [`NaryOp::Plus`] and [`NaryOp::Times`].
-/// If an expression contains only one term, it is replaced by the term.
+/// Flattens out nested expressions of kind [`NaryOp::Plus`]/[`NaryOp::Times`].
+///
+/// For any expression that contains zero or one term, the following rules are applied:
+///
+/// - `(Plus) → 0`
+/// - `(Plus x) → x`
+/// - `(Times) → 1`
+/// - `(Times x) → x`
 #[derive(Default)]
 pub struct Flatten {
     pub modified: bool,
@@ -372,7 +377,6 @@ impl VisitMut for Flatten {
 
 /// Sorts terms in [`NaryOp::Plus`] and [`NaryOp::Times`] to bring similar ones together.
 /// Terms of kind [`ExprKind::Constant`] are moved to the beginning.
-// TODO: Move integer constants first to merge exponentiation.
 #[derive(Default)]
 pub struct SortTerms {
     pub modified: bool,
@@ -547,8 +551,9 @@ impl VisitMut for Transform {
                 // Drop ones.
                 xs.retain(|x| !matches!(x, constant!(a) if a.0.to_f64() == Some(1.0)));
 
+                // TODO: Apply the law of exponents while preserving the domain of the expression
+                // by introducing a construct like `UnaryOp::UndefAt0` but more generalized.
                 transform_vec(xs, |x, y| {
-                    // Be careful not to alter the domain of the expression.
                     match (x, y) {
                         (
                             binary!(Pow, x1, x2 @ constant!()),
@@ -750,7 +755,8 @@ impl VisitMut for UpdatePolarPeriod {
     }
 }
 
-// TODO: doc comment
+/// Replaces arithmetic expressions with [`UnaryOp::Neg`], [`BinaryOp::Sub`], [`UnaryOp::Recip`]
+/// and [`BinaryOp::Div`], whenever appropriate.
 pub struct SubDivTransform;
 
 impl VisitMut for SubDivTransform {
