@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expr, ExprKind},
+    ast::{Expr, NaryOp},
     context::{Context, InputWithContext},
     interval_set::TupperIntervalSet,
 };
@@ -141,7 +141,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 expr_list,
                 preceded(space0, cut(char(']'))),
             ),
-            |xs| Expr::new(ExprKind::List(xs)),
+            |xs| Expr::nary(NaryOp::List, xs),
         ),
         map_opt(
             delimited(

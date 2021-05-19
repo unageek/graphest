@@ -99,22 +99,20 @@ pub enum BinaryOp {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NaryOp {
+    List,
     Plus,
     Times,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum ExprKind {
-    // == Scalar-valued expressions ==
     Constant(Box<(TupperIntervalSet, Option<Rational>)>),
+    Var(String),
     Unary(UnaryOp, Box<Expr>),
     Binary(BinaryOp, Box<Expr>, Box<Expr>),
     Nary(NaryOp, Vec<Expr>),
     Pown(Box<Expr>, i32),
     Rootn(Box<Expr>, u32),
-    // == Others ==
-    Var(String),
-    List(Vec<Expr>),
     Uninit,
 }
 
@@ -232,7 +230,7 @@ impl Expr {
     ///
     /// Returns [`None`] if the expression cannot be evaluated to a scalar constant.
     pub fn eval(&self) -> Option<(TupperIntervalSet, Option<Rational>)> {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        use {BinaryOp::*, ExprKind::*, NaryOp::*, UnaryOp::*};
         match &self.kind {
             Constant(x) => Some(*x.clone()),
             Unary(Abs, x) => x.eval1r(|x| x.abs(), |x| Some(x.abs())),
@@ -298,7 +296,7 @@ impl Expr {
             Binary(Mul, x, y) => x.eval2r(y, |x, y| &x * &y, |x, y| Some(x * y)),
             Binary(Pow, x, y) => x.eval2r(y, |x, y| x.pow(&y, None), rational_ops::pow),
             Binary(RankedMax, xs, n) => Some((
-                if let List(xs) = &xs.kind {
+                if let Nary(List, xs) = &xs.kind {
                     let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
                     TupperIntervalSet::ranked_max(
                         xs.iter().map(|x| &x.0).collect(),
@@ -311,7 +309,7 @@ impl Expr {
                 None,
             )),
             Binary(RankedMin, xs, n) => Some((
-                if let List(xs) = &xs.kind {
+                if let Nary(List, xs) = &xs.kind {
                     let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
                     TupperIntervalSet::ranked_min(
                         xs.iter().map(|x| &x.0).collect(),
@@ -348,8 +346,8 @@ impl Expr {
             Var(_) => VarSet::EMPTY,
             Unary(_, x) | Pown(x, _) | Rootn(x, _) => x.vars,
             Binary(_, x, y) => x.vars | y.vars,
-            List(xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
-            Nary(_, _) | Uninit => panic!(),
+            Nary(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
+            Uninit => panic!(),
         };
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
@@ -360,9 +358,10 @@ impl Expr {
     }
 
     pub fn value_type(&self) -> ValueType {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*, ValueType::*};
+        use {BinaryOp::*, ExprKind::*, NaryOp::*, UnaryOp::*, ValueType::*};
         match &self.kind {
             Constant(_) => Scalar,
+            Var(x) if x == "x" || x == "y" || x == "<n-theta>" => Scalar,
             Unary(
                 Abs | Acos | Acosh | AiryAi | AiryAiPrime | AiryBi | AiryBiPrime | Asin | Asinh
                 | Atan | Atanh | Ceil | Chi | Ci | Cos | Cosh | Digamma | Ei | EllipticE
@@ -379,7 +378,7 @@ impl Expr {
             ) if x.ty == Scalar && y.ty == Scalar => Scalar,
             Binary(RankedMax | RankedMin, x, y) if x.ty == Vector && y.ty == Scalar => Scalar,
             Pown(x, _) | Rootn(x, _) if x.ty == Scalar => Scalar,
-            List(xs) if xs.iter().all(|x| x.ty == Scalar) => Vector,
+            Nary(List, xs) if xs.iter().all(|x| x.ty == Scalar) => Vector,
             Unary(Not, x) if x.ty == Boolean => Boolean,
             Binary(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
             Binary(Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt, x, y)
@@ -387,7 +386,6 @@ impl Expr {
             {
                 Boolean
             }
-            Var(x) if x == "x" || x == "y" || x == "<n-theta>" => Scalar,
             Uninit => panic!(),
             _ => Unknown,
         }
@@ -507,16 +505,6 @@ impl<'a> fmt::Display for DumpStructure<'a> {
             }
             ExprKind::Pown(x, n) => write!(f, "(Pown {} {})", x.dump_structure(), n),
             ExprKind::Rootn(x, n) => write!(f, "(Rootn {} {})", x.dump_structure(), n),
-            ExprKind::List(xs) => {
-                write!(
-                    f,
-                    "(List {})",
-                    xs.iter()
-                        .map(|x| format!("{}", x.dump_structure()))
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                )
-            }
             ExprKind::Uninit => panic!(),
         }
     }

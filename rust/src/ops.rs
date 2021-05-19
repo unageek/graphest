@@ -159,7 +159,7 @@ impl StaticTerm {
     /// Evaluates the term and puts the result in the value store.
     ///
     /// Panics if the term is of the kind [`StaticTermKind::X`], [`StaticTermKind::Y`]
-    /// or [`StaticTermKind::List`].
+    /// or [`StaticTermKind::NTheta`].
     pub fn put_eval(&self, terms: &[StaticTerm], ts: &mut ValueStore<TupperIntervalSet>) {
         use {ScalarBinaryOp::*, ScalarUnaryOp::*, StaticTermKind::*};
         match &self.kind {

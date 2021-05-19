@@ -97,11 +97,6 @@ fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
         }
         Pown(x, _) => v.visit_expr(x),
         Rootn(x, _) => v.visit_expr(x),
-        List(xs) => {
-            for x in xs {
-                v.visit_expr(x);
-            }
-        }
         Constant(_) | Var(_) | Uninit => (),
     };
 }
@@ -131,11 +126,6 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
         }
         Pown(x, _) => v.visit_expr_mut(x),
         Rootn(x, _) => v.visit_expr_mut(x),
-        List(xs) => {
-            for x in xs {
-                v.visit_expr_mut(x);
-            }
-        }
         Constant(_) | Var(_) | Uninit => (),
     };
 }
@@ -351,6 +341,7 @@ impl VisitMut for Flatten {
                     *e = match op {
                         Plus => Expr::zero(),
                         Times => Expr::one(),
+                        _ => unreachable!(),
                     };
                     self.modified = true;
                 }
@@ -656,6 +647,7 @@ impl VisitMut for FoldConstant {
                     let bin_op = match op {
                         Plus => Add,
                         Times => Mul,
+                        _ => unreachable!(),
                     };
                     self.modified = transform_vec(xs, |x, y| {
                         if let (x @ constant!(), y @ constant!()) = (x, y) {
@@ -1006,7 +998,7 @@ impl CollectStatic {
     }
 
     fn collect_terms(&mut self) {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        use {BinaryOp::*, ExprKind::*, NaryOp::*, UnaryOp::*};
         for t in self.exprs.iter().map(|t| &*t) {
             let k = match &t.kind {
                 Constant(x) => Some(StaticTermKind::Constant(box x.0.clone())),
@@ -1086,17 +1078,17 @@ impl CollectStatic {
                     _ => None,
                 }
                 .map(|op| StaticTermKind::Binary(op, self.ti(x), self.ti(y))),
-                Pown(x, n) => Some(StaticTermKind::Pown(self.ti(x), *n)),
-                Rootn(x, n) => Some(StaticTermKind::Rootn(self.ti(x), *n)),
-                List(xs) => Some(StaticTermKind::List(
+                Nary(List, xs) => Some(StaticTermKind::List(
                     box xs.iter().map(|x| self.ti(x)).collect(),
                 )),
+                Pown(x, n) => Some(StaticTermKind::Pown(self.ti(x), *n)),
+                Rootn(x, n) => Some(StaticTermKind::Rootn(self.ti(x), *n)),
                 Nary(_, _) | Var(_) | Uninit => panic!(),
             };
             if let Some(k) = k {
                 self.term_index.insert(t.id, self.terms.len() as TermIndex);
                 let store_index = match &t.kind {
-                    List(_) => StoreIndex::new(0), // List values are not stored.
+                    Nary(_, _) => StoreIndex::new(0), // List values are not stored.
                     _ => {
                         let i = self.next_scalar_store_index;
                         self.next_scalar_store_index += 1;
