@@ -537,57 +537,53 @@ impl VisitMut for Transform {
                 self.modified = xs.len() < len;
             }
             nary!(Times, xs) => {
-                if matches!(&xs[0], constant!(a) if a.0.to_f64() == Some(0.0)) {
-                    // (Times 0 …) → 0
-                    *e = take(&mut xs[0]);
-                    self.modified = true;
-                } else {
-                    let len = xs.len();
+                // Don't replace 0 x with 0 as that alters the domain of the expression.
 
-                    // Drop ones.
-                    xs.retain(|x| !matches!(x, constant!(a) if a.0.to_f64() == Some(1.0)));
+                let len = xs.len();
 
-                    transform_vec(xs, |x, y| {
-                        // Be careful not to alter the domain of exponentiation.
-                        if x == y {
-                            // x x → x^2
-                            return Some(Expr::binary(Pow, box take(x), box Expr::two()));
+                // Drop ones.
+                xs.retain(|x| !matches!(x, constant!(a) if a.0.to_f64() == Some(1.0)));
+
+                transform_vec(xs, |x, y| {
+                    // Be careful not to alter the domain of the expression.
+                    if x == y {
+                        // x x → x^2
+                        return Some(Expr::binary(Pow, box take(x), box Expr::two()));
+                    }
+                    if let binary!(Pow, y1, y2 @ box constant!()) = y {
+                        if *x == **y1 && test_rational(y2, |a| *a.denom() == 1 && *a >= 0) {
+                            // x x^a /. a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
+                            return Some(Expr::binary(
+                                Pow,
+                                box take(x),
+                                box Expr::nary(Plus, vec![Expr::one(), take(y2)]),
+                            ));
                         }
-                        if let binary!(Pow, y1, y2 @ box constant!()) = y {
-                            if *x == **y1 && test_rational(y2, |a| *a.denom() == 1 && *a >= 0) {
-                                // x x^a /. a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
-                                return Some(Expr::binary(
-                                    Pow,
-                                    box take(x),
-                                    box Expr::nary(Plus, vec![Expr::one(), take(y2)]),
-                                ));
-                            }
-                        }
-                        if let (
-                            binary!(Pow, x1, x2 @ box constant!()),
-                            binary!(Pow, y1, y2 @ box constant!()),
-                        ) = (x, y)
+                    }
+                    if let (
+                        binary!(Pow, x1, x2 @ box constant!()),
+                        binary!(Pow, y1, y2 @ box constant!()),
+                    ) = (x, y)
+                    {
+                        if *x1 == *y1
+                            && test_rationals(x2, y2, |a, b| {
+                                *a.denom() == 1
+                                    && *b.denom() == 1
+                                    && (*a < 0 && *b < 0 || *a >= 0 && *b >= 0)
+                            })
                         {
-                            if *x1 == *y1
-                                && test_rationals(x2, y2, |a, b| {
-                                    *a.denom() == 1
-                                        && *b.denom() == 1
-                                        && (*a < 0 && *b < 0 || *a >= 0 && *b >= 0)
-                                })
-                            {
-                                // x^a x^b /. a, b ∈ ℤ ∧ (a, b < 0 ∨ a, b ≥ 0) → x^(a + b)
-                                return Some(Expr::binary(
-                                    Pow,
-                                    box take(x1),
-                                    box Expr::nary(Plus, vec![take(x2), take(y2)]),
-                                ));
-                            }
+                            // x^a x^b /. a, b ∈ ℤ ∧ (a, b < 0 ∨ a, b ≥ 0) → x^(a + b)
+                            return Some(Expr::binary(
+                                Pow,
+                                box take(x1),
+                                box Expr::nary(Plus, vec![take(x2), take(y2)]),
+                            ));
                         }
-                        None
-                    });
+                    }
+                    None
+                });
 
-                    self.modified = xs.len() < len;
-                }
+                self.modified = xs.len() < len;
             }
             unary!(Not, box x) => {
                 match x {
@@ -1324,7 +1320,7 @@ mod tests {
         test("x y + 2x y", "(Times 3 x y)");
         test("2x y + 3x y", "(Times 5 x y)");
 
-        test("0 x", "0");
+        test("0 sqrt(x)", "(Times 0 (Pow x 0.5))");
         test("1 x", "x");
 
         test("x x", "(Pow x 2)");
