@@ -460,7 +460,7 @@ mod tests {
         test_parse_expr("-x ^ -y", "(Neg (Pow x (Neg y)))");
         test_parse_expr("+x", "x");
         test_parse_expr("-x", "(Neg x)");
-        test_parse_expr("2x", "(Mul @ x)");
+        test_parse_expr("2x", "(Mul 2 x)");
         test_parse_expr("x y z", "(Mul (Mul x y) z)");
         test_parse_expr("x * y * z", "(Mul (Mul x y) z)");
         test_parse_expr("x / y / z", "(Div (Div x y) z)");
@@ -491,11 +491,11 @@ mod tests {
         // TODO: Do we need this?
         test_parse_expr(
             "sgn(x)",
-            "(Add (Floor (Min (Max x (Neg @)) @)) (Ceil (Min (Max x (Neg @)) @)))",
+            "(Add (Floor (Min (Max x (Neg 0.5)) 0.5)) (Ceil (Min (Max x (Neg 0.5)) 0.5)))",
         );
         test_parse_expr(
             "sign(x)",
-            "(Add (Floor (Min (Max x (Neg @)) @)) (Ceil (Min (Max x (Neg @)) @)))",
+            "(Add (Floor (Min (Max x (Neg 0.5)) 0.5)) (Ceil (Min (Max x (Neg 0.5)) 0.5)))",
         );
     }
 

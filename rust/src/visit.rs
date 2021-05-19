@@ -1,20 +1,76 @@
 use crate::{
-    ast::{BinaryOp, Expr, ExprId, ExprKind, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
+    ast::{BinaryOp, Expr, ExprId, ExprKind, NaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
     interval_set::Site,
     ops::{
         FormIndex, RelOp, ScalarBinaryOp, ScalarUnaryOp, StaticForm, StaticFormKind, StaticTerm,
         StaticTermKind, StoreIndex, TermIndex,
     },
 };
-use inari::const_dec_interval;
+use rug::{Integer, Rational};
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
     marker::Sized,
-    mem::{swap, take},
+    mem::take,
     ops::Deref,
 };
+
+/// Matches an [`Expr`] of kind [`ExprKind::Binary`].
+macro_rules! binary {
+    ($($op:pat)|*, $x:pat, $y:pat) => {
+        Expr {
+            kind: ExprKind::Binary($($op)|*, box $x, box $y),
+            ..
+        }
+    };
+}
+
+/// Matches an [`Expr`] of kind [`ExprKind::Constant`].
+macro_rules! constant {
+    () => {
+        Expr {
+            kind: ExprKind::Constant(_),
+            ..
+        }
+    };
+    ($a:pat) => {
+        Expr {
+            kind: ExprKind::Constant(box $a),
+            ..
+        }
+    };
+}
+
+/// Matches an [`Expr`] of kind [`ExprKind::Nary`].
+macro_rules! nary {
+    ($($op:pat)|*, $xs:pat) => {
+        Expr {
+            kind: ExprKind::Nary($($op)|*, $xs),
+            ..
+        }
+    };
+}
+
+/// Matches an [`Expr`] of kind [`ExprKind::Unary`].
+macro_rules! unary {
+    ($($op:pat)|*, $x:pat) => {
+        Expr {
+            kind: ExprKind::Unary($($op)|*, box $x),
+            ..
+        }
+    };
+}
+
+/// Matches an [`Expr`] of kind [`ExprKind::Var`].
+macro_rules! var {
+    ($name:pat) => {
+        Expr {
+            kind: ExprKind::Var($name),
+            ..
+        }
+    };
+}
 
 /// A visitor that visits AST nodes in depth-first order.
 pub trait Visit<'a>
@@ -33,6 +89,11 @@ fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
         Binary(_, x, y) => {
             v.visit_expr(x);
             v.visit_expr(y);
+        }
+        Nary(_, xs) => {
+            for x in xs {
+                v.visit_expr(x);
+            }
         }
         Pown(x, _) => v.visit_expr(x),
         Rootn(x, _) => v.visit_expr(x),
@@ -63,6 +124,11 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
             v.visit_expr_mut(x);
             v.visit_expr_mut(y);
         }
+        Nary(_, xs) => {
+            for x in xs {
+                v.visit_expr_mut(x);
+            }
+        }
         Pown(x, _) => v.visit_expr_mut(x),
         Rootn(x, _) => v.visit_expr_mut(x),
         List(xs) => {
@@ -75,7 +141,7 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
 }
 
 /// A possibly dangling reference to a value.
-/// All operations except `from` and `clone` are unsafe.
+/// All operations except `from` and `clone` are **unsafe** despite not being marked as so.
 struct UnsafeRef<T: Eq + Hash> {
     ptr: *const T,
 }
@@ -131,7 +197,7 @@ impl VisitMut for Parametrize {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
         traverse_expr_mut(self, e);
 
-        if let ExprKind::Var(x) = &mut e.kind {
+        if let var!(x) = e {
             if let Some(i) = self.params.iter().position(|p| p == x) {
                 *x = i.to_string();
             }
@@ -155,7 +221,7 @@ impl VisitMut for Substitute {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
         traverse_expr_mut(self, e);
 
-        if let ExprKind::Var(x) = &mut e.kind {
+        if let var!(x) = e {
             if let Ok(i) = x.parse::<usize>() {
                 *e = self.args.get(i).unwrap().clone()
             }
@@ -197,87 +263,214 @@ where
     }
 }
 
-/// Replaces a - b with a + (-b) and does some special transformations.
+/// Replaces arithmetic expressions with equivalent ones consists of only
+/// [`BinaryOp::Pow`], [`NaryOp::Plus`] and [`NaryOp::Times`].
+///
+/// It also does some ad-hoc transformations, which are mainly for demonstrational purposes.
 pub struct PreTransform;
 
 impl VisitMut for PreTransform {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
         traverse_expr_mut(self, e);
 
-        match &mut e.kind {
-            Binary(Sub, x, y) => {
-                // (Sub x y) → (Add x (Neg y))
-                *e = Expr::binary(Add, take(x), box Expr::unary(Neg, take(y)));
+        match e {
+            unary!(Neg, x) => {
+                // (Neg x) → (Times -1 x)
+                *e = Expr::nary(Times, vec![Expr::minus_one(), take(x)]);
             }
-            // Ad-hoc transformations mainly for demonstrational purposes.
-            Binary(Div, x, y) => {
-                match (&x.kind, &y.kind) {
-                    (Unary(Sin, x1), _) if x1 == y => {
-                        // (Div (Sin y) y) → (Sinc (UndefAt0 y))
-                        *e = Expr::unary(Sinc, box Expr::unary(UndefAt0, take(y)));
-                    }
-                    (_, Unary(Sin, y1)) if y1 == x => {
-                        // (Div x (Sin x)) → (Pow (Sinc (UndefAt0 x)) -1)
-                        *e = Expr::binary(
-                            Pow,
-                            box Expr::unary(Sinc, box Expr::unary(UndefAt0, take(x))),
-                            box Expr::constant(
-                                const_dec_interval!(-1.0, -1.0).into(),
-                                Some((-1).into()),
-                            ),
-                        );
-                    }
-                    _ if x == y => {
-                        // (Div x x) → (One (UndefAt0 x))
-                        *e = Expr::unary(One, box Expr::unary(UndefAt0, take(x)));
-                    }
-                    _ => (),
-                };
+            unary!(Sqrt, x) => {
+                // (Sqrt x) → (Pow x 1/2)
+                *e = Expr::binary(Pow, box take(x), box Expr::one_half());
+            }
+            binary!(Add, x, y) => {
+                // (Add x y) → (Plus x y)
+                *e = Expr::nary(Plus, vec![take(x), take(y)]);
+            }
+            binary!(Div, unary!(Sin, x), y) if x == y => {
+                // Ad-hoc.
+                // (Div (Sin x) x) → (Sinc (UndefAt0 x))
+                *e = Expr::unary(Sinc, box Expr::unary(UndefAt0, box take(x)));
+            }
+            binary!(Div, x, unary!(Sin, y)) if y == x => {
+                // Ad-hoc.
+                // (Div x (Sin x)) → (Pow (Sinc (UndefAt0 x)) -1)
+                *e = Expr::binary(
+                    Pow,
+                    box Expr::unary(Sinc, box Expr::unary(UndefAt0, box take(x))),
+                    box Expr::minus_one(),
+                );
+            }
+            binary!(Div, x, y) => {
+                // (Div x y) → (Times x (Pow y -1))
+                *e = Expr::nary(
+                    Times,
+                    vec![
+                        take(x),
+                        Expr::binary(Pow, box take(y), box Expr::minus_one()),
+                    ],
+                );
+            }
+            binary!(Mul, x, y) => {
+                // (Mul x y) → (Times x y)
+                *e = Expr::nary(Times, vec![take(x), take(y)]);
+            }
+            binary!(Sub, x, y) => {
+                // (Sub x y) → (Plus x (Times -1 y))
+                *e = Expr::nary(
+                    Plus,
+                    vec![take(x), Expr::nary(Times, vec![Expr::minus_one(), take(y)])],
+                );
             }
             _ => (),
         }
     }
 }
 
-/// Moves constants to left-hand sides of addition/multiplication.
+/// Flattens out nested expressions of kind [`NaryOp::Plus`]/[`NaryOp::Times`].
+///
+/// For any expression that contains zero or one term, the following rules are applied:
+///
+/// - `(Plus) → 0`
+/// - `(Plus x) → x`
+/// - `(Times) → 1`
+/// - `(Times x) → x`
+#[derive(Default)]
+pub struct Flatten {
+    pub modified: bool,
+}
+
+impl VisitMut for Flatten {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use NaryOp::*;
+        traverse_expr_mut(self, e);
+
+        if let nary!(op @ (Plus | Times), xs) = e {
+            match &mut xs[..] {
+                [] => {
+                    *e = match op {
+                        Plus => Expr::zero(),
+                        Times => Expr::one(),
+                    };
+                    self.modified = true;
+                }
+                [x] => {
+                    *e = take(x);
+                    self.modified = true;
+                }
+                _ => {
+                    *xs = xs.drain(..).fold(vec![], |mut acc, x| {
+                        match x {
+                            nary!(opx, mut xs) if opx == *op => {
+                                acc.append(&mut xs);
+                                self.modified = true;
+                            }
+                            _ => acc.push(x),
+                        }
+                        acc
+                    });
+                }
+            }
+        }
+    }
+}
+
+/// Sorts terms in [`NaryOp::Plus`] and [`NaryOp::Times`] to bring similar ones together.
+/// Terms of kind [`ExprKind::Constant`] are moved to the beginning.
 #[derive(Default)]
 pub struct SortTerms {
     pub modified: bool,
 }
 
 fn cmp_terms(x: &Expr, y: &Expr) -> Ordering {
-    use {BinaryOp::*, ExprKind::*};
-    match (&x.kind, &y.kind) {
-        (Constant(_), Constant(_)) => Ordering::Equal,
-        (Constant(_), _) => Ordering::Less,
-        (_, Constant(_)) => Ordering::Greater,
-        (Var(x), Var(y)) => x.cmp(y),
-        (Var(_), _) => Ordering::Less,
-        (_, Var(_)) => Ordering::Greater,
-        (Binary(Mul, x1, y1), Binary(Mul, x2, y2)) => {
-            cmp_terms(y1, y2).then_with(|| cmp_terms(x1, x2))
+    use {BinaryOp::*, NaryOp::*};
+    match (x, y) {
+        (constant!(x), constant!(y)) => {
+            let x = x.0.iter().next().unwrap().x.inf();
+            let y = y.0.iter().next().unwrap().x.inf();
+            x.partial_cmp(&y).unwrap()
         }
-        (Binary(Pow, x1, y1), Binary(Pow, x2, y2)) => {
-            cmp_terms(x1, x2).then_with(|| cmp_terms(y1, y2))
+        (constant!(_), _) => Ordering::Less,
+        (_, constant!(_)) => Ordering::Greater,
+        (binary!(Pow, x1, x2), binary!(Pow, y1, y2)) => {
+            cmp_terms(x1, y1).then_with(|| cmp_terms(x2, y2))
         }
+        (binary!(Pow, x1, x2), _) => cmp_terms(x1, y).then_with(|| cmp_terms(x2, &Expr::one())),
+        (_, binary!(Pow, y1, y2)) => cmp_terms(x, y1).then_with(|| cmp_terms(&Expr::one(), y2)),
+        (var!(x), var!(y)) => x.cmp(y),
+        (var!(_), _) => Ordering::Less,
+        (_, var!(_)) => Ordering::Greater,
+        (nary!(Times, xs), nary!(Times, ys)) => (|| {
+            for (x, y) in xs.iter().rev().zip(ys.iter().rev()) {
+                let ord = cmp_terms(x, y);
+                if ord != Ordering::Equal {
+                    return ord;
+                }
+            }
+            xs.len().cmp(&ys.len())
+        })(),
         _ => Ordering::Equal,
     }
 }
 
 impl VisitMut for SortTerms {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, ExprKind::*};
+        use NaryOp::*;
         traverse_expr_mut(self, e);
 
-        match &mut e.kind {
-            Binary(Add | Mul, x, y) if cmp_terms(y, x) == Ordering::Less => {
+        if let nary!(Plus | Times, xs) = e {
+            if xs
+                .windows(2)
+                .any(|xs| cmp_terms(&xs[0], &xs[1]) == Ordering::Greater)
+            {
                 // (op x y) /; y ≺ x → (op y x)
-                swap(x, y);
+                xs.sort_by(|x, y| cmp_terms(x, y));
                 self.modified = true;
             }
-            _ => (),
         }
+    }
+}
+
+/// Selectively merges consecutive expressions.
+fn transform_vec<F>(xs: &mut Vec<Expr>, f: F) -> bool
+where
+    F: Fn(&mut Expr, &mut Expr) -> Option<Expr>,
+{
+    let mut modified = false;
+    *xs = xs.drain(..).fold(vec![], |mut acc, mut next| {
+        if acc.is_empty() {
+            acc.push(next)
+        } else {
+            let last = acc.last_mut().unwrap();
+            if let Some(x) = f(last, &mut next) {
+                *last = x;
+                modified = true;
+            } else {
+                acc.push(next);
+            }
+        }
+        acc
+    });
+    modified
+}
+
+fn test_rational<F>(x: &Expr, f: F) -> bool
+where
+    F: Fn(&Rational) -> bool,
+{
+    match x {
+        constant!((_, Some(x))) => f(&x),
+        _ => panic!("`x` is not a constant node"),
+    }
+}
+
+fn test_rationals<F>(x: &Expr, y: &Expr, f: F) -> bool
+where
+    F: Fn(&Rational, &Rational) -> bool,
+{
+    match (x, y) {
+        (constant!((_, Some(x))), constant!((_, Some(y)))) => f(&x, &y),
+        _ => panic!("`x` or `y` is not a constant node"),
     }
 }
 
@@ -289,77 +482,119 @@ pub struct Transform {
 
 impl VisitMut for Transform {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
         traverse_expr_mut(self, e);
 
-        match &mut e.kind {
-            Unary(Neg, x) => {
-                match &mut x.kind {
-                    Unary(Neg, x1) => {
-                        // (Neg (Neg x1)) → x1
-                        *e = take(x1);
-                        self.modified = true;
-                    }
-                    Binary(Add, x1, x2) => {
-                        // (Neg (Add x1 x2)) → (Add (Neg x1) (Neg x2))
-                        *e = Expr::binary(
-                            Add,
-                            box Expr::unary(Neg, take(x1)),
-                            box Expr::unary(Neg, take(x2)),
-                        );
+        match e {
+            binary!(Pow, x, constant!(a)) => {
+                match a.0.to_f64() {
+                    Some(a) if a == 1.0 => {
+                        // (Pow x 1) → x
+                        *e = take(x);
                         self.modified = true;
                     }
                     _ => (),
                 }
             }
-            Binary(Add, x, y) => {
-                match (&x.kind, &mut y.kind) {
-                    (Constant(a), _) if a.0.to_f64() == Some(0.0) => {
-                        // (Add 0 y) → y
-                        *e = take(y);
-                        self.modified = true;
+            nary!(Plus, xs) => {
+                let len = xs.len();
+
+                // Drop zeros.
+                xs.retain(|x| !matches!(x, constant!(a) if a.0.to_f64() == Some(0.0)));
+
+                transform_vec(xs, |x, y| {
+                    if x == y {
+                        // x + x → 2 x
+                        return Some(Expr::nary(Times, vec![Expr::two(), take(x)]));
                     }
-                    (_, Binary(Add, y1, y2)) => {
-                        // (Add x (Add y1 y2)) → (Add (Add x y1) y2)
-                        *e = Expr::binary(Add, box Expr::binary(Add, take(x), take(y1)), take(y2));
-                        self.modified = true;
+                    if let nary!(Times, ys) = y {
+                        match &mut ys[..] {
+                            [y1 @ constant!(), y2] if x == y2 => {
+                                // x + a x → (1 + a) x
+                                return Some(Expr::nary(
+                                    Times,
+                                    vec![Expr::nary(Plus, vec![Expr::one(), take(y1)]), take(x)],
+                                ));
+                            }
+                            _ => (),
+                        }
                     }
-                    _ => (),
-                }
+                    if let (nary!(Times, xs), nary!(Times, ys)) = (x, y) {
+                        match (&mut xs[..], &mut ys[..]) {
+                            ([x1 @ constant!(), x2s @ ..], [y1 @ constant!(), y2s @ ..])
+                                if x2s == y2s =>
+                            {
+                                // a x… + b x… → (a + b) x…
+                                let mut v = vec![Expr::nary(Plus, vec![take(x1), take(y1)])];
+                                v.extend(xs.drain(1..));
+                                return Some(Expr::nary(Times, v));
+                            }
+                            (x1s, [y1 @ constant!(), y2s @ ..]) if x1s == y2s => {
+                                // x… + a x… → (1 + a) x…
+                                let mut v = vec![Expr::nary(Plus, vec![Expr::one(), take(y1)])];
+                                v.append(xs);
+                                return Some(Expr::nary(Times, v));
+                            }
+                            _ => (),
+                        }
+                    }
+                    None
+                });
+
+                self.modified = xs.len() < len;
             }
-            Binary(Mul, x, y) => {
-                match (&mut x.kind, &mut y.kind) {
-                    (Constant(a), _) if a.0.to_f64() == Some(1.0) => {
-                        // (Mul 1 y) → y
-                        *e = take(y);
-                        self.modified = true;
+            nary!(Times, xs) => {
+                // Don't replace 0 x with 0 as that alters the domain of the expression.
+
+                let len = xs.len();
+
+                // Drop ones.
+                xs.retain(|x| !matches!(x, constant!(a) if a.0.to_f64() == Some(1.0)));
+
+                // TODO: Apply the law of exponents while preserving the domain of the expression
+                // by introducing a construct like `UnaryOp::UndefAt0` but more generalized.
+                transform_vec(xs, |x, y| {
+                    match (x, y) {
+                        (
+                            binary!(Pow, x1, x2 @ constant!()),
+                            binary!(Pow, y1, y2 @ constant!()),
+                        ) if x1 == y1
+                            && test_rationals(x2, y2, |a, b| {
+                                *a.denom() == 1
+                                    && *b.denom() == 1
+                                    && (*a < 0 && *b < 0 || *a >= 0 && *b >= 0)
+                            }) =>
+                        {
+                            // x^a x^b /. a, b ∈ ℤ ∧ (a, b < 0 ∨ a, b ≥ 0) → x^(a + b)
+                            Some(Expr::binary(
+                                Pow,
+                                box take(x1),
+                                box Expr::nary(Plus, vec![take(x2), take(y2)]),
+                            ))
+                        }
+                        (x, binary!(Pow, y1, y2 @ constant!()))
+                            if x == y1 && test_rational(y2, |a| *a.denom() == 1 && *a >= 0) =>
+                        {
+                            // x x^a /. a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
+                            Some(Expr::binary(
+                                Pow,
+                                box take(x),
+                                box Expr::nary(Plus, vec![Expr::one(), take(y2)]),
+                            ))
+                        }
+                        (x, y) if x == y => {
+                            // x x → x^2
+                            Some(Expr::binary(Pow, box take(x), box Expr::two()))
+                        }
+                        _ => None,
                     }
-                    (Constant(a), _) if a.0.to_f64() == Some(-1.0) => {
-                        // (Mul -1 y) → (Neg y)
-                        *e = Expr::unary(Neg, take(y));
-                        self.modified = true;
-                    }
-                    (Unary(Neg, x), _) => {
-                        // (Mul (Neg x) y) → (Neg (Mul x y))
-                        *e = Expr::unary(Neg, box Expr::binary(Mul, take(x), take(y)));
-                        self.modified = true;
-                    }
-                    (_, Unary(Neg, y)) => {
-                        // (Mul x (Neg y)) → (Neg (Mul x y))
-                        *e = Expr::unary(Neg, box Expr::binary(Mul, take(x), take(y)));
-                        self.modified = true;
-                    }
-                    (_, Binary(Mul, y1, y2)) => {
-                        // (Mul x (Mul y1 y2)) → (Mul (Mul x y1) y2)
-                        *e = Expr::binary(Mul, box Expr::binary(Mul, take(x), take(y1)), take(y2));
-                        self.modified = true;
-                    }
-                    _ => (),
-                }
+                });
+
+                self.modified = xs.len() < len;
             }
-            Unary(Not, x) => {
-                match &mut x.kind {
-                    Binary(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x1, x2) => {
+            unary!(Not, x) => {
+                match x {
+                    binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x1, x2) => {
                         // (Not (op x1 x2)) → (!op x1 x2)
                         let neg_op = match op {
                             Eq => Neq,
@@ -374,24 +609,24 @@ impl VisitMut for Transform {
                             Nlt => Lt,
                             _ => unreachable!(),
                         };
-                        *e = Expr::binary(neg_op, take(x1), take(x2));
+                        *e = Expr::binary(neg_op, box take(x1), box take(x2));
                         self.modified = true;
                     }
-                    Binary(And, x1, x2) => {
+                    binary!(And, x1, x2) => {
                         // (And (x1 x2)) → (Or (Not x1) (Not x2))
                         *e = Expr::binary(
                             Or,
-                            box Expr::unary(Not, take(x1)),
-                            box Expr::unary(Not, take(x2)),
+                            box Expr::unary(Not, box take(x1)),
+                            box Expr::unary(Not, box take(x2)),
                         );
                         self.modified = true;
                     }
-                    Binary(Or, x1, x2) => {
+                    binary!(Or, x1, x2) => {
                         // (Or (x1 x2)) → (And (Not x1) (Not x2))
                         *e = Expr::binary(
                             And,
-                            box Expr::unary(Not, take(x1)),
-                            box Expr::unary(Not, take(x2)),
+                            box Expr::unary(Not, box take(x1)),
+                            box Expr::unary(Not, box take(x2)),
                         );
                         self.modified = true;
                     }
@@ -411,61 +646,37 @@ pub struct FoldConstant {
 
 impl VisitMut for FoldConstant {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, NaryOp::*};
         traverse_expr_mut(self, e);
 
-        if !matches!(e.kind, ExprKind::Constant(_)) {
-            if let Some((x, xr)) = e.eval() {
-                // Only fold constants which evaluate to the empty or a single interval
-                // since the branch cut tracking is not possible with the AST.
-                if x.len() <= 1 {
-                    *e = Expr::constant(x, xr);
-                    self.modified = true;
+        match e {
+            constant!() => (),
+            nary!(op @ (Plus | Times), xs) => {
+                if let [_, constant!(), ..] = &mut xs[..] {
+                    let bin_op = match op {
+                        Plus => Add,
+                        Times => Mul,
+                    };
+                    self.modified = transform_vec(xs, |x, y| {
+                        if let (x @ constant!(), y @ constant!()) = (x, y) {
+                            let e = Expr::binary(bin_op, box take(x), box take(y));
+                            let (a, ar) = e.eval().unwrap();
+                            Some(Expr::constant(a, ar))
+                        } else {
+                            None
+                        }
+                    });
                 }
             }
-        }
-    }
-}
-
-/// Substitutes generic exponentiations with specialized functions.
-pub struct PostTransform;
-
-impl VisitMut for PostTransform {
-    fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
-        traverse_expr_mut(self, e);
-
-        if let Binary(Pow, x, y) = &mut e.kind {
-            match (&x.kind, &y.kind) {
-                (Constant(a), _) => {
-                    if let Some(a) = a.0.to_f64() {
-                        if a == 2.0 {
-                            // (Pow 2 x) → (Exp2 x)
-                            *e = Expr::unary(Exp2, take(y));
-                        } else if a == 10.0 {
-                            // (Pow 10 x) → (Exp10 x)
-                            *e = Expr::unary(Exp10, take(y));
-                        }
+            _ => {
+                if let Some((x, xr)) = e.eval() {
+                    // Only fold constants which evaluate to the empty or a single interval
+                    // since the branch cut tracking is not possible with the AST.
+                    if x.len() <= 1 {
+                        *e = Expr::constant(x, xr);
+                        self.modified = true;
                     }
                 }
-                (_, Constant(a)) => {
-                    if let Some(a) = &a.1 {
-                        if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
-                            let root = match d {
-                                1 => take(x),
-                                2 => box Expr::unary(Sqrt, take(x)),
-                                _ => box Expr::rootn(take(x), d),
-                            };
-                            *e = match n {
-                                -1 => Expr::unary(Recip, root),
-                                0 => Expr::unary(One, root),
-                                1 => *root,
-                                2 => Expr::unary(Sqr, root),
-                                _ => Expr::pown(root, n),
-                            }
-                        }
-                    }
-                }
-                _ => (),
             }
         }
     }
@@ -475,27 +686,62 @@ pub struct UpdatePolarPeriod;
 
 impl VisitMut for UpdatePolarPeriod {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
+        use {NaryOp::*, UnaryOp::*};
         traverse_expr_mut(self, e);
 
-        match &mut e.kind {
-            Constant(_) => e.polar_period = Some(0.into()),
-            Var(name) if name != "theta" && name != "θ" => e.polar_period = Some(0.into()),
-            Unary(_, x) if x.polar_period.is_some() => {
+        match e {
+            constant!(_) => e.polar_period = Some(0.into()),
+            var!(name) if name != "theta" && name != "θ" => e.polar_period = Some(0.into()),
+            unary!(_, x) if x.polar_period.is_some() => {
                 e.polar_period = x.polar_period.clone();
             }
-            Binary(_, x, y) if x.polar_period.is_some() && y.polar_period.is_some() => {
+            binary!(_, x, y) if x.polar_period.is_some() && y.polar_period.is_some() => {
                 let xp = x.polar_period.as_ref().unwrap();
                 let yp = y.polar_period.as_ref().unwrap();
-                e.polar_period = Some(xp.gcd_ref(yp).into());
+                e.polar_period = Some(if *xp == 0 {
+                    yp.clone()
+                } else if *yp == 0 {
+                    xp.clone()
+                } else {
+                    xp.lcm_ref(yp).into()
+                });
             }
-            Unary(Cos | Sin | Tan, x) => match &x.kind {
-                Var(name) if name == "theta" || name == "θ" => {
+            nary!(_, xs) if xs.iter().all(|x| x.polar_period.is_some()) => {
+                e.polar_period = Some(xs.iter().fold(Integer::from(0), |mut xp, y| {
+                    let yp = y.polar_period.as_ref().unwrap();
+                    if xp == 0 {
+                        yp.clone()
+                    } else if *yp == 0 {
+                        xp
+                    } else {
+                        xp.lcm_mut(yp);
+                        xp
+                    }
+                }));
+            }
+            unary!(Cos | Sin | Tan, x) => match x {
+                var!(name) if name == "theta" || name == "θ" => {
                     // sin(θ)
                     e.polar_period = Some(1.into());
                 }
-                Binary(Mul, x, y) => match (&x.kind, &y.kind) {
-                    (Constant(a), Var(name)) if name == "theta" || name == "θ" => {
+                nary!(Plus, xs) => match &xs[..] {
+                    [constant!(), var!(name)] if name == "theta" || name == "θ" => {
+                        // sin(b + θ)
+                        e.polar_period = Some(1.into());
+                    }
+                    [constant!(), nary!(Times, xs)] => match &xs[..] {
+                        [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
+                            // sin(b + a θ)
+                            if let Some(a) = &a.1 {
+                                e.polar_period = Some(a.denom().clone());
+                            }
+                        }
+                        _ => (),
+                    },
+                    _ => (),
+                },
+                nary!(Times, xs) => match &xs[..] {
+                    [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
                         // sin(a θ)
                         if let Some(a) = &a.1 {
                             e.polar_period = Some(a.denom().clone())
@@ -503,24 +749,146 @@ impl VisitMut for UpdatePolarPeriod {
                     }
                     _ => (),
                 },
-                Binary(Add, x, y) => match (&x.kind, &y.kind) {
-                    (Constant(_), Var(name)) if name == "theta" || name == "θ" => {
-                        // sin(b + θ)
-                        e.polar_period = Some(1.into());
-                    }
-                    (Constant(_), Binary(Mul, x, y)) => match (&x.kind, &y.kind) {
-                        (Constant(a), Var(name)) if name == "theta" || name == "θ" => {
-                            // sin(b + a θ)
-                            if let Some(a) = &a.1 {
-                                e.polar_period = Some(a.denom().clone())
-                            }
-                        }
-                        _ => (),
-                    },
-                    _ => (),
-                },
                 _ => (),
             },
+            _ => (),
+        }
+    }
+}
+
+/// Replaces arithmetic expressions with [`UnaryOp::Neg`], [`BinaryOp::Sub`], [`UnaryOp::Recip`]
+/// and [`BinaryOp::Div`], whenever appropriate.
+pub struct SubDivTransform;
+
+impl VisitMut for SubDivTransform {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
+
+        match e {
+            nary!(Plus, xs) => {
+                let (lhs, rhs) =
+                    xs.drain(..)
+                        .fold((vec![], vec![]), |(mut lhs, mut rhs), mut e| {
+                            match e {
+                                nary!(Times, ref mut xs) => match &xs[..] {
+                                    [constant!((a, _)), ..] if a.to_f64() == Some(-1.0) => {
+                                        rhs.push(Expr::nary(Times, xs.drain(1..).collect()));
+                                    }
+                                    _ => lhs.push(e),
+                                },
+                                _ => {
+                                    lhs.push(e);
+                                }
+                            }
+                            (lhs, rhs)
+                        });
+
+                *e = if lhs.is_empty() {
+                    Expr::unary(Neg, box Expr::nary(Plus, rhs))
+                } else if rhs.is_empty() {
+                    Expr::nary(Plus, lhs)
+                } else {
+                    Expr::binary(Sub, box Expr::nary(Plus, lhs), box Expr::nary(Plus, rhs))
+                };
+            }
+            nary!(Times, xs) => {
+                let (num, den) = xs
+                    .drain(..)
+                    .fold((vec![], vec![]), |(mut num, mut den), e| {
+                        match e {
+                            binary!(Pow, x, y @ constant!()) if test_rational(&y, |x| *x < 0.0) => {
+                                if let constant!((yi, Some(yr))) = y {
+                                    let factor = Expr::binary(
+                                        Pow,
+                                        box x,
+                                        box Expr::constant(-&yi, Some((-&yr).into())),
+                                    );
+                                    den.push(factor)
+                                } else {
+                                    panic!()
+                                }
+                            }
+                            _ => {
+                                num.push(e);
+                            }
+                        }
+                        (num, den)
+                    });
+
+                *e = if num.is_empty() {
+                    Expr::unary(Recip, box Expr::nary(Times, den))
+                } else if den.is_empty() {
+                    Expr::nary(Times, num)
+                } else {
+                    Expr::binary(Div, box Expr::nary(Times, num), box Expr::nary(Times, den))
+                };
+            }
+            _ => (),
+        }
+    }
+}
+
+/// Replaces arithmetic expressions with more optimal ones suitable for evaluation.
+/// It completely removes [`NaryOp::Plus`] and [`NaryOp::Times`].
+pub struct PostTransform;
+
+impl VisitMut for PostTransform {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
+
+        match e {
+            binary!(Pow, constant!(a), y) => {
+                match a.0.to_f64() {
+                    Some(a) if a == 2.0 => {
+                        // (Pow 2 x) → (Exp2 x)
+                        *e = Expr::unary(Exp2, box take(y));
+                    }
+                    Some(a) if a == 10.0 => {
+                        // (Pow 10 x) → (Exp10 x)
+                        *e = Expr::unary(Exp10, box take(y));
+                    }
+                    _ => (),
+                }
+            }
+            binary!(Pow, x, constant!(a)) => {
+                if let Some(a) = &a.1 {
+                    if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
+                        let root = match d {
+                            1 => take(x),
+                            2 => Expr::unary(Sqrt, box take(x)),
+                            _ => Expr::rootn(box take(x), d),
+                        };
+                        *e = match n {
+                            -1 => Expr::unary(Recip, box root),
+                            0 => Expr::unary(One, box root),
+                            1 => root,
+                            2 => Expr::unary(Sqr, box root),
+                            _ => Expr::pown(box root, n),
+                        }
+                    }
+                }
+            }
+            nary!(Plus, xs) => {
+                let mut it = xs.drain(..);
+                // Assuming `e` is flattened.
+                let first = it.next().unwrap();
+                let second = it.next().unwrap();
+                let init = Expr::binary(BinaryOp::Add, box first, box second);
+                *e = it.fold(init, |e, x| Expr::binary(BinaryOp::Add, box e, box x))
+            }
+            nary!(Times, xs) => {
+                let mut it = xs.drain(..);
+                // Assuming `e` is flattened.
+                let first = it.next().unwrap();
+                let second = it.next().unwrap();
+                let init = match first {
+                    constant!(a) if a.0.to_f64() == Some(-1.0) => Expr::unary(Neg, box second),
+                    _ => Expr::binary(BinaryOp::Mul, box first, box second),
+                };
+                *e = it.fold(init, |e, x| Expr::binary(BinaryOp::Mul, box e, box x))
+            }
             _ => (),
         }
     }
@@ -725,7 +1093,7 @@ impl CollectStatic {
                 List(xs) => Some(StaticTermKind::List(
                     box xs.iter().map(|x| self.ti(x)).collect(),
                 )),
-                Var(_) | Uninit => panic!(),
+                Nary(_, _) | Var(_) | Uninit => panic!(),
             };
             if let Some(k) = k {
                 self.term_index.insert(t.id, self.terms.len() as TermIndex);
@@ -865,52 +1233,111 @@ mod tests {
             assert_eq!(format!("{}", f.dump_structure()), expected);
         }
 
-        test("x - y", "(Add x (Neg y))");
+        test("-x", "(Times -1 x)");
+        test("sqrt(x)", "(Pow x 0.5)");
+        test("x - y", "(Plus x (Times -1 y))");
+        test("x/y", "(Times x (Pow y -1))");
         test("sin(x)/x", "(Sinc (UndefAt0 x))");
-        test("x/sin(x)", "(Pow (Sinc (UndefAt0 x)) @)");
-        test("x/x", "(One (UndefAt0 x))");
+        test("x/sin(x)", "(Pow (Sinc (UndefAt0 x)) -1)");
+        test("x y", "(Times x y)");
+        test("x - y", "(Plus x (Times -1 y))");
+    }
+
+    #[test]
+    fn flatten() {
+        fn test(input: &str, expected: &str) {
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
+            Transform::default().visit_expr_mut(&mut e);
+            let input = format!("{}", e.dump_structure());
+            let mut v = Flatten::default();
+            v.visit_expr_mut(&mut e);
+            let output = format!("{}", e.dump_structure());
+            assert_eq!(format!("{}", e.dump_structure()), expected);
+            assert_eq!(v.modified, input != output);
+        }
+
+        test("x + y + z", "(Plus x y z)");
+        test("(x + y) + z", "(Plus x y z)");
+        test("x + (y + z)", "(Plus x y z)");
+        test("x y z", "(Times x y z)");
+        test("(x y) z", "(Times x y z)");
+        test("x (y z)", "(Times x y z)");
+        test("0 + 0", "0");
+        test("1*1", "1");
     }
 
     #[test]
     fn sort_terms() {
         fn test(input: &str, expected: &str) {
-            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
-            let input = format!("{}", f.dump_structure());
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
+            FoldConstant::default().visit_expr_mut(&mut e);
+            Flatten::default().visit_expr_mut(&mut e);
+            FoldConstant::default().visit_expr_mut(&mut e);
+            let input = format!("{}", e.dump_structure());
             let mut v = SortTerms::default();
-            v.visit_expr_mut(&mut f);
-            let output = format!("{}", f.dump_structure());
+            v.visit_expr_mut(&mut e);
+            let output = format!("{}", e.dump_structure());
             assert_eq!(output, expected);
             assert_eq!(v.modified, input != output);
         }
 
-        test("1 + x", "(Add @ x)");
-        test("x + 1", "(Add @ x)");
-        test("2 x", "(Mul @ x)");
-        test("x 2", "(Mul @ x)");
+        test("1 + x", "(Plus 1 x)");
+        test("x + 1", "(Plus 1 x)");
+        test("x + 2x", "(Plus x (Times 2 x))");
+        test("2x + x", "(Plus x (Times 2 x))");
+        test("2 x", "(Times 2 x)");
+        test("x 2", "(Times 2 x)");
+        test("x x^2", "(Times x (Pow x 2))");
+        test("x^2 x", "(Times x (Pow x 2))");
+        test("x x^-1", "(Times (Pow x -1) x)");
+        test("x^-1 x", "(Times (Pow x -1) x)");
+
+        test("x y", "(Times x y)");
+        test("y x", "(Times x y)");
+
+        test("y z + x y z", "(Plus (Times y z) (Times x y z))");
+        test("x y z + y z", "(Plus (Times y z) (Times x y z))");
     }
 
     #[test]
     fn transform() {
         fn test(input: &str, expected: &str) {
-            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
-            FoldConstant::default().visit_expr_mut(&mut f);
-            let input = format!("{}", f.dump_structure());
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
+            Flatten::default().visit_expr_mut(&mut e);
+            FoldConstant::default().visit_expr_mut(&mut e);
+            Flatten::default().visit_expr_mut(&mut e);
+            let input = format!("{}", e.dump_structure());
             let mut v = Transform::default();
-            v.visit_expr_mut(&mut f);
-            let output = format!("{}", f.dump_structure());
+            v.visit_expr_mut(&mut e);
+            FoldConstant::default().visit_expr_mut(&mut e);
+            Flatten::default().visit_expr_mut(&mut e);
+            let output = format!("{}", e.dump_structure());
             assert_eq!(output, expected);
             assert_eq!(v.modified, input != output);
         }
 
-        test("--x", "x");
-        test("-(x + y)", "(Add (Neg x) (Neg y))");
         test("0 + x", "x");
-        test("x + (y + z)", "(Add (Add x y) z)");
+        test("x + x", "(Times 2 x)");
+        test("x + 2x", "(Times 3 x)");
+        test("2x + 3x", "(Times 5 x)");
+        test("x y + x y", "(Times 2 x y)");
+        test("x y + 2x y", "(Times 3 x y)");
+        test("2x y + 3x y", "(Times 5 x y)");
+
+        test("0 sqrt(x)", "(Times 0 (Pow x 0.5))");
         test("1 x", "x");
-        test("-1 x", "(Neg x)"); // Needs constant folding
-        test("(-x) y", "(Neg (Mul x y))");
-        test("x (-y)", "(Neg (Mul x y))");
-        test("x (y z)", "(Mul (Mul x y) z)");
+
+        test("x x", "(Pow x 2)");
+        test("x x^2", "(Pow x 3)");
+        test("x^2 x^3", "(Pow x 5)");
+        test("x^-2 x^-3", "(Pow x -5)");
+        test("x^-2 x^3", "(Times (Pow x -2) (Pow x 3))");
+        test("x^2 x^2", "(Pow x 4)");
+        test("sqrt(x) sqrt(x)", "(Pow (Pow x 0.5) 2)");
+
         test("!(x = y)", "(Neq x y)");
         test("!(x ≤ y)", "(Nle x y)");
         test("!(x < y)", "(Nlt x y)");
@@ -928,10 +1355,13 @@ mod tests {
     #[test]
     fn post_transform() {
         fn test(input: &str, expected: &str) {
-            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
-            FoldConstant::default().visit_expr_mut(&mut f);
-            PostTransform.visit_expr_mut(&mut f);
-            assert_eq!(format!("{}", f.dump_structure()), expected);
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
+            Flatten::default().visit_expr_mut(&mut e);
+            FoldConstant::default().visit_expr_mut(&mut e);
+            Flatten::default().visit_expr_mut(&mut e);
+            PostTransform.visit_expr_mut(&mut e);
+            assert_eq!(format!("{}", e.dump_structure()), expected);
         }
 
         test("2^x", "(Exp2 x)");
@@ -947,15 +1377,22 @@ mod tests {
         test("x^(-1/3)", "(Recip (Rootn x 3))");
         test("x^(1/3)", "(Rootn x 3)");
         test("x^(2/3)", "(Sqr (Rootn x 3))");
+        test("x + y", "(Add x y)");
+        test("x + y + z", "(Add (Add x y) z)");
+        test("x y", "(Mul x y)");
+        test("x y z", "(Mul (Mul x y) z)");
     }
 
     #[test]
     fn update_polar_period() {
         fn test(input: &str, expected_period: Option<Integer>) {
-            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
-            FoldConstant::default().visit_expr_mut(&mut f);
-            UpdatePolarPeriod.visit_expr_mut(&mut f);
-            assert_eq!(f.polar_period, expected_period);
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
+            Flatten::default().visit_expr_mut(&mut e);
+            SortTerms::default().visit_expr_mut(&mut e);
+            FoldConstant::default().visit_expr_mut(&mut e);
+            UpdatePolarPeriod.visit_expr_mut(&mut e);
+            assert_eq!(e.polar_period, expected_period);
         }
 
         test("42", Some(0.into()));
@@ -967,9 +1404,13 @@ mod tests {
         test("cos(θ)", Some(1.into()));
         test("tan(θ)", Some(1.into()));
         test("sin(3/5θ)", Some(5.into()));
+        test("sqrt(sin(θ))", Some(1.into()));
         test("sin(θ) + θ", None);
+        test("min(sin(θ), θ)", None);
         test("r = sin(θ)", Some(1.into()));
-        // TODO
-        // test("sin(3θ/5)", Some(5.into()));
+        test("sin(3θ/5)", Some(5.into()));
+        test("sin(3θ/5 + 2)", Some(5.into()));
+        test("sin(θ/2) + cos(θ/3)", Some(6.into()));
+        test("min(sin(θ/2), cos(θ/3))", Some(6.into()));
     }
 }
