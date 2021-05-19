@@ -930,16 +930,14 @@ impl AssignId {
     /// Returns `true` if the expression can perform branch cut on evaluation.
     fn term_can_perform_cut(kind: &ExprKind) -> bool {
         use {BinaryOp::*, ExprKind::*, UnaryOp::*};
-        matches!(
-            kind,
+        match kind {
             Unary(Ceil | Digamma | Floor | Gamma | Recip | Tan, _)
-                | Binary(
-                    Atan2 | Div | Gcd | Lcm | Log | Mod | Pow | RankedMax | RankedMin,
-                    _,
-                    _
-                )
-                | Pown(_, _)
-        )
+            | Binary(Atan2 | Div | Gcd | Lcm | Log | Mod | Pow | RankedMax | RankedMin, _, _) => {
+                true
+            }
+            Pown(_, n) if n % 2 == -1 => true,
+            _ => false,
+        }
     }
 }
 
