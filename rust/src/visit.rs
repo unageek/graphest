@@ -20,7 +20,7 @@ use std::{
 macro_rules! binary {
     ($($op:pat)|*, $x:pat, $y:pat) => {
         Expr {
-            kind: ExprKind::Binary($($op)|*, $x, $y),
+            kind: ExprKind::Binary($($op)|*, box $x, box $y),
             ..
         }
     };
@@ -36,7 +36,7 @@ macro_rules! constant {
     };
     ($a:pat) => {
         Expr {
-            kind: ExprKind::Constant($a),
+            kind: ExprKind::Constant(box $a),
             ..
         }
     };
@@ -56,7 +56,7 @@ macro_rules! nary {
 macro_rules! unary {
     ($($op:pat)|*, $x:pat) => {
         Expr {
-            kind: ExprKind::Unary($($op)|*, $x),
+            kind: ExprKind::Unary($($op)|*, box $x),
             ..
         }
     };
@@ -281,23 +281,23 @@ impl VisitMut for PreTransform {
             }
             unary!(Sqrt, x) => {
                 // (Sqrt x) → (Pow x 1/2)
-                *e = Expr::binary(Pow, take(x), box Expr::one_half());
+                *e = Expr::binary(Pow, box take(x), box Expr::one_half());
             }
             binary!(Add, x, y) => {
                 // (Add x y) → (Plus x y)
                 *e = Expr::nary(Plus, vec![take(x), take(y)]);
             }
-            binary!(Div, box unary!(Sin, x), y) if x == y => {
+            binary!(Div, unary!(Sin, x), y) if x == y => {
                 // Ad-hoc.
                 // (Div (Sin x) x) → (Sinc (UndefAt0 x))
-                *e = Expr::unary(Sinc, box Expr::unary(UndefAt0, take(x)));
+                *e = Expr::unary(Sinc, box Expr::unary(UndefAt0, box take(x)));
             }
-            binary!(Div, x, box unary!(Sin, y)) if y == x => {
+            binary!(Div, x, unary!(Sin, y)) if y == x => {
                 // Ad-hoc.
                 // (Div x (Sin x)) → (Pow (Sinc (UndefAt0 x)) -1)
                 *e = Expr::binary(
                     Pow,
-                    box Expr::unary(Sinc, box Expr::unary(UndefAt0, take(x))),
+                    box Expr::unary(Sinc, box Expr::unary(UndefAt0, box take(x))),
                     box Expr::minus_one(),
                 );
             }
@@ -305,7 +305,10 @@ impl VisitMut for PreTransform {
                 // (Div x y) → (Times x (Pow y -1))
                 *e = Expr::nary(
                     Times,
-                    vec![take(x), Expr::binary(Pow, take(y), box Expr::minus_one())],
+                    vec![
+                        take(x),
+                        Expr::binary(Pow, box take(y), box Expr::minus_one()),
+                    ],
                 );
             }
             binary!(Mul, x, y) => {
@@ -334,7 +337,7 @@ pub struct Flatten {
 
 impl VisitMut for Flatten {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {ExprKind::*, NaryOp::*};
+        use NaryOp::*;
         traverse_expr_mut(self, e);
 
         if let nary!(op @ (Plus | Times), xs) = e {
@@ -351,10 +354,10 @@ impl VisitMut for Flatten {
                     self.modified = true;
                 }
                 _ => {
-                    *xs = xs.drain(..).fold(vec![], |mut acc, mut x| {
-                        match &mut x.kind {
-                            Nary(opx, xs) if opx == op => {
-                                acc.append(xs);
+                    *xs = xs.drain(..).fold(vec![], |mut acc, x| {
+                        match x {
+                            nary!(opx, mut xs) if opx == *op => {
+                                acc.append(&mut xs);
                                 self.modified = true;
                             }
                             _ => acc.push(x),
@@ -452,7 +455,7 @@ where
     F: Fn(&Rational) -> bool,
 {
     match x {
-        constant!(box (_, Some(a))) => f(&a),
+        constant!((_, Some(x))) => f(&x),
         _ => panic!("`x` is not a constant node"),
     }
 }
@@ -462,7 +465,7 @@ where
     F: Fn(&Rational, &Rational) -> bool,
 {
     match (x, y) {
-        (constant!(box (_, Some(a))), constant!(box (_, Some(b)))) => f(&a, &b),
+        (constant!((_, Some(x))), constant!((_, Some(y)))) => f(&x, &y),
         _ => panic!("`x` or `y` is not a constant node"),
     }
 }
@@ -479,7 +482,7 @@ impl VisitMut for Transform {
         traverse_expr_mut(self, e);
 
         match e {
-            binary!(Pow, x, box constant!(a)) => {
+            binary!(Pow, x, constant!(a)) => {
                 match a.0.to_f64() {
                     Some(a) if a == 1.0 => {
                         // (Pow x 1) → x
@@ -546,46 +549,45 @@ impl VisitMut for Transform {
 
                 transform_vec(xs, |x, y| {
                     // Be careful not to alter the domain of the expression.
-                    if x == y {
-                        // x x → x^2
-                        return Some(Expr::binary(Pow, box take(x), box Expr::two()));
-                    }
-                    if let binary!(Pow, y1, y2 @ box constant!()) = y {
-                        if *x == **y1 && test_rational(y2, |a| *a.denom() == 1 && *a >= 0) {
-                            // x x^a /. a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
-                            return Some(Expr::binary(
-                                Pow,
-                                box take(x),
-                                box Expr::nary(Plus, vec![Expr::one(), take(y2)]),
-                            ));
-                        }
-                    }
-                    if let (
-                        binary!(Pow, x1, x2 @ box constant!()),
-                        binary!(Pow, y1, y2 @ box constant!()),
-                    ) = (x, y)
-                    {
-                        if *x1 == *y1
+                    match (x, y) {
+                        (
+                            binary!(Pow, x1, x2 @ constant!()),
+                            binary!(Pow, y1, y2 @ constant!()),
+                        ) if x1 == y1
                             && test_rationals(x2, y2, |a, b| {
                                 *a.denom() == 1
                                     && *b.denom() == 1
                                     && (*a < 0 && *b < 0 || *a >= 0 && *b >= 0)
-                            })
+                            }) =>
                         {
                             // x^a x^b /. a, b ∈ ℤ ∧ (a, b < 0 ∨ a, b ≥ 0) → x^(a + b)
-                            return Some(Expr::binary(
+                            Some(Expr::binary(
                                 Pow,
                                 box take(x1),
                                 box Expr::nary(Plus, vec![take(x2), take(y2)]),
-                            ));
+                            ))
                         }
+                        (x, binary!(Pow, y1, y2 @ constant!()))
+                            if x == y1 && test_rational(y2, |a| *a.denom() == 1 && *a >= 0) =>
+                        {
+                            // x x^a /. a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
+                            Some(Expr::binary(
+                                Pow,
+                                box take(x),
+                                box Expr::nary(Plus, vec![Expr::one(), take(y2)]),
+                            ))
+                        }
+                        (x, y) if x == y => {
+                            // x x → x^2
+                            Some(Expr::binary(Pow, box take(x), box Expr::two()))
+                        }
+                        _ => None,
                     }
-                    None
                 });
 
                 self.modified = xs.len() < len;
             }
-            unary!(Not, box x) => {
+            unary!(Not, x) => {
                 match x {
                     binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x1, x2) => {
                         // (Not (op x1 x2)) → (!op x1 x2)
@@ -602,15 +604,15 @@ impl VisitMut for Transform {
                             Nlt => Lt,
                             _ => unreachable!(),
                         };
-                        *e = Expr::binary(neg_op, take(x1), take(x2));
+                        *e = Expr::binary(neg_op, box take(x1), box take(x2));
                         self.modified = true;
                     }
                     binary!(And, x1, x2) => {
                         // (And (x1 x2)) → (Or (Not x1) (Not x2))
                         *e = Expr::binary(
                             Or,
-                            box Expr::unary(Not, take(x1)),
-                            box Expr::unary(Not, take(x2)),
+                            box Expr::unary(Not, box take(x1)),
+                            box Expr::unary(Not, box take(x2)),
                         );
                         self.modified = true;
                     }
@@ -618,8 +620,8 @@ impl VisitMut for Transform {
                         // (Or (x1 x2)) → (And (Not x1) (Not x2))
                         *e = Expr::binary(
                             And,
-                            box Expr::unary(Not, take(x1)),
-                            box Expr::unary(Not, take(x2)),
+                            box Expr::unary(Not, box take(x1)),
+                            box Expr::unary(Not, box take(x2)),
                         );
                         self.modified = true;
                     }
@@ -650,8 +652,8 @@ impl VisitMut for FoldConstant {
                         Plus => Add,
                         Times => Mul,
                     };
-                    self.modified = transform_vec(xs, |mut x, mut y| {
-                        if let (constant!(), constant!()) = (&mut x, &mut y) {
+                    self.modified = transform_vec(xs, |x, y| {
+                        if let (x @ constant!(), y @ constant!()) = (x, y) {
                             let e = Expr::binary(bin_op, box take(x), box take(y));
                             let (a, ar) = e.eval().unwrap();
                             Some(Expr::constant(a, ar))
@@ -712,7 +714,7 @@ impl VisitMut for UpdatePolarPeriod {
                     }
                 }));
             }
-            unary!(Cos | Sin | Tan, box x) => match x {
+            unary!(Cos | Sin | Tan, x) => match x {
                 var!(name) if name == "theta" || name == "θ" => {
                     // sin(θ)
                     e.polar_period = Some(1.into());
@@ -722,7 +724,7 @@ impl VisitMut for UpdatePolarPeriod {
                         // sin(b + θ)
                         e.polar_period = Some(1.into());
                     }
-                    [constant!(), binary!(Mul, box constant!(a), box var!(name))]
+                    [constant!(), binary!(Mul, constant!(a), var!(name))]
                         if name == "theta" || name == "θ" =>
                     {
                         // sin(b + a θ)
@@ -763,7 +765,7 @@ impl VisitMut for SubDivTransform {
                         .fold((vec![], vec![]), |(mut lhs, mut rhs), mut e| {
                             match e {
                                 nary!(Times, ref mut xs) => match &xs[..] {
-                                    [constant!(box (a, _)), ..] if a.to_f64() == Some(-1.0) => {
+                                    [constant!((a, _)), ..] if a.to_f64() == Some(-1.0) => {
                                         rhs.push(Expr::nary(Times, xs.drain(1..).collect()));
                                     }
                                     _ => lhs.push(e),
@@ -784,30 +786,28 @@ impl VisitMut for SubDivTransform {
                 };
             }
             nary!(Times, xs) => {
-                let (num, den) =
-                    xs.drain(..)
-                        .fold((vec![], vec![]), |(mut num, mut den), mut e| {
-                            match e {
-                                binary!(Pow, ref mut x, y @ box constant!())
-                                    if test_rational(&y, |x| *x < 0.0) =>
-                                {
-                                    if let constant!(box (yi, Some(yr))) = *y {
-                                        let factor = Expr::binary(
-                                            Pow,
-                                            take(x),
-                                            box Expr::constant(-&yi, Some(-yr)),
-                                        );
-                                        den.push(factor)
-                                    } else {
-                                        panic!()
-                                    }
-                                }
-                                _ => {
-                                    num.push(e);
+                let (num, den) = xs
+                    .drain(..)
+                    .fold((vec![], vec![]), |(mut num, mut den), e| {
+                        match e {
+                            binary!(Pow, x, y @ constant!()) if test_rational(&y, |x| *x < 0.0) => {
+                                if let constant!((yi, Some(yr))) = y {
+                                    let factor = Expr::binary(
+                                        Pow,
+                                        box x,
+                                        box Expr::constant(-&yi, Some((-&yr).into())),
+                                    );
+                                    den.push(factor)
+                                } else {
+                                    panic!()
                                 }
                             }
-                            (num, den)
-                        });
+                            _ => {
+                                num.push(e);
+                            }
+                        }
+                        (num, den)
+                    });
 
                 *e = if num.is_empty() {
                     Expr::unary(Recip, box Expr::nary(Times, den))
@@ -832,33 +832,33 @@ impl VisitMut for PostTransform {
         traverse_expr_mut(self, e);
 
         match e {
-            binary!(Pow, box constant!(a), y) => {
+            binary!(Pow, constant!(a), y) => {
                 match a.0.to_f64() {
                     Some(a) if a == 2.0 => {
                         // (Pow 2 x) → (Exp2 x)
-                        *e = Expr::unary(Exp2, take(y));
+                        *e = Expr::unary(Exp2, box take(y));
                     }
                     Some(a) if a == 10.0 => {
                         // (Pow 10 x) → (Exp10 x)
-                        *e = Expr::unary(Exp10, take(y));
+                        *e = Expr::unary(Exp10, box take(y));
                     }
                     _ => (),
                 }
             }
-            binary!(Pow, x, box constant!(a)) => {
+            binary!(Pow, x, constant!(a)) => {
                 if let Some(a) = &a.1 {
                     if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
                         let root = match d {
                             1 => take(x),
-                            2 => box Expr::unary(Sqrt, take(x)),
-                            _ => box Expr::rootn(take(x), d),
+                            2 => Expr::unary(Sqrt, box take(x)),
+                            _ => Expr::rootn(box take(x), d),
                         };
                         *e = match n {
-                            -1 => Expr::unary(Recip, root),
-                            0 => Expr::unary(One, root),
-                            1 => *root,
-                            2 => Expr::unary(Sqr, root),
-                            _ => Expr::pown(root, n),
+                            -1 => Expr::unary(Recip, box root),
+                            0 => Expr::unary(One, box root),
+                            1 => root,
+                            2 => Expr::unary(Sqr, box root),
+                            _ => Expr::pown(box root, n),
                         }
                     }
                 }
@@ -1327,6 +1327,9 @@ mod tests {
         test("x x^2", "(Pow x 3)");
         test("x^2 x^3", "(Pow x 5)");
         test("x^-2 x^-3", "(Pow x -5)");
+        test("x^-2 x^3", "(Times (Pow x -2) (Pow x 3))");
+        test("x^2 x^2", "(Pow x 4)");
+        test("sqrt(x) sqrt(x)", "(Pow (Pow x 0.5) 2)");
 
         test("!(x = y)", "(Neq x y)");
         test("!(x ≤ y)", "(Nle x y)");
