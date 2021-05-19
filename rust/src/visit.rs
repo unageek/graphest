@@ -1,12 +1,12 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprId, ExprKind, NaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
-    interval_set::{Site, TupperIntervalSet},
+    interval_set::Site,
     ops::{
         FormIndex, RelOp, ScalarBinaryOp, ScalarUnaryOp, StaticForm, StaticFormKind, StaticTerm,
         StaticTermKind, StoreIndex, TermIndex,
     },
 };
-use rug::Integer;
+use rug::{Integer, Rational};
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
@@ -362,6 +362,7 @@ impl VisitMut for Flatten {
 
 /// Sorts terms in [`NaryOp::Plus`] and [`NaryOp::Times`] to bring similar ones together.
 /// Terms of kind [`ExprKind::Constant`] are moved to the beginning.
+// TODO: Move integer constants first to merge exponentiation.
 #[derive(Default)]
 pub struct SortTerms {
     pub modified: bool,
@@ -439,13 +440,23 @@ where
     modified
 }
 
-fn test_constant<F>(x: &Expr, f: F) -> bool
+fn test_rational<F>(x: &Expr, f: F) -> bool
 where
-    F: Fn(&TupperIntervalSet) -> bool,
+    F: Fn(&Rational) -> bool,
 {
     match x {
-        constant!(a) => f(&a.0),
-        _ => panic!(),
+        constant!(box (_, Some(a))) => f(&a),
+        _ => panic!("`x` is not a constant node"),
+    }
+}
+
+fn test_rationals<F>(x: &Expr, y: &Expr, f: F) -> bool
+where
+    F: Fn(&Rational, &Rational) -> bool,
+{
+    match (x, y) {
+        (constant!(box (_, Some(a))), constant!(box (_, Some(b)))) => f(&a, &b),
+        _ => panic!("`x` or `y` is not a constant node"),
     }
 }
 
@@ -530,15 +541,14 @@ impl VisitMut for Transform {
                     xs.retain(|x| !matches!(x, constant!(a) if a.0.to_f64() == Some(1.0)));
 
                     transform_vec(xs, |x, y| {
+                        // Be careful not to alter the domain of exponentiation.
                         if x == y {
                             // x x → x^2
                             return Some(Expr::binary(Pow, box take(x), box Expr::two()));
                         }
                         if let binary!(Pow, y1, y2 @ box constant!()) = y {
-                            if *x == **y1
-                                && test_constant(y2, |a| a.iter().all(|x| x.x.inf() > 0.0))
-                            {
-                                // x x^a /. a > 0 → x^(1 + a)
+                            if *x == **y1 && test_rational(y2, |a| *a.denom() == 1 && *a >= 0) {
+                                // x x^a /. a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
                                 return Some(Expr::binary(
                                     Pow,
                                     box take(x),
@@ -552,12 +562,13 @@ impl VisitMut for Transform {
                         ) = (x, y)
                         {
                             if *x1 == *y1
-                                && (test_constant(x2, |a| a.iter().all(|x| x.x.sup() < 0.0))
-                                    && test_constant(y2, |b| b.iter().all(|x| x.x.sup() < 0.0))
-                                    || test_constant(x2, |a| a.iter().all(|x| x.x.inf() > 0.0))
-                                        && test_constant(y2, |b| b.iter().all(|x| x.x.inf() > 0.0)))
+                                && test_rationals(x2, y2, |a, b| {
+                                    *a.denom() == 1
+                                        && *b.denom() == 1
+                                        && (*a < 0 && *b < 0 || *a >= 0 && *b >= 0)
+                                })
                             {
-                                // x^a x^b /. a b > 0 → x^(a + b)
+                                // x^a x^b /. a, b ∈ ℤ ∧ (a, b < 0 ∨ a, b ≥ 0) → x^(a + b)
                                 return Some(Expr::binary(
                                     Pow,
                                     box take(x1),
@@ -729,6 +740,80 @@ impl VisitMut for UpdatePolarPeriod {
                 },
                 _ => (),
             },
+            _ => (),
+        }
+    }
+}
+
+// TODO: doc comment
+pub struct SubDivTransform;
+
+impl VisitMut for SubDivTransform {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
+
+        match e {
+            nary!(Plus, xs) => {
+                let (lhs, rhs) =
+                    xs.drain(..)
+                        .fold((vec![], vec![]), |(mut lhs, mut rhs), mut e| {
+                            match e {
+                                nary!(Times, ref mut xs) => match &xs[..] {
+                                    [constant!(box (a, _)), ..] if a.to_f64() == Some(-1.0) => {
+                                        rhs.push(Expr::nary(Times, xs.drain(1..).collect()));
+                                    }
+                                    _ => lhs.push(e),
+                                },
+                                _ => {
+                                    lhs.push(e);
+                                }
+                            }
+                            (lhs, rhs)
+                        });
+
+                *e = if lhs.is_empty() {
+                    Expr::unary(Neg, box Expr::nary(Plus, rhs))
+                } else if rhs.is_empty() {
+                    Expr::nary(Plus, lhs)
+                } else {
+                    Expr::binary(Sub, box Expr::nary(Plus, lhs), box Expr::nary(Plus, rhs))
+                };
+            }
+            nary!(Times, xs) => {
+                let (num, den) =
+                    xs.drain(..)
+                        .fold((vec![], vec![]), |(mut num, mut den), mut e| {
+                            match e {
+                                binary!(Pow, ref mut x, y @ box constant!())
+                                    if test_rational(&y, |x| *x < 0.0) =>
+                                {
+                                    if let constant!(box (yi, Some(yr))) = *y {
+                                        let factor = Expr::binary(
+                                            Pow,
+                                            take(x),
+                                            box Expr::constant(-&yi, Some(-yr)),
+                                        );
+                                        den.push(factor)
+                                    } else {
+                                        panic!()
+                                    }
+                                }
+                                _ => {
+                                    num.push(e);
+                                }
+                            }
+                            (num, den)
+                        });
+
+                *e = if num.is_empty() {
+                    Expr::unary(Recip, box Expr::nary(Times, den))
+                } else if den.is_empty() {
+                    Expr::nary(Times, num)
+                } else {
+                    Expr::binary(Div, box Expr::nary(Times, num), box Expr::nary(Times, den))
+                };
+            }
             _ => (),
         }
     }

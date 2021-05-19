@@ -336,6 +336,8 @@ impl FromStr for Relation {
         UpdatePolarPeriod.visit_expr_mut(&mut e);
         expand_polar_coords(&mut e);
         simplify(&mut e);
+        SubDivTransform.visit_expr_mut(&mut e);
+        simplify(&mut e);
         PostTransform.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
         if e.ty != ValueType::Boolean {
