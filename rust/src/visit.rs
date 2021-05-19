@@ -686,7 +686,7 @@ pub struct UpdatePolarPeriod;
 
 impl VisitMut for UpdatePolarPeriod {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+        use {NaryOp::*, UnaryOp::*};
         traverse_expr_mut(self, e);
 
         match e {
@@ -729,14 +729,15 @@ impl VisitMut for UpdatePolarPeriod {
                         // sin(b + θ)
                         e.polar_period = Some(1.into());
                     }
-                    [constant!(), binary!(Mul, constant!(a), var!(name))]
-                        if name == "theta" || name == "θ" =>
-                    {
-                        // sin(b + a θ)
-                        if let Some(a) = &a.1 {
-                            e.polar_period = Some(a.denom().clone())
+                    [constant!(), nary!(Times, xs)] => match &xs[..] {
+                        [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
+                            // sin(b + a θ)
+                            if let Some(a) = &a.1 {
+                                e.polar_period = Some(a.denom().clone());
+                            }
                         }
-                    }
+                        _ => (),
+                    },
                     _ => (),
                 },
                 nary!(Times, xs) => match &xs[..] {
@@ -1408,6 +1409,7 @@ mod tests {
         test("min(sin(θ), θ)", None);
         test("r = sin(θ)", Some(1.into()));
         test("sin(3θ/5)", Some(5.into()));
+        test("sin(3θ/5 + 2)", Some(5.into()));
         test("sin(θ/2) + cos(θ/3)", Some(6.into()));
         test("min(sin(θ/2), cos(θ/3))", Some(6.into()));
     }
