@@ -82,8 +82,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         })
         .on("move", updateMaxZoom)
         .on("moveend", snapToPixels)
-        .on("zoom", updateMaxBounds)
-        .on("zoomstart", abortGraphing);
+        .on("zoom", updateMaxBounds);
 
       const resizeObserver = new window.ResizeObserver(() => {
         map.invalidateSize();
