@@ -1,3 +1,4 @@
+import * as assert from "assert";
 import { BigNumber } from "bignumber.js";
 import { ChildProcess, execFile } from "child_process";
 import { app, BrowserWindow, ipcMain, shell } from "electron";
@@ -94,7 +95,7 @@ app.on("activate", () => {
 });
 
 app.on("quit", () => {
-  abortGraphing();
+  abortJobs();
   fs.rmdirSync(baseOutDir, { recursive: true });
 });
 
@@ -105,15 +106,14 @@ app.on("window-all-closed", () => {
 ipcMain.handle<ipc.AbortGraphing>(
   ipc.abortGraphing,
   async (_, relId, tileId) => {
-    abortGraphing(
-      (job) =>
-        job.relId === relId && (tileId === undefined || job.tileId === tileId)
+    abortJobs(
+      (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId)
     );
   }
 );
 
 ipcMain.handle<ipc.AbortGraphingAll>(ipc.abortGraphingAll, async () => {
-  abortGraphing();
+  abortJobs();
 });
 
 ipcMain.handle<ipc.NewRelation>(ipc.newRelation, async (_, rel) => {
@@ -184,7 +184,7 @@ ipcMain.handle<ipc.RequestTile>(
         relId,
         tileId,
       };
-      queuedJobs.push(job);
+      pushJob(job);
       updateQueue();
     } else {
       if (tile.version !== undefined) {
@@ -199,76 +199,62 @@ ipcMain.handle<ipc.ValidateRelation>(ipc.validateRelation, async (_, rel) => {
   return { error };
 });
 
-function abortGraphing(filter: JobFilter = () => true) {
+function abortJobs(filter: JobFilter = () => true) {
   const jobsToAbort = activeJobs
     .concat(suspendedJobs, queuedJobs)
     .filter(filter);
-  activeJobs = activeJobs.filter((j) => !filter(j));
-  suspendedJobs = suspendedJobs.filter((j) => !filter(j));
-  queuedJobs = queuedJobs.filter((j) => !filter(j));
-
-  // Set all `aborted` flags true before `updateQueue` is called by killing any process.
-  for (const job of jobsToAbort) {
-    job.aborted = true;
-  }
-
   for (const job of jobsToAbort) {
     const proc = job.proc;
     if (proc !== undefined && proc.exitCode === null) {
       proc.kill("SIGKILL");
     }
+    job.aborted = true;
     relations.get(job.relId)?.tiles.delete(job.tileId);
+    popJob(job);
   }
+  updateQueue();
 }
 
 function bignum(x: number) {
   return new BigNumber(x);
 }
 
-function deprioritize(job: Job) {
-  if (activeJobs.length <= MAX_ACTIVE_JOBS && suspendedJobs.length === 0) {
-    return;
-  }
-  activeJobs = activeJobs.filter((j) => j !== job);
-  job.proc?.kill("SIGSTOP");
-  suspendedJobs.push(job);
-  updateQueue();
-}
-
-function dequeue(job: Job) {
-  activeJobs = activeJobs.filter((j) => j !== job);
-  suspendedJobs = suspendedJobs.filter((j) => j !== job);
-  updateQueue();
-
-  const relId = job.relId;
-  if (
-    activeJobs.concat(suspendedJobs).filter((j) => j.relId === relId).length ===
-    0
-  ) {
+function checkAndNotifyGraphingStatusChanged(relId: string) {
+  const nJobs = countJobs((j) => j.relId === relId && j.proc !== undefined);
+  if (nJobs === 1) {
+    notifyGraphingStatusChanged(relId, true);
+  } else if (nJobs === 0) {
     notifyGraphingStatusChanged(relId, false);
   }
 }
 
-function enqueue(job: Job) {
-  if (activeJobs.length < MAX_ACTIVE_JOBS) {
-    activeJobs.push(job);
-  } else {
-    job.proc?.kill("SIGSTOP");
-    suspendedJobs.unshift(job);
+function countJobs(filter: JobFilter = () => true): number {
+  return (
+    activeJobs.filter(filter).length +
+    suspendedJobs.filter(filter).length +
+    queuedJobs.filter(filter).length
+  );
+}
+
+function deprioritize(job: Job) {
+  if (activeJobs.length <= MAX_ACTIVE_JOBS && suspendedJobs.length === 0) {
+    return;
   }
 
-  const relId = job.relId;
-  if (
-    activeJobs.concat(suspendedJobs).filter((j) => j.relId === relId).length ===
-    1
-  ) {
-    notifyGraphingStatusChanged(relId, true);
-  }
+  const nBefore = countJobs();
+  activeJobs = activeJobs.filter((j) => j !== job);
+  suspendedJobs = suspendedJobs.filter((j) => j !== job);
+  job.proc?.kill("SIGSTOP");
+  suspendedJobs.push(job);
+  const nAfter = countJobs();
+  assert(nBefore == nAfter);
+
+  updateQueue();
 }
 
 function makePromise(proc: ChildProcess): Promise<string | undefined> {
-  return new Promise(function (resolve) {
-    proc.once("exit", function (code) {
+  return new Promise((resolve) => {
+    proc.once("exit", (code) => {
       if (code === 0) {
         resolve(undefined);
       } else {
@@ -309,6 +295,19 @@ function notifyTileReady(
   );
 }
 
+function popJob(job: Job) {
+  const nBefore = countJobs();
+  activeJobs = activeJobs.filter((j) => j !== job);
+  suspendedJobs = suspendedJobs.filter((j) => j !== job);
+  queuedJobs = queuedJobs.filter((j) => j !== job);
+  const nAfter = countJobs();
+  assert(nBefore == nAfter + 1);
+}
+
+function pushJob(job: Job) {
+  queuedJobs.push(job);
+}
+
 function updateQueue() {
   while (activeJobs.length < MAX_ACTIVE_JOBS && suspendedJobs.length > 0) {
     const job = suspendedJobs.shift();
@@ -328,26 +327,12 @@ function updateQueue() {
       // which can break the order of execution of `requestTile`/`abortGraphing`.
       fs.closeSync(fs.openSync(job.outFile, "w"));
 
-      const onFileChange = function () {
+      const onFileChange = () => {
         if (!job.aborted) {
           deprioritize(job);
           notifyTileReady(job.relId, job.tileId, true);
         }
       };
-
-      job.proc = execFile(graphExec, job.args);
-      job.proc.once("exit", () => {
-        job.proc = undefined;
-        dequeue(job);
-        watcher?.off("change", onFileChange);
-        watcher?.close();
-        if (!job.aborted) {
-          // This is required because neither the file stat may not have been updated
-          // nor `watcher` may not have fired the 'change' event at this moment (why?).
-          notifyTileReady(job.relId, job.tileId, true);
-        }
-      });
-      enqueue(job);
 
       let watcher: fs.FSWatcher | undefined;
       try {
@@ -356,6 +341,33 @@ function updateQueue() {
       } catch {
         // It is likely that the file has been deleted.
       }
+
+      job.proc = execFile(graphExec, job.args);
+      job.proc.once("exit", () => {
+        job.proc = undefined;
+        watcher?.off("change", onFileChange);
+        watcher?.close();
+        if (!job.aborted) {
+          popJob(job);
+          updateQueue();
+          // This is required because neither the file stat may not have been updated
+          // nor `watcher` may not have fired the 'change' event at this moment (why?).
+          notifyTileReady(job.relId, job.tileId, true);
+        }
+        checkAndNotifyGraphingStatusChanged(job.relId);
+      });
+
+      const nBefore = countJobs();
+      if (activeJobs.length < MAX_ACTIVE_JOBS) {
+        activeJobs.push(job);
+      } else {
+        job.proc?.kill("SIGSTOP");
+        suspendedJobs.unshift(job);
+      }
+      const nAfter = countJobs();
+      assert(nAfter == nBefore + 1);
+
+      checkAndNotifyGraphingStatusChanged(job.relId);
     }
   }
 }
