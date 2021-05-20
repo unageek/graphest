@@ -153,10 +153,9 @@ export class GraphLayer extends L.GridLayer {
       ipc.newRelation,
       rel
     );
-    this.relId = relId;
-    // Abort graphing after setting `this.relId` so that `onTileReady` will ignore tile updates
-    // for the old relation.
+    // NB: `abortGraphing` depends on `this.relId`.
     this.abortGraphing();
+    this.relId = relId;
     this.redraw();
   }
 
