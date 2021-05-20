@@ -242,9 +242,11 @@ impl Graph {
                 const_interval!(0.0, f64::INFINITY),
             ]
             .iter()
-            .map(|&n_theta| Block::new(0, 0, k, k, n_theta))
+            .map(|&n| Block::new(0, 0, k, k, n))
             .collect::<Vec<_>>();
-            g.set_last_queued_block(&bs[2], 2).unwrap();
+            let last_block = bs.len() - 1;
+            g.set_last_queued_block(&bs[last_block], last_block)
+                .unwrap();
             for b in bs {
                 g.bs_to_subdivide.push_back(b);
             }

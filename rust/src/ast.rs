@@ -141,7 +141,7 @@ pub struct Expr {
     pub id: ExprId,
     pub kind: ExprKind,
     pub ty: ValueType,
-    /// The period of a function of θ in multiples of 2π, i.e., any p that satisfies
+    /// The period of a function of θ in multiples of 2π, i.e., any integer p that satisfies
     /// (e /. θ → θ + 2π p) = e. If the period is 0, the expression is independent of θ.
     pub polar_period: Option<Integer>,
     /// The set of the free variables in the expression.

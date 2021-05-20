@@ -6,7 +6,7 @@ use crate::{
         StaticTermKind, StoreIndex, TermIndex,
     },
 };
-use rug::{Integer, Rational};
+use rug::Rational;
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
@@ -699,7 +699,7 @@ impl VisitMut for UpdatePolarPeriod {
                 });
             }
             nary!(_, xs) if xs.iter().all(|x| x.polar_period.is_some()) => {
-                e.polar_period = Some(xs.iter().fold(Integer::from(0), |mut xp, y| {
+                e.polar_period = Some(xs.iter().fold(0.into(), |mut xp, y| {
                     let yp = y.polar_period.as_ref().unwrap();
                     if xp == 0 {
                         yp.clone()
