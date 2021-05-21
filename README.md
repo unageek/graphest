@@ -58,7 +58,7 @@ A prebuilt version of the app for Macs with Apple silicon is available on the [r
    [libraries required to run Electron](https://github.com/electron/electron/issues/26673):
 
    ```bash
-   sudo apt install -y libatk-bridge2.0-0 libatk1.0-0 libgconf-2-4 libgdk-pixbuf2.0-0 libgtk-3-0 libnss3-dev
+   sudo apt install -y libatk-bridge2.0-0 libatk1.0-0 libgbm1 libgconf-2-4 libgdk-pixbuf2.0-0 libgtk-3-0 libnss3
    ```
 
 1. [Rust](https://rustup.rs)
