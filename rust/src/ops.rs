@@ -106,6 +106,11 @@ pub enum ScalarBinaryOp {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ScalarTernaryOp {
+    MulAdd,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelOp {
     Eq,
     Ge,
@@ -129,6 +134,7 @@ pub enum StaticTermKind {
     NTheta,
     Unary(ScalarUnaryOp, TermIndex),
     Binary(ScalarBinaryOp, TermIndex, TermIndex),
+    Ternary(ScalarTernaryOp, TermIndex, TermIndex, TermIndex),
     Pown(TermIndex, i32),
     Rootn(TermIndex, u32),
     // == Others ==
@@ -161,7 +167,7 @@ impl StaticTerm {
     /// Panics if the term is of the kind [`StaticTermKind::X`], [`StaticTermKind::Y`]
     /// or [`StaticTermKind::NTheta`].
     pub fn put_eval(&self, terms: &[StaticTerm], ts: &mut ValueStore<TupperIntervalSet>) {
-        use {ScalarBinaryOp::*, ScalarUnaryOp::*, StaticTermKind::*};
+        use {ScalarBinaryOp::*, ScalarTernaryOp::*, ScalarUnaryOp::*, StaticTermKind::*};
         match &self.kind {
             Constant(x) => self.put(ts, *x.clone()),
             Unary(Abs, x) => self.put(ts, terms[*x as usize].get(ts).abs()),
@@ -328,6 +334,12 @@ impl StaticTerm {
             Binary(Sub, x, y) => {
                 self.put(ts, terms[*x as usize].get(ts) - terms[*y as usize].get(ts))
             }
+            Ternary(MulAdd, x, y, z) => self.put(
+                ts,
+                terms[*x as usize]
+                    .get(ts)
+                    .mul_add(terms[*y as usize].get(ts), terms[*z as usize].get(ts)),
+            ),
             Pown(x, n) => self.put(ts, terms[*x as usize].get(ts).pown(*n, self.site)),
             Rootn(x, n) => self.put(ts, terms[*x as usize].get(ts).rootn(*n)),
             List(_) => (),

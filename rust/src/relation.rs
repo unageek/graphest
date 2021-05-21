@@ -339,6 +339,7 @@ impl FromStr for Relation {
         SubDivTransform.visit_expr_mut(&mut e);
         simplify(&mut e);
         PostTransform.visit_expr_mut(&mut e);
+        FuseMulAdd.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
         if e.ty != ValueType::Boolean {
             return Err("the relation must be a Boolean expression".into());

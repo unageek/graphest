@@ -1,9 +1,12 @@
 use crate::{
-    ast::{BinaryOp, Expr, ExprId, ExprKind, NaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
+    ast::{
+        BinaryOp, Expr, ExprId, ExprKind, NaryOp, TernaryOp, UnaryOp, ValueType, VarSet,
+        UNINIT_EXPR_ID,
+    },
     interval_set::Site,
     ops::{
-        FormIndex, RelOp, ScalarBinaryOp, ScalarUnaryOp, StaticForm, StaticFormKind, StaticTerm,
-        StaticTermKind, StoreIndex, TermIndex,
+        FormIndex, RelOp, ScalarBinaryOp, ScalarTernaryOp, ScalarUnaryOp, StaticForm,
+        StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, TermIndex,
     },
 };
 use rug::Rational;
@@ -82,6 +85,7 @@ where
     }
 }
 
+#[allow(clippy::many_single_char_names)]
 fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
     use ExprKind::*;
     match &e.kind {
@@ -89,6 +93,11 @@ fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
         Binary(_, x, y) => {
             v.visit_expr(x);
             v.visit_expr(y);
+        }
+        Ternary(_, x, y, z) => {
+            v.visit_expr(x);
+            v.visit_expr(y);
+            v.visit_expr(z);
         }
         Nary(_, xs) => {
             for x in xs {
@@ -111,6 +120,7 @@ where
     }
 }
 
+#[allow(clippy::many_single_char_names)]
 fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
     use ExprKind::*;
     match &mut e.kind {
@@ -118,6 +128,11 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
         Binary(_, x, y) => {
             v.visit_expr_mut(x);
             v.visit_expr_mut(y);
+        }
+        Ternary(_, x, y, z) => {
+            v.visit_expr_mut(x);
+            v.visit_expr_mut(y);
+            v.visit_expr_mut(z);
         }
         Nary(_, xs) => {
             for x in xs {
@@ -586,7 +601,7 @@ impl VisitMut for Transform {
             unary!(Not, x) => {
                 match x {
                     binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x1, x2) => {
-                        // (Not (op x1 x2)) → (!op x1 x2)
+                        // (Not (op x1 x2)) → (neg-op x1 x2)
                         let neg_op = match op {
                             Eq => Neq,
                             Ge => Nge,
@@ -604,7 +619,7 @@ impl VisitMut for Transform {
                         self.modified = true;
                     }
                     binary!(And, x1, x2) => {
-                        // (And (x1 x2)) → (Or (Not x1) (Not x2))
+                        // (Not (And (x1 x2))) → (Or (Not x1) (Not x2))
                         *e = Expr::binary(
                             Or,
                             box Expr::unary(Not, box take(x1)),
@@ -613,7 +628,7 @@ impl VisitMut for Transform {
                         self.modified = true;
                     }
                     binary!(Or, x1, x2) => {
-                        // (Or (x1 x2)) → (And (Not x1) (Not x2))
+                        // (Not (Or (x1 x2))) → (And (Not x1) (Not x2))
                         *e = Expr::binary(
                             And,
                             box Expr::unary(Not, box take(x1)),
@@ -886,6 +901,23 @@ impl VisitMut for PostTransform {
     }
 }
 
+/// Combines [`BinaryOp::Mul`] and [`BinaryOp::Add`] into [`TernaryOp::MulAdd`].
+pub struct FuseMulAdd;
+
+impl VisitMut for FuseMulAdd {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, TernaryOp::*};
+        traverse_expr_mut(self, e);
+
+        match e {
+            binary!(Add, binary!(Mul, x, y), z) | binary!(Add, z, binary!(Mul, x, y)) => {
+                *e = Expr::ternary(MulAdd, box take(x), box take(y), box take(z))
+            }
+            _ => (),
+        }
+    }
+}
+
 /// Updates metadata of terms and formulas.
 pub struct UpdateMetadata;
 
@@ -998,7 +1030,7 @@ impl CollectStatic {
     }
 
     fn collect_terms(&mut self) {
-        use {BinaryOp::*, ExprKind::*, NaryOp::*, UnaryOp::*};
+        use {BinaryOp::*, ExprKind::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
         for t in self.exprs.iter().map(|t| &*t) {
             let k = match &t.kind {
                 Constant(x) => Some(StaticTermKind::Constant(box x.0.clone())),
@@ -1078,6 +1110,10 @@ impl CollectStatic {
                     _ => None,
                 }
                 .map(|op| StaticTermKind::Binary(op, self.ti(x), self.ti(y))),
+                Ternary(op, x, y, z) => match op {
+                    MulAdd => Some(ScalarTernaryOp::MulAdd),
+                }
+                .map(|op| StaticTermKind::Ternary(op, self.ti(x), self.ti(y), self.ti(z))),
                 Nary(List, xs) => Some(StaticTermKind::List(
                     box xs.iter().map(|x| self.ti(x)).collect(),
                 )),
@@ -1371,6 +1407,20 @@ mod tests {
         test("x + y + z", "(Add (Add x y) z)");
         test("x y", "(Mul x y)");
         test("x y z", "(Mul (Mul x y) z)");
+    }
+
+    #[test]
+    fn fuse_mul_add() {
+        fn test(input: &str, expected: &str) {
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
+            PostTransform.visit_expr_mut(&mut e);
+            FuseMulAdd.visit_expr_mut(&mut e);
+            assert_eq!(format!("{}", e.dump_structure()), expected);
+        }
+
+        test("x y + z", "(MulAdd x y z)");
+        test("z + x y", "(MulAdd x y z)");
     }
 
     #[test]

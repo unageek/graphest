@@ -98,6 +98,11 @@ pub enum BinaryOp {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum TernaryOp {
+    MulAdd,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NaryOp {
     List,
     Plus,
@@ -110,6 +115,7 @@ pub enum ExprKind {
     Var(String),
     Unary(UnaryOp, Box<Expr>),
     Binary(BinaryOp, Box<Expr>, Box<Expr>),
+    Ternary(TernaryOp, Box<Expr>, Box<Expr>, Box<Expr>),
     Nary(NaryOp, Vec<Expr>),
     Pown(Box<Expr>, i32),
     Rootn(Box<Expr>, u32),
@@ -202,6 +208,11 @@ impl Expr {
         Self::new(ExprKind::Rootn(x, n))
     }
 
+    /// Creates a new expression of kind [`ExprKind::Ternary`].
+    pub fn ternary(op: TernaryOp, x: Box<Expr>, y: Box<Expr>, z: Box<Expr>) -> Self {
+        Self::new(ExprKind::Ternary(op, x, y, z))
+    }
+
     /// Creates a constant node with value 2.
     pub fn two() -> Self {
         Self::constant(const_dec_interval!(2.0, 2.0).into(), Some((2).into()))
@@ -228,11 +239,13 @@ impl Expr {
 
     /// Evaluates the expression.
     ///
-    /// Returns [`None`] if the expression cannot be evaluated to a scalar constant.
+    /// Returns [`None`] if the expression cannot be evaluated to a scalar constant
+    /// or constant evaluation is not implemented for the operation.
     pub fn eval(&self) -> Option<(TupperIntervalSet, Option<Rational>)> {
-        use {BinaryOp::*, ExprKind::*, NaryOp::*, UnaryOp::*};
+        use {BinaryOp::*, ExprKind::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
         match &self.kind {
             Constant(x) => Some(*x.clone()),
+            Var(_) => None,
             Unary(Abs, x) => x.eval1r(|x| x.abs(), |x| Some(x.abs())),
             Unary(Acos, x) => x.eval1(|x| x.acos()),
             Unary(Acosh, x) => x.eval1(|x| x.acosh()),
@@ -322,12 +335,16 @@ impl Expr {
                 None,
             )),
             Binary(Sub, x, y) => x.eval2r(y, |x, y| &x - &y, |x, y| Some(x - y)),
+            Ternary(MulAdd, _, _, _) => None,
+            Nary(Plus | Times, _) => None,
             Rootn(x, n) => x.eval1(|x| x.rootn(*n)),
             Unary(Exp10 | Exp2 | Recip, _) | Pown(_, _) => {
-                panic!("Pow should be used instead")
+                panic!("use `BinaryOp::Pow` for constant evaluation")
             }
+            Unary(Not, _) => None,
+            Binary(And | Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt | Or, _, _) => None,
+            Nary(List, _) => None,
             Uninit => panic!(),
-            _ => None,
         }
     }
 
@@ -346,6 +363,7 @@ impl Expr {
             Var(_) => VarSet::EMPTY,
             Unary(_, x) | Pown(x, _) | Rootn(x, _) => x.vars,
             Binary(_, x, y) => x.vars | y.vars,
+            Ternary(_, x, y, z) => x.vars | y.vars | z.vars,
             Nary(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
             Uninit => panic!(),
         };
@@ -358,7 +376,7 @@ impl Expr {
     }
 
     pub fn value_type(&self) -> ValueType {
-        use {BinaryOp::*, ExprKind::*, NaryOp::*, UnaryOp::*, ValueType::*};
+        use {BinaryOp::*, ExprKind::*, NaryOp::*, TernaryOp::*, UnaryOp::*, ValueType::*};
         match &self.kind {
             Constant(_) => Scalar,
             Var(x) if x == "x" || x == "y" || x == "<n-theta>" => Scalar,
@@ -376,6 +394,9 @@ impl Expr {
                 x,
                 y,
             ) if x.ty == Scalar && y.ty == Scalar => Scalar,
+            Ternary(MulAdd, x, y, z) if x.ty == Scalar && y.ty == Scalar && z.ty == Scalar => {
+                Scalar
+            }
             Binary(RankedMax | RankedMin, x, y) if x.ty == Vector && y.ty == Scalar => Scalar,
             Pown(x, _) | Rootn(x, _) if x.ty == Scalar => Scalar,
             Nary(List, xs) if xs.iter().all(|x| x.ty == Scalar) => Vector,
@@ -491,6 +512,14 @@ impl<'a> fmt::Display for DumpStructure<'a> {
                 op,
                 x.dump_structure(),
                 y.dump_structure()
+            ),
+            ExprKind::Ternary(op, x, y, z) => write!(
+                f,
+                "({:?} {} {} {})",
+                op,
+                x.dump_structure(),
+                y.dump_structure(),
+                z.dump_structure()
             ),
             ExprKind::Nary(op, xs) => {
                 write!(
