@@ -204,7 +204,7 @@ Exponentiation is defined as follows, which is consistent with GrafEq.
 |sin^−1^ _x_
 |The range is [−π/2, π/2].
 
-|`acox(x)`
+|`acos(x)`
 |cos^−1^ _x_
 |The range is [0, π].
 
