@@ -24,10 +24,10 @@ impl Neg for &TupperIntervalSet {
 
 macro_rules! impl_arith_op {
     ($Op:ident, $op:ident) => {
-        impl<'a, 'b> $Op<&'b TupperIntervalSet> for &'a TupperIntervalSet {
+        impl $Op for &TupperIntervalSet {
             type Output = TupperIntervalSet;
 
-            fn $op(self, rhs: &'b TupperIntervalSet) -> Self::Output {
+            fn $op(self, rhs: &TupperIntervalSet) -> Self::Output {
                 let mut rs = Self::Output::new();
                 for x in self {
                     for y in rhs {
@@ -178,7 +178,12 @@ impl TupperIntervalSet {
     #[cfg(not(feature = "arb"))]
     impl_op!(atan(x), x.atan());
 
-    impl_op_cut!(atan2(y, x), {
+    #[cfg(not(feature = "arb"))]
+    pub fn atan2(&self, rhs: &Self, site: Option<Site>) -> Self {
+        self.atan2_impl(rhs, site)
+    }
+
+    impl_op_cut!(atan2_impl(y, x), {
         let a = x.inf();
         let b = x.sup();
         let c = y.inf();
@@ -202,9 +207,13 @@ impl TupperIntervalSet {
                 Decoration::Def.min(x.decoration()).min(y.decoration())
             };
             // y < 0 (thus z < 0) part.
-            let x0 = interval!(b, b).unwrap();
-            let y0 = interval!(c, c).unwrap();
-            let z0 = interval!(-Interval::PI.sup(), y0.atan2(x0).sup()).unwrap();
+            let z0 = if c == f64::NEG_INFINITY {
+                interval!(-Interval::PI.sup(), -Interval::FRAC_PI_2.inf()).unwrap()
+            } else {
+                let x0 = interval!(b, b).unwrap();
+                let y0 = interval!(c, c).unwrap();
+                interval!(-Interval::PI.sup(), y0.atan2(x0).sup()).unwrap()
+            };
             // y ≥ 0 (thus z > 0) part.
             let x1 = interval!(a, b).unwrap();
             let y1 = interval!(0.0, d).unwrap();
@@ -907,7 +916,12 @@ impl TupperIntervalSet {
 
     impl_op!(sqrt(x), x.sqrt());
 
-    impl_op_cut!(tan(x), {
+    #[cfg(not(feature = "arb"))]
+    pub fn tan(&self, site: Option<Site>) -> Self {
+        self.tan_impl(site)
+    }
+
+    impl_op_cut!(tan_impl(x), {
         let a = x.inf();
         let b = x.sup();
         let q_nowrap = (x.interval().unwrap() / Interval::FRAC_PI_2).floor();
@@ -1354,6 +1368,7 @@ mod tests {
         };
     }
 
+    #[cfg(not(feature = "arb"))]
     #[test]
     fn atan2() {
         fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
@@ -1965,5 +1980,147 @@ mod tests {
         test!(f, @odd i!(1.0), (vec![i!(1.0)], Com));
         test!(f, @odd i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
         test!(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Trv));
+    }
+
+    #[test]
+    fn ops_sanity() {
+        // Check that operations do not panic due to invalid construction of an interval.
+        let xs = [
+            TupperIntervalSet::from(const_dec_interval!(0.0, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(0.0, 1.0)),
+            TupperIntervalSet::from(const_dec_interval!(-1.0, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(-1.0, 1.0)),
+            TupperIntervalSet::from(const_dec_interval!(f64::NEG_INFINITY, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(f64::NEG_INFINITY, 1.0)),
+            TupperIntervalSet::from(const_dec_interval!(0.0, f64::INFINITY)),
+            TupperIntervalSet::from(const_dec_interval!(1.0, f64::INFINITY)),
+            TupperIntervalSet::from(DecInterval::ENTIRE),
+        ];
+
+        let fs = [
+            |x: &_| -x,
+            TupperIntervalSet::abs,
+            TupperIntervalSet::acos,
+            TupperIntervalSet::acosh,
+            TupperIntervalSet::asin,
+            TupperIntervalSet::asinh,
+            TupperIntervalSet::atan,
+            TupperIntervalSet::atanh,
+            TupperIntervalSet::cos,
+            TupperIntervalSet::cosh,
+            TupperIntervalSet::erf,
+            TupperIntervalSet::erfc,
+            TupperIntervalSet::exp,
+            TupperIntervalSet::exp10,
+            TupperIntervalSet::exp2,
+            TupperIntervalSet::ln,
+            TupperIntervalSet::log10,
+            TupperIntervalSet::log2,
+            TupperIntervalSet::one,
+            TupperIntervalSet::sin,
+            TupperIntervalSet::sinc,
+            TupperIntervalSet::sinh,
+            TupperIntervalSet::sqr,
+            TupperIntervalSet::sqrt,
+            TupperIntervalSet::tanh,
+            TupperIntervalSet::undef_at_0,
+        ];
+        for f in &fs {
+            for x in &xs {
+                f(x);
+            }
+        }
+
+        let fs = [
+            TupperIntervalSet::ceil,
+            TupperIntervalSet::digamma,
+            TupperIntervalSet::floor,
+            TupperIntervalSet::gamma,
+            TupperIntervalSet::recip,
+            TupperIntervalSet::tan,
+        ];
+        for f in &fs {
+            for x in &xs {
+                f(x, None);
+            }
+        }
+
+        let fs = [
+            |x: &_, y: &_| x + y,
+            |x: &_, y: &_| x - y,
+            |x: &_, y: &_| x * y,
+            TupperIntervalSet::max,
+            TupperIntervalSet::min,
+        ];
+        for f in &fs {
+            for x in &xs {
+                for y in &xs {
+                    f(x, y);
+                }
+            }
+        }
+
+        let fs = [
+            TupperIntervalSet::atan2,
+            TupperIntervalSet::div,
+            TupperIntervalSet::gcd,
+            TupperIntervalSet::lcm,
+            TupperIntervalSet::log,
+            TupperIntervalSet::pow,
+            TupperIntervalSet::rem_euclid,
+        ];
+        for f in &fs {
+            for x in &xs {
+                for y in &xs {
+                    f(x, y, None);
+                }
+            }
+        }
+
+        let fs = [TupperIntervalSet::mul_add];
+        for f in &fs {
+            for x in &xs {
+                for y in &xs {
+                    for z in &xs {
+                        f(x, y, z);
+                    }
+                }
+            }
+        }
+
+        let ns = [-3, -2, -1, 0, 1, 2, 3];
+        for x in &xs {
+            for n in &ns {
+                x.pown(*n, None);
+            }
+        }
+
+        let ns = [0, 1, 2, 3];
+        for x in &xs {
+            for n in &ns {
+                x.rootn(*n);
+            }
+        }
+
+        let fs = [TupperIntervalSet::ranked_max, TupperIntervalSet::ranked_min];
+        let ns = [
+            TupperIntervalSet::from(const_dec_interval!(1.0, 1.0)),
+            TupperIntervalSet::from(const_dec_interval!(2.0, 2.0)),
+            TupperIntervalSet::from(const_dec_interval!(3.0, 3.0)),
+        ];
+        for f in &fs {
+            for x in &xs {
+                for y in &xs {
+                    for z in &xs {
+                        for n in &ns {
+                            f(vec![x, y, z], n, None);
+                        }
+                        for n in &xs {
+                            f(vec![x, y, z], n, None);
+                        }
+                    }
+                }
+            }
+        }
     }
 }

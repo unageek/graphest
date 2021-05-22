@@ -1,5 +1,5 @@
 use crate::{
-    interval_set::{TupperInterval, TupperIntervalSet},
+    interval_set::{Site, TupperInterval, TupperIntervalSet},
     interval_set_ops,
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
@@ -227,6 +227,34 @@ impl TupperIntervalSet {
             x.atan()
         }
     );
+
+    pub fn atan2(&self, rhs: &Self, site: Option<Site>) -> Self {
+        if self.iter().all(|x| x.x.is_common_interval())
+            && rhs.iter().all(|x| x.x.is_common_interval())
+            && self
+                .iter()
+                .zip(rhs.iter())
+                .filter(|(x, y)| x.g.union(y.g).is_some())
+                .all(|(y, x)| x.x.inf() > 0.0 || !y.x.contains(0.0))
+        {
+            let mut rs = Self::new();
+            for x in self {
+                for y in rhs {
+                    if let Some(g) = x.g.union(y.g) {
+                        let (y, x) = (x, y);
+                        let dec = Decoration::Dac.min(x.d).min(y.d);
+                        let z = arb_atan2(y.x, x.x);
+                        rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), g));
+                    }
+                }
+            }
+            rs.normalize(false);
+            rs
+        } else {
+            self.atan2_impl(rhs, site)
+        }
+    }
+
     impl_arb_op!(
         atanh(x),
         if x.interior(M_ONE_TO_ONE) {
@@ -833,6 +861,31 @@ impl TupperIntervalSet {
             x.sinh()
         }
     );
+
+    pub fn tan(&self, site: Option<Site>) -> Self {
+        if self.iter().all(|x| {
+            let a = x.x.inf();
+            let b = x.x.sup();
+            let q_nowrap = (x.x / Interval::FRAC_PI_2).floor();
+            let qa = q_nowrap.inf();
+            let qb = q_nowrap.sup();
+            let n = if a == b { 0.0 } else { qb - qa };
+            let q = qa.rem_euclid(2.0);
+            q == 0.0 && n < 1.0 || q == 1.0 && n < 2.0
+        }) {
+            let mut rs = Self::new();
+            for x in self {
+                let dec = Decoration::Dac.min(x.d);
+                let z = arb_tan(x.x);
+                rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), x.g));
+            }
+            rs.normalize(false);
+            rs
+        } else {
+            self.tan_impl(site)
+        }
+    }
+
     impl_arb_op!(
         tanh(x),
         if x.is_common_interval() {
@@ -923,6 +976,11 @@ arb_fn!(
     arb_atan(x),
     arb_atan(x, x, f64::MANTISSA_DIGITS.into()),
     const_interval!(-1.5707963267948968, 1.5707963267948968) // [-π/2, π/2]
+);
+arb_fn!(
+    arb_atan2(y, x),
+    arb_atan2(y, y, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-3.1415926535897936, 3.1415926535897936) // [-π, π]
 );
 arb_fn!(
     arb_atanh(x),
@@ -1087,6 +1145,11 @@ arb_fn!(
     Interval::ENTIRE
 );
 arb_fn!(
+    arb_tan(x),
+    arb_tan(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
     arb_tanh(x),
     arb_tanh(x, x, f64::MANTISSA_DIGITS.into()),
     M_ONE_TO_ONE
@@ -1134,50 +1197,34 @@ mod tests {
 
     #[test]
     fn arb_ops_sanity() {
-        // Just check that arb ops don't panic due to invalid construction of an interval.
         let xs = [
             TupperIntervalSet::from(const_dec_interval!(0.0, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(0.0, 1.0)),
+            TupperIntervalSet::from(const_dec_interval!(-1.0, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(-1.0, 1.0)),
             TupperIntervalSet::from(const_dec_interval!(f64::NEG_INFINITY, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(f64::NEG_INFINITY, 1.0)),
             TupperIntervalSet::from(const_dec_interval!(0.0, f64::INFINITY)),
+            TupperIntervalSet::from(const_dec_interval!(1.0, f64::INFINITY)),
             TupperIntervalSet::from(DecInterval::ENTIRE),
         ];
 
         let fs = [
-            TupperIntervalSet::acos,
-            TupperIntervalSet::acosh,
             TupperIntervalSet::airy_ai,
             TupperIntervalSet::airy_ai_prime,
             TupperIntervalSet::airy_bi,
             TupperIntervalSet::airy_bi_prime,
-            TupperIntervalSet::asin,
-            TupperIntervalSet::asinh,
-            TupperIntervalSet::atan,
-            TupperIntervalSet::atanh,
             TupperIntervalSet::chi,
             TupperIntervalSet::ci,
-            TupperIntervalSet::cos,
-            TupperIntervalSet::cosh,
             TupperIntervalSet::ei,
             TupperIntervalSet::elliptic_e,
             TupperIntervalSet::elliptic_k,
-            TupperIntervalSet::erf,
-            TupperIntervalSet::erfc,
             TupperIntervalSet::erfi,
-            TupperIntervalSet::exp,
-            TupperIntervalSet::exp10,
-            TupperIntervalSet::exp2,
             TupperIntervalSet::fresnel_c,
             TupperIntervalSet::fresnel_s,
             TupperIntervalSet::li,
-            TupperIntervalSet::ln,
-            TupperIntervalSet::log10,
-            TupperIntervalSet::log2,
             TupperIntervalSet::shi,
             TupperIntervalSet::si,
-            TupperIntervalSet::sin,
-            TupperIntervalSet::sinc,
-            TupperIntervalSet::sinh,
-            TupperIntervalSet::tanh,
         ];
         for f in &fs {
             for x in &xs {
