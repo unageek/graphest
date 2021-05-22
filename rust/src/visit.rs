@@ -1,13 +1,13 @@
 use crate::{
-    ast::{
-        BinaryOp, Expr, ExprId, ExprKind, NaryOp, TernaryOp, UnaryOp, ValueType, VarSet,
-        UNINIT_EXPR_ID,
-    },
+    ast::{BinaryOp, Expr, ExprId, NaryOp, TernaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
+    binary, constant,
     interval_set::Site,
+    nary,
     ops::{
         FormIndex, RelOp, ScalarBinaryOp, ScalarTernaryOp, ScalarUnaryOp, StaticForm,
         StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, TermIndex,
     },
+    pown, rootn, ternary, unary, uninit, var,
 };
 use rug::Rational;
 use std::{
@@ -18,62 +18,6 @@ use std::{
     mem::take,
     ops::Deref,
 };
-
-/// Matches an [`Expr`] of kind [`ExprKind::Binary`].
-macro_rules! binary {
-    ($($op:pat)|*, $x:pat, $y:pat) => {
-        Expr {
-            kind: ExprKind::Binary($($op)|*, box $x, box $y),
-            ..
-        }
-    };
-}
-
-/// Matches an [`Expr`] of kind [`ExprKind::Constant`].
-macro_rules! constant {
-    () => {
-        Expr {
-            kind: ExprKind::Constant(_),
-            ..
-        }
-    };
-    ($a:pat) => {
-        Expr {
-            kind: ExprKind::Constant(box $a),
-            ..
-        }
-    };
-}
-
-/// Matches an [`Expr`] of kind [`ExprKind::Nary`].
-macro_rules! nary {
-    ($($op:pat)|*, $xs:pat) => {
-        Expr {
-            kind: ExprKind::Nary($($op)|*, $xs),
-            ..
-        }
-    };
-}
-
-/// Matches an [`Expr`] of kind [`ExprKind::Unary`].
-macro_rules! unary {
-    ($($op:pat)|*, $x:pat) => {
-        Expr {
-            kind: ExprKind::Unary($($op)|*, box $x),
-            ..
-        }
-    };
-}
-
-/// Matches an [`Expr`] of kind [`ExprKind::Var`].
-macro_rules! var {
-    ($name:pat) => {
-        Expr {
-            kind: ExprKind::Var($name),
-            ..
-        }
-    };
-}
 
 /// A visitor that visits AST nodes in depth-first order.
 pub trait Visit<'a>
@@ -87,26 +31,25 @@ where
 
 #[allow(clippy::many_single_char_names)]
 fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
-    use ExprKind::*;
-    match &e.kind {
-        Unary(_, x) => v.visit_expr(x),
-        Binary(_, x, y) => {
+    match e {
+        unary!(_, x) => v.visit_expr(x),
+        binary!(_, x, y) => {
             v.visit_expr(x);
             v.visit_expr(y);
         }
-        Ternary(_, x, y, z) => {
+        ternary!(_, x, y, z) => {
             v.visit_expr(x);
             v.visit_expr(y);
             v.visit_expr(z);
         }
-        Nary(_, xs) => {
+        nary!(_, xs) => {
             for x in xs {
                 v.visit_expr(x);
             }
         }
-        Pown(x, _) => v.visit_expr(x),
-        Rootn(x, _) => v.visit_expr(x),
-        Constant(_) | Var(_) | Uninit => (),
+        pown!(x, _) => v.visit_expr(x),
+        rootn!(x, _) => v.visit_expr(x),
+        constant!(_) | var!(_) | uninit!() => (),
     };
 }
 
@@ -122,26 +65,25 @@ where
 
 #[allow(clippy::many_single_char_names)]
 fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
-    use ExprKind::*;
-    match &mut e.kind {
-        Unary(_, x) => v.visit_expr_mut(x),
-        Binary(_, x, y) => {
+    match e {
+        unary!(_, x) => v.visit_expr_mut(x),
+        binary!(_, x, y) => {
             v.visit_expr_mut(x);
             v.visit_expr_mut(y);
         }
-        Ternary(_, x, y, z) => {
+        ternary!(_, x, y, z) => {
             v.visit_expr_mut(x);
             v.visit_expr_mut(y);
             v.visit_expr_mut(z);
         }
-        Nary(_, xs) => {
+        nary!(_, xs) => {
             for x in xs {
                 v.visit_expr_mut(x);
             }
         }
-        Pown(x, _) => v.visit_expr_mut(x),
-        Rootn(x, _) => v.visit_expr_mut(x),
-        Constant(_) | Var(_) | Uninit => (),
+        pown!(x, _) => v.visit_expr_mut(x),
+        rootn!(x, _) => v.visit_expr_mut(x),
+        constant!(_) | var!(_) | uninit!() => (),
     };
 }
 
@@ -515,7 +457,7 @@ impl VisitMut for Transform {
                     }
                     if let nary!(Times, ys) = y {
                         match &mut ys[..] {
-                            [y1 @ constant!(), y2] if x == y2 => {
+                            [y1 @ constant!(_), y2] if x == y2 => {
                                 // x + a x → (1 + a) x
                                 return Some(Expr::nary(
                                     Times,
@@ -527,7 +469,7 @@ impl VisitMut for Transform {
                     }
                     if let (nary!(Times, xs), nary!(Times, ys)) = (x, y) {
                         match (&mut xs[..], &mut ys[..]) {
-                            ([x1 @ constant!(), x2s @ ..], [y1 @ constant!(), y2s @ ..])
+                            ([x1 @ constant!(_), x2s @ ..], [y1 @ constant!(_), y2s @ ..])
                                 if x2s == y2s =>
                             {
                                 // a x… + b x… → (a + b) x…
@@ -535,7 +477,7 @@ impl VisitMut for Transform {
                                 v.extend(xs.drain(1..));
                                 return Some(Expr::nary(Times, v));
                             }
-                            (x1s, [y1 @ constant!(), y2s @ ..]) if x1s == y2s => {
+                            (x1s, [y1 @ constant!(_), y2s @ ..]) if x1s == y2s => {
                                 // x… + a x… → (1 + a) x…
                                 let mut v = vec![Expr::nary(Plus, vec![Expr::one(), take(y1)])];
                                 v.append(xs);
@@ -562,8 +504,8 @@ impl VisitMut for Transform {
                 transform_vec(xs, |x, y| {
                     match (x, y) {
                         (
-                            binary!(Pow, x1, x2 @ constant!()),
-                            binary!(Pow, y1, y2 @ constant!()),
+                            binary!(Pow, x1, x2 @ constant!(_)),
+                            binary!(Pow, y1, y2 @ constant!(_)),
                         ) if x1 == y1
                             && test_rationals(x2, y2, |a, b| {
                                 *a.denom() == 1
@@ -578,7 +520,7 @@ impl VisitMut for Transform {
                                 box Expr::nary(Plus, vec![take(x2), take(y2)]),
                             ))
                         }
-                        (x, binary!(Pow, y1, y2 @ constant!()))
+                        (x, binary!(Pow, y1, y2 @ constant!(_)))
                             if x == y1 && test_rational(y2, |a| *a.denom() == 1 && *a >= 0) =>
                         {
                             // x x^a /. a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
@@ -656,16 +598,16 @@ impl VisitMut for FoldConstant {
         traverse_expr_mut(self, e);
 
         match e {
-            constant!() => (),
+            constant!(_) => (),
             nary!(op @ (Plus | Times), xs) => {
-                if let [_, constant!(), ..] = &mut xs[..] {
+                if let [_, constant!(_), ..] = &mut xs[..] {
                     let bin_op = match op {
                         Plus => Add,
                         Times => Mul,
                         _ => unreachable!(),
                     };
                     self.modified = transform_vec(xs, |x, y| {
-                        if let (x @ constant!(), y @ constant!()) = (x, y) {
+                        if let (x @ constant!(_), y @ constant!(_)) = (x, y) {
                             let e = Expr::binary(bin_op, box take(x), box take(y));
                             let (a, ar) = e.eval().unwrap();
                             Some(Expr::constant(a, ar))
@@ -732,11 +674,11 @@ impl VisitMut for UpdatePolarPeriod {
                     e.polar_period = Some(1.into());
                 }
                 nary!(Plus, xs) => match &xs[..] {
-                    [constant!(), var!(name)] if name == "theta" || name == "θ" => {
+                    [constant!(_), var!(name)] if name == "theta" || name == "θ" => {
                         // sin(b + θ)
                         e.polar_period = Some(1.into());
                     }
-                    [constant!(), nary!(Times, xs)] => match &xs[..] {
+                    [constant!(_), nary!(Times, xs)] => match &xs[..] {
                         [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
                             // sin(b + a θ)
                             if let Some(a) = &a.1 {
@@ -804,7 +746,9 @@ impl VisitMut for SubDivTransform {
                     .drain(..)
                     .fold((vec![], vec![]), |(mut num, mut den), e| {
                         match e {
-                            binary!(Pow, x, y @ constant!()) if test_rational(&y, |x| *x < 0.0) => {
+                            binary!(Pow, x, y @ constant!(_))
+                                if test_rational(&y, |x| *x < 0.0) =>
+                            {
                                 if let constant!((yi, Some(yr))) = y {
                                     let factor = Expr::binary(
                                         Pow,
@@ -952,14 +896,16 @@ impl AssignId {
     }
 
     /// Returns `true` if the expression can perform branch cut on evaluation.
-    fn term_can_perform_cut(kind: &ExprKind) -> bool {
-        use {BinaryOp::*, ExprKind::*, UnaryOp::*};
-        match kind {
-            Unary(Ceil | Digamma | Floor | Gamma | Recip | Tan, _)
-            | Binary(Atan2 | Div | Gcd | Lcm | Log | Mod | Pow | RankedMax | RankedMin, _, _) => {
-                true
-            }
-            Pown(_, n) if n % 2 == -1 => true,
+    fn term_can_perform_cut(e: &Expr) -> bool {
+        use {BinaryOp::*, UnaryOp::*};
+        match e {
+            unary!(Ceil | Digamma | Floor | Gamma | Recip | Tan, _)
+            | binary!(
+                Atan2 | Div | Gcd | Lcm | Log | Mod | Pow | RankedMax | RankedMin,
+                _,
+                _
+            ) => true,
+            pown!(_, n) if n % 2 == -1 => true,
             _ => false,
         }
     }
@@ -975,7 +921,7 @@ impl VisitMut for AssignId {
                 e.id = id;
 
                 if !self.site_map.contains_key(&id)
-                    && Self::term_can_perform_cut(&e.kind)
+                    && Self::term_can_perform_cut(&e)
                     && self.next_site <= Site::MAX
                 {
                     self.site_map.insert(id, Site::new(self.next_site));
@@ -1030,14 +976,14 @@ impl CollectStatic {
     }
 
     fn collect_terms(&mut self) {
-        use {BinaryOp::*, ExprKind::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
-        for t in self.exprs.iter().map(|t| &*t) {
-            let k = match &t.kind {
-                Constant(x) => Some(StaticTermKind::Constant(box x.0.clone())),
-                Var(x) if x == "x" => Some(StaticTermKind::X),
-                Var(x) if x == "y" => Some(StaticTermKind::Y),
-                Var(x) if x == "<n-theta>" => Some(StaticTermKind::NTheta),
-                Unary(op, x) => match op {
+        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
+        for t in self.exprs.iter().copied() {
+            let k = match &*t {
+                constant!(x) => Some(StaticTermKind::Constant(box x.0.clone())),
+                var!(x) if x == "x" => Some(StaticTermKind::X),
+                var!(x) if x == "y" => Some(StaticTermKind::Y),
+                var!(x) if x == "<n-theta>" => Some(StaticTermKind::NTheta),
+                unary!(op, x) => match op {
                     Abs => Some(ScalarUnaryOp::Abs),
                     Acos => Some(ScalarUnaryOp::Acos),
                     Acosh => Some(ScalarUnaryOp::Acosh),
@@ -1087,7 +1033,7 @@ impl CollectStatic {
                     _ => None,
                 }
                 .map(|op| StaticTermKind::Unary(op, self.ti(x))),
-                Binary(op, x, y) => match op {
+                binary!(op, x, y) => match op {
                     Add => Some(ScalarBinaryOp::Add),
                     Atan2 => Some(ScalarBinaryOp::Atan2),
                     BesselI => Some(ScalarBinaryOp::BesselI),
@@ -1110,21 +1056,21 @@ impl CollectStatic {
                     _ => None,
                 }
                 .map(|op| StaticTermKind::Binary(op, self.ti(x), self.ti(y))),
-                Ternary(op, x, y, z) => match op {
+                ternary!(op, x, y, z) => match op {
                     MulAdd => Some(ScalarTernaryOp::MulAdd),
                 }
                 .map(|op| StaticTermKind::Ternary(op, self.ti(x), self.ti(y), self.ti(z))),
-                Nary(List, xs) => Some(StaticTermKind::List(
+                nary!(List, xs) => Some(StaticTermKind::List(
                     box xs.iter().map(|x| self.ti(x)).collect(),
                 )),
-                Pown(x, n) => Some(StaticTermKind::Pown(self.ti(x), *n)),
-                Rootn(x, n) => Some(StaticTermKind::Rootn(self.ti(x), *n)),
-                Nary(_, _) | Var(_) | Uninit => panic!(),
+                pown!(x, n) => Some(StaticTermKind::Pown(self.ti(x), *n)),
+                rootn!(x, n) => Some(StaticTermKind::Rootn(self.ti(x), *n)),
+                nary!(_, _) | var!(_) | uninit!() => panic!(),
             };
             if let Some(k) = k {
                 self.term_index.insert(t.id, self.terms.len() as TermIndex);
-                let store_index = match &t.kind {
-                    Nary(_, _) => StoreIndex::new(0), // List values are not stored.
+                let store_index = match *t {
+                    nary!(_, _) => StoreIndex::new(0), // List values are not stored.
                     _ => {
                         let i = self.next_scalar_store_index;
                         self.next_scalar_store_index += 1;
@@ -1142,10 +1088,10 @@ impl CollectStatic {
     }
 
     fn collect_atomic_forms(&mut self) {
-        use {BinaryOp::*, ExprKind::*};
-        for t in self.exprs.iter().map(|t| &*t) {
-            let k = match &t.kind {
-                Binary(op, x, y) => match op {
+        use BinaryOp::*;
+        for t in self.exprs.iter().copied() {
+            let k = match &*t {
+                binary!(op, x, y) => match op {
                     Eq => Some(RelOp::Eq),
                     Ge => Some(RelOp::Ge),
                     Gt => Some(RelOp::Gt),
@@ -1169,11 +1115,11 @@ impl CollectStatic {
     }
 
     fn collect_non_atomic_forms(&mut self) {
-        use {BinaryOp::*, ExprKind::*};
-        for t in self.exprs.iter().map(|t| &*t) {
-            let k = match &t.kind {
-                Binary(And, x, y) => Some(StaticFormKind::And(self.fi(x), self.fi(y))),
-                Binary(Or, x, y) => Some(StaticFormKind::Or(self.fi(x), self.fi(y))),
+        use BinaryOp::*;
+        for t in self.exprs.iter().copied() {
+            let k = match &*t {
+                binary!(And, x, y) => Some(StaticFormKind::And(self.fi(x), self.fi(y))),
+                binary!(Or, x, y) => Some(StaticFormKind::Or(self.fi(x), self.fi(y))),
                 _ => None,
             };
             if let Some(k) = k {
@@ -1227,14 +1173,14 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms {
                 // Stop traversal.
             }
             VarSet::X if e.ty == ValueType::Scalar => {
-                if !matches!(e.kind, ExprKind::Var(_)) {
+                if !matches!(e, var!(_)) {
                     self.mx
                         .push(self.terms[self.term_index[&e.id] as usize].store_index);
                 }
                 // Stop traversal.
             }
             VarSet::Y if e.ty == ValueType::Scalar => {
-                if !matches!(e.kind, ExprKind::Var(_)) {
+                if !matches!(e, var!(_)) {
                     self.my
                         .push(self.terms[self.term_index[&e.id] as usize].store_index);
                 }

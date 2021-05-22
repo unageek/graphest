@@ -1,10 +1,11 @@
 use crate::{
-    ast::{BinaryOp, Expr, ExprKind, NaryOp, UnaryOp, ValueType, VarSet},
+    ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType, VarSet},
     context::Context,
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
     parse::parse_expr,
+    var,
     visit::*,
 };
 use inari::{const_dec_interval, dec_interval, DecInterval, Interval};
@@ -395,8 +396,8 @@ fn expand_polar_coords(e: &mut Expr) {
 
     // e1 = e /. {r → sqrt(x^2 + y^2), θ → atan2(y, x) + 2π n_θ}.
     let mut e1 = e.clone();
-    let mut v = ReplaceAll::new(|e| match &e.kind {
-        ExprKind::Var(x) if x == "r" => Some(Expr::binary(
+    let mut v = ReplaceAll::new(|e| match e {
+        var!(x) if x == "r" => Some(Expr::binary(
             Pow,
             box Expr::nary(
                 Plus,
@@ -407,7 +408,7 @@ fn expand_polar_coords(e: &mut Expr) {
             ),
             box Expr::one_half(),
         )),
-        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::nary(
+        var!(x) if x == "theta" || x == "θ" => Some(Expr::nary(
             Plus,
             vec![
                 Expr::binary(Atan2, box Expr::var("y"), box Expr::var("x")),
@@ -433,8 +434,8 @@ fn expand_polar_coords(e: &mut Expr) {
     // which will be a little more precise for some n_θ,
     // but much slower since we have to evaluate `atan2` separately for `e1` and `e2`.
     let mut e2 = e.clone();
-    let mut v = ReplaceAll::new(|e| match &e.kind {
-        ExprKind::Var(x) if x == "r" => Some(Expr::unary(
+    let mut v = ReplaceAll::new(|e| match e {
+        var!(x) if x == "r" => Some(Expr::unary(
             UnaryOp::Neg,
             box Expr::binary(
                 Pow,
@@ -448,7 +449,7 @@ fn expand_polar_coords(e: &mut Expr) {
                 box Expr::one_half(),
             ),
         )),
-        ExprKind::Var(x) if x == "theta" || x == "θ" => Some(Expr::nary(
+        var!(x) if x == "theta" || x == "θ" => Some(Expr::nary(
             Plus,
             vec![
                 Expr::binary(Atan2, box Expr::var("y"), box Expr::var("x")),

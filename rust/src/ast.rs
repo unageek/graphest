@@ -155,6 +155,105 @@ pub struct Expr {
     internal_hash: u64,
 }
 
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Binary`].
+#[macro_export]
+macro_rules! binary {
+    ($($op:pat)|*, $x:pat, $y:pat) => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Binary($($op)|*, box $x, box $y),
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Constant`].
+#[macro_export]
+macro_rules! constant {
+    ($a:pat) => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Constant(box $a),
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Nary`].
+#[macro_export]
+macro_rules! nary {
+    ($($op:pat)|*, $xs:pat) => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Nary($($op)|*, $xs),
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Pown`].
+#[macro_export]
+macro_rules! pown {
+    ($x:pat, $n:pat) => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Pown(box $x, $n),
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Rootn`].
+#[macro_export]
+macro_rules! rootn {
+    ($x:pat, $n:pat) => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Rootn(box $x, $n),
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Ternary`].
+#[macro_export]
+macro_rules! ternary {
+    ($($op:pat)|*, $x:pat, $y:pat, $z:pat) => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Ternary($($op)|*, box $x, box $y, box $z),
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Unary`].
+#[macro_export]
+macro_rules! unary {
+    ($($op:pat)|*, $x:pat) => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Unary($($op)|*, box $x),
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Uninit`].
+#[macro_export]
+macro_rules! uninit {
+    () => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Uninit,
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Var`].
+#[macro_export]
+macro_rules! var {
+    ($name:pat) => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Var($name),
+            ..
+        }
+    };
+}
+
 impl Expr {
     /// Creates a new expression.
     pub fn new(kind: ExprKind) -> Self {
@@ -242,74 +341,74 @@ impl Expr {
     /// Returns [`None`] if the expression cannot be evaluated to a scalar constant
     /// or constant evaluation is not implemented for the operation.
     pub fn eval(&self) -> Option<(TupperIntervalSet, Option<Rational>)> {
-        use {BinaryOp::*, ExprKind::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
-        match &self.kind {
-            Constant(x) => Some(*x.clone()),
-            Var(_) => None,
-            Unary(Abs, x) => x.eval1r(|x| x.abs(), |x| Some(x.abs())),
-            Unary(Acos, x) => x.eval1(|x| x.acos()),
-            Unary(Acosh, x) => x.eval1(|x| x.acosh()),
-            Unary(AiryAi, x) => x.eval1(|x| x.airy_ai()),
-            Unary(AiryAiPrime, x) => x.eval1(|x| x.airy_ai_prime()),
-            Unary(AiryBi, x) => x.eval1(|x| x.airy_bi()),
-            Unary(AiryBiPrime, x) => x.eval1(|x| x.airy_bi_prime()),
-            Unary(Asin, x) => x.eval1(|x| x.asin()),
-            Unary(Asinh, x) => x.eval1(|x| x.asinh()),
-            Unary(Atan, x) => x.eval1(|x| x.atan()),
-            Unary(Atanh, x) => x.eval1(|x| x.atanh()),
-            Unary(Ceil, x) => x.eval1r(|x| x.ceil(None), |x| Some(x.ceil())),
-            Unary(Chi, x) => x.eval1(|x| x.chi()),
-            Unary(Ci, x) => x.eval1(|x| x.ci()),
-            Unary(Cos, x) => x.eval1(|x| x.cos()),
-            Unary(Cosh, x) => x.eval1(|x| x.cosh()),
-            Unary(Digamma, x) => x.eval1(|x| x.digamma(None)),
-            Unary(Ei, x) => x.eval1(|x| x.ei()),
-            Unary(EllipticE, x) => x.eval1(|x| x.elliptic_e()),
-            Unary(EllipticK, x) => x.eval1(|x| x.elliptic_k()),
-            Unary(Erf, x) => x.eval1(|x| x.erf()),
-            Unary(Erfc, x) => x.eval1(|x| x.erfc()),
-            Unary(Erfi, x) => x.eval1(|x| x.erfi()),
-            Unary(Exp, x) => x.eval1(|x| x.exp()),
-            Unary(Floor, x) => x.eval1r(|x| x.floor(None), |x| Some(x.floor())),
-            Unary(FresnelC, x) => x.eval1(|x| x.fresnel_c()),
-            Unary(FresnelS, x) => x.eval1(|x| x.fresnel_s()),
-            Unary(Gamma, x) => x.eval1(|x| x.gamma(None)),
-            Unary(Li, x) => x.eval1(|x| x.li()),
-            Unary(Ln, x) => x.eval1(|x| x.ln()),
-            Unary(Log10, x) => x.eval1(|x| x.log10()),
-            Unary(Neg, x) => x.eval1r(|x| -&x, |x| Some(-x)),
-            Unary(One, x) => x.eval1(|x| x.one()),
-            Unary(Shi, x) => x.eval1(|x| x.shi()),
-            Unary(Si, x) => x.eval1(|x| x.si()),
-            Unary(Sin, x) => x.eval1(|x| x.sin()),
-            Unary(Sinc, x) => x.eval1(|x| x.sinc()),
-            Unary(Sinh, x) => x.eval1(|x| x.sinh()),
-            Unary(Sqr, x) => x.eval1r(|x| x.sqr(), |x| Some(x.square())),
-            Unary(Sqrt, x) => x.eval1(|x| x.sqrt()),
-            Unary(Tan, x) => x.eval1(|x| x.tan(None)),
-            Unary(Tanh, x) => x.eval1(|x| x.tanh()),
-            Unary(UndefAt0, x) => x.eval1(|x| x.undef_at_0()),
-            Binary(Add, x, y) => x.eval2r(y, |x, y| &x + &y, |x, y| Some(x + y)),
-            Binary(Atan2, y, x) => y.eval2(x, |y, x| y.atan2(&x, None)),
-            Binary(BesselI, n, x) => n.eval2(x, |n, x| n.bessel_i(&x)),
-            Binary(BesselJ, n, x) => n.eval2(x, |n, x| n.bessel_j(&x)),
-            Binary(BesselK, n, x) => n.eval2(x, |n, x| n.bessel_k(&x)),
-            Binary(BesselY, n, x) => n.eval2(x, |n, x| n.bessel_y(&x)),
-            Binary(Div, x, y) => x.eval2r(y, |x, y| x.div(&y, None), rational_ops::div),
-            Binary(GammaInc, a, x) => a.eval2(x, |a, x| a.gamma_inc(&x)),
-            Binary(Gcd, x, y) => x.eval2r(y, |x, y| x.gcd(&y, None), rational_ops::gcd),
-            Binary(Lcm, x, y) => x.eval2r(y, |x, y| x.lcm(&y, None), rational_ops::lcm),
+        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
+        match self {
+            constant!(x) => Some(x.clone()),
+            var!(_) => None,
+            unary!(Abs, x) => x.eval1r(|x| x.abs(), |x| Some(x.abs())),
+            unary!(Acos, x) => x.eval1(|x| x.acos()),
+            unary!(Acosh, x) => x.eval1(|x| x.acosh()),
+            unary!(AiryAi, x) => x.eval1(|x| x.airy_ai()),
+            unary!(AiryAiPrime, x) => x.eval1(|x| x.airy_ai_prime()),
+            unary!(AiryBi, x) => x.eval1(|x| x.airy_bi()),
+            unary!(AiryBiPrime, x) => x.eval1(|x| x.airy_bi_prime()),
+            unary!(Asin, x) => x.eval1(|x| x.asin()),
+            unary!(Asinh, x) => x.eval1(|x| x.asinh()),
+            unary!(Atan, x) => x.eval1(|x| x.atan()),
+            unary!(Atanh, x) => x.eval1(|x| x.atanh()),
+            unary!(Ceil, x) => x.eval1r(|x| x.ceil(None), |x| Some(x.ceil())),
+            unary!(Chi, x) => x.eval1(|x| x.chi()),
+            unary!(Ci, x) => x.eval1(|x| x.ci()),
+            unary!(Cos, x) => x.eval1(|x| x.cos()),
+            unary!(Cosh, x) => x.eval1(|x| x.cosh()),
+            unary!(Digamma, x) => x.eval1(|x| x.digamma(None)),
+            unary!(Ei, x) => x.eval1(|x| x.ei()),
+            unary!(EllipticE, x) => x.eval1(|x| x.elliptic_e()),
+            unary!(EllipticK, x) => x.eval1(|x| x.elliptic_k()),
+            unary!(Erf, x) => x.eval1(|x| x.erf()),
+            unary!(Erfc, x) => x.eval1(|x| x.erfc()),
+            unary!(Erfi, x) => x.eval1(|x| x.erfi()),
+            unary!(Exp, x) => x.eval1(|x| x.exp()),
+            unary!(Floor, x) => x.eval1r(|x| x.floor(None), |x| Some(x.floor())),
+            unary!(FresnelC, x) => x.eval1(|x| x.fresnel_c()),
+            unary!(FresnelS, x) => x.eval1(|x| x.fresnel_s()),
+            unary!(Gamma, x) => x.eval1(|x| x.gamma(None)),
+            unary!(Li, x) => x.eval1(|x| x.li()),
+            unary!(Ln, x) => x.eval1(|x| x.ln()),
+            unary!(Log10, x) => x.eval1(|x| x.log10()),
+            unary!(Neg, x) => x.eval1r(|x| -&x, |x| Some(-x)),
+            unary!(One, x) => x.eval1(|x| x.one()),
+            unary!(Shi, x) => x.eval1(|x| x.shi()),
+            unary!(Si, x) => x.eval1(|x| x.si()),
+            unary!(Sin, x) => x.eval1(|x| x.sin()),
+            unary!(Sinc, x) => x.eval1(|x| x.sinc()),
+            unary!(Sinh, x) => x.eval1(|x| x.sinh()),
+            unary!(Sqr, x) => x.eval1r(|x| x.sqr(), |x| Some(x.square())),
+            unary!(Sqrt, x) => x.eval1(|x| x.sqrt()),
+            unary!(Tan, x) => x.eval1(|x| x.tan(None)),
+            unary!(Tanh, x) => x.eval1(|x| x.tanh()),
+            unary!(UndefAt0, x) => x.eval1(|x| x.undef_at_0()),
+            binary!(Add, x, y) => x.eval2r(y, |x, y| &x + &y, |x, y| Some(x + y)),
+            binary!(Atan2, y, x) => y.eval2(x, |y, x| y.atan2(&x, None)),
+            binary!(BesselI, n, x) => n.eval2(x, |n, x| n.bessel_i(&x)),
+            binary!(BesselJ, n, x) => n.eval2(x, |n, x| n.bessel_j(&x)),
+            binary!(BesselK, n, x) => n.eval2(x, |n, x| n.bessel_k(&x)),
+            binary!(BesselY, n, x) => n.eval2(x, |n, x| n.bessel_y(&x)),
+            binary!(Div, x, y) => x.eval2r(y, |x, y| x.div(&y, None), rational_ops::div),
+            binary!(GammaInc, a, x) => a.eval2(x, |a, x| a.gamma_inc(&x)),
+            binary!(Gcd, x, y) => x.eval2r(y, |x, y| x.gcd(&y, None), rational_ops::gcd),
+            binary!(Lcm, x, y) => x.eval2r(y, |x, y| x.lcm(&y, None), rational_ops::lcm),
             // Beware the order of arguments.
-            Binary(Log, b, x) => b.eval2(x, |b, x| x.log(&b, None)),
-            Binary(Max, x, y) => x.eval2r(y, |x, y| x.max(&y), rational_ops::max),
-            Binary(Min, x, y) => x.eval2r(y, |x, y| x.min(&y), rational_ops::min),
-            Binary(Mod, x, y) => {
+            binary!(Log, b, x) => b.eval2(x, |b, x| x.log(&b, None)),
+            binary!(Max, x, y) => x.eval2r(y, |x, y| x.max(&y), rational_ops::max),
+            binary!(Min, x, y) => x.eval2r(y, |x, y| x.min(&y), rational_ops::min),
+            binary!(Mod, x, y) => {
                 x.eval2r(y, |x, y| x.rem_euclid(&y, None), rational_ops::rem_euclid)
             }
-            Binary(Mul, x, y) => x.eval2r(y, |x, y| &x * &y, |x, y| Some(x * y)),
-            Binary(Pow, x, y) => x.eval2r(y, |x, y| x.pow(&y, None), rational_ops::pow),
-            Binary(RankedMax, xs, n) => Some((
-                if let Nary(List, xs) = &xs.kind {
+            binary!(Mul, x, y) => x.eval2r(y, |x, y| &x * &y, |x, y| Some(x * y)),
+            binary!(Pow, x, y) => x.eval2r(y, |x, y| x.pow(&y, None), rational_ops::pow),
+            binary!(RankedMax, xs, n) => Some((
+                if let nary!(List, xs) = xs {
                     let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
                     TupperIntervalSet::ranked_max(
                         xs.iter().map(|x| &x.0).collect(),
@@ -321,8 +420,8 @@ impl Expr {
                 },
                 None,
             )),
-            Binary(RankedMin, xs, n) => Some((
-                if let Nary(List, xs) = &xs.kind {
+            binary!(RankedMin, xs, n) => Some((
+                if let nary!(List, xs) = xs {
                     let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
                     TupperIntervalSet::ranked_min(
                         xs.iter().map(|x| &x.0).collect(),
@@ -334,17 +433,21 @@ impl Expr {
                 },
                 None,
             )),
-            Binary(Sub, x, y) => x.eval2r(y, |x, y| &x - &y, |x, y| Some(x - y)),
-            Ternary(MulAdd, _, _, _) => None,
-            Nary(Plus | Times, _) => None,
-            Rootn(x, n) => x.eval1(|x| x.rootn(*n)),
-            Unary(Exp10 | Exp2 | Recip, _) | Pown(_, _) => {
+            binary!(Sub, x, y) => x.eval2r(y, |x, y| &x - &y, |x, y| Some(x - y)),
+            ternary!(MulAdd, _, _, _) => None,
+            nary!(Plus | Times, _) => None,
+            rootn!(x, n) => x.eval1(|x| x.rootn(*n)),
+            unary!(Exp10 | Exp2 | Recip, _) | pown!(_, _) => {
                 panic!("use `BinaryOp::Pow` for constant evaluation")
             }
-            Unary(Not, _) => None,
-            Binary(And | Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt | Or, _, _) => None,
-            Nary(List, _) => None,
-            Uninit => panic!(),
+            unary!(Not, _) => None,
+            binary!(
+                And | Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt | Or,
+                _,
+                _
+            ) => None,
+            nary!(List, _) => None,
+            uninit!() => panic!(),
         }
     }
 
@@ -353,19 +456,18 @@ impl Expr {
     /// Precondition:
     ///   The function is called on all sub-expressions and they have not been changed since then.
     pub fn update_metadata(&mut self) {
-        use ExprKind::*;
         self.ty = self.value_type();
-        self.vars = match &self.kind {
-            Constant(_) => VarSet::EMPTY,
-            Var(x) if x == "x" => VarSet::X,
-            Var(x) if x == "y" => VarSet::Y,
-            Var(x) if x == "<n-theta>" => VarSet::N_THETA,
-            Var(_) => VarSet::EMPTY,
-            Unary(_, x) | Pown(x, _) | Rootn(x, _) => x.vars,
-            Binary(_, x, y) => x.vars | y.vars,
-            Ternary(_, x, y, z) => x.vars | y.vars | z.vars,
-            Nary(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
-            Uninit => panic!(),
+        self.vars = match self {
+            constant!(_) => VarSet::EMPTY,
+            var!(x) if x == "x" => VarSet::X,
+            var!(x) if x == "y" => VarSet::Y,
+            var!(x) if x == "<n-theta>" => VarSet::N_THETA,
+            var!(_) => VarSet::EMPTY,
+            unary!(_, x) | pown!(x, _) | rootn!(x, _) => x.vars,
+            binary!(_, x, y) => x.vars | y.vars,
+            ternary!(_, x, y, z) => x.vars | y.vars | z.vars,
+            nary!(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
+            uninit!() => panic!(),
         };
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
@@ -376,38 +478,92 @@ impl Expr {
     }
 
     pub fn value_type(&self) -> ValueType {
-        use {BinaryOp::*, ExprKind::*, NaryOp::*, TernaryOp::*, UnaryOp::*, ValueType::*};
-        match &self.kind {
-            Constant(_) => Scalar,
-            Var(x) if x == "x" || x == "y" || x == "<n-theta>" => Scalar,
-            Unary(
-                Abs | Acos | Acosh | AiryAi | AiryAiPrime | AiryBi | AiryBiPrime | Asin | Asinh
-                | Atan | Atanh | Ceil | Chi | Ci | Cos | Cosh | Digamma | Ei | EllipticE
-                | EllipticK | Erf | Erfc | Erfi | Exp | Exp10 | Exp2 | Floor | FresnelC | FresnelS
-                | Gamma | Li | Ln | Log10 | Neg | One | Recip | Shi | Si | Sin | Sinc | Sinh | Sqr
-                | Sqrt | Tan | Tanh | UndefAt0,
-                x,
+        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*, ValueType::*};
+        match self {
+            constant!(_) => Scalar,
+            var!(x) if x == "x" || x == "y" || x == "<n-theta>" => Scalar,
+            unary!(
+                Abs | Acos
+                    | Acosh
+                    | AiryAi
+                    | AiryAiPrime
+                    | AiryBi
+                    | AiryBiPrime
+                    | Asin
+                    | Asinh
+                    | Atan
+                    | Atanh
+                    | Ceil
+                    | Chi
+                    | Ci
+                    | Cos
+                    | Cosh
+                    | Digamma
+                    | Ei
+                    | EllipticE
+                    | EllipticK
+                    | Erf
+                    | Erfc
+                    | Erfi
+                    | Exp
+                    | Exp10
+                    | Exp2
+                    | Floor
+                    | FresnelC
+                    | FresnelS
+                    | Gamma
+                    | Li
+                    | Ln
+                    | Log10
+                    | Neg
+                    | One
+                    | Recip
+                    | Shi
+                    | Si
+                    | Sin
+                    | Sinc
+                    | Sinh
+                    | Sqr
+                    | Sqrt
+                    | Tan
+                    | Tanh
+                    | UndefAt0,
+                x
             ) if x.ty == Scalar => Scalar,
-            Binary(
-                Add | Atan2 | BesselI | BesselJ | BesselK | BesselY | Div | GammaInc | Gcd | Lcm
-                | Log | Max | Min | Mod | Mul | Pow | Sub,
+            binary!(
+                Add | Atan2
+                    | BesselI
+                    | BesselJ
+                    | BesselK
+                    | BesselY
+                    | Div
+                    | GammaInc
+                    | Gcd
+                    | Lcm
+                    | Log
+                    | Max
+                    | Min
+                    | Mod
+                    | Mul
+                    | Pow
+                    | Sub,
                 x,
-                y,
+                y
             ) if x.ty == Scalar && y.ty == Scalar => Scalar,
-            Ternary(MulAdd, x, y, z) if x.ty == Scalar && y.ty == Scalar && z.ty == Scalar => {
+            ternary!(MulAdd, x, y, z) if x.ty == Scalar && y.ty == Scalar && z.ty == Scalar => {
                 Scalar
             }
-            Binary(RankedMax | RankedMin, x, y) if x.ty == Vector && y.ty == Scalar => Scalar,
-            Pown(x, _) | Rootn(x, _) if x.ty == Scalar => Scalar,
-            Nary(List, xs) if xs.iter().all(|x| x.ty == Scalar) => Vector,
-            Unary(Not, x) if x.ty == Boolean => Boolean,
-            Binary(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
-            Binary(Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt, x, y)
+            binary!(RankedMax | RankedMin, x, y) if x.ty == Vector && y.ty == Scalar => Scalar,
+            pown!(x, _) | rootn!(x, _) if x.ty == Scalar => Scalar,
+            nary!(List, xs) if xs.iter().all(|x| x.ty == Scalar) => Vector,
+            unary!(Not, x) if x.ty == Boolean => Boolean,
+            binary!(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
+            binary!(Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt, x, y)
                 if x.ty == Scalar && y.ty == Scalar =>
             {
                 Boolean
             }
-            Uninit => panic!(),
+            uninit!() => panic!(),
             _ => Unknown,
         }
     }
@@ -496,24 +652,24 @@ struct DumpStructure<'a>(&'a Expr);
 
 impl<'a> fmt::Display for DumpStructure<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.0.kind {
-            ExprKind::Constant(a) => {
+        match self.0 {
+            constant!(a) => {
                 if let Some(a) = a.0.to_f64() {
                     write!(f, "{}", a)
                 } else {
                     write!(f, "@")
                 }
             }
-            ExprKind::Var(name) => write!(f, "{}", name),
-            ExprKind::Unary(op, x) => write!(f, "({:?} {})", op, x.dump_structure()),
-            ExprKind::Binary(op, x, y) => write!(
+            var!(name) => write!(f, "{}", name),
+            unary!(op, x) => write!(f, "({:?} {})", op, x.dump_structure()),
+            binary!(op, x, y) => write!(
                 f,
                 "({:?} {} {})",
                 op,
                 x.dump_structure(),
                 y.dump_structure()
             ),
-            ExprKind::Ternary(op, x, y, z) => write!(
+            ternary!(op, x, y, z) => write!(
                 f,
                 "({:?} {} {} {})",
                 op,
@@ -521,7 +677,7 @@ impl<'a> fmt::Display for DumpStructure<'a> {
                 y.dump_structure(),
                 z.dump_structure()
             ),
-            ExprKind::Nary(op, xs) => {
+            nary!(op, xs) => {
                 write!(
                     f,
                     "({:?} {})",
@@ -532,9 +688,9 @@ impl<'a> fmt::Display for DumpStructure<'a> {
                         .join(" ")
                 )
             }
-            ExprKind::Pown(x, n) => write!(f, "(Pown {} {})", x.dump_structure(), n),
-            ExprKind::Rootn(x, n) => write!(f, "(Rootn {} {})", x.dump_structure(), n),
-            ExprKind::Uninit => panic!(),
+            pown!(x, n) => write!(f, "(Pown {} {})", x.dump_structure(), n),
+            rootn!(x, n) => write!(f, "(Rootn {} {})", x.dump_structure(), n),
+            uninit!() => panic!(),
         }
     }
 }
