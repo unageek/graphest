@@ -933,8 +933,8 @@ impl TupperIntervalSet {
             || q == 1.0 && (n < 3.0 || n == 3.0 && cont)
         {
             let dec = Decoration::Trv;
-            let y0 = interval!(interval!(a, a).unwrap().tan().inf(), f64::INFINITY).unwrap();
-            let y1 = interval!(f64::NEG_INFINITY, interval!(b, b).unwrap().tan().sup()).unwrap();
+            let y0 = interval!(tan_rd(a), f64::INFINITY).unwrap();
+            let y1 = interval!(f64::NEG_INFINITY, tan_ru(b)).unwrap();
             (
                 DecInterval::set_dec(y0, dec),
                 Some(DecInterval::set_dec(y1, dec)),
@@ -1109,55 +1109,44 @@ impl TupperIntervalSet {
     impl_rel_op!(nlt, false, true, true, true);
 }
 
-// Copy-paste from inari/src/elementary.rs
-
-fn mpfr_fn(
-    f: unsafe extern "C" fn(*mut mpfr::mpfr_t, *const mpfr::mpfr_t, mpfr::rnd_t) -> i32,
-    x: f64,
-    rnd: mpfr::rnd_t,
-) -> f64 {
-    let mut x = Float::with_val(f64::MANTISSA_DIGITS, x);
-    unsafe {
-        f(x.as_raw_mut(), x.as_raw(), rnd);
-        mpfr::get_d(x.as_raw(), rnd)
-    }
-}
-
-fn mpfr_fn_ui(
-    f: unsafe extern "C" fn(*mut mpfr::mpfr_t, *const mpfr::mpfr_t, u64, mpfr::rnd_t) -> i32,
-    x: f64,
-    y: u64,
-    rnd: mpfr::rnd_t,
-) -> f64 {
-    let mut x = Float::with_val(f64::MANTISSA_DIGITS, x);
-    unsafe {
-        f(x.as_raw_mut(), x.as_raw(), y, rnd);
-        mpfr::get_d(x.as_raw(), rnd)
-    }
-}
-
 macro_rules! mpfr_fn {
     ($mpfr_f:ident, $f_rd:ident, $f_ru:ident) => {
         fn $f_rd(x: f64) -> f64 {
-            mpfr_fn(mpfr::$mpfr_f, x, mpfr::rnd_t::RNDD)
+            mpfr_fn!($mpfr_f(x, RNDD))
         }
 
         fn $f_ru(x: f64) -> f64 {
-            mpfr_fn(mpfr::$mpfr_f, x, mpfr::rnd_t::RNDU)
+            mpfr_fn!($mpfr_f(x, RNDU))
         }
     };
+
+    ($mpfr_f:ident($x:ident, $rnd:ident)) => {{
+        let mut x = Float::with_val(f64::MANTISSA_DIGITS, $x);
+        unsafe {
+            mpfr::$mpfr_f(x.as_raw_mut(), x.as_raw(), mpfr::rnd_t::$rnd);
+            mpfr::get_d(x.as_raw(), mpfr::rnd_t::$rnd)
+        }
+    }};
 }
 
 macro_rules! mpfr_fn_ui {
     ($mpfr_f:ident, $f_rd:ident, $f_ru:ident) => {
         fn $f_rd(x: f64, y: u32) -> f64 {
-            mpfr_fn_ui(mpfr::$mpfr_f, x, y as u64, mpfr::rnd_t::RNDD)
+            mpfr_fn_ui!($mpfr_f(x, y, RNDD))
         }
 
         fn $f_ru(x: f64, y: u32) -> f64 {
-            mpfr_fn_ui(mpfr::$mpfr_f, x, y as u64, mpfr::rnd_t::RNDU)
+            mpfr_fn_ui!($mpfr_f(x, y, RNDU))
         }
     };
+
+    ($mpfr_f:ident($x:ident, $y:ident, $rnd:ident)) => {{
+        let mut x = Float::with_val(f64::MANTISSA_DIGITS, $x);
+        unsafe {
+            mpfr::$mpfr_f(x.as_raw_mut(), x.as_raw(), $y as u64, mpfr::rnd_t::$rnd);
+            mpfr::get_d(x.as_raw(), mpfr::rnd_t::$rnd)
+        }
+    }};
 }
 
 mpfr_fn!(digamma, digamma_rd, digamma_ru);
@@ -1165,6 +1154,7 @@ mpfr_fn!(erf, erf_rd, erf_ru);
 mpfr_fn!(erfc, erfc_rd, erfc_ru);
 mpfr_fn!(gamma, gamma_rd, gamma_ru);
 mpfr_fn_ui!(rootn_ui, rootn_rd, rootn_ru);
+mpfr_fn!(tan, tan_rd, tan_ru);
 
 /// `x` must be nonempty.
 pub(crate) fn digamma(x: Interval) -> Interval {
