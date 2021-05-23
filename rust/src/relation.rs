@@ -8,7 +8,7 @@ use crate::{
     var,
     visit::*,
 };
-use inari::{const_dec_interval, dec_interval, interval, DecInterval, Interval};
+use inari::{interval, DecInterval, Interval};
 use std::{
     collections::{hash_map::Entry, HashMap},
     mem::size_of,
@@ -481,33 +481,7 @@ fn expand_polar_coords(e: &mut Expr) {
     });
     v.visit_expr_mut(&mut e2);
 
-    let e3 = Expr::binary(BinaryOp::Or, box e1, box e2);
-
-    *e = match &e.polar_period {
-        Some(period) if *period != 0 => {
-            // constraint ≡ 0 ≤ n_θ < period.
-            let constraint = Expr::binary(
-                And,
-                box Expr::binary(
-                    Le,
-                    box Expr::constant(const_dec_interval!(0.0, 0.0).into(), Some(0.into())),
-                    box Expr::var("<n-theta>"),
-                ),
-                box Expr::binary(
-                    Lt,
-                    box Expr::var("<n-theta>"),
-                    box Expr::constant(
-                        dec_interval!(&format!("[{}]", period.to_string()))
-                            .unwrap()
-                            .into(),
-                        Some(period.into()),
-                    ),
-                ),
-            );
-            Expr::binary(And, box e3, box constraint)
-        }
-        _ => e3,
-    }
+    *e = Expr::binary(BinaryOp::Or, box e1, box e2);
 }
 
 #[cfg(test)]
