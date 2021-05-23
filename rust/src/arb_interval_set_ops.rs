@@ -1,5 +1,5 @@
 use crate::{
-    interval_set::{TupperInterval, TupperIntervalSet},
+    interval_set::{Site, TupperInterval, TupperIntervalSet},
     interval_set_ops,
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
@@ -144,6 +144,7 @@ const ZERO_TO_ONE: Interval = const_interval!(0.0, 1.0);
 impl TupperIntervalSet {
     // Mid-rad IA, which is used by Arb, cannot represent half-bounded intervals.
     // So we need to handle such inputs and unbounded functions explicitly.
+
     impl_arb_op!(
         acos(x),
         if x.interior(M_ONE_TO_ONE) {
@@ -153,6 +154,7 @@ impl TupperIntervalSet {
         },
         ge!(x, -1.0) & le!(x, 1.0)
     );
+
     impl_arb_op!(
         acosh(x),
         if x.inf() > 1.0 && x.sup() < f64::INFINITY {
@@ -162,6 +164,7 @@ impl TupperIntervalSet {
         },
         ge!(x, 1.0)
     );
+
     impl_arb_op!(airy_ai(x), {
         let a = x.inf();
         let b = x.sup();
@@ -172,6 +175,7 @@ impl TupperIntervalSet {
             arb_airy_ai(x).intersection(airy_envelope(x))
         }
     });
+
     impl_arb_op!(airy_ai_prime(x), {
         let a = x.inf();
         let b = x.sup();
@@ -182,6 +186,7 @@ impl TupperIntervalSet {
             arb_airy_ai_prime(x)
         }
     });
+
     impl_arb_op!(airy_bi(x), {
         let a = x.inf();
         let b = x.sup();
@@ -192,6 +197,7 @@ impl TupperIntervalSet {
             arb_airy_bi(x).intersection(airy_envelope(x))
         }
     });
+
     impl_arb_op!(airy_bi_prime(x), {
         let a = x.inf();
         let b = x.sup();
@@ -202,6 +208,7 @@ impl TupperIntervalSet {
             arb_airy_bi_prime(x)
         }
     });
+
     impl_arb_op!(
         asin(x),
         if x.interior(M_ONE_TO_ONE) {
@@ -211,6 +218,7 @@ impl TupperIntervalSet {
         },
         ge!(x, -1.0) & le!(x, 1.0)
     );
+
     impl_arb_op!(
         asinh(x),
         if x.is_common_interval() {
@@ -219,6 +227,7 @@ impl TupperIntervalSet {
             x.asinh()
         }
     );
+
     impl_arb_op!(
         atan(x),
         if x.is_common_interval() {
@@ -227,6 +236,34 @@ impl TupperIntervalSet {
             x.atan()
         }
     );
+
+    pub fn atan2(&self, rhs: &Self, site: Option<Site>) -> Self {
+        if self.iter().all(|x| x.x.is_common_interval())
+            && rhs.iter().all(|x| x.x.is_common_interval())
+            && self
+                .iter()
+                .zip(rhs.iter())
+                .filter(|(x, y)| x.g.union(y.g).is_some())
+                .all(|(y, x)| x.x.inf() > 0.0 || !y.x.contains(0.0))
+        {
+            let mut rs = Self::new();
+            for x in self {
+                for y in rhs {
+                    if let Some(g) = x.g.union(y.g) {
+                        let (y, x) = (x, y);
+                        let dec = Decoration::Dac.min(x.d).min(y.d);
+                        let z = arb_atan2(y.x, x.x);
+                        rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), g));
+                    }
+                }
+            }
+            rs.normalize(false);
+            rs
+        } else {
+            self.atan2_impl(rhs, site)
+        }
+    }
+
     impl_arb_op!(
         atanh(x),
         if x.interior(M_ONE_TO_ONE) {
@@ -236,6 +273,7 @@ impl TupperIntervalSet {
         },
         gt!(x, -1.0) & lt!(x, 1.0)
     );
+
     impl_arb_op!(
         bessel_i(n, x),
         {
@@ -336,6 +374,7 @@ impl TupperIntervalSet {
             }
         }
     );
+
     impl_arb_op!(
         bessel_j(n, x),
         {
@@ -394,6 +433,7 @@ impl TupperIntervalSet {
             }
         }
     );
+
     impl_arb_op!(
         bessel_k(n, x),
         {
@@ -415,6 +455,7 @@ impl TupperIntervalSet {
             gt!(x, 0.0)
         }
     );
+
     impl_arb_op!(
         bessel_y(n, x),
         {
@@ -468,6 +509,7 @@ impl TupperIntervalSet {
             gt!(x, 0.0)
         }
     );
+
     impl_arb_op!(
         chi(x),
         {
@@ -488,6 +530,7 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(
         ci(x),
         {
@@ -504,7 +547,9 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(cos(x), arb_cos(x));
+
     impl_arb_op!(
         cosh(x),
         if x.is_common_interval() {
@@ -513,6 +558,7 @@ impl TupperIntervalSet {
             x.cosh()
         }
     );
+
     impl_arb_op!(
         ei(x),
         {
@@ -554,6 +600,7 @@ impl TupperIntervalSet {
         },
         ne!(x, 0.0)
     );
+
     impl_arb_op!(
         elliptic_e(x),
         {
@@ -571,6 +618,7 @@ impl TupperIntervalSet {
         },
         le!(x, 1.0)
     );
+
     impl_arb_op!(
         elliptic_k(x),
         {
@@ -588,6 +636,7 @@ impl TupperIntervalSet {
         },
         lt!(x, 1.0)
     );
+
     impl_arb_op!(
         erf(x),
         if x.is_common_interval() {
@@ -596,6 +645,7 @@ impl TupperIntervalSet {
             interval_set_ops::erf(x)
         }
     );
+
     impl_arb_op!(
         erfc(x),
         if x.is_common_interval() {
@@ -604,6 +654,7 @@ impl TupperIntervalSet {
             interval_set_ops::erfc(x)
         }
     );
+
     impl_arb_op!(erfi(x), {
         let a = x.inf();
         let b = x.sup();
@@ -619,6 +670,7 @@ impl TupperIntervalSet {
             arb_erfi(x)
         }
     });
+
     impl_arb_op!(
         exp(x),
         if x.is_common_interval() {
@@ -627,6 +679,7 @@ impl TupperIntervalSet {
             x.exp()
         }
     );
+
     impl_arb_op!(
         exp10(x),
         if x.is_common_interval() {
@@ -635,6 +688,7 @@ impl TupperIntervalSet {
             x.exp10()
         }
     );
+
     impl_arb_op!(
         exp2(x),
         if x.is_common_interval() {
@@ -643,6 +697,7 @@ impl TupperIntervalSet {
             x.exp2()
         }
     );
+
     impl_arb_op!(fresnel_c(x), {
         let a = x.inf();
         let b = x.sup();
@@ -654,6 +709,7 @@ impl TupperIntervalSet {
             arb_fresnel_c(x)
         }
     });
+
     impl_arb_op!(fresnel_s(x), {
         let a = x.inf();
         let b = x.sup();
@@ -665,6 +721,7 @@ impl TupperIntervalSet {
             arb_fresnel_s(x)
         }
     });
+
     impl_arb_op!(
         gamma_inc(s, x),
         if s.inf() % 2.0 == 1.0 {
@@ -732,6 +789,7 @@ impl TupperIntervalSet {
             }
         }
     );
+
     impl_arb_op!(
         li(x),
         {
@@ -763,6 +821,7 @@ impl TupperIntervalSet {
         },
         ge!(x, 0.0) & ne!(x, 1.0)
     );
+
     impl_arb_op!(
         ln(x),
         if x.inf() > 0.0 && x.sup() < f64::INFINITY {
@@ -772,6 +831,7 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(
         log10(x),
         if x.inf() > 0.0 && x.sup() < f64::INFINITY {
@@ -781,6 +841,7 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(
         log2(x),
         if x.inf() > 0.0 && x.sup() < f64::INFINITY {
@@ -790,6 +851,7 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(shi(x), {
         let a = x.inf();
         let b = x.sup();
@@ -805,6 +867,7 @@ impl TupperIntervalSet {
             arb_shi(x)
         }
     });
+
     impl_arb_op!(si(x), {
         let a = x.inf();
         let b = x.sup();
@@ -816,7 +879,9 @@ impl TupperIntervalSet {
             arb_si(x)
         }
     });
+
     impl_arb_op!(sin(x), arb_sin(x));
+
     impl_arb_op!(
         sinc(x),
         if x.is_common_interval() {
@@ -825,6 +890,7 @@ impl TupperIntervalSet {
             interval_set_ops::sinc(x)
         }
     );
+
     impl_arb_op!(
         sinh(x),
         if x.is_common_interval() {
@@ -833,6 +899,7 @@ impl TupperIntervalSet {
             x.sinh()
         }
     );
+
     impl_arb_op!(
         tanh(x),
         if x.is_common_interval() {
@@ -923,6 +990,11 @@ arb_fn!(
     arb_atan(x),
     arb_atan(x, x, f64::MANTISSA_DIGITS.into()),
     const_interval!(-1.5707963267948968, 1.5707963267948968) // [-π/2, π/2]
+);
+arb_fn!(
+    arb_atan2(y, x),
+    arb_atan2(y, y, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-3.1415926535897936, 3.1415926535897936) // [-π, π]
 );
 arb_fn!(
     arb_atanh(x),
@@ -1134,50 +1206,34 @@ mod tests {
 
     #[test]
     fn arb_ops_sanity() {
-        // Just check that arb ops don't panic due to invalid construction of an interval.
         let xs = [
             TupperIntervalSet::from(const_dec_interval!(0.0, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(0.0, 1.0)),
+            TupperIntervalSet::from(const_dec_interval!(-1.0, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(-1.0, 1.0)),
             TupperIntervalSet::from(const_dec_interval!(f64::NEG_INFINITY, 0.0)),
+            TupperIntervalSet::from(const_dec_interval!(f64::NEG_INFINITY, 1.0)),
             TupperIntervalSet::from(const_dec_interval!(0.0, f64::INFINITY)),
+            TupperIntervalSet::from(const_dec_interval!(1.0, f64::INFINITY)),
             TupperIntervalSet::from(DecInterval::ENTIRE),
         ];
 
         let fs = [
-            TupperIntervalSet::acos,
-            TupperIntervalSet::acosh,
             TupperIntervalSet::airy_ai,
             TupperIntervalSet::airy_ai_prime,
             TupperIntervalSet::airy_bi,
             TupperIntervalSet::airy_bi_prime,
-            TupperIntervalSet::asin,
-            TupperIntervalSet::asinh,
-            TupperIntervalSet::atan,
-            TupperIntervalSet::atanh,
             TupperIntervalSet::chi,
             TupperIntervalSet::ci,
-            TupperIntervalSet::cos,
-            TupperIntervalSet::cosh,
             TupperIntervalSet::ei,
             TupperIntervalSet::elliptic_e,
             TupperIntervalSet::elliptic_k,
-            TupperIntervalSet::erf,
-            TupperIntervalSet::erfc,
             TupperIntervalSet::erfi,
-            TupperIntervalSet::exp,
-            TupperIntervalSet::exp10,
-            TupperIntervalSet::exp2,
             TupperIntervalSet::fresnel_c,
             TupperIntervalSet::fresnel_s,
             TupperIntervalSet::li,
-            TupperIntervalSet::ln,
-            TupperIntervalSet::log10,
-            TupperIntervalSet::log2,
             TupperIntervalSet::shi,
             TupperIntervalSet::si,
-            TupperIntervalSet::sin,
-            TupperIntervalSet::sinc,
-            TupperIntervalSet::sinh,
-            TupperIntervalSet::tanh,
         ];
         for f in &fs {
             for x in &xs {
