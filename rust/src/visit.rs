@@ -668,21 +668,26 @@ impl VisitMut for UpdatePolarPeriod {
                     }
                 }));
             }
-            unary!(Cos | Sin | Tan, x) => match x {
+            unary!(op @ (Cos | Sin | Tan), x) => match x {
                 var!(name) if name == "theta" || name == "θ" => {
-                    // sin(θ)
+                    // op(θ)
                     e.polar_period = Some(1.into());
                 }
                 nary!(Plus, xs) => match &xs[..] {
                     [constant!(_), var!(name)] if name == "theta" || name == "θ" => {
-                        // sin(b + θ)
+                        // op(b + θ)
                         e.polar_period = Some(1.into());
                     }
                     [constant!(_), nary!(Times, xs)] => match &xs[..] {
                         [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
-                            // sin(b + a θ)
+                            // op(b + a θ)
                             if let Some(a) = &a.1 {
-                                e.polar_period = Some(a.denom().clone());
+                                let p = a.denom().clone();
+                                if *op == Tan && p.is_divisible_u(2) {
+                                    e.polar_period = Some(p / 2);
+                                } else {
+                                    e.polar_period = Some(p);
+                                }
                             }
                         }
                         _ => (),
@@ -691,9 +696,14 @@ impl VisitMut for UpdatePolarPeriod {
                 },
                 nary!(Times, xs) => match &xs[..] {
                     [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
-                        // sin(a θ)
+                        // op(a θ)
                         if let Some(a) = &a.1 {
-                            e.polar_period = Some(a.denom().clone())
+                            let p = a.denom().clone();
+                            if *op == Tan && p.is_divisible_u(2) {
+                                e.polar_period = Some(p / 2);
+                            } else {
+                                e.polar_period = Some(p);
+                            }
                         }
                     }
                     _ => (),
