@@ -144,6 +144,7 @@ const ZERO_TO_ONE: Interval = const_interval!(0.0, 1.0);
 impl TupperIntervalSet {
     // Mid-rad IA, which is used by Arb, cannot represent half-bounded intervals.
     // So we need to handle such inputs and unbounded functions explicitly.
+
     impl_arb_op!(
         acos(x),
         if x.interior(M_ONE_TO_ONE) {
@@ -153,6 +154,7 @@ impl TupperIntervalSet {
         },
         ge!(x, -1.0) & le!(x, 1.0)
     );
+
     impl_arb_op!(
         acosh(x),
         if x.inf() > 1.0 && x.sup() < f64::INFINITY {
@@ -162,6 +164,7 @@ impl TupperIntervalSet {
         },
         ge!(x, 1.0)
     );
+
     impl_arb_op!(airy_ai(x), {
         let a = x.inf();
         let b = x.sup();
@@ -172,6 +175,7 @@ impl TupperIntervalSet {
             arb_airy_ai(x).intersection(airy_envelope(x))
         }
     });
+
     impl_arb_op!(airy_ai_prime(x), {
         let a = x.inf();
         let b = x.sup();
@@ -182,6 +186,7 @@ impl TupperIntervalSet {
             arb_airy_ai_prime(x)
         }
     });
+
     impl_arb_op!(airy_bi(x), {
         let a = x.inf();
         let b = x.sup();
@@ -192,6 +197,7 @@ impl TupperIntervalSet {
             arb_airy_bi(x).intersection(airy_envelope(x))
         }
     });
+
     impl_arb_op!(airy_bi_prime(x), {
         let a = x.inf();
         let b = x.sup();
@@ -202,6 +208,7 @@ impl TupperIntervalSet {
             arb_airy_bi_prime(x)
         }
     });
+
     impl_arb_op!(
         asin(x),
         if x.interior(M_ONE_TO_ONE) {
@@ -211,6 +218,7 @@ impl TupperIntervalSet {
         },
         ge!(x, -1.0) & le!(x, 1.0)
     );
+
     impl_arb_op!(
         asinh(x),
         if x.is_common_interval() {
@@ -219,6 +227,7 @@ impl TupperIntervalSet {
             x.asinh()
         }
     );
+
     impl_arb_op!(
         atan(x),
         if x.is_common_interval() {
@@ -264,6 +273,7 @@ impl TupperIntervalSet {
         },
         gt!(x, -1.0) & lt!(x, 1.0)
     );
+
     impl_arb_op!(
         bessel_i(n, x),
         {
@@ -364,6 +374,7 @@ impl TupperIntervalSet {
             }
         }
     );
+
     impl_arb_op!(
         bessel_j(n, x),
         {
@@ -422,6 +433,7 @@ impl TupperIntervalSet {
             }
         }
     );
+
     impl_arb_op!(
         bessel_k(n, x),
         {
@@ -443,6 +455,7 @@ impl TupperIntervalSet {
             gt!(x, 0.0)
         }
     );
+
     impl_arb_op!(
         bessel_y(n, x),
         {
@@ -496,6 +509,7 @@ impl TupperIntervalSet {
             gt!(x, 0.0)
         }
     );
+
     impl_arb_op!(
         chi(x),
         {
@@ -516,6 +530,7 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(
         ci(x),
         {
@@ -532,7 +547,9 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(cos(x), arb_cos(x));
+
     impl_arb_op!(
         cosh(x),
         if x.is_common_interval() {
@@ -541,6 +558,7 @@ impl TupperIntervalSet {
             x.cosh()
         }
     );
+
     impl_arb_op!(
         ei(x),
         {
@@ -582,6 +600,7 @@ impl TupperIntervalSet {
         },
         ne!(x, 0.0)
     );
+
     impl_arb_op!(
         elliptic_e(x),
         {
@@ -599,6 +618,7 @@ impl TupperIntervalSet {
         },
         le!(x, 1.0)
     );
+
     impl_arb_op!(
         elliptic_k(x),
         {
@@ -616,6 +636,7 @@ impl TupperIntervalSet {
         },
         lt!(x, 1.0)
     );
+
     impl_arb_op!(
         erf(x),
         if x.is_common_interval() {
@@ -624,6 +645,7 @@ impl TupperIntervalSet {
             interval_set_ops::erf(x)
         }
     );
+
     impl_arb_op!(
         erfc(x),
         if x.is_common_interval() {
@@ -632,6 +654,7 @@ impl TupperIntervalSet {
             interval_set_ops::erfc(x)
         }
     );
+
     impl_arb_op!(erfi(x), {
         let a = x.inf();
         let b = x.sup();
@@ -647,6 +670,7 @@ impl TupperIntervalSet {
             arb_erfi(x)
         }
     });
+
     impl_arb_op!(
         exp(x),
         if x.is_common_interval() {
@@ -655,6 +679,7 @@ impl TupperIntervalSet {
             x.exp()
         }
     );
+
     impl_arb_op!(
         exp10(x),
         if x.is_common_interval() {
@@ -663,6 +688,7 @@ impl TupperIntervalSet {
             x.exp10()
         }
     );
+
     impl_arb_op!(
         exp2(x),
         if x.is_common_interval() {
@@ -671,6 +697,7 @@ impl TupperIntervalSet {
             x.exp2()
         }
     );
+
     impl_arb_op!(fresnel_c(x), {
         let a = x.inf();
         let b = x.sup();
@@ -682,6 +709,7 @@ impl TupperIntervalSet {
             arb_fresnel_c(x)
         }
     });
+
     impl_arb_op!(fresnel_s(x), {
         let a = x.inf();
         let b = x.sup();
@@ -693,6 +721,7 @@ impl TupperIntervalSet {
             arb_fresnel_s(x)
         }
     });
+
     impl_arb_op!(
         gamma_inc(s, x),
         if s.inf() % 2.0 == 1.0 {
@@ -760,6 +789,7 @@ impl TupperIntervalSet {
             }
         }
     );
+
     impl_arb_op!(
         li(x),
         {
@@ -791,6 +821,7 @@ impl TupperIntervalSet {
         },
         ge!(x, 0.0) & ne!(x, 1.0)
     );
+
     impl_arb_op!(
         ln(x),
         if x.inf() > 0.0 && x.sup() < f64::INFINITY {
@@ -800,6 +831,7 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(
         log10(x),
         if x.inf() > 0.0 && x.sup() < f64::INFINITY {
@@ -809,6 +841,7 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(
         log2(x),
         if x.inf() > 0.0 && x.sup() < f64::INFINITY {
@@ -818,6 +851,7 @@ impl TupperIntervalSet {
         },
         gt!(x, 0.0)
     );
+
     impl_arb_op!(shi(x), {
         let a = x.inf();
         let b = x.sup();
@@ -833,6 +867,7 @@ impl TupperIntervalSet {
             arb_shi(x)
         }
     });
+
     impl_arb_op!(si(x), {
         let a = x.inf();
         let b = x.sup();
@@ -844,7 +879,9 @@ impl TupperIntervalSet {
             arb_si(x)
         }
     });
+
     impl_arb_op!(sin(x), arb_sin(x));
+
     impl_arb_op!(
         sinc(x),
         if x.is_common_interval() {
@@ -853,6 +890,7 @@ impl TupperIntervalSet {
             interval_set_ops::sinc(x)
         }
     );
+
     impl_arb_op!(
         sinh(x),
         if x.is_common_interval() {
