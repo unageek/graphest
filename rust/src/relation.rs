@@ -8,7 +8,7 @@ use crate::{
     var,
     visit::*,
 };
-use inari::{const_dec_interval, dec_interval, DecInterval, Interval};
+use inari::{const_dec_interval, dec_interval, interval, DecInterval, Interval};
 use std::{
     collections::{hash_map::Entry, HashMap},
     mem::size_of,
@@ -131,6 +131,7 @@ pub struct Relation {
     eval_count: usize,
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,
+    n_theta_range: Interval,
 }
 
 impl Relation {
@@ -154,6 +155,13 @@ impl Relation {
 
     pub fn forms(&self) -> &Vec<StaticForm> {
         &self.forms
+    }
+
+    /// Returns the range of n_θ that needs to be covered to plot the graph of the relation.
+    ///
+    /// Each endpoint is either an integer or ±∞.
+    pub fn n_theta_range(&self) -> Interval {
+        self.n_theta_range
     }
 
     pub fn relation_type(&self) -> RelationType {
@@ -335,6 +343,12 @@ impl FromStr for Relation {
         PreTransform.visit_expr_mut(&mut e);
         simplify(&mut e);
         UpdatePolarPeriod.visit_expr_mut(&mut e);
+        let n_theta_range = if let Some(period) = &e.polar_period {
+            interval!(&format!("[0,{}]", period)).unwrap()
+        } else {
+            Interval::ENTIRE
+        };
+        assert_eq!(n_theta_range.trunc(), n_theta_range);
         expand_polar_coords(&mut e);
         simplify(&mut e);
         SubDivTransform.visit_expr_mut(&mut e);
@@ -368,6 +382,7 @@ impl FromStr for Relation {
             eval_count: 0,
             mx,
             my,
+            n_theta_range,
         };
         slf.initialize();
         Ok(slf)

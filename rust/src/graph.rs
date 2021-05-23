@@ -7,7 +7,7 @@ use crate::{
     relation::{EvalCache, EvalCacheLevel, Relation, RelationType},
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
-use inari::{const_interval, interval, Decoration, Interval};
+use inari::{interval, Decoration, Interval};
 use std::{
     convert::TryFrom,
     error, fmt,
@@ -236,13 +236,22 @@ impl Graph {
         };
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
         if relation_type == RelationType::Polar {
-            let bs = [
-                const_interval!(f64::NEG_INFINITY, 0.0),
-                const_interval!(0.0, 0.0),
-                const_interval!(0.0, f64::INFINITY),
-            ]
-            .iter()
-            .map(|&n| Block::new(0, 0, k, k, n))
+            let n_theta_range = g.rel.n_theta_range();
+            let bs = {
+                let a = n_theta_range.inf();
+                let b = n_theta_range.sup();
+                vec![
+                    interval!(a, a),
+                    interval!(a, 0.0),
+                    interval!(0.0, 0.0),
+                    interval!(0.0, b),
+                    interval!(b, b),
+                ]
+            }
+            .into_iter()
+            .filter_map(|n| n.ok())
+            .filter(|n| n.wid() != 1.0)
+            .map(|n| Block::new(0, 0, k, k, n))
             .collect::<Vec<_>>();
             let last_block = bs.len() - 1;
             g.set_last_queued_block(&bs[last_block], last_block)
@@ -832,6 +841,7 @@ impl Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use inari::const_interval;
 
     #[test]
     fn inexact_region() {
