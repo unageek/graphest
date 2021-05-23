@@ -916,12 +916,7 @@ impl TupperIntervalSet {
 
     impl_op!(sqrt(x), x.sqrt());
 
-    #[cfg(not(feature = "arb"))]
-    pub fn tan(&self, site: Option<Site>) -> Self {
-        self.tan_impl(site)
-    }
-
-    impl_op_cut!(tan_impl(x), {
+    impl_op_cut!(tan(x), {
         let a = x.inf();
         let b = x.sup();
         let q_nowrap = (x.interval().unwrap() / Interval::FRAC_PI_2).floor();

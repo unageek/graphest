@@ -900,30 +900,6 @@ impl TupperIntervalSet {
         }
     );
 
-    pub fn tan(&self, site: Option<Site>) -> Self {
-        if self.iter().all(|x| {
-            let a = x.x.inf();
-            let b = x.x.sup();
-            let q_nowrap = (x.x / Interval::FRAC_PI_2).floor();
-            let qa = q_nowrap.inf();
-            let qb = q_nowrap.sup();
-            let n = if a == b { 0.0 } else { qb - qa };
-            let q = qa.rem_euclid(2.0);
-            q == 0.0 && n < 1.0 || q == 1.0 && n < 2.0
-        }) {
-            let mut rs = Self::new();
-            for x in self {
-                let dec = Decoration::Dac.min(x.d);
-                let z = arb_tan(x.x);
-                rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), x.g));
-            }
-            rs.normalize(false);
-            rs
-        } else {
-            self.tan_impl(site)
-        }
-    }
-
     impl_arb_op!(
         tanh(x),
         if x.is_common_interval() {
@@ -1180,11 +1156,6 @@ arb_fn!(
 arb_fn!(
     arb_sinh(x),
     arb_sinh(x, x, f64::MANTISSA_DIGITS.into()),
-    Interval::ENTIRE
-);
-arb_fn!(
-    arb_tan(x),
-    arb_tan(x, x, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE
 );
 arb_fn!(
