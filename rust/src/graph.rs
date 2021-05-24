@@ -8,6 +8,7 @@ use crate::{
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{interval, Decoration, Interval};
+use itertools::Itertools;
 use std::{
     convert::TryFrom,
     error, fmt,
@@ -251,6 +252,7 @@ impl Graph {
             .into_iter()
             .filter_map(|n| n.ok())
             .filter(|n| n.wid() != 1.0)
+            .dedup()
             .map(|n| Block::new(0, 0, k, k, n))
             .collect::<Vec<_>>();
             let last_block = bs.len() - 1;
