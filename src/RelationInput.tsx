@@ -1,4 +1,4 @@
-import { TextField, ITextField } from "@fluentui/react";
+import { ITextField, TextField } from "@fluentui/react";
 import * as React from "react";
 import { RefObject, useImperativeHandle, useRef, useState } from "react";
 import * as ipc from "./ipc";
@@ -9,7 +9,7 @@ export interface RelationInputActions {
 }
 
 export interface RelationInputProps {
-  actions?: RefObject<RelationInputActions>;
+  actionsRef?: RefObject<RelationInputActions>;
   grow?: boolean;
   onEnterKeyPressed: () => void;
   onRelationChanged: (relation: string) => void;
@@ -21,7 +21,7 @@ export const RelationInput = (props: RelationInputProps): JSX.Element => {
   const [hasError, setHasError] = useState(false);
   const textFieldRef = useRef<ITextField>(null);
 
-  useImperativeHandle(props.actions, () => ({
+  useImperativeHandle(props.actionsRef, () => ({
     insertSymbol: (symbol: string) => {
       const start = textFieldRef.current?.selectionStart ?? null;
       const end = textFieldRef.current?.selectionEnd ?? null;

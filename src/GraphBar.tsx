@@ -26,7 +26,7 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
   const theme = useTheme();
-  const relationInputRef = useRef<RelationInputActions>(null);
+  const relationInputActionsRef = useRef<RelationInputActions>(null);
 
   return (
     <Bar>
@@ -48,19 +48,19 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
         onColorChanged={(c) => dispatch(setGraphColor(props.graphId, c))}
       />
       <RelationInput
+        actionsRef={relationInputActionsRef}
         grow
         onEnterKeyPressed={props.focusGraphView}
         onRelationChanged={(r) => dispatch(setGraphRelation(props.graphId, r))}
         relation={graph.relation}
-        actions={relationInputRef}
       />
       {graph.isProcessing && <Spinner size={SpinnerSize.small} />}
       <SymbolsButton
         onSymbolChosen={(symbol: string) =>
-          relationInputRef.current?.insertSymbol(symbol)
+          relationInputActionsRef.current?.insertSymbol(symbol)
         }
         onSymbolPairChosen={(first: string, second: string) =>
-          relationInputRef.current?.insertSymbolPair(first, second)
+          relationInputActionsRef.current?.insertSymbolPair(first, second)
         }
       />
       <CommandBarButton
