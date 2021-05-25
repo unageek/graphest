@@ -1,6 +1,12 @@
 import { ITextField, TextField } from "@fluentui/react";
 import * as React from "react";
-import { RefObject, useImperativeHandle, useRef, useState } from "react";
+import {
+  RefObject,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import * as ipc from "./ipc";
 
 export interface RelationInputActions {
@@ -20,6 +26,10 @@ export const RelationInput = (props: RelationInputProps): JSX.Element => {
   const [rawRelation, setRawRelation] = useState("y = sin(x)");
   const [hasError, setHasError] = useState(false);
   const textFieldRef = useRef<ITextField>(null);
+
+  useEffect(() => {
+    textFieldRef.current?.focus();
+  }, [textFieldRef]);
 
   useImperativeHandle(props.actionsRef, () => ({
     insertSymbol: (symbol: string) => {
