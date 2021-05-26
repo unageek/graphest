@@ -2,6 +2,7 @@ import * as assert from "assert";
 import { BigNumber } from "bignumber.js";
 import { ChildProcess, execFile } from "child_process";
 import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -86,7 +87,10 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  autoUpdater.checkForUpdatesAndNotify();
+});
 
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
