@@ -3,16 +3,24 @@
 [![build](https://img.shields.io/github/workflow/status/unageek/graphest/build/master)](https://github.com/unageek/graphest/actions?query=branch%3Amaster+workflow%3Abuild)
 
 <p align="center">
-  <img src="docs/cover.png">
+  <img width="608" alt="Cover image" src="docs/cover.png">
 </p>
 
-Graphest is a graphing calculator that can faithfully plot arbitrary mathematical relations of _x_ and _y_.
+Graphest is a graphing calculator that can faithfully plot arbitrary mathematical relations.
+
+## Features
+
+- Plot arbitrary equations/inequalities
+- Never gives an incorrect result; in case of doubt, please [report that here](https://github.com/unageek/graphest/issues/new)
+- Cartesian and polar coordinates
+- Full interactivity
+- Extensive set of mathematical functions
 
 ## Getting Started
 
-A prebuilt version of the app for Macs with Apple silicon is available on the [releases](https://github.com/unageek/graphest/releases) page.
+The latest version of the app is available on the [releases page](https://github.com/unageek/graphest/releases).
 
-## Build from Source
+## Building from Source
 
 ### Prerequisites
 

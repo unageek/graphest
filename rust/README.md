@@ -1,4 +1,4 @@
-# Graphest's Graphing Engine
+# Graphest Graphing Engine
 
 <p align="center">
   <img src="images/cover.gif"><br>
