@@ -1,5 +1,6 @@
 use crate::{
     ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType, VarSet},
+    binary,
     context::Context,
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
@@ -132,6 +133,7 @@ pub struct Relation {
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,
     n_theta_range: Interval,
+    relation_type: RelationType,
 }
 
 impl Relation {
@@ -165,78 +167,7 @@ impl Relation {
     }
 
     pub fn relation_type(&self) -> RelationType {
-        self.relation_type_impl(self.forms.len() - 1)
-    }
-
-    fn relation_type_impl(&self, i: usize) -> RelationType {
-        use RelationType::*;
-        match self.forms[i].kind {
-            StaticFormKind::Atomic(_, i, j) => {
-                match (
-                    &self.terms[i as usize].kind,
-                    &self.terms[j as usize],
-                    &self.terms[i as usize],
-                    &self.terms[j as usize].kind,
-                ) {
-                    (StaticTermKind::Y, t, _, _) | (_, _, t, StaticTermKind::Y)
-                        if VarSet::X.contains(t.vars) =>
-                    {
-                        // y = f(x) or f(x) = y
-                        FunctionOfX
-                    }
-                    (StaticTermKind::X, t, _, _) | (_, _, t, StaticTermKind::X)
-                        if VarSet::Y.contains(t.vars) =>
-                    {
-                        // x = f(y) or f(y) = x
-                        FunctionOfY
-                    }
-                    (_, tj, ti, _)
-                        if VarSet::XY.contains(ti.vars) && VarSet::XY.contains(tj.vars) =>
-                    {
-                        Implicit
-                    }
-                    _ => Polar,
-                }
-            }
-            StaticFormKind::And(i, j) => {
-                match (
-                    self.relation_type_impl(i as usize),
-                    self.relation_type_impl(j as usize),
-                ) {
-                    (Polar, _) | (_, Polar) => Polar,
-                    _ => {
-                        // This should not be `FunctionOfX` nor `FunctionOfY`.
-                        // Example: "y = x && y = x + 0.0001"
-                        //                              /
-                        //                 +--+       +/-+
-                        //                 |  |       /  |
-                        //   FunctionOfX:  |  |/  ∧  /|  |   =   ?
-                        //                 |  / T     |  | T
-                        //                 +-/+       +--+
-                        //                  /
-                        //                              /
-                        //                 +--+       +/-+       +--+
-                        //                 |  | F     /  | T     |  | F
-                        //      Implicit:  +--+/  ∧  /+--+   =   +--+
-                        //                 |  / T     |  | F     |  | F
-                        //                 +-/+       +--+       +--+
-                        //                  /
-                        // See `EvalResultMask::solution_certainly_exists` for how conjunctions are evaluated.
-                        Implicit
-                    }
-                }
-            }
-            StaticFormKind::Or(i, j) => {
-                match (
-                    self.relation_type_impl(i as usize),
-                    self.relation_type_impl(j as usize),
-                ) {
-                    (Polar, _) | (_, Polar) => Polar,
-                    (x, y) if x == y => x,
-                    _ => Implicit,
-                }
-            }
-        }
+        self.relation_type
     }
 
     fn eval_with_cache(
@@ -261,13 +192,13 @@ impl Relation {
         if let Some(mx_ts) = mx_ts {
             #[allow(clippy::needless_range_loop)]
             for i in 0..self.mx.len() {
-                ts.put(self.mx[i], mx_ts[i].clone());
+                ts[self.mx[i]] = mx_ts[i].clone();
             }
         }
         if let Some(my_ts) = my_ts {
             #[allow(clippy::needless_range_loop)]
             for i in 0..self.my.len() {
-                ts.put(self.my[i], my_ts[i].clone());
+                ts[self.my[i]] = my_ts[i].clone();
             }
         }
 
@@ -282,20 +213,20 @@ impl Relation {
                 {
                     // Constant or cached subexpression.
                 }
-                _ => t.put_eval(terms, ts),
+                _ => t.put_eval(ts),
             }
         }
 
         let r = EvalResult(
             self.forms[..self.n_atom_forms]
                 .iter()
-                .map(|f| f.eval(terms, ts))
+                .map(|f| f.eval(ts))
                 .collect(),
         );
 
         let ts = &self.ts;
-        cache.insert_x_with(kx, || self.mx.iter().map(|&i| ts.get(i).clone()).collect());
-        cache.insert_y_with(ky, || self.my.iter().map(|&i| ts.get(i).clone()).collect());
+        cache.insert_x_with(kx, || self.mx.iter().map(|&i| ts[i].clone()).collect());
+        cache.insert_y_with(ky, || self.my.iter().map(|&i| ts[i].clone()).collect());
         cache.insert_xy_with(kxy, || r.clone());
         r
     }
@@ -311,14 +242,14 @@ impl Relation {
                 _ if t.vars == VarSet::EMPTY => {
                     // Constant subexpression.
                 }
-                _ => t.put_eval(terms, ts),
+                _ => t.put_eval(ts),
             }
         }
 
         EvalResult(
             self.forms[..self.n_atom_forms]
                 .iter()
-                .map(|f| f.eval(terms, ts))
+                .map(|f| f.eval(ts))
                 .collect(),
         )
     }
@@ -328,7 +259,7 @@ impl Relation {
             // This condition is different from `let StaticTermKind::Constant(_) = t.kind`,
             // as not all constant subexpressions are folded. See the comment on [`FoldConstant`].
             if t.vars == VarSet::EMPTY {
-                t.put_eval(&self.terms, &mut self.ts);
+                t.put_eval(&mut self.ts);
             }
         }
     }
@@ -364,7 +295,7 @@ impl FromStr for Relation {
         let collector = CollectStatic::new(v);
         let terms = collector.terms.clone();
         let forms = collector.forms.clone();
-        let n_scalar_terms = collector.n_scalar_terms();
+        let n_terms = terms.len();
         let n_atom_forms = forms
             .iter()
             .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _, _)))
@@ -378,11 +309,12 @@ impl FromStr for Relation {
             terms,
             forms,
             n_atom_forms,
-            ts: ValueStore::new(TupperIntervalSet::new(), n_scalar_terms),
+            ts: ValueStore::new(TupperIntervalSet::new(), n_terms),
             eval_count: 0,
             mx,
             my,
             n_theta_range,
+            relation_type: relation_type(&e),
         };
         slf.initialize();
         Ok(slf)
@@ -482,6 +414,64 @@ fn expand_polar_coords(e: &mut Expr) {
     v.visit_expr_mut(&mut e2);
 
     *e = Expr::binary(BinaryOp::Or, box e1, box e2);
+}
+
+/// Returns the type of the relation.
+pub fn relation_type(e: &Expr) -> RelationType {
+    use {BinaryOp::*, RelationType::*};
+    match e {
+        binary!(Eq | Ge | Gt | Le | Lt, var!(name), e)
+        | binary!(Eq | Ge | Gt | Le | Lt, e, var!(name))
+            if name == "y" && VarSet::X.contains(e.vars) =>
+        {
+            // y = f(x) or f(x) = y
+            FunctionOfX
+        }
+        binary!(Eq | Ge | Gt | Le | Lt, var!(name), e)
+        | binary!(Eq | Ge | Gt | Le | Lt, e, var!(name))
+            if name == "x" && VarSet::Y.contains(e.vars) =>
+        {
+            // x = f(y) or f(y) = x
+            FunctionOfY
+        }
+        binary!(Eq | Ge | Gt | Le | Lt, e1, e2)
+            if VarSet::XY.contains(e1.vars) && VarSet::XY.contains(e2.vars) =>
+        {
+            Implicit
+        }
+        binary!(Eq | Ge | Gt | Le | Lt, _, _) => Polar,
+        binary!(And, e1, e2) => {
+            match (relation_type(e1), relation_type(e2)) {
+                (Polar, _) | (_, Polar) => Polar,
+                _ => {
+                    // This should not be `FunctionOfX` nor `FunctionOfY`.
+                    // Example: "y = x && y = x + 0.0001"
+                    //                              /
+                    //                 +--+       +/-+
+                    //                 |  |       /  |
+                    //   FunctionOfX:  |  |/  ∧  /|  |   =   ?
+                    //                 |  / T     |  | T
+                    //                 +-/+       +--+
+                    //                  /
+                    //                              /
+                    //                 +--+       +/-+       +--+
+                    //                 |  | F     /  | T     |  | F
+                    //      Implicit:  +--+/  ∧  /+--+   =   +--+
+                    //                 |  / T     |  | F     |  | F
+                    //                 +-/+       +--+       +--+
+                    //                  /
+                    // See `EvalResultMask::solution_certainly_exists` for how conjunctions are evaluated.
+                    Implicit
+                }
+            }
+        }
+        binary!(Or, e1, e2) => match (relation_type(e1), relation_type(e2)) {
+            (Polar, _) | (_, Polar) => Polar,
+            (x, y) if x == y => x,
+            _ => Implicit,
+        },
+        _ => panic!(),
+    }
 }
 
 #[cfg(test)]

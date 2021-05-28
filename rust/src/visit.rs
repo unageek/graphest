@@ -4,8 +4,8 @@ use crate::{
     interval_set::Site,
     nary,
     ops::{
-        FormIndex, RelOp, ScalarBinaryOp, ScalarTernaryOp, ScalarUnaryOp, StaticForm,
-        StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, TermIndex,
+        FormIndex, RankedMinMaxOp, RelOp, ScalarBinaryOp, ScalarTernaryOp, ScalarUnaryOp,
+        StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex,
     },
     pown, rootn, ternary, unary, uninit, var,
 };
@@ -956,7 +956,7 @@ pub struct CollectStatic {
     pub forms: Vec<StaticForm>,
     site_map: SiteMap,
     exprs: Vec<UnsafeExprRef>,
-    term_index: HashMap<ExprId, TermIndex>,
+    term_index: HashMap<ExprId, usize>,
     form_index: HashMap<ExprId, FormIndex>,
     next_scalar_store_index: u32,
 }
@@ -976,13 +976,6 @@ impl CollectStatic {
         slf.collect_atomic_forms();
         slf.collect_non_atomic_forms();
         slf
-    }
-
-    pub fn n_scalar_terms(&self) -> usize {
-        self.exprs
-            .iter()
-            .filter(|t| t.ty == ValueType::Scalar)
-            .count()
     }
 
     fn collect_terms(&mut self) {
@@ -1042,43 +1035,66 @@ impl CollectStatic {
                     UndefAt0 => Some(ScalarUnaryOp::UndefAt0),
                     _ => None,
                 }
-                .map(|op| StaticTermKind::Unary(op, self.ti(x))),
-                binary!(op, x, y) => match op {
-                    Add => Some(ScalarBinaryOp::Add),
-                    Atan2 => Some(ScalarBinaryOp::Atan2),
-                    BesselI => Some(ScalarBinaryOp::BesselI),
-                    BesselJ => Some(ScalarBinaryOp::BesselJ),
-                    BesselK => Some(ScalarBinaryOp::BesselK),
-                    BesselY => Some(ScalarBinaryOp::BesselY),
-                    Div => Some(ScalarBinaryOp::Div),
-                    GammaInc => Some(ScalarBinaryOp::GammaInc),
-                    Gcd => Some(ScalarBinaryOp::Gcd),
-                    Lcm => Some(ScalarBinaryOp::Lcm),
-                    Log => Some(ScalarBinaryOp::Log),
-                    Max => Some(ScalarBinaryOp::Max),
-                    Min => Some(ScalarBinaryOp::Min),
-                    Mod => Some(ScalarBinaryOp::Mod),
-                    Mul => Some(ScalarBinaryOp::Mul),
-                    Pow => Some(ScalarBinaryOp::Pow),
-                    RankedMax => Some(ScalarBinaryOp::RankedMax),
-                    RankedMin => Some(ScalarBinaryOp::RankedMin),
-                    Sub => Some(ScalarBinaryOp::Sub),
-                    _ => None,
+                .map(|op| StaticTermKind::Unary(op, self.store_index(x))),
+                binary!(op @ (Add | Atan2 | BesselI | BesselJ | BesselK | BesselY | Div | GammaInc
+                    | Gcd | Lcm | Log | Max | Min | Mod | Mul | Pow | Sub), x, y) => {
+                    let op = match op {
+                        Add => ScalarBinaryOp::Add,
+                        Atan2 => ScalarBinaryOp::Atan2,
+                        BesselI => ScalarBinaryOp::BesselI,
+                        BesselJ => ScalarBinaryOp::BesselJ,
+                        BesselK => ScalarBinaryOp::BesselK,
+                        BesselY => ScalarBinaryOp::BesselY,
+                        Div => ScalarBinaryOp::Div,
+                        GammaInc => ScalarBinaryOp::GammaInc,
+                        Gcd => ScalarBinaryOp::Gcd,
+                        Lcm => ScalarBinaryOp::Lcm,
+                        Log => ScalarBinaryOp::Log,
+                        Max => ScalarBinaryOp::Max,
+                        Min => ScalarBinaryOp::Min,
+                        Mod => ScalarBinaryOp::Mod,
+                        Mul => ScalarBinaryOp::Mul,
+                        Pow => ScalarBinaryOp::Pow,
+                        Sub => ScalarBinaryOp::Sub,
+                        _ => unreachable!(),
+                    };
+                    Some(StaticTermKind::Binary(
+                        op,
+                        self.store_index(x),
+                        self.store_index(y),
+                    ))
                 }
-                .map(|op| StaticTermKind::Binary(op, self.ti(x), self.ti(y))),
+                binary!(op @ (RankedMax | RankedMin), nary!(List, xs), n) => {
+                    let op = match op {
+                        RankedMax => RankedMinMaxOp::RankedMax,
+                        RankedMin => RankedMinMaxOp::RankedMin,
+                        _ => unreachable!(),
+                    };
+                    Some(StaticTermKind::RankedMinMax(
+                        op,
+                        box xs.iter().map(|x| self.store_index(x)).collect(),
+                        self.store_index(n),
+                    ))
+                }
+                binary!(_, _, _) => None,
                 ternary!(op, x, y, z) => match op {
                     MulAdd => Some(ScalarTernaryOp::MulAdd),
                 }
-                .map(|op| StaticTermKind::Ternary(op, self.ti(x), self.ti(y), self.ti(z))),
-                nary!(List, xs) => Some(StaticTermKind::List(
-                    box xs.iter().map(|x| self.ti(x)).collect(),
-                )),
-                pown!(x, n) => Some(StaticTermKind::Pown(self.ti(x), *n)),
-                rootn!(x, n) => Some(StaticTermKind::Rootn(self.ti(x), *n)),
-                nary!(_, _) | var!(_) | uninit!() => panic!(),
+                .map(|op| {
+                    StaticTermKind::Ternary(
+                        op,
+                        self.store_index(x),
+                        self.store_index(y),
+                        self.store_index(z),
+                    )
+                }),
+                nary!(_, _) => None,
+                pown!(x, n) => Some(StaticTermKind::Pown(self.store_index(x), *n)),
+                rootn!(x, n) => Some(StaticTermKind::Rootn(self.store_index(x), *n)),
+                var!(_) | uninit!() => panic!(),
             };
             if let Some(k) = k {
-                self.term_index.insert(t.id, self.terms.len() as TermIndex);
+                self.term_index.insert(t.id, self.terms.len());
                 let store_index = match *t {
                     nary!(_, _) => StoreIndex::new(0), // List values are not stored.
                     _ => {
@@ -1114,7 +1130,7 @@ impl CollectStatic {
                     Nlt => Some(RelOp::Nlt),
                     _ => None,
                 }
-                .map(|op| StaticFormKind::Atomic(op, self.ti(x), self.ti(y))),
+                .map(|op| StaticFormKind::Atomic(op, self.store_index(x), self.store_index(y))),
                 _ => None,
             };
             if let Some(k) = k {
@@ -1128,8 +1144,12 @@ impl CollectStatic {
         use BinaryOp::*;
         for t in self.exprs.iter().copied() {
             let k = match &*t {
-                binary!(And, x, y) => Some(StaticFormKind::And(self.fi(x), self.fi(y))),
-                binary!(Or, x, y) => Some(StaticFormKind::Or(self.fi(x), self.fi(y))),
+                binary!(And, x, y) => {
+                    Some(StaticFormKind::And(self.form_index(x), self.form_index(y)))
+                }
+                binary!(Or, x, y) => {
+                    Some(StaticFormKind::Or(self.form_index(x), self.form_index(y)))
+                }
                 _ => None,
             };
             if let Some(k) = k {
@@ -1139,12 +1159,12 @@ impl CollectStatic {
         }
     }
 
-    fn ti(&self, e: &Expr) -> TermIndex {
-        self.term_index[&e.id]
+    fn form_index(&self, e: &Expr) -> FormIndex {
+        self.form_index[&e.id]
     }
 
-    fn fi(&self, e: &Expr) -> FormIndex {
-        self.form_index[&e.id]
+    fn store_index(&self, e: &Expr) -> StoreIndex {
+        self.terms[self.term_index[&e.id]].store_index
     }
 }
 
@@ -1154,7 +1174,7 @@ pub struct FindMaximalScalarTerms {
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,
     terms: Vec<StaticTerm>,
-    term_index: HashMap<ExprId, TermIndex>,
+    term_index: HashMap<ExprId, usize>,
 }
 
 impl FindMaximalScalarTerms {
@@ -1184,15 +1204,13 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms {
             }
             VarSet::X if e.ty == ValueType::Scalar => {
                 if !matches!(e, var!(_)) {
-                    self.mx
-                        .push(self.terms[self.term_index[&e.id] as usize].store_index);
+                    self.mx.push(self.terms[self.term_index[&e.id]].store_index);
                 }
                 // Stop traversal.
             }
             VarSet::Y if e.ty == ValueType::Scalar => {
                 if !matches!(e, var!(_)) {
-                    self.my
-                        .push(self.terms[self.term_index[&e.id] as usize].store_index);
+                    self.my.push(self.terms[self.term_index[&e.id]].store_index);
                 }
                 // Stop traversal.
             }
