@@ -192,13 +192,13 @@ impl Relation {
         if let Some(mx_ts) = mx_ts {
             #[allow(clippy::needless_range_loop)]
             for i in 0..self.mx.len() {
-                ts.put(self.mx[i], mx_ts[i].clone());
+                ts[self.mx[i]] = mx_ts[i].clone();
             }
         }
         if let Some(my_ts) = my_ts {
             #[allow(clippy::needless_range_loop)]
             for i in 0..self.my.len() {
-                ts.put(self.my[i], my_ts[i].clone());
+                ts[self.my[i]] = my_ts[i].clone();
             }
         }
 
@@ -225,8 +225,8 @@ impl Relation {
         );
 
         let ts = &self.ts;
-        cache.insert_x_with(kx, || self.mx.iter().map(|&i| ts.get(i).clone()).collect());
-        cache.insert_y_with(ky, || self.my.iter().map(|&i| ts.get(i).clone()).collect());
+        cache.insert_x_with(kx, || self.mx.iter().map(|&i| ts[i].clone()).collect());
+        cache.insert_y_with(ky, || self.my.iter().map(|&i| ts[i].clone()).collect());
         cache.insert_xy_with(kxy, || r.clone());
         r
     }
