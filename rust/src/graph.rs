@@ -241,16 +241,17 @@ impl Graph {
             let bs = {
                 let a = n_theta_range.inf();
                 let b = n_theta_range.sup();
+                let mid = n_theta_range.mid().round();
                 vec![
                     interval!(a, a),
-                    interval!(a, 0.0),
-                    interval!(0.0, 0.0),
-                    interval!(0.0, b),
+                    interval!(a, mid),
+                    interval!(mid, mid),
+                    interval!(mid, b),
                     interval!(b, b),
                 ]
             }
             .into_iter()
-            .filter_map(|n| n.ok())
+            .filter_map(|n| n.ok()) // Remove invalid constructions, namely, [-∞, -∞] and [+∞, +∞].
             .filter(|n| n.wid() != 1.0)
             .dedup()
             .map(|n| Block::new(0, 0, k, k, n))

@@ -9,7 +9,8 @@ use crate::{
     var,
     visit::*,
 };
-use inari::{interval, DecInterval, Interval};
+use inari::{const_interval, interval, DecInterval, Interval};
+use rug::Integer;
 use std::{
     collections::{hash_map::Entry, HashMap},
     mem::size_of,
@@ -275,7 +276,11 @@ impl FromStr for Relation {
         simplify(&mut e);
         UpdatePolarPeriod.visit_expr_mut(&mut e);
         let n_theta_range = if let Some(period) = &e.polar_period {
-            interval!(&format!("[0,{}]", period)).unwrap()
+            if *period == 0 {
+                const_interval!(0.0, 0.0)
+            } else {
+                interval!(&format!("[0,{}]", Integer::from(period - 1))).unwrap()
+            }
         } else {
             Interval::ENTIRE
         };
