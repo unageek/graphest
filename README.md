@@ -14,11 +14,13 @@ Graphest is a graphing calculator that can faithfully plot arbitrary mathematica
 - Never gives an incorrect result; in case of doubt, please [report that here](https://github.com/unageek/graphest/issues/new)
 - Cartesian and polar coordinates
 - Full interactivity
-- Extensive set of mathematical functions
+- Extensive set of [mathematical functions](docs/guide/README.adoc)
 
 ## Getting Started
 
 The latest version of the app is available on the [releases page](https://github.com/unageek/graphest/releases).
+
+You can try messing around with [example relations](Examples.md).
 
 ## Building from Source
 
@@ -81,7 +83,7 @@ The latest version of the app is available on the [releases page](https://github
    npm install
    ```
 
-1. Debug the app
+1. Run the app
 
    ```bash
    npm start

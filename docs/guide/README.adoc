@@ -2,7 +2,15 @@
 
 = Graphest User Guide
 
-== Builtin Definitions
+== General Rules
+
+* A valid relation must be a <<bool-expr,Boolean-valued expression>> such as `y = sin(x)` or `sin(x) < cos(y)`.
+* Enter multiplication of `x` and `y` as `x y`, instead of `xy`.
+* Enter the sine of _x_ as `sin(x)`, instead of `sinx` or `sin x`.
+* Use parentheses to group a part of the relation like `1 / (x + 3)`.
+* In polar coordinates, the point (_x_, _y_) = (1, 0) has infinitely many representations: (_r_, _θ_) = (1, 0), (1, 2π), (1, -2π), (1, 4π), …; (-1, π), (-1, -π), (-1, 3π), …
+
+== Real-Valued Expressions
 
 === Numbers
 
@@ -35,7 +43,7 @@
 
 === Variables
 
-==== Cartesian Coordinate System
+==== Cartesian Coordinates
 
 [cols=",,", options="header"]
 |===
@@ -53,7 +61,7 @@
 
 |===
 
-==== Polar Coordinate System
+==== Polar Coordinates
 
 [cols=",,", options="header"]
 |===
@@ -103,29 +111,6 @@
 |\|_x_\|
 |
 
-|`min(x1, …, xn)` +
-`max(x1, …, xn)`
-|min {_x_~1~, …, _x_~_n_~} +
-max {_x_~1~, …, _x_~_n_~}
-|The minimum/maximum of the set {_x_~1~, …, _x_~_n_~}.
-
-|`ranked_min([x1, …, xn], k)` +
-`ranked_max([x1, …, xn], k)`
-|
-|The __k__th smallest/largest value in the list [_x_~1~, …, _x_~_n_~].
-
-|`floor(x)` or `⌊x⌋`
-|⌊_x_⌋
-|The https://en.wikipedia.org/wiki/Floor_and_ceiling_functions[floor function].
-
-|`ceil(x)` or `⌈x⌉`
-|⌈_x_⌉
-|The https://en.wikipedia.org/wiki/Floor_and_ceiling_functions[ceiling function].
-
-|`sign(x)` or `sgn(x)`
-|sgn _x_
-|The https://en.wikipedia.org/wiki/Sign_function[sign function].
-
 |`mod(x, y)`
 |_x_ mod _y_
 |The non-negative remainder of _x_ / _y_ (https://en.wikipedia.org/wiki/Modulo_operation[modulo operation]). +
@@ -144,7 +129,7 @@ lcm(_x_, 0) := 0 for any rational number _x_. +
 Undefined for irrational numbers.
 |===
 
-=== Power and Logarithmic
+=== Exponentiation and Logarithm
 
 [cols=",,", options="header"]
 |===
@@ -173,14 +158,14 @@ log~_b_~ _x_
 |Undefined for _x_ ≤ 0, _b_ ≤ 0 and _b_ = 1.
 |===
 
-Exponentiation is defined as follows, which is consistent with GrafEq.
+There are different ways of defining exponentiation for zero and negative exponents. The following definition is used in Graphest.
 
 * For _x_ < 0, _x_^_y_^ is defined if and only if _y_ is a rational number with an odd denominator.
 ** For any positive integers _m_ and _n_, _x_^±_m_/_n_^ := (^_n_^√_x_)^±_m_^, where ^_n_^√_x_ is the real, non-negative __n__th root of _x_.
 ** _x_^±_m_/_n_^ is an even (odd) function of _x_ if _m_ is even (odd).
 * 0^0^ := 1.
 
-=== Trigonometric
+=== Trigonometric Functions
 
 [cols=",,", options="header"]
 |===
@@ -213,13 +198,13 @@ Exponentiation is defined as follows, which is consistent with GrafEq.
 |The range is (−π/2, π/2).
 
 |`atan2(y, x)`
-|tan^−1^(_y_ / _x_)
+|
 |The https://en.wikipedia.org/wiki/Atan2[two-argument arctangent]. +
 Undefined for (_x_, _y_) = (0, 0). +
 The range is (−π, π].
 |===
 
-=== Hyperbolic
+=== Hyperbolic Functions
 
 [cols=",,", options="header"]
 |===
@@ -250,6 +235,47 @@ The range is (−π, π].
 |`atanh(x)`
 |tanh^−1^ _x_
 |
+|===
+
+=== Ordering
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`min(x1, …, xn)` +
+`max(x1, …, xn)`
+|min {_x_~1~, …, _x_~_n_~} +
+max {_x_~1~, …, _x_~_n_~}
+|The minimum/maximum of the set {_x_~1~, …, _x_~_n_~}.
+
+|`ranked_min([x1, …, xn], k)` +
+`ranked_max([x1, …, xn], k)`
+|
+|The __k__th smallest/largest value in the list [_x_~1~, …, _x_~_n_~].
+|===
+
+=== Rounding
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`floor(x)` or `⌊x⌋`
+|⌊_x_⌋
+|The https://en.wikipedia.org/wiki/Floor_and_ceiling_functions[floor function].
+
+|`ceil(x)` or `⌈x⌉`
+|⌈_x_⌉
+|The https://en.wikipedia.org/wiki/Floor_and_ceiling_functions[ceiling function].
+
+|`sign(x)` or `sgn(x)`
+|sgn _x_
+|The https://en.wikipedia.org/wiki/Sign_function[sign function].
 |===
 
 === Special Functions
@@ -348,7 +374,10 @@ Bi′(_x_)
 |The https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_second_kind[complete elliptic integral of the second kind].
 |===
 
-=== Relational
+[#bool-expr]
+== Boolean-Valued Expressions
+
+=== Equations and Inequalities
 
 [cols=",,", options="header"]
 |===
@@ -375,21 +404,27 @@ Bi′(_x_)
 |`x >= y` or `x ≥ y`
 |_x_ ≥ _y_
 |
+|===
+
+=== Logical Connectives
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
 
 |`X && Y`
 |_X_ ∧ _Y_
-|https://en.wikipedia.org/wiki/Logical_conjunction[Logical conjunction]. +
-`X` and `Y` must be relations.
+|https://en.wikipedia.org/wiki/Logical_conjunction[Conjunction] (AND).
 
 |`X \|\| Y`
 |_X_ ∨ _Y_
-|https://en.wikipedia.org/wiki/Logical_disjunction[Logical disjunction]. +
-`X` and `Y` must be relations.
+|https://en.wikipedia.org/wiki/Logical_disjunction[Disjunction] (OR).
 
 |`!X`
 |¬_X_
-|https://en.wikipedia.org/wiki/Negation[Negation]. +
-`X` must be a relation.
+|https://en.wikipedia.org/wiki/Negation[Negation] (NOT).
 |===
 
-You can group any part of the expression with parentheses.
+`X` and `Y` must be Boolean-valued expressions.

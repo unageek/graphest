@@ -10,7 +10,7 @@
 ### `graph`
 
 ```bash
-cargo r --bin graph -- "y = sin(x)"
+cargo r --bin graph --release --features "arb" -- "y = sin(x)"
 ```
 
 By default:
@@ -26,4 +26,4 @@ Use `-h` option to view usage.
 
 ## Conditional Features
 
-- `arb` - Use [Arb](https://arblib.org) to boost plotting performance and enables additional functions. With this feature enabled, the build can take a long time (~45 minutes). As a remedy for that, you may comment out the `make check` part of `build_flint` function in [build.rs](build.rs).
+- `arb` - Use [Arb](https://arblib.org) to boost plotting performance and enable additional functions. With this feature enabled, it can take quote a long time (~45 minutes) to build the binaries. You might want to comment out the statements that contains `.arg("check")` in [build.rs](build.rs) to bypass unit tests.
