@@ -631,90 +631,6 @@ impl VisitMut for FoldConstant {
     }
 }
 
-pub struct UpdatePolarPeriod;
-
-impl VisitMut for UpdatePolarPeriod {
-    fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {NaryOp::*, UnaryOp::*};
-        traverse_expr_mut(self, e);
-
-        match e {
-            constant!(_) => e.polar_period = Some(0.into()),
-            var!(name) if name != "theta" && name != "θ" => e.polar_period = Some(0.into()),
-            unary!(_, x) if x.polar_period.is_some() => {
-                e.polar_period = x.polar_period.clone();
-            }
-            binary!(_, x, y) if x.polar_period.is_some() && y.polar_period.is_some() => {
-                let xp = x.polar_period.as_ref().unwrap();
-                let yp = y.polar_period.as_ref().unwrap();
-                e.polar_period = Some(if *xp == 0 {
-                    yp.clone()
-                } else if *yp == 0 {
-                    xp.clone()
-                } else {
-                    xp.lcm_ref(yp).into()
-                });
-            }
-            nary!(_, xs) if xs.iter().all(|x| x.polar_period.is_some()) => {
-                e.polar_period = Some(xs.iter().fold(0.into(), |mut xp, y| {
-                    let yp = y.polar_period.as_ref().unwrap();
-                    if xp == 0 {
-                        yp.clone()
-                    } else if *yp == 0 {
-                        xp
-                    } else {
-                        xp.lcm_mut(yp);
-                        xp
-                    }
-                }));
-            }
-            unary!(op @ (Cos | Sin | Tan), x) => match x {
-                var!(name) if name == "theta" || name == "θ" => {
-                    // op(θ)
-                    e.polar_period = Some(1.into());
-                }
-                nary!(Plus, xs) => match &xs[..] {
-                    [constant!(_), var!(name)] if name == "theta" || name == "θ" => {
-                        // op(b + θ)
-                        e.polar_period = Some(1.into());
-                    }
-                    [constant!(_), nary!(Times, xs)] => match &xs[..] {
-                        [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
-                            // op(b + a θ)
-                            if let Some(a) = &a.1 {
-                                let p = a.denom().clone();
-                                if *op == Tan && p.is_divisible_u(2) {
-                                    e.polar_period = Some(p / 2);
-                                } else {
-                                    e.polar_period = Some(p);
-                                }
-                            }
-                        }
-                        _ => (),
-                    },
-                    _ => (),
-                },
-                nary!(Times, xs) => match &xs[..] {
-                    [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
-                        // op(a θ)
-                        if let Some(a) = &a.1 {
-                            let p = a.denom().clone();
-                            if *op == Tan && p.is_divisible_u(2) {
-                                e.polar_period = Some(p / 2);
-                            } else {
-                                e.polar_period = Some(p);
-                            }
-                        }
-                    }
-                    _ => (),
-                },
-                _ => (),
-            },
-            _ => (),
-        }
-    }
-}
-
 /// Replaces arithmetic expressions with [`UnaryOp::Neg`], [`BinaryOp::Sub`], [`UnaryOp::Recip`]
 /// and [`BinaryOp::Div`], whenever appropriate.
 pub struct SubDivTransform;
@@ -1223,14 +1139,13 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms {
 mod tests {
     use super::*;
     use crate::{context::Context, parse::parse_expr};
-    use rug::Integer;
 
     #[test]
     fn pre_transform() {
         fn test(input: &str, expected: &str) {
-            let mut f = parse_expr(input, Context::builtin_context()).unwrap();
-            PreTransform.visit_expr_mut(&mut f);
-            assert_eq!(format!("{}", f.dump_structure()), expected);
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
+            assert_eq!(format!("{}", e.dump_structure()), expected);
         }
 
         test("-x", "(Times -1 x)");
@@ -1395,36 +1310,5 @@ mod tests {
 
         test("x y + z", "(MulAdd x y z)");
         test("z + x y", "(MulAdd x y z)");
-    }
-
-    #[test]
-    fn update_polar_period() {
-        fn test(input: &str, expected_period: Option<Integer>) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
-            PreTransform.visit_expr_mut(&mut e);
-            Flatten::default().visit_expr_mut(&mut e);
-            SortTerms::default().visit_expr_mut(&mut e);
-            FoldConstant::default().visit_expr_mut(&mut e);
-            UpdatePolarPeriod.visit_expr_mut(&mut e);
-            assert_eq!(e.polar_period, expected_period);
-        }
-
-        test("42", Some(0.into()));
-        test("x", Some(0.into()));
-        test("y", Some(0.into()));
-        test("r", Some(0.into()));
-        test("θ", None);
-        test("sin(θ)", Some(1.into()));
-        test("cos(θ)", Some(1.into()));
-        test("tan(θ)", Some(1.into()));
-        test("sin(3/5θ)", Some(5.into()));
-        test("sqrt(sin(θ))", Some(1.into()));
-        test("sin(θ) + θ", None);
-        test("min(sin(θ), θ)", None);
-        test("r = sin(θ)", Some(1.into()));
-        test("sin(3θ/5)", Some(5.into()));
-        test("sin(3θ/5 + 2)", Some(5.into()));
-        test("sin(θ/2) + cos(θ/3)", Some(6.into()));
-        test("min(sin(θ/2), cos(θ/3))", Some(6.into()));
     }
 }

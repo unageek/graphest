@@ -1,12 +1,13 @@
 use crate::{
     ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType, VarSet},
-    binary,
+    binary, constant,
     context::Context,
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
+    nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
     parse::parse_expr,
-    var,
+    unary, var,
     visit::*,
 };
 use inari::{const_interval, interval, DecInterval, Interval};
@@ -138,6 +139,9 @@ pub struct Relation {
 }
 
 impl Relation {
+    /// Evaluates the relation with the given arguments.
+    ///
+    /// Precondition: `cache` has never been passed to other relations.
     pub fn eval(
         &mut self,
         x: Interval,
@@ -152,6 +156,7 @@ impl Relation {
         }
     }
 
+    /// Returns the number of calls of `self.eval` that have been made thus far.
     pub fn eval_count(&self) -> usize {
         self.eval_count
     }
@@ -167,6 +172,7 @@ impl Relation {
         self.n_theta_range
     }
 
+    /// Returns the type of the relation.
     pub fn relation_type(&self) -> RelationType {
         self.relation_type
     }
@@ -258,7 +264,7 @@ impl Relation {
     fn initialize(&mut self) {
         for t in &self.terms {
             // This condition is different from `let StaticTermKind::Constant(_) = t.kind`,
-            // as not all constant subexpressions are folded. See the comment on [`FoldConstant`].
+            // as not all constant expressions are folded. See the comment on [`FoldConstant`].
             if t.vars == VarSet::EMPTY {
                 t.put_eval(&mut self.ts);
             }
@@ -274,8 +280,8 @@ impl FromStr for Relation {
         // TODO: Check types and return a pretty error message.
         PreTransform.visit_expr_mut(&mut e);
         simplify(&mut e);
-        UpdatePolarPeriod.visit_expr_mut(&mut e);
-        let n_theta_range = if let Some(period) = &e.polar_period {
+        let period = polar_period(&e);
+        let n_theta_range = if let Some(period) = &period {
             if *period == 0 {
                 const_interval!(0.0, 0.0)
             } else {
@@ -342,7 +348,11 @@ fn simplify(e: &mut Expr) {
     }
 }
 
-/// Replaces polar coordinates with the equivalent family of Cartesian coordinates.
+/// Transforms an expression that contains r or θ into the equivalent expression
+/// that contains only x, y and n_θ. When the result contains n_θ,
+/// it actually represents a disjunction of expressions indexed by n_θ.
+///
+/// Precondition: `e` has been pre-transformed and simplified.
 fn expand_polar_coords(e: &mut Expr) {
     use {BinaryOp::*, NaryOp::*};
 
@@ -421,6 +431,101 @@ fn expand_polar_coords(e: &mut Expr) {
     *e = Expr::binary(BinaryOp::Or, box e1, box e2);
 }
 
+/// Returns the period of a function of θ in multiples of 2π, i.e., any integer p that satisfies
+/// (e /. θ → θ + 2π p) = e. If the period is 0, the expression is independent of θ.
+///
+/// Precondition: `e` has been pre-transformed and simplified.
+pub fn polar_period(e: &Expr) -> Option<Integer> {
+    use {NaryOp::*, UnaryOp::*};
+
+    match e {
+        constant!(_) => Some(0.into()),
+        var!(name) if name == "theta" || name == "θ" => None,
+        var!(_) => Some(0.into()),
+        unary!(op, x) => {
+            if let Some(p) = polar_period(x) {
+                Some(p)
+            } else if matches!(op, Cos | Sin | Tan) {
+                match x {
+                    var!(name) if name == "theta" || name == "θ" => {
+                        // op(θ)
+                        Some(1.into())
+                    }
+                    nary!(Plus, xs) => match &xs[..] {
+                        [constant!(_), var!(name)] if name == "theta" || name == "θ" => {
+                            // op(b + θ)
+                            Some(1.into())
+                        }
+                        [constant!(_), nary!(Times, xs)] => match &xs[..] {
+                            [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
+                                // op(b + a θ)
+                                if let Some(a) = &a.1 {
+                                    let p = a.denom().clone();
+                                    if *op == Tan && p.is_divisible_u(2) {
+                                        Some(p.div_exact_u(2))
+                                    } else {
+                                        Some(p)
+                                    }
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    },
+                    nary!(Times, xs) => match &xs[..] {
+                        [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
+                            // op(a θ)
+                            if let Some(a) = &a.1 {
+                                let p = a.denom().clone();
+                                if *op == Tan && p.is_divisible_u(2) {
+                                    Some(p.div_exact_u(2))
+                                } else {
+                                    Some(p)
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    },
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        }
+        binary!(_, x, y) => {
+            let xp = polar_period(x)?;
+            let yp = polar_period(y)?;
+            Some(if xp == 0 {
+                yp
+            } else if yp == 0 {
+                xp
+            } else {
+                xp.lcm(&yp)
+            })
+        }
+        nary!(_, xs) => xs
+            .iter()
+            .map(|x| polar_period(x))
+            .collect::<Option<Vec<_>>>()
+            .map(|ps| {
+                ps.into_iter().fold(Integer::from(0), |xp, yp| {
+                    if xp == 0 {
+                        yp
+                    } else if yp == 0 {
+                        xp
+                    } else {
+                        xp.lcm(&yp)
+                    }
+                })
+            }),
+        _ => panic!("unexpected kind of expression"),
+    }
+}
+
 /// Returns the type of the relation.
 pub fn relation_type(e: &Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
@@ -484,29 +589,59 @@ mod tests {
     use super::*;
 
     #[test]
+    fn n_theta_range() {
+        fn f(rel: &str) -> Interval {
+            rel.parse::<Relation>().unwrap().n_theta_range()
+        }
+
+        assert_eq!(f("42 = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("x = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("y = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("r = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("θ = 0"), Interval::ENTIRE);
+        assert_eq!(f("sin(θ) = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("cos(θ) = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("tan(θ) = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("sin(3/5θ) = 0"), const_interval!(0.0, 4.0));
+        assert_eq!(f("cos(3/5θ) = 0"), const_interval!(0.0, 4.0));
+        assert_eq!(f("tan(3/5θ) = 0"), const_interval!(0.0, 4.0));
+        assert_eq!(f("sin(5/6θ) = 0"), const_interval!(0.0, 5.0));
+        assert_eq!(f("cos(5/6θ) = 0"), const_interval!(0.0, 5.0));
+        assert_eq!(f("tan(5/6θ) = 0"), const_interval!(0.0, 2.0));
+        assert_eq!(f("sqrt(sin(θ)) = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("sin(θ) + θ = 0"), Interval::ENTIRE);
+        assert_eq!(f("min(sin(θ), θ) = 0"), Interval::ENTIRE);
+        assert_eq!(f("r = sin(θ) = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("sin(3θ/5) = 0"), const_interval!(0.0, 4.0));
+        assert_eq!(f("sin(3θ/5 + 2) = 0"), const_interval!(0.0, 4.0));
+        assert_eq!(f("sin(θ/2) + cos(θ/3) = 0"), const_interval!(0.0, 5.0));
+        assert_eq!(f("min(sin(θ/2), cos(θ/3)) = 0"), const_interval!(0.0, 5.0));
+    }
+
+    #[test]
     fn relation_type() {
         use RelationType::*;
 
-        fn t(rel: &str) -> RelationType {
+        fn f(rel: &str) -> RelationType {
             rel.parse::<Relation>().unwrap().relation_type()
         }
 
-        assert_eq!(t("y = 0"), FunctionOfX);
-        assert_eq!(t("0 = y"), FunctionOfX);
-        assert_eq!(t("y = sin(x)"), FunctionOfX);
-        assert_eq!(t("x = 0"), FunctionOfY);
-        assert_eq!(t("0 = x"), FunctionOfY);
-        assert_eq!(t("x = sin(y)"), FunctionOfY);
-        assert_eq!(t("x y = 0"), Implicit);
-        assert_eq!(t("y = sin(x y)"), Implicit);
-        assert_eq!(t("sin(x) = 0"), Implicit);
-        assert_eq!(t("sin(y) = 0"), Implicit);
-        assert_eq!(t("y < sin(x) || sin(x) < y"), FunctionOfX);
-        assert_eq!(t("y < sin(x) && sin(x) < y"), Implicit);
-        assert_eq!(t("r = 1"), Implicit);
-        assert_eq!(t("x = θ"), Polar);
-        assert_eq!(t("x = theta"), Polar);
-        assert_eq!(t("x = θ || θ = x"), Polar);
-        assert_eq!(t("x = θ && θ = x"), Polar);
+        assert_eq!(f("y = 0"), FunctionOfX);
+        assert_eq!(f("0 = y"), FunctionOfX);
+        assert_eq!(f("y = sin(x)"), FunctionOfX);
+        assert_eq!(f("x = 0"), FunctionOfY);
+        assert_eq!(f("0 = x"), FunctionOfY);
+        assert_eq!(f("x = sin(y)"), FunctionOfY);
+        assert_eq!(f("x y = 0"), Implicit);
+        assert_eq!(f("y = sin(x y)"), Implicit);
+        assert_eq!(f("sin(x) = 0"), Implicit);
+        assert_eq!(f("sin(y) = 0"), Implicit);
+        assert_eq!(f("y < sin(x) || sin(x) < y"), FunctionOfX);
+        assert_eq!(f("y < sin(x) && sin(x) < y"), Implicit);
+        assert_eq!(f("r = 1"), Implicit);
+        assert_eq!(f("x = θ"), Polar);
+        assert_eq!(f("x = theta"), Polar);
+        assert_eq!(f("x = θ || θ = x"), Polar);
+        assert_eq!(f("x = θ && θ = x"), Polar);
     }
 }
