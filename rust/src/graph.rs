@@ -1,10 +1,11 @@
 use crate::{
+    ast::VarSet,
     block::{Block, BlockQueue, SubdivisionDir},
     eval_result::EvalResult,
     image::{Image, PixelIndex},
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
-    relation::{EvalCache, EvalCacheLevel, Relation, RelationType},
+    relation::{EvalCache, EvalCacheLevel, Relation},
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{interval, Decoration, Interval};
@@ -188,7 +189,7 @@ pub struct GraphingStatistics {
 pub struct Graph {
     rel: Relation,
     forms: Vec<StaticForm>,
-    relation_type: RelationType,
+    vars: VarSet,
     im: Image<PixelState>,
     last_queued_blocks: Image<QueuedBlockIndex>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
@@ -215,14 +216,14 @@ impl Graph {
         mem_limit: usize,
     ) -> Self {
         let forms = rel.forms().clone();
-        let relation_type = rel.relation_type();
+        let vars = rel.vars();
         let mut g = Self {
             rel,
             forms,
-            relation_type,
+            vars,
             im: Image::new(im_width, im_height),
             last_queued_blocks: Image::new(im_width, im_height),
-            bs_to_subdivide: BlockQueue::new(relation_type == RelationType::Polar),
+            bs_to_subdivide: BlockQueue::new(vars.contains(VarSet::N_THETA)),
             sx: region.width() / Self::point_interval(im_width as f64),
             sy: region.height() / Self::point_interval(im_height as f64),
             tx: region.l,
@@ -236,7 +237,7 @@ impl Graph {
             mem_limit,
         };
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
-        if relation_type == RelationType::Polar {
+        if vars.contains(VarSet::N_THETA) {
             let n_theta_range = g.rel.n_theta_range();
             let bs = {
                 let a = n_theta_range.inf();
@@ -321,7 +322,7 @@ impl Graph {
         let mut incomplete_sub_bs = vec![];
         // Blocks are queued in the Morton order. Thanks to that, the caches should work efficiently.
         let mut cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
-        let mut cache_eval_on_point = if self.relation_type == RelationType::Polar {
+        let mut cache_eval_on_point = if self.vars.contains(VarSet::N_THETA) {
             EvalCache::new(EvalCacheLevel::PerAxis)
         } else {
             EvalCache::new(EvalCacheLevel::Full)
@@ -342,7 +343,7 @@ impl Graph {
                         &mut cache_eval_on_region,
                     )
                 } else {
-                    if self.relation_type == RelationType::Polar && !sub_b.n_theta.is_singleton() {
+                    if self.vars.contains(VarSet::N_THETA) && !sub_b.n_theta.is_singleton() {
                         // Try finding a solution earlier.
                         let n = Self::point_interval(Self::simple_number(sub_b.n_theta));
                         self.refine_subpixel(
@@ -372,7 +373,7 @@ impl Graph {
                 }
             }
 
-            let preferred_next_dir = if self.relation_type == RelationType::Polar {
+            let preferred_next_dir = if self.vars.contains(VarSet::N_THETA) {
                 let n_max = match b.next_dir {
                     SubdivisionDir::NTheta => 3,
                     SubdivisionDir::XY => 4,
@@ -391,24 +392,36 @@ impl Graph {
                 SubdivisionDir::XY
             };
 
-            for mut sub_b in incomplete_sub_bs.drain(..) {
-                sub_b.next_dir = if preferred_next_dir == SubdivisionDir::NTheta
-                    && sub_b.is_subdivisible_on_n_theta()
+            for mut b in incomplete_sub_bs.drain(..) {
+                b.next_dir = if preferred_next_dir == SubdivisionDir::NTheta
+                    && b.is_subdivisible_on_n_theta()
                 {
                     SubdivisionDir::NTheta
-                } else if sub_b.is_subdivisible_on_xy() {
+                } else if !self.vars.is_empty() && b.is_subdivisible_on_xy() {
                     SubdivisionDir::XY
-                } else if self.relation_type == RelationType::Polar
-                    && sub_b.is_subdivisible_on_n_theta()
-                {
+                } else if self.vars.contains(VarSet::N_THETA) && b.is_subdivisible_on_n_theta() {
                     SubdivisionDir::NTheta
                 } else {
-                    assert!(sub_b.is_subpixel());
-                    let pixel = b.pixel_index();
-                    *self.im.get_mut(pixel) = PixelState::UncertainNeverFalse;
+                    #[allow(clippy::branches_sharing_code)]
+                    if b.is_superpixel() {
+                        let pixel_begin = b.pixel_index();
+                        let pixel_end = PixelIndex::new(
+                            (pixel_begin.x + b.width()).min(self.im.width()),
+                            (pixel_begin.y + b.height()).min(self.im.height()),
+                        );
+                        for y in pixel_begin.y..pixel_end.y {
+                            for x in pixel_begin.x..pixel_end.x {
+                                let pixel = PixelIndex::new(x, y);
+                                *self.im.get_mut(pixel) = PixelState::UncertainNeverFalse;
+                            }
+                        }
+                    } else {
+                        let pixel = b.pixel_index();
+                        *self.im.get_mut(pixel) = PixelState::UncertainNeverFalse;
+                    }
                     continue;
                 };
-                self.bs_to_subdivide.push_back(sub_b);
+                self.bs_to_subdivide.push_back(b);
             }
 
             let mut clear_cache_and_retry = true;
@@ -421,7 +434,7 @@ impl Graph {
             {
                 if clear_cache_and_retry {
                     cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
-                    cache_eval_on_point = if self.relation_type == RelationType::Polar {
+                    cache_eval_on_point = if self.vars.contains(VarSet::N_THETA) {
                         EvalCache::new(EvalCacheLevel::PerAxis)
                     } else {
                         EvalCache::new(EvalCacheLevel::Full)
@@ -768,8 +781,11 @@ impl Graph {
                 sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta), true));
             }
         } else {
-            match self.relation_type {
-                RelationType::FunctionOfX => {
+            match self.vars {
+                VarSet::EMPTY => {
+                    sub_bs.push((b, true));
+                }
+                VarSet::X => {
                     // Subdivide only horizontally.
                     let x0 = 2 * b.x;
                     let x1 = x0 + 1;
@@ -779,7 +795,7 @@ impl Graph {
                     sub_bs.push((Block::new(x0, y, kx, ky, b.n_theta), false));
                     sub_bs.push((Block::new(x1, y, kx, ky, b.n_theta), true));
                 }
-                RelationType::FunctionOfY => {
+                VarSet::Y => {
                     // Subdivide only vertically.
                     let x = b.x;
                     let y0 = 2 * b.y;

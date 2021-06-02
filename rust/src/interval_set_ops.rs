@@ -1031,15 +1031,14 @@ impl TupperIntervalSet {
 }
 
 impl TupperIntervalSet {
-    pub fn eq(&self, rhs: &Self) -> DecSignSet {
-        let xs = self - rhs;
-        if xs.is_empty() {
+    pub fn eq_zero(&self) -> DecSignSet {
+        if self.is_empty() {
             return DecSignSet(SignSet::empty(), Decoration::Trv);
         }
 
         let mut ss = SignSet::empty();
         let mut d = Decoration::Com;
-        for x in xs {
+        for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
             if a < 0.0 {
@@ -1060,7 +1059,7 @@ impl TupperIntervalSet {
 
 macro_rules! impl_rel_op {
     ($op:ident, $map_neg:expr, $map_zero:expr, $map_pos:expr, $map_undef:expr) => {
-        pub fn $op(&self, rhs: &Self) -> DecSignSet {
+        pub fn $op(&self) -> DecSignSet {
             fn bool_to_sign(b: bool) -> SignSet {
                 if b {
                     SignSet::ZERO
@@ -1069,12 +1068,11 @@ macro_rules! impl_rel_op {
                 }
             }
 
-            let xs = self - rhs;
-            let ss = if xs.is_empty() {
+            let ss = if self.is_empty() {
                 bool_to_sign($map_undef)
             } else {
                 let mut ss = SignSet::empty();
-                for x in xs {
+                for x in self {
                     let a = x.x.inf();
                     let b = x.x.sup();
                     if a < 0.0 {
@@ -1103,15 +1101,11 @@ macro_rules! impl_rel_op {
 }
 
 impl TupperIntervalSet {
-    impl_rel_op!(ge, false, true, true, false);
-    impl_rel_op!(gt, false, false, true, false);
-    impl_rel_op!(le, true, true, false, false);
-    impl_rel_op!(lt, true, false, false, false);
-    impl_rel_op!(neq, true, false, true, true);
-    impl_rel_op!(nge, true, false, false, true);
-    impl_rel_op!(ngt, true, true, false, true);
-    impl_rel_op!(nle, false, false, true, true);
-    impl_rel_op!(nlt, false, true, true, true);
+    impl_rel_op!(le_zero, true, true, false, false);
+    impl_rel_op!(lt_zero, true, false, false, false);
+    impl_rel_op!(neq_zero, true, false, true, true);
+    impl_rel_op!(nle_zero, false, false, true, true);
+    impl_rel_op!(nlt_zero, false, true, true, true);
 }
 
 macro_rules! mpfr_fn {

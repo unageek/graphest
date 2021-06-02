@@ -104,27 +104,6 @@ impl EvalCache {
     }
 }
 
-/// Type of the relation, which should be used to choose the optimal graphing strategy.
-///
-/// The following relationships hold:
-///
-/// - `FunctionOfX` ⟹ `Implicit`
-/// - `FunctionOfY` ⟹ `Implicit`
-/// - `Implicit` ⟹ `Polar`
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RelationType {
-    /// y is a function of x.
-    /// More generally, the relation is of the form y R_1 f_1(x) ∨ … ∨ y R_n f_n(x).
-    FunctionOfX,
-    /// x is a function of y.
-    /// More generally, the relation is of the form x R_1 f_1(y) ∨ … ∨ x R_n f_n(y).
-    FunctionOfY,
-    /// Implicit relation of x and y.
-    Implicit,
-    /// Implicit relation of x, y and θ.
-    Polar,
-}
-
 #[derive(Clone, Debug)]
 pub struct Relation {
     terms: Vec<StaticTerm>,
@@ -135,7 +114,7 @@ pub struct Relation {
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,
     n_theta_range: Interval,
-    relation_type: RelationType,
+    vars: VarSet,
 }
 
 impl Relation {
@@ -172,9 +151,9 @@ impl Relation {
         self.n_theta_range
     }
 
-    /// Returns the type of the relation.
-    pub fn relation_type(&self) -> RelationType {
-        self.relation_type
+    /// Returns the set of free variables in the relation.
+    pub fn vars(&self) -> VarSet {
+        self.vars
     }
 
     fn eval_with_cache(
@@ -309,7 +288,7 @@ impl FromStr for Relation {
         let n_terms = terms.len();
         let n_atom_forms = forms
             .iter()
-            .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _, _)))
+            .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _)))
             .count();
 
         let mut v = FindMaximalScalarTerms::new(collector);
@@ -325,7 +304,7 @@ impl FromStr for Relation {
             mx,
             my,
             n_theta_range,
-            relation_type: relation_type(&e),
+            vars: e.vars,
         };
         slf.initialize();
         Ok(slf)
@@ -526,64 +505,6 @@ pub fn polar_period(e: &Expr) -> Option<Integer> {
     }
 }
 
-/// Returns the type of the relation.
-pub fn relation_type(e: &Expr) -> RelationType {
-    use {BinaryOp::*, RelationType::*};
-    match e {
-        binary!(Eq | Ge | Gt | Le | Lt, var!(name), e)
-        | binary!(Eq | Ge | Gt | Le | Lt, e, var!(name))
-            if name == "y" && VarSet::X.contains(e.vars) =>
-        {
-            // y = f(x) or f(x) = y
-            FunctionOfX
-        }
-        binary!(Eq | Ge | Gt | Le | Lt, var!(name), e)
-        | binary!(Eq | Ge | Gt | Le | Lt, e, var!(name))
-            if name == "x" && VarSet::Y.contains(e.vars) =>
-        {
-            // x = f(y) or f(y) = x
-            FunctionOfY
-        }
-        binary!(Eq | Ge | Gt | Le | Lt, e1, e2)
-            if VarSet::XY.contains(e1.vars) && VarSet::XY.contains(e2.vars) =>
-        {
-            Implicit
-        }
-        binary!(Eq | Ge | Gt | Le | Lt, _, _) => Polar,
-        binary!(And, e1, e2) => {
-            match (relation_type(e1), relation_type(e2)) {
-                (Polar, _) | (_, Polar) => Polar,
-                _ => {
-                    // This should not be `FunctionOfX` nor `FunctionOfY`.
-                    // Example: "y = x && y = x + 0.0001"
-                    //                              /
-                    //                 +--+       +/-+
-                    //                 |  |       /  |
-                    //   FunctionOfX:  |  |/  ∧  /|  |   =   ?
-                    //                 |  / T     |  | T
-                    //                 +-/+       +--+
-                    //                  /
-                    //                              /
-                    //                 +--+       +/-+       +--+
-                    //                 |  | F     /  | T     |  | F
-                    //      Implicit:  +--+/  ∧  /+--+   =   +--+
-                    //                 |  / T     |  | F     |  | F
-                    //                 +-/+       +--+       +--+
-                    //                  /
-                    // See `EvalResultMask::solution_certainly_exists` for how conjunctions are evaluated.
-                    Implicit
-                }
-            }
-        }
-        binary!(Or, e1, e2) => match (relation_type(e1), relation_type(e2)) {
-            (Polar, _) | (_, Polar) => Polar,
-            (x, y) if x == y => x,
-            _ => Implicit,
-        },
-        _ => panic!(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -619,29 +540,18 @@ mod tests {
     }
 
     #[test]
-    fn relation_type() {
-        use RelationType::*;
-
-        fn f(rel: &str) -> RelationType {
-            rel.parse::<Relation>().unwrap().relation_type()
+    fn vars() {
+        fn f(rel: &str) -> VarSet {
+            rel.parse::<Relation>().unwrap().vars()
         }
 
-        assert_eq!(f("y = 0"), FunctionOfX);
-        assert_eq!(f("0 = y"), FunctionOfX);
-        assert_eq!(f("y = sin(x)"), FunctionOfX);
-        assert_eq!(f("x = 0"), FunctionOfY);
-        assert_eq!(f("0 = x"), FunctionOfY);
-        assert_eq!(f("x = sin(y)"), FunctionOfY);
-        assert_eq!(f("x y = 0"), Implicit);
-        assert_eq!(f("y = sin(x y)"), Implicit);
-        assert_eq!(f("sin(x) = 0"), Implicit);
-        assert_eq!(f("sin(y) = 0"), Implicit);
-        assert_eq!(f("y < sin(x) || sin(x) < y"), FunctionOfX);
-        assert_eq!(f("y < sin(x) && sin(x) < y"), Implicit);
-        assert_eq!(f("r = 1"), Implicit);
-        assert_eq!(f("x = θ"), Polar);
-        assert_eq!(f("x = theta"), Polar);
-        assert_eq!(f("x = θ || θ = x"), Polar);
-        assert_eq!(f("x = θ && θ = x"), Polar);
+        assert_eq!(f("1 < 2"), VarSet::EMPTY);
+        assert_eq!(f("x = 1"), VarSet::X);
+        assert_eq!(f("y = 1"), VarSet::Y);
+        assert_eq!(f("y = sin(x)"), VarSet::XY);
+        assert_eq!(f("x = 1 && y = 1"), VarSet::XY);
+        assert_eq!(f("x = 1 || y = 1"), VarSet::XY);
+        assert_eq!(f("r = 1"), VarSet::XY);
+        assert_eq!(f("r = θ"), VarSet::XY | VarSet::N_THETA);
     }
 }

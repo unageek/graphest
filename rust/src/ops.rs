@@ -122,16 +122,12 @@ pub enum RankedMinMaxOp {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelOp {
-    Eq,
-    Ge,
-    Gt,
-    Le,
-    Lt,
-    Neq,
-    Nge,
-    Ngt,
-    Nle,
-    Nlt,
+    EqZero,
+    LeZero,
+    LtZero,
+    NeqZero,
+    NleZero,
+    NltZero,
 }
 
 #[derive(Clone, Debug)]
@@ -270,7 +266,7 @@ impl StaticTerm {
 
 #[derive(Clone, Debug)]
 pub enum StaticFormKind {
-    Atomic(RelOp, StoreIndex, StoreIndex),
+    Atomic(RelOp, StoreIndex),
     And(FormIndex, FormIndex),
     Or(FormIndex, FormIndex),
 }
@@ -288,16 +284,12 @@ impl StaticForm {
     pub fn eval(&self, ts: &ValueStore<TupperIntervalSet>) -> DecSignSet {
         use {RelOp::*, StaticFormKind::*};
         match &self.kind {
-            Atomic(Eq, x, y) => ts[*x].eq(&ts[*y]),
-            Atomic(Ge, x, y) => ts[*x].ge(&ts[*y]),
-            Atomic(Gt, x, y) => ts[*x].gt(&ts[*y]),
-            Atomic(Le, x, y) => ts[*x].le(&ts[*y]),
-            Atomic(Lt, x, y) => ts[*x].lt(&ts[*y]),
-            Atomic(Neq, x, y) => ts[*x].neq(&ts[*y]),
-            Atomic(Nge, x, y) => ts[*x].nge(&ts[*y]),
-            Atomic(Ngt, x, y) => ts[*x].ngt(&ts[*y]),
-            Atomic(Nle, x, y) => ts[*x].nle(&ts[*y]),
-            Atomic(Nlt, x, y) => ts[*x].nlt(&ts[*y]),
+            Atomic(EqZero, x) => ts[*x].eq_zero(),
+            Atomic(LeZero, x) => ts[*x].le_zero(),
+            Atomic(LtZero, x) => ts[*x].lt_zero(),
+            Atomic(NeqZero, x) => ts[*x].neq_zero(),
+            Atomic(NleZero, x) => ts[*x].nle_zero(),
+            Atomic(NltZero, x) => ts[*x].nlt_zero(),
             And(_, _) | Or(_, _) => panic!("non-atomic formulas cannot be evaluated"),
         }
     }
