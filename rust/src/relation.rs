@@ -293,6 +293,8 @@ impl FromStr for Relation {
         assert_eq!(n_theta_range.trunc(), n_theta_range);
         expand_polar_coords(&mut e);
         simplify(&mut e);
+        UpdateMetadata.visit_expr_mut(&mut e);
+        let relation_type = relation_type(&e);
         SubDivTransform.visit_expr_mut(&mut e);
         simplify(&mut e);
         PostTransform.visit_expr_mut(&mut e);
@@ -309,7 +311,7 @@ impl FromStr for Relation {
         let n_terms = terms.len();
         let n_atom_forms = forms
             .iter()
-            .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _, _)))
+            .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _)))
             .count();
 
         let mut v = FindMaximalScalarTerms::new(collector);
@@ -325,7 +327,7 @@ impl FromStr for Relation {
             mx,
             my,
             n_theta_range,
-            relation_type: relation_type(&e),
+            relation_type,
         };
         slf.initialize();
         Ok(slf)
@@ -527,29 +529,76 @@ pub fn polar_period(e: &Expr) -> Option<Integer> {
 }
 
 /// Returns the type of the relation.
+///
+/// Precondition: `e` has been pre-transformed, polar-expanded, simplified and its metadata are up-to-date.
 pub fn relation_type(e: &Expr) -> RelationType {
-    use {BinaryOp::*, RelationType::*};
+    use {BinaryOp::*, NaryOp::*, RelationType::*};
     match e {
-        binary!(Eq | Ge | Gt | Le | Lt, var!(name), e)
-        | binary!(Eq | Ge | Gt | Le | Lt, e, var!(name))
-            if name == "y" && VarSet::X.contains(e.vars) =>
-        {
-            // y = f(x) or f(x) = y
-            FunctionOfX
+        binary!(Eq | Le | Lt | Neq | Nle | Nlt, x, _) => {
+            if x.vars.contains(VarSet::N_THETA) {
+                return Polar;
+            }
+
+            let mut has_x = false;
+            let mut has_y = false;
+            let mut has_fx = false;
+            let mut has_fy = false;
+            let mut has_fxy = false;
+            // FIXME: DRY
+            match x {
+                var!(name) if name == "x" => has_x = true,
+                var!(name) if name == "y" => has_y = true,
+                nary!(Times, xs) => match &xs[..] {
+                    [constant!(a), var!(name)] if a.0.to_f64() == Some(-1.0) && name == "x" => {
+                        has_x = true
+                    }
+                    [constant!(a), var!(name)] if a.0.to_f64() == Some(-1.0) && name == "y" => {
+                        has_y = true
+                    }
+                    _ if x.vars == VarSet::X => has_fx = true,
+                    _ if x.vars == VarSet::Y => has_fy = true,
+                    _ if x.vars == VarSet::XY => has_fxy = true,
+                    _ => (),
+                },
+                nary!(Plus, xs) => {
+                    for x in xs {
+                        match x {
+                            var!(name) if name == "x" => has_x = true,
+                            var!(name) if name == "y" => has_y = true,
+                            nary!(Times, xs) => match &xs[..] {
+                                [constant!(a), var!(name)]
+                                    if a.0.to_f64() == Some(-1.0) && name == "x" =>
+                                {
+                                    has_x = true
+                                }
+                                [constant!(a), var!(name)]
+                                    if a.0.to_f64() == Some(-1.0) && name == "y" =>
+                                {
+                                    has_y = true
+                                }
+                                _ if x.vars == VarSet::X => has_fx = true,
+                                _ if x.vars == VarSet::Y => has_fy = true,
+                                _ if x.vars == VarSet::XY => has_fxy = true,
+                                _ => (),
+                            },
+                            _ if x.vars == VarSet::X => has_fx = true,
+                            _ if x.vars == VarSet::Y => has_fy = true,
+                            _ if x.vars == VarSet::XY => has_fxy = true,
+                            _ => (),
+                        };
+                    }
+                }
+                _ if x.vars == VarSet::X => has_fx = true,
+                _ if x.vars == VarSet::Y => has_fy = true,
+                _ if x.vars == VarSet::XY => has_fxy = true,
+                _ => (),
+            }
+            match (has_x, has_y, has_fx, has_fy, has_fxy) {
+                (true, _, false, _, false) => FunctionOfY,
+                (_, true, _, false, false) => FunctionOfX,
+                _ => Implicit,
+            }
         }
-        binary!(Eq | Ge | Gt | Le | Lt, var!(name), e)
-        | binary!(Eq | Ge | Gt | Le | Lt, e, var!(name))
-            if name == "x" && VarSet::Y.contains(e.vars) =>
-        {
-            // x = f(y) or f(y) = x
-            FunctionOfY
-        }
-        binary!(Eq | Ge | Gt | Le | Lt, e1, e2)
-            if VarSet::XY.contains(e1.vars) && VarSet::XY.contains(e2.vars) =>
-        {
-            Implicit
-        }
-        binary!(Eq | Ge | Gt | Le | Lt, _, _) => Polar,
         binary!(And, e1, e2) => {
             match (relation_type(e1), relation_type(e2)) {
                 (Polar, _) | (_, Polar) => Polar,
@@ -627,11 +676,18 @@ mod tests {
         }
 
         assert_eq!(f("y = 0"), FunctionOfX);
-        assert_eq!(f("0 = y"), FunctionOfX);
+        assert_eq!(f("-y = 0"), FunctionOfX);
         assert_eq!(f("y = sin(x)"), FunctionOfX);
+        assert_eq!(f("-y = sin(x)"), FunctionOfX);
+        assert_eq!(f("y < sin(x)"), FunctionOfX);
+        assert_eq!(f("y ≤ sin(x)"), FunctionOfX);
+        assert_eq!(f("!(y = sin(x))"), FunctionOfX);
+        assert_eq!(f("!(y < sin(x))"), FunctionOfX);
+        assert_eq!(f("!(y ≤ sin(x))"), FunctionOfX);
         assert_eq!(f("x = 0"), FunctionOfY);
-        assert_eq!(f("0 = x"), FunctionOfY);
+        assert_eq!(f("-x = 0"), FunctionOfY);
         assert_eq!(f("x = sin(y)"), FunctionOfY);
+        assert_eq!(f("-x = sin(y)"), FunctionOfY);
         assert_eq!(f("x y = 0"), Implicit);
         assert_eq!(f("y = sin(x y)"), Implicit);
         assert_eq!(f("sin(x) = 0"), Implicit);
@@ -640,8 +696,8 @@ mod tests {
         assert_eq!(f("y < sin(x) && sin(x) < y"), Implicit);
         assert_eq!(f("r = 1"), Implicit);
         assert_eq!(f("x = θ"), Polar);
-        assert_eq!(f("x = theta"), Polar);
-        assert_eq!(f("x = θ || θ = x"), Polar);
-        assert_eq!(f("x = θ && θ = x"), Polar);
+        assert_eq!(f("y = θ"), Polar);
+        assert_eq!(f("x = θ || y = θ"), Polar);
+        assert_eq!(f("x = θ && y = θ"), Polar);
     }
 }
