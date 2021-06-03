@@ -455,9 +455,11 @@ impl Expr {
         self.ty = self.value_type();
         self.vars = match self {
             constant!(_) => VarSet::EMPTY,
-            var!(x) if x == "x" => VarSet::X,
-            var!(x) if x == "y" => VarSet::Y,
-            var!(x) if x == "<n-theta>" => VarSet::N_THETA,
+            var!(name) if name == "r" => VarSet::XY,
+            var!(name) if name == "theta" || name == "θ" => VarSet::XY | VarSet::N_THETA,
+            var!(name) if name == "x" => VarSet::X,
+            var!(name) if name == "y" => VarSet::Y,
+            var!(name) if name == "<n-theta>" => VarSet::N_THETA,
             var!(_) => VarSet::EMPTY,
             unary!(_, x) | pown!(x, _) | rootn!(x, _) => x.vars,
             binary!(_, x, y) => x.vars | y.vars,

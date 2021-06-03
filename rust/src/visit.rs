@@ -210,10 +210,68 @@ where
     }
 }
 
-/// Replaces arithmetic expressions with equivalent ones consists of only
-/// [`BinaryOp::Pow`], [`NaryOp::Plus`] and [`NaryOp::Times`].
+/// Replaces expressions that contain [`UnaryOp::Not`] with their equivalents without the operation.
+#[derive(Default)]
+pub struct EliminateNot {
+    pub modified: bool,
+}
+
+impl VisitMut for EliminateNot {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
+
+        if let unary!(Not, x) = e {
+            match x {
+                binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x1, x2) => {
+                    // (Not (op x1 x2)) → (neg-op x1 x2)
+                    let neg_op = match op {
+                        Eq => Neq,
+                        Ge => Nge,
+                        Gt => Ngt,
+                        Le => Nle,
+                        Lt => Nlt,
+                        Neq => Eq,
+                        Nge => Ge,
+                        Ngt => Gt,
+                        Nle => Le,
+                        Nlt => Lt,
+                        _ => unreachable!(),
+                    };
+                    *e = Expr::binary(neg_op, box take(x1), box take(x2));
+                    self.modified = true;
+                }
+                binary!(And, x1, x2) => {
+                    // (Not (And (x1 x2))) → (Or (Not x1) (Not x2))
+                    *e = Expr::binary(
+                        Or,
+                        box Expr::unary(Not, box take(x1)),
+                        box Expr::unary(Not, box take(x2)),
+                    );
+                    self.modified = true;
+                }
+                binary!(Or, x1, x2) => {
+                    // (Not (Or (x1 x2))) → (And (Not x1) (Not x2))
+                    *e = Expr::binary(
+                        And,
+                        box Expr::unary(Not, box take(x1)),
+                        box Expr::unary(Not, box take(x2)),
+                    );
+                    self.modified = true;
+                }
+                _ => (),
+            }
+        }
+    }
+}
+
+/// Does following three tasks:
 ///
-/// It also does some ad-hoc transformations, which are mainly for demonstrational purposes.
+/// - Replace arithmetic expressions that contain [`UnaryOp::Neg`], [`UnaryOp::Sqrt`],
+///   [`BinaryOp::Add`], [`BinaryOp::Div`], [`BinaryOp::Mul`] or [`BinaryOp::Sub`] with their equivalents
+///   with [`BinaryOp::Pow`], [`NaryOp::Plus`] and [`NaryOp::Times`].
+/// - Eliminate usage of [`BinaryOp::Ge`], [`BinaryOp::Gt`], [`BinaryOp::Nge`], [`BinaryOp::Ngt`].
+/// - Do some ad-hoc transformations, mainly for demonstrational purposes.
 pub struct PreTransform;
 
 impl VisitMut for PreTransform {
@@ -269,13 +327,31 @@ impl VisitMut for PreTransform {
                     vec![take(x), Expr::nary(Times, vec![Expr::minus_one(), take(y)])],
                 );
             }
-            binary!(op @ (Eq | Ge | Gt | Le | Lt), x, y) => {
+            binary!(op @ (Eq | Le | Lt | Neq | Nle | Nlt), x, y) => {
                 // (op x y) → (op (Plus x (Times -1 y)) 0)
                 *e = Expr::binary(
                     *op,
                     box Expr::nary(
                         Plus,
                         vec![take(x), Expr::nary(Times, vec![Expr::minus_one(), take(y)])],
+                    ),
+                    box Expr::zero(),
+                )
+            }
+            binary!(op @ (Ge | Gt | Nge | Ngt), x, y) => {
+                // (op x y) → (inv-op (Plus y (Times -1 x)) 0)
+                let inv_op = match op {
+                    Ge => Le,
+                    Gt => Lt,
+                    Nge => Nle,
+                    Ngt => Nlt,
+                    _ => unreachable!(),
+                };
+                *e = Expr::binary(
+                    inv_op,
+                    box Expr::nary(
+                        Plus,
+                        vec![take(y), Expr::nary(Times, vec![Expr::minus_one(), take(x)])],
                     ),
                     box Expr::zero(),
                 )
@@ -441,7 +517,7 @@ pub struct Transform {
 
 impl VisitMut for Transform {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+        use {BinaryOp::*, NaryOp::*};
         traverse_expr_mut(self, e);
 
         match e {
@@ -550,63 +626,6 @@ impl VisitMut for Transform {
                 });
 
                 self.modified = xs.len() < len;
-            }
-            unary!(Not, x) => {
-                match x {
-                    binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x1, x2) => {
-                        // (Not (op x1 x2)) → (neg-op x1 x2)
-                        let neg_op = match op {
-                            Eq => Neq,
-                            Ge => Nge,
-                            Gt => Ngt,
-                            Le => Nle,
-                            Lt => Nlt,
-                            Neq => Eq,
-                            Nge => Ge,
-                            Ngt => Gt,
-                            Nle => Le,
-                            Nlt => Lt,
-                            _ => unreachable!(),
-                        };
-                        *e = Expr::binary(neg_op, box take(x1), box take(x2));
-                        self.modified = true;
-                    }
-                    binary!(And, x1, x2) => {
-                        // (Not (And (x1 x2))) → (Or (Not x1) (Not x2))
-                        *e = Expr::binary(
-                            Or,
-                            box Expr::unary(Not, box take(x1)),
-                            box Expr::unary(Not, box take(x2)),
-                        );
-                        self.modified = true;
-                    }
-                    binary!(Or, x1, x2) => {
-                        // (Not (Or (x1 x2))) → (And (Not x1) (Not x2))
-                        *e = Expr::binary(
-                            And,
-                            box Expr::unary(Not, box take(x1)),
-                            box Expr::unary(Not, box take(x2)),
-                        );
-                        self.modified = true;
-                    }
-                    _ => (),
-                }
-            }
-            binary!(op @ (Ge | Gt | Nge | Ngt), x, y) => {
-                // (op x y) → (inv-op (Times -1 x) (Times -1 y))
-                let inv_op = match op {
-                    Ge => Le,
-                    Gt => Lt,
-                    Nge => Nle,
-                    Ngt => Nlt,
-                    _ => unreachable!(),
-                };
-                *e = Expr::binary(
-                    inv_op,
-                    box Expr::nary(Times, vec![Expr::minus_one(), take(x)]),
-                    box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
-                );
-                self.modified = true;
             }
             _ => (),
         }
@@ -1166,6 +1185,32 @@ mod tests {
     use crate::{context::Context, parse::parse_expr};
 
     #[test]
+    fn eliminate_not() {
+        fn test(input: &str, expected: &str) {
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            let input = format!("{}", e.dump_structure());
+            let mut v = EliminateNot::default();
+            v.visit_expr_mut(&mut e);
+            let output = format!("{}", e.dump_structure());
+            assert_eq!(format!("{}", e.dump_structure()), expected);
+            assert_eq!(v.modified, input != output);
+        }
+
+        test("!(x = y)", "(Neq x y)");
+        test("!(x ≤ y)", "(Nle x y)");
+        test("!(x < y)", "(Nlt x y)");
+        test("!(x ≥ y)", "(Nge x y)");
+        test("!(x > y)", "(Ngt x y)");
+        test("!!(x = y)", "(Eq x y)");
+        test("!!(x ≤ y)", "(Le x y)");
+        test("!!(x < y)", "(Lt x y)");
+        test("!!(x ≥ y)", "(Ge x y)");
+        test("!!(x > y)", "(Gt x y)");
+        test("!(x = y && z = w)", "(Or (Not (Eq x y)) (Not (Eq z w)))");
+        test("!(x = y || z = w)", "(And (Not (Eq x y)) (Not (Eq z w)))");
+    }
+
+    #[test]
     fn pre_transform() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
@@ -1184,8 +1229,8 @@ mod tests {
         test("x = y", "(Eq (Plus x (Times -1 y)) 0)");
         test("x ≤ y", "(Le (Plus x (Times -1 y)) 0)");
         test("x < y", "(Lt (Plus x (Times -1 y)) 0)");
-        test("x ≥ y", "(Ge (Plus x (Times -1 y)) 0)");
-        test("x > y", "(Gt (Plus x (Times -1 y)) 0)");
+        test("x ≥ y", "(Le (Plus y (Times -1 x)) 0)");
+        test("x > y", "(Lt (Plus y (Times -1 x)) 0)");
     }
 
     #[test]
@@ -1209,7 +1254,7 @@ mod tests {
         test("(x y) z", "(Times x y z)");
         test("x (y z)", "(Times x y z)");
         test("0 + 0", "0");
-        test("1*1", "1");
+        test("1 1", "1");
     }
 
     #[test]
@@ -1282,19 +1327,6 @@ mod tests {
         test("x^-2 x^3", "(Times (Pow x -2) (Pow x 3))");
         test("x^2 x^2", "(Pow x 4)");
         test("sqrt(x) sqrt(x)", "(Pow (Pow x 0.5) 2)");
-
-        test("!(x = 0)", "(Neq x 0)");
-        test("!(x ≤ 0)", "(Nle x 0)");
-        test("!(x < 0)", "(Nlt x 0)");
-        test("!(x ≥ 0)", "(Nle (Times -1 x) 0)");
-        test("!(x > 0)", "(Nlt (Times -1 x) 0)");
-        test("!!(x = 0)", "(Eq x 0)");
-        test("!!(x ≤ 0)", "(Le x 0)");
-        test("!!(x < 0)", "(Lt x 0)");
-        test("!!(x ≥ 0)", "(Le (Times -1 x) 0)");
-        test("!!(x > 0)", "(Lt (Times -1 x) 0)");
-        test("!(x = 0 && y = 0)", "(Or (Not (Eq x 0)) (Not (Eq y 0)))");
-        test("!(x = 0 || y = 0)", "(And (Not (Eq x 0)) (Not (Eq y 0)))");
     }
 
     #[test]
