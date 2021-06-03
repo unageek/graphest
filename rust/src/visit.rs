@@ -269,6 +269,17 @@ impl VisitMut for PreTransform {
                     vec![take(x), Expr::nary(Times, vec![Expr::minus_one(), take(y)])],
                 );
             }
+            binary!(op @ (Eq | Ge | Gt | Le | Lt), x, y) => {
+                // (op x y) → (op (Plus x (Times -1 y)) 0)
+                *e = Expr::binary(
+                    *op,
+                    box Expr::nary(
+                        Plus,
+                        vec![take(x), Expr::nary(Times, vec![Expr::minus_one(), take(y)])],
+                    ),
+                    box Expr::zero(),
+                )
+            }
             _ => (),
         }
     }
@@ -580,6 +591,22 @@ impl VisitMut for Transform {
                     }
                     _ => (),
                 }
+            }
+            binary!(op @ (Ge | Gt | Nge | Ngt), x, y) => {
+                // (op x y) → (inv-op (Times -1 x) (Times -1 y))
+                let inv_op = match op {
+                    Ge => Le,
+                    Gt => Lt,
+                    Nge => Nle,
+                    Ngt => Nlt,
+                    _ => unreachable!(),
+                };
+                *e = Expr::binary(
+                    inv_op,
+                    box Expr::nary(Times, vec![Expr::minus_one(), take(x)]),
+                    box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
+                );
+                self.modified = true;
             }
             _ => (),
         }
@@ -1033,20 +1060,18 @@ impl CollectStatic {
         use BinaryOp::*;
         for t in self.exprs.iter().copied() {
             let k = match &*t {
-                binary!(op, x, y) => match op {
-                    Eq => Some(RelOp::Eq),
-                    Ge => Some(RelOp::Ge),
-                    Gt => Some(RelOp::Gt),
-                    Le => Some(RelOp::Le),
-                    Lt => Some(RelOp::Lt),
-                    Neq => Some(RelOp::Neq),
-                    Nge => Some(RelOp::Nge),
-                    Ngt => Some(RelOp::Ngt),
-                    Nle => Some(RelOp::Nle),
-                    Nlt => Some(RelOp::Nlt),
-                    _ => None,
+                binary!(op @ (Eq | Le | Lt | Neq | Nle | Nlt), x, _) => {
+                    let op = match op {
+                        Eq => RelOp::EqZero,
+                        Le => RelOp::LeZero,
+                        Lt => RelOp::LtZero,
+                        Neq => RelOp::NeqZero,
+                        Nle => RelOp::NleZero,
+                        Nlt => RelOp::NltZero,
+                        _ => unreachable!(),
+                    };
+                    Some(StaticFormKind::Atomic(op, self.store_index(x)))
                 }
-                .map(|op| StaticFormKind::Atomic(op, self.store_index(x), self.store_index(y))),
                 _ => None,
             };
             if let Some(k) = k {
@@ -1156,6 +1181,11 @@ mod tests {
         test("x/sin(x)", "(Pow (Sinc (UndefAt0 x)) -1)");
         test("x y", "(Times x y)");
         test("x - y", "(Plus x (Times -1 y))");
+        test("x = y", "(Eq (Plus x (Times -1 y)) 0)");
+        test("x ≤ y", "(Le (Plus x (Times -1 y)) 0)");
+        test("x < y", "(Lt (Plus x (Times -1 y)) 0)");
+        test("x ≥ y", "(Ge (Plus x (Times -1 y)) 0)");
+        test("x > y", "(Gt (Plus x (Times -1 y)) 0)");
     }
 
     #[test]
@@ -1253,18 +1283,18 @@ mod tests {
         test("x^2 x^2", "(Pow x 4)");
         test("sqrt(x) sqrt(x)", "(Pow (Pow x 0.5) 2)");
 
-        test("!(x = y)", "(Neq x y)");
-        test("!(x ≤ y)", "(Nle x y)");
-        test("!(x < y)", "(Nlt x y)");
-        test("!(x ≥ y)", "(Nge x y)");
-        test("!(x > y)", "(Ngt x y)");
-        test("!!(x = y)", "(Eq x y)");
-        test("!!(x ≤ y)", "(Le x y)");
-        test("!!(x < y)", "(Lt x y)");
-        test("!!(x ≥ y)", "(Ge x y)");
-        test("!!(x > y)", "(Gt x y)");
-        test("!(x = y && y = z)", "(Or (Not (Eq x y)) (Not (Eq y z)))");
-        test("!(x = y || y = z)", "(And (Not (Eq x y)) (Not (Eq y z)))");
+        test("!(x = 0)", "(Neq x 0)");
+        test("!(x ≤ 0)", "(Nle x 0)");
+        test("!(x < 0)", "(Nlt x 0)");
+        test("!(x ≥ 0)", "(Nle (Times -1 x) 0)");
+        test("!(x > 0)", "(Nlt (Times -1 x) 0)");
+        test("!!(x = 0)", "(Eq x 0)");
+        test("!!(x ≤ 0)", "(Le x 0)");
+        test("!!(x < 0)", "(Lt x 0)");
+        test("!!(x ≥ 0)", "(Le (Times -1 x) 0)");
+        test("!!(x > 0)", "(Lt (Times -1 x) 0)");
+        test("!(x = 0 && y = 0)", "(Or (Not (Eq x 0)) (Not (Eq y 0)))");
+        test("!(x = 0 || y = 0)", "(And (Not (Eq x 0)) (Not (Eq y 0)))");
     }
 
     #[test]
