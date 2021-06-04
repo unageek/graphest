@@ -172,11 +172,11 @@ type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 pub struct TupperIntervalSet {
     xs: TupperIntervalVec,
 
-    /// The least decoration of the intervals.
+    /// The decoration of the intervals.
     ///
-    /// Although each interval also stores the same decoration, empty intervals are not kept
-    /// in the set. So if the first intervals being inserted are empty,
-    /// this is the only place where we can keep track of the [`Decoration::Trv`] decoration.
+    /// The same decoration is also stored in each interval.
+    /// However, this is the only place where we can keep track of the decoration [`Decoration::Trv`]
+    /// if the first intervals being inserted are empty, since they will not be stored in `xs`.
     d: Decoration,
 }
 
@@ -189,7 +189,37 @@ impl TupperIntervalSet {
         }
     }
 
-    /// Returns an iterator.
+    /// Returns the decoration of the intervals.
+    pub fn decoration(&self) -> Decoration {
+        if self.is_empty() {
+            Decoration::Trv
+        } else {
+            self.d
+        }
+    }
+
+    /// Inserts an interval to the set and weakens the decoration of the intervals
+    /// if the interval being inserted has a weaker decoration than that.
+    pub fn insert(&mut self, x: TupperInterval) {
+        if !x.x.is_empty() {
+            self.xs.push(x);
+        }
+
+        let d = self.d.min(x.d);
+        if self.d != d {
+            self.d = d;
+            for x in self.xs.iter_mut() {
+                x.d = d;
+            }
+        }
+    }
+
+    /// Returns `true` if the set is empty.
+    pub fn is_empty(&self) -> bool {
+        self.xs.is_empty()
+    }
+
+    /// Returns an iterator over the intervals.
     pub fn iter(&self) -> Iter<'_, TupperInterval> {
         self.xs.iter()
     }
@@ -197,24 +227,6 @@ impl TupperIntervalSet {
     /// Returns the number of intervals in the set.
     pub fn len(&self) -> usize {
         self.xs.len()
-    }
-
-    /// Inserts an interval to the set and sets the decorations of all intervals in it
-    /// to the least decoration of them.
-    pub fn insert(&mut self, x: TupperInterval) {
-        if !x.x.is_empty() {
-            self.xs.push(x);
-        }
-
-        self.d = self.d.min(x.d);
-        for x in self.xs.iter_mut() {
-            x.d = self.d;
-        }
-    }
-
-    /// Returns `true` if the set is empty.
-    pub fn is_empty(&self) -> bool {
-        self.xs.is_empty()
     }
 
     /// Sorts intervals in a consistent order and merges overlapping intervals
@@ -257,16 +269,7 @@ impl TupperIntervalSet {
         xs.shrink_to_fit();
     }
 
-    /// Retains only the intervals specified by the predicate.
-    ///
-    /// It preserves the order of the retained intervals.
-    pub fn retain<F>(&mut self, f: F)
-    where
-        F: FnMut(&mut TupperInterval) -> bool,
-    {
-        self.xs.retain(f)
-    }
-
+    /// Returns the size allocated by the [`TupperIntervalSet`] in bytes.
     pub fn size_in_heap(&self) -> usize {
         if self.xs.spilled() {
             self.xs.capacity() * size_of::<TupperInterval>()
@@ -387,3 +390,41 @@ bitflags! {
 /// is of interest.
 #[derive(Clone, Copy, Debug)]
 pub struct DecSignSet(pub SignSet, pub Decoration);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use inari::{const_dec_interval, const_interval};
+
+    #[test]
+    fn decoration() {
+        use Decoration::*;
+
+        let mut xs = TupperIntervalSet::new();
+        assert_eq!(xs.decoration(), Trv);
+
+        xs.insert(TupperInterval::new(
+            const_dec_interval!(0.0, 0.0),
+            BranchMap::new(),
+        ));
+        assert_eq!(xs.decoration(), Com);
+
+        xs.insert(TupperInterval::new(
+            DecInterval::set_dec(const_interval!(0.0, 0.0), Def),
+            BranchMap::new(),
+        ));
+        assert_eq!(xs.decoration(), Def);
+
+        let mut xs = TupperIntervalSet::new();
+        assert_eq!(xs.decoration(), Trv);
+
+        xs.insert(TupperInterval::new(DecInterval::EMPTY, BranchMap::new()));
+        assert_eq!(xs.decoration(), Trv);
+
+        xs.insert(TupperInterval::new(
+            const_dec_interval!(0.0, 0.0),
+            BranchMap::new(),
+        ));
+        assert_eq!(xs.decoration(), Trv);
+    }
+}

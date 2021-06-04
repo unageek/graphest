@@ -1032,12 +1032,7 @@ impl TupperIntervalSet {
 
 impl TupperIntervalSet {
     pub fn eq_zero(&self) -> DecSignSet {
-        if self.is_empty() {
-            return DecSignSet(SignSet::empty(), Decoration::Trv);
-        }
-
         let mut ss = SignSet::empty();
-        let mut d = Decoration::Com;
         for x in self {
             let a = x.x.inf();
             let b = x.x.sup();
@@ -1050,10 +1045,9 @@ impl TupperIntervalSet {
             if b > 0.0 {
                 ss |= SignSet::POS;
             }
-            d = d.min(x.d);
         }
 
-        DecSignSet(ss, d)
+        DecSignSet(ss, self.decoration())
     }
 }
 
@@ -1068,28 +1062,24 @@ macro_rules! impl_rel_op {
                 }
             }
 
-            let ss = if self.is_empty() {
-                bool_to_sign($map_undef)
-            } else {
-                let mut ss = SignSet::empty();
-                for x in self {
-                    let a = x.x.inf();
-                    let b = x.x.sup();
-                    if a < 0.0 {
-                        ss |= bool_to_sign($map_neg);
-                    }
-                    if a <= 0.0 && b >= 0.0 {
-                        ss |= bool_to_sign($map_zero);
-                    }
-                    if b > 0.0 {
-                        ss |= bool_to_sign($map_pos);
-                    }
-                    if x.d == Decoration::Trv {
-                        ss |= bool_to_sign($map_undef);
-                    }
+            let mut ss = SignSet::empty();
+            for x in self {
+                let a = x.x.inf();
+                let b = x.x.sup();
+                if a < 0.0 {
+                    ss |= bool_to_sign($map_neg);
                 }
-                ss
-            };
+                if a <= 0.0 && b >= 0.0 {
+                    ss |= bool_to_sign($map_zero);
+                }
+                if b > 0.0 {
+                    ss |= bool_to_sign($map_pos);
+                }
+            }
+            if self.decoration() == Decoration::Trv {
+                ss |= bool_to_sign($map_undef);
+            }
+
             let d = match ss {
                 SignSet::ZERO => Decoration::Dac,
                 _ => Decoration::Def,
