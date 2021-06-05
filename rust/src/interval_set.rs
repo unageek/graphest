@@ -111,11 +111,6 @@ struct _DecInterval {
 ///
 /// [`Interval`] and [`Decoration`] are stored directly rather than through [`DecInterval`]
 /// to reduce the size of the struct to 32 bytes from 48, which is due to the alignment.
-///
-/// NOTE: [`Hash`], [`PartialEq`] and [`Eq`] look only the interval part and ignores
-/// the decoration and the branch map.
-/// This is because these traits are only used for discriminating interval constants,
-/// and those constants always have the maximum decorations and the empty branch maps.
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct TupperInterval {
@@ -145,29 +140,16 @@ impl TupperInterval {
     }
 }
 
-impl PartialEq for TupperInterval {
-    fn eq(&self, rhs: &Self) -> bool {
-        self.x == rhs.x
-    }
-}
-
-impl Eq for TupperInterval {}
-
-impl Hash for TupperInterval {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.x.inf().to_bits().hash(state);
-        self.x.sup().to_bits().hash(state);
-    }
-}
-
 type TupperIntervalVecBackingArray = [TupperInterval; 2];
 type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 
 /// A set of [`TupperInterval`]s.
 ///
-/// NOTE: [`Hash`], [`PartialEq`] and [`Eq`] are sensitive to the order by which the intervals
-/// are inserted to. To safely compare sets, you first need to call `normalize(true)`.
-/// See also the note in [`TupperInterval`].
+/// The traits [`Hash`], [`PartialEq`] and [`Eq`] discriminate interval sets only by their intervals
+/// and decorations, and the branch maps are ignored. This is because these traits are only used
+/// during construction of [`crate::relation::Relation`]s, where branch maps are always empty.
+/// Also note that the traits are sensitive to the order by which the intervals are inserted to.
+/// To compare interval sets, you first need to call `normalize(true)` on them.
 #[derive(Clone, Debug)]
 pub struct TupperIntervalSet {
     xs: TupperIntervalVec,
@@ -299,7 +281,9 @@ impl TupperIntervalSet {
 
 impl PartialEq for TupperIntervalSet {
     fn eq(&self, rhs: &Self) -> bool {
-        self.xs == rhs.xs
+        self.len() == rhs.len()
+            && self.iter().zip(rhs.iter()).all(|(x, y)| x.x == y.x)
+            && self.decoration() == rhs.decoration()
     }
 }
 
@@ -307,7 +291,11 @@ impl Eq for TupperIntervalSet {}
 
 impl Hash for TupperIntervalSet {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.xs.hash(state);
+        for x in self.iter() {
+            x.x.inf().to_bits().hash(state);
+            x.x.sup().to_bits().hash(state);
+        }
+        (self.decoration() as u8).hash(state);
     }
 }
 

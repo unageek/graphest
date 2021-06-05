@@ -1243,24 +1243,21 @@ mod tests {
         F: Fn(TupperIntervalSet) -> TupperIntervalSet,
     {
         let decs = [Com, Dac, Def, Trv];
-        let mut y_exp = expected
-            .0
-            .into_iter()
-            .map(|x| TupperInterval::new(DecInterval::new(x), BranchMap::new()))
-            .collect::<TupperIntervalSet>();
-        y_exp.normalize(true);
         for &dx in &decs {
             let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
+
+            let dy_exp = expected.1.min(x.decoration());
+            let mut y_exp = expected
+                .0
+                .iter()
+                .map(|y| TupperInterval::new(DecInterval::set_dec(*y, dy_exp), BranchMap::new()))
+                .collect::<TupperIntervalSet>();
+            y_exp.normalize(true);
+
             let mut y = f(x);
             y.normalize(true);
-            let dy = if y.is_empty() {
-                Decoration::Trv
-            } else {
-                y.iter().next().unwrap().d
-            };
-            let dy_exp = expected.1.min(dx);
+
             assert_eq!(y, y_exp);
-            assert_eq!(dy, dy_exp);
         }
     }
 
@@ -1269,26 +1266,25 @@ mod tests {
         F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet,
     {
         let decs = [Com, Dac, Def, Trv];
-        let mut z_exp = expected
-            .0
-            .into_iter()
-            .map(|x| TupperInterval::new(DecInterval::new(x), BranchMap::new()))
-            .collect::<TupperIntervalSet>();
-        z_exp.normalize(true);
         for &dx in &decs {
             for &dy in &decs {
                 let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
                 let y = TupperIntervalSet::from(DecInterval::set_dec(y, dy));
+
+                let dz_exp = expected.1.min(x.decoration()).min(y.decoration());
+                let mut z_exp = expected
+                    .0
+                    .iter()
+                    .map(|z| {
+                        TupperInterval::new(DecInterval::set_dec(*z, dz_exp), BranchMap::new())
+                    })
+                    .collect::<TupperIntervalSet>();
+                z_exp.normalize(true);
+
                 let mut z = f(x, y);
                 z.normalize(true);
-                let dz = if z.is_empty() {
-                    Decoration::Trv
-                } else {
-                    z.iter().next().unwrap().d
-                };
-                let dz_exp = expected.1.min(dx).min(dy);
+
                 assert_eq!(z, z_exp);
-                assert_eq!(dz, dz_exp);
             }
         }
     }
