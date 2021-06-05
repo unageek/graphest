@@ -43,12 +43,10 @@ impl EvalResultMask {
         match &forms[i].kind {
             Atomic(_, _) => slf[i],
             And(x, y) => {
-                Self::eval_impl(&slf, forms, *x as usize)
-                    && Self::eval_impl(&slf, forms, *y as usize)
+                Self::eval_impl(slf, forms, *x as usize) && Self::eval_impl(slf, forms, *y as usize)
             }
             Or(x, y) => {
-                Self::eval_impl(&slf, forms, *x as usize)
-                    || Self::eval_impl(&slf, forms, *y as usize)
+                Self::eval_impl(slf, forms, *x as usize) || Self::eval_impl(slf, forms, *y as usize)
             }
         }
     }
@@ -78,32 +76,22 @@ impl EvalResultMask {
         match &forms[i].kind {
             Atomic(_, _) => slf[i],
             And(x, y) => {
-                if Self::eval_impl(&locally_zero_mask, forms, *x as usize) {
-                    Self::solution_certainly_exists_impl(
-                        &slf,
-                        forms,
-                        *y as usize,
-                        &locally_zero_mask,
-                    )
-                } else if Self::eval_impl(&locally_zero_mask, forms, *y as usize) {
-                    Self::solution_certainly_exists_impl(
-                        &slf,
-                        forms,
-                        *x as usize,
-                        &locally_zero_mask,
-                    )
+                if Self::eval_impl(locally_zero_mask, forms, *x as usize) {
+                    Self::solution_certainly_exists_impl(slf, forms, *y as usize, locally_zero_mask)
+                } else if Self::eval_impl(locally_zero_mask, forms, *y as usize) {
+                    Self::solution_certainly_exists_impl(slf, forms, *x as usize, locally_zero_mask)
                 } else {
                     // Cannot tell the existence of a solution by a normal conjunction.
                     false
                 }
             }
             Or(x, y) => {
-                Self::solution_certainly_exists_impl(&slf, forms, *x as usize, &locally_zero_mask)
+                Self::solution_certainly_exists_impl(slf, forms, *x as usize, locally_zero_mask)
                     || Self::solution_certainly_exists_impl(
-                        &slf,
+                        slf,
                         forms,
                         *y as usize,
-                        &locally_zero_mask,
+                        locally_zero_mask,
                     )
             }
         }

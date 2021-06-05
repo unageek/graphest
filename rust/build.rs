@@ -53,7 +53,7 @@ fn build_flint(env: &Environment) {
         execute(Command::new("git").current_dir(&env.build_dir).args(&[
             "clone",
             "--branch",
-            &env.flint_branch.to_str().unwrap(),
+            env.flint_branch.to_str().unwrap(),
             "--depth",
             "1",
             "https://github.com/fredrik-johansson/flint2.git",
@@ -103,7 +103,7 @@ fn build_arb(env: &Environment) {
         execute(Command::new("git").current_dir(&env.build_dir).args(&[
             "clone",
             "--branch",
-            &env.arb_branch.to_str().unwrap(),
+            env.arb_branch.to_str().unwrap(),
             "--depth",
             "1",
             "https://github.com/fredrik-johansson/arb.git",

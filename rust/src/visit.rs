@@ -494,7 +494,7 @@ where
     F: Fn(&Rational) -> bool,
 {
     match x {
-        constant!((_, Some(x))) => f(&x),
+        constant!((_, Some(x))) => f(x),
         _ => panic!("`x` is not a constant node"),
     }
 }
@@ -504,7 +504,7 @@ where
     F: Fn(&Rational, &Rational) -> bool,
 {
     match (x, y) {
-        (constant!((_, Some(x))), constant!((_, Some(y)))) => f(&x, &y),
+        (constant!((_, Some(x))), constant!((_, Some(y)))) => f(x, y),
         _ => panic!("`x` or `y` is not a constant node"),
     }
 }
@@ -893,7 +893,7 @@ impl VisitMut for AssignId {
                 e.id = id;
 
                 if !self.site_map.contains_key(&id)
-                    && Self::term_can_perform_cut(&e)
+                    && Self::term_can_perform_cut(e)
                     && self.next_site <= Site::MAX
                 {
                     self.site_map.insert(id, Site::new(self.next_site));

@@ -494,7 +494,7 @@ impl TupperIntervalSet {
                         }
 
                         // (used later) R_{k+1} = `rem`.
-                        let mut rem = xs.rem_euclid(&ys, None);
+                        let mut rem = xs.rem_euclid(ys, None);
                         rem.normalize(true);
 
                         if ys.iter().any(|y| y.x.contains(0.0)) {
