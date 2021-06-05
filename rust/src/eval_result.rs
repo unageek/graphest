@@ -19,6 +19,7 @@ impl EvalResult {
         EvalResultMask(self.0.iter().copied().map(f).collect())
     }
 
+    /// Returns the size allocated by the [`EvalResult`] in bytes.
     pub fn size_in_heap(&self) -> usize {
         if self.0.spilled() {
             self.0.capacity() * size_of::<DecSignSet>()
@@ -102,7 +103,7 @@ impl BitAnd for &EvalResultMask {
     type Output = EvalResultMask;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        #[allow(clippy::suspicious_arithmetic_impl)]
+        assert_eq!(self.0.len(), rhs.0.len());
         EvalResultMask(
             self.0
                 .iter()
@@ -123,7 +124,7 @@ impl BitOr for &EvalResultMask {
     type Output = EvalResultMask;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        #[allow(clippy::suspicious_arithmetic_impl)]
+        assert_eq!(self.0.len(), rhs.0.len());
         EvalResultMask(
             self.0
                 .iter()
