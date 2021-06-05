@@ -3,6 +3,7 @@ use crate::interval_set::{
 };
 use gmp_mpfr_sys::mpfr;
 use inari::{const_dec_interval, const_interval, interval, DecInterval, Decoration, Interval};
+use itertools::Itertools;
 use rug::Float;
 use smallvec::{smallvec, SmallVec};
 use std::{
@@ -803,7 +804,6 @@ impl TupperIntervalSet {
     }
 
     fn ranked_min_max(xs: Vec<&Self>, n: &Self, site: Option<Site>, max: bool) -> Self {
-        use itertools::Itertools;
         assert!(!xs.is_empty());
         let mut rs = Self::new();
         let mut infs = vec![];

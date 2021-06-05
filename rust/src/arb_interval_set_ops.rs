@@ -3,6 +3,7 @@ use crate::{
     interval_set_ops,
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
+use itertools::Itertools;
 use std::ops::{BitAnd, BitOr};
 
 #[derive(Clone, Copy, Eq, Debug, PartialEq)]
@@ -242,7 +243,7 @@ impl TupperIntervalSet {
             && rhs.iter().all(|x| x.x.is_common_interval())
             && self
                 .iter()
-                .zip(rhs.iter())
+                .cartesian_product(rhs.iter())
                 .filter(|(x, y)| x.g.union(y.g).is_some())
                 .all(|(y, x)| x.x.inf() > 0.0 || !y.x.contains(0.0))
         {
