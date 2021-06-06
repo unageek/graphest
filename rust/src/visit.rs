@@ -421,8 +421,8 @@ fn cmp_terms(x: &Expr, y: &Expr) -> Ordering {
     use {BinaryOp::*, NaryOp::*};
     match (x, y) {
         (constant!(x), constant!(y)) => {
-            let x = x.0.iter().next().unwrap().x.inf();
-            let y = y.0.iter().next().unwrap().x.inf();
+            let x = x.0.iter().fold(f64::INFINITY, |inf, x| inf.min(x.x.inf()));
+            let y = y.0.iter().fold(f64::INFINITY, |inf, x| inf.min(x.x.inf()));
             x.partial_cmp(&y).unwrap()
         }
         (constant!(_), _) => Ordering::Less,
@@ -1277,6 +1277,8 @@ mod tests {
         test("x + 1", "(Plus 1 x)");
         test("x + 2x", "(Plus x (Times 2 x))");
         test("2x + x", "(Plus x (Times 2 x))");
+        test("x + sqrt(-1) x", "(Plus x (Times @ x))");
+        test("sqrt(-1) x + x", "(Plus x (Times @ x))");
         test("2 x", "(Times 2 x)");
         test("x 2", "(Times 2 x)");
         test("x x^2", "(Times x (Pow x 2))");
