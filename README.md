@@ -1,12 +1,10 @@
 # Graphest
 
-[![build](https://img.shields.io/github/workflow/status/unageek/graphest/build/master)](https://github.com/unageek/graphest/actions?query=branch%3Amaster+workflow%3Abuild)
+**Graphest** is a graphing calculator that can faithfully plot arbitrary mathematical relations.
 
 <p align="center">
   <img width="608" alt="Cover image" src="docs/cover.png">
 </p>
-
-Graphest is a graphing calculator that can faithfully plot arbitrary mathematical relations.
 
 ## Features
 
