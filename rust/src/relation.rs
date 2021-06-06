@@ -197,15 +197,13 @@ impl Relation {
         let mx_ts = cache.get_x(&kx);
         let my_ts = cache.get_y(&ky);
         if let Some(mx_ts) = mx_ts {
-            #[allow(clippy::needless_range_loop)]
-            for i in 0..self.mx.len() {
-                ts[self.mx[i]] = mx_ts[i].clone();
+            for (i, &mx) in self.mx.iter().enumerate() {
+                ts[mx] = mx_ts[i].clone();
             }
         }
         if let Some(my_ts) = my_ts {
-            #[allow(clippy::needless_range_loop)]
-            for i in 0..self.my.len() {
-                ts[self.my[i]] = my_ts[i].clone();
+            for (i, &my) in self.my.iter().enumerate() {
+                ts[my] = my_ts[i].clone();
             }
         }
 
