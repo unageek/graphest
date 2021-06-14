@@ -20,7 +20,7 @@
     "@types/color": "^3.0.1",
     "@types/css-font-loading-module": "0.0.4",
     "@types/leaflet": "^1.7.2",
-    "@types/react": "^17.0.8",
+    "@types/react": "^17.0.11",
     "@types/react-beautiful-dnd": "^13.0.0",
     "@types/react-dom": "^17.0.7",
     "@types/react-redux": "^7.1.16",
