@@ -40,7 +40,6 @@ impl Branch {
 /// For example, `BranchMap { cut: 0b00101110, chosen: 0b00001010 }`
 /// represents a function `{1 ↦ 1, 2 ↦ 0, 3 ↦ 1, 5 ↦ 0}`.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-#[repr(C)]
 pub struct BranchMap {
     /// A bit field that keeps track of at which sites
     /// branch cuts have been performed during evaluation.
@@ -112,7 +111,6 @@ struct _DecInterval {
 /// [`Interval`] and [`Decoration`] are stored directly rather than through [`DecInterval`]
 /// to reduce the size of the struct to 32 bytes from 48, which is due to the alignment.
 #[derive(Clone, Copy, Debug)]
-#[repr(C)]
 pub struct TupperInterval {
     pub x: Interval,
     pub d: Decoration,
