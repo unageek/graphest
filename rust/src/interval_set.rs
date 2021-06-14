@@ -145,7 +145,7 @@ type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 ///
 /// The traits [`Hash`], [`PartialEq`] and [`Eq`] discriminate interval sets only by their intervals
 /// and decorations, and the branch maps are ignored. This is because these traits are only used
-/// during construction of [`crate::relation::Relation`]s, where branch maps are always empty.
+/// during construction of [`Relation`](crate::relation::Relation)s, where branch maps are always empty.
 /// Also note that the traits are sensitive to the order by which the intervals are inserted to.
 /// To compare interval sets, you first need to call `normalize(true)` on them.
 #[derive(Clone, Debug)]

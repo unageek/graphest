@@ -129,7 +129,8 @@ impl<T: Eq + Hash> Hash for UnsafeRef<T> {
     }
 }
 
-/// Replaces the names of [`ExprKind::Var`]s that are equal to `params[i]` with `i.to_string()`.
+/// Replaces the names of [`ExprKind::Var`](crate::ast::ExprKind::Var)s that are equal
+/// to `params[i]` with `i.to_string()`.
 pub struct Parametrize {
     params: Vec<String>,
 }
@@ -152,8 +153,8 @@ impl VisitMut for Parametrize {
     }
 }
 
-/// Replaces all expressions of the kind [`ExprKind::Var`] with name "0", "1", …
-/// with `args[0]`, `args[1]`, …, respectively.
+/// Replaces all expressions of the kind [`ExprKind::Var`](crate::ast::ExprKind::Var)
+/// with name `"0", "1", …` with `args[0], args[1], …`, respectively.
 pub struct Substitute {
     args: Vec<Expr>,
 }
@@ -411,7 +412,7 @@ impl VisitMut for Flatten {
 }
 
 /// Sorts terms in [`NaryOp::Plus`] and [`NaryOp::Times`] to bring similar ones together.
-/// Terms of kind [`ExprKind::Constant`] are moved to the beginning.
+/// Terms of kind [`ExprKind::Constant`](crate::ast::ExprKind::Constant) are moved to the beginning.
 #[derive(Default)]
 pub struct SortTerms {
     pub modified: bool,
@@ -1129,7 +1130,7 @@ impl CollectStatic {
 }
 
 /// Collects the store indices of maximal scalar sub-expressions that contain exactly one free variable.
-/// Expressions of the kind [`ExprKind::Var`] are excluded from collection.
+/// Expressions of the kind [`ExprKind::Var`](crate::ast::ExprKind::Var) are excluded from collection.
 pub struct FindMaximalScalarTerms {
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,

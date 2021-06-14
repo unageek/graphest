@@ -15,7 +15,7 @@ pub enum SubdivisionDir {
     NTheta = 1,
 }
 
-/// A rectangular region of an [`Image`] with the following bounds in pixels:
+/// A rectangular region of an [`Image`](crate::image::Image) with the following bounds in pixels:
 /// `[x 2^kx, (x + 1) 2^kx] × [y 2^ky, (y + 1) 1^ky]`.
 /// It also contains additional information that are required by certain kinds of graphs.
 ///
