@@ -32,7 +32,7 @@
     "electron-builder": "^22.11.7",
     "electron-notarize": "^1.0.0",
     "electron-updater": "^4.3.9",
-    "eslint": "^7.27.0",
+    "eslint": "^7.29.0",
     "eslint-plugin-react-hooks": "^4.2.0",
     "eslint-webpack-plugin": "^2.5.4",
     "html-webpack-plugin": "^5.3.1",
