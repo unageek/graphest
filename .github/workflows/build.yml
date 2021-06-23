@@ -47,6 +47,9 @@ jobs:
       - name: Check format
         run: cargo fmt -- --check
 
+      - name: Check docs
+        run: cargo rustdoc --lib -- --document-private-items -Aprivate_intra_doc_links -Dwarnings
+
   app:
     runs-on: ubuntu-latest
 
