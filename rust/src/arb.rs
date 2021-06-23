@@ -46,7 +46,7 @@ impl Arf {
         &self.0
     }
 
-    /// Rounds `self` to a `f64` value using the given rounding mode.
+    /// Rounds `self` to a [`f64`] number using the given rounding mode.
     #[allow(clippy::wrong_self_convention)]
     pub fn to_f64_round(&self, round: ArfRound) -> f64 {
         unsafe { arf_get_d(self.as_ptr() as arf_ptr, round as i32) }
@@ -131,7 +131,7 @@ impl Arb {
         y
     }
 
-    /// Returns an `Interval` that encloses `self`.
+    /// Returns an [`Interval`] that encloses `self`.
     #[allow(clippy::wrong_self_convention)]
     pub fn to_interval(&self) -> Interval {
         let mut a = Arf::new();

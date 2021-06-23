@@ -36,7 +36,7 @@ impl Default for PixelState {
 
 /// The index of a [`Block`] in a [`BlockQueue`].
 ///
-/// Indices returned by the methods of [`BlockQueue`] are `usize`, but `u32` would be large enough.
+/// Indices returned by the methods of [`BlockQueue`] are [`usize`], but [`u32`] would be large enough.
 pub type QueuedBlockIndex = u32;
 
 /// A possibly empty rectangular region of the Cartesian plane.
@@ -231,7 +231,7 @@ impl Graph {
                 pixels: im_width as usize * im_height as usize,
                 pixels_proven: 0,
                 eval_count: 0,
-                time_elapsed: Duration::new(0, 0),
+                time_elapsed: Duration::ZERO,
             },
             mem_limit,
         };

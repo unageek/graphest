@@ -59,16 +59,15 @@ impl BranchMap {
     ///
     /// Panics if `site ∈ dom(self)`.
     pub fn inserted(self, site: Site, branch: Branch) -> Self {
-        assert!(self.cut & 1 << site.0 == 0);
+        assert!(self.cut & (1 << site.0) == 0);
         Self {
-            cut: self.cut | 1 << site.0,
-            chosen: self.chosen | (branch.0 as u32) << site.0,
+            cut: self.cut | (1 << site.0),
+            chosen: self.chosen | ((branch.0 as u32) << site.0),
         }
     }
 
-    /// Returns `Some(self ∪ rhs)` if `self` and `rhs` are compatible, i.e.,
-    /// `∀x ∈ dom(self) ∩ dom(rhs) : self(x) = rhs(x)`;
-    /// otherwise, `None`.
+    /// Returns `self ∪ rhs` if `self` and `rhs` are compatible, i.e., they satisfy
+    /// `∀x ∈ dom(self) ∩ dom(rhs) : self(x) = rhs(x)`; otherwise, [`None`].
     pub fn union(self, rhs: Self) -> Option<Self> {
         let mask = self.cut & rhs.cut;
         let compatible = self.chosen & mask == rhs.chosen & mask;
@@ -90,7 +89,7 @@ impl Default for BranchMap {
     }
 }
 
-// Used for type punning. The layout must be exactly the same with `DecInterval`.
+// Used for type punning. The layout must be exactly the same as `DecInterval`.
 #[repr(C)]
 struct _DecInterval {
     x: Interval,
@@ -258,10 +257,11 @@ impl TupperIntervalSet {
         }
     }
 
-    /// Returns the `f64` value if `self` contains exactly one interval
-    /// which is singleton and has a decoration ≥ [`Decoration::Def`]; otherwise, `None`.
+    /// Returns the only [`f64`] number in the set if `self` contains exactly one interval
+    /// which is a singleton and has a decoration ≥ [`Decoration::Def`]; otherwise, [`None`].
+    /// Zero is returned as `+0.0`.
     ///
-    /// If a `f64` value is returned, it implies that the exact result is obtained from evaluation.
+    /// If a [`f64`] number is obtained, that is the exact value of the evaluated expression.
     pub fn to_f64(&self) -> Option<f64> {
         if self.len() != 1 {
             return None;

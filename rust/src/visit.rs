@@ -117,7 +117,7 @@ impl<T: Eq + Hash> Deref for UnsafeRef<T> {
 
 impl<T: Eq + Hash> PartialEq for UnsafeRef<T> {
     fn eq(&self, rhs: &Self) -> bool {
-        unsafe { (*self.ptr) == (*rhs.ptr) }
+        unsafe { *self.ptr == *rhs.ptr }
     }
 }
 
@@ -364,7 +364,7 @@ impl VisitMut for PreTransform {
 
 /// Flattens out nested expressions of kind [`NaryOp::Plus`]/[`NaryOp::Times`].
 ///
-/// For any expression that contains zero or one term, the following rules are applied:
+/// To any expression that contains zero or one term, the following rules are applied:
 ///
 /// - `(Plus) → 0`
 /// - `(Plus x) → x`

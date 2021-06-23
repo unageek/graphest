@@ -201,13 +201,13 @@ impl BlockQueue {
         self.seq.is_empty()
     }
 
-    /// Returns the index that will be returned by the next call of `self.push_back`.
+    /// Returns the index that will be returned by the next call to [`Self::push_back`].
     pub fn next_back_index(&self) -> usize {
         self.back_index
     }
 
     /// Removes the first block from the queue and returns it with its original index.
-    /// It returns `None` if the queue is empty.
+    /// It returns [`None`] if the queue is empty.
     pub fn pop_front(&mut self) -> Option<(usize, Block)> {
         let x = self.x_front ^ self.pop_small_u32()?;
         let y = self.y_front ^ self.pop_small_u32()?;
@@ -336,7 +336,7 @@ impl BlockQueue {
 
     fn push_n_theta(&mut self, x: Interval) {
         if x == self.n_theta_back {
-            // A `f64` that starts with 0xffff is NaN, which never appears in interval bounds.
+            // A `f64` datum that starts with 0xffff is NaN, which never appears in interval bounds.
             self.seq.extend([0xff, 0xff]);
         } else {
             self.seq.extend(x.to_be_bytes());
