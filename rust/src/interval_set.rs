@@ -290,10 +290,9 @@ impl Eq for TupperIntervalSet {}
 impl Hash for TupperIntervalSet {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for x in self.iter() {
-            x.x.inf().to_bits().hash(state);
-            x.x.sup().to_bits().hash(state);
+            x.x.hash(state);
         }
-        (self.decoration() as u8).hash(state);
+        self.decoration().hash(state);
     }
 }
 

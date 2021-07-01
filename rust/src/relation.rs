@@ -26,9 +26,9 @@ pub enum EvalCacheLevel {
 
 pub struct EvalCache {
     level: EvalCacheLevel,
-    cx: HashMap<[u64; 2], Vec<TupperIntervalSet>>,
-    cy: HashMap<[u64; 2], Vec<TupperIntervalSet>>,
-    cxy: HashMap<[u64; 4], EvalResult>,
+    cx: HashMap<Interval, Vec<TupperIntervalSet>>,
+    cy: HashMap<Interval, Vec<TupperIntervalSet>>,
+    cxy: HashMap<(Interval, Interval), EvalResult>,
     size_of_cx: usize,
     size_of_cy: usize,
     size_of_cxy: usize,
@@ -49,23 +49,23 @@ impl EvalCache {
         }
     }
 
-    pub fn get_x(&self, k: &[u64; 2]) -> Option<&Vec<TupperIntervalSet>> {
-        self.cx.get(k)
+    pub fn get_x(&self, x: Interval) -> Option<&Vec<TupperIntervalSet>> {
+        self.cx.get(&x)
     }
 
-    pub fn get_y(&self, k: &[u64; 2]) -> Option<&Vec<TupperIntervalSet>> {
-        self.cy.get(k)
+    pub fn get_y(&self, y: Interval) -> Option<&Vec<TupperIntervalSet>> {
+        self.cy.get(&y)
     }
 
-    pub fn get_xy(&self, k: &[u64; 4]) -> Option<&EvalResult> {
+    pub fn get_xy(&self, x: Interval, y: Interval) -> Option<&EvalResult> {
         match self.level {
             EvalCacheLevel::PerAxis => None,
-            EvalCacheLevel::Full => self.cxy.get(k),
+            EvalCacheLevel::Full => self.cxy.get(&(x, y)),
         }
     }
 
-    pub fn insert_x_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, k: [u64; 2], f: F) {
-        if let Entry::Vacant(e) = self.cx.entry(k) {
+    pub fn insert_x_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, x: Interval, f: F) {
+        if let Entry::Vacant(e) = self.cx.entry(x) {
             let v = f();
             self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
                 + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
@@ -75,8 +75,8 @@ impl EvalCache {
         }
     }
 
-    pub fn insert_y_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, k: [u64; 2], f: F) {
-        if let Entry::Vacant(e) = self.cy.entry(k) {
+    pub fn insert_y_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, y: Interval, f: F) {
+        if let Entry::Vacant(e) = self.cy.entry(y) {
             let v = f();
             self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
                 + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
@@ -86,9 +86,9 @@ impl EvalCache {
         }
     }
 
-    pub fn insert_xy_with<F: FnOnce() -> EvalResult>(&mut self, k: [u64; 4], f: F) {
+    pub fn insert_xy_with<F: FnOnce() -> EvalResult>(&mut self, x: Interval, y: Interval, f: F) {
         if self.level == EvalCacheLevel::Full {
-            if let Entry::Vacant(e) = self.cxy.entry(k) {
+            if let Entry::Vacant(e) = self.cxy.entry((x, y)) {
                 let v = f();
                 self.size_of_values_in_heap += v.size_in_heap();
                 e.insert(v);
@@ -184,18 +184,14 @@ impl Relation {
         n_theta: Interval,
         cache: &mut EvalCache,
     ) -> EvalResult {
-        let kx = [x.inf().to_bits(), x.sup().to_bits()];
-        let ky = [y.inf().to_bits(), y.sup().to_bits()];
-        let kxy = [kx[0], kx[1], ky[0], ky[1]];
-
-        if let Some(r) = cache.get_xy(&kxy) {
+        if let Some(r) = cache.get_xy(x, y) {
             return r.clone();
         }
 
         let terms = &self.terms;
         let ts = &mut self.ts;
-        let mx_ts = cache.get_x(&kx);
-        let my_ts = cache.get_y(&ky);
+        let mx_ts = cache.get_x(x);
+        let my_ts = cache.get_y(y);
         if let Some(mx_ts) = mx_ts {
             for (i, &mx) in self.mx.iter().enumerate() {
                 ts[mx] = mx_ts[i].clone();
@@ -230,9 +226,9 @@ impl Relation {
         );
 
         let ts = &self.ts;
-        cache.insert_x_with(kx, || self.mx.iter().map(|&i| ts[i].clone()).collect());
-        cache.insert_y_with(ky, || self.my.iter().map(|&i| ts[i].clone()).collect());
-        cache.insert_xy_with(kxy, || r.clone());
+        cache.insert_x_with(x, || self.mx.iter().map(|&i| ts[i].clone()).collect());
+        cache.insert_y_with(y, || self.my.iter().map(|&i| ts[i].clone()).collect());
+        cache.insert_xy_with(x, y, || r.clone());
         r
     }
 
