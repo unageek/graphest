@@ -1098,6 +1098,7 @@ impl TupperIntervalSet {
     impl_rel_op!(nlt_zero, false, true, true, true);
 }
 
+// Copied from https://github.com/unageek/inari/blob/b398df0609ea96c28574f8b1acdabbc87cb7cf78/src/elementary.rs
 macro_rules! mpfr_fn {
     ($mpfr_f:ident, $f_rd:ident, $f_ru:ident) => {
         fn $f_rd(x: f64) -> f64 {
@@ -1111,9 +1112,10 @@ macro_rules! mpfr_fn {
 
     ($mpfr_f:ident($x:ident, $rnd:ident)) => {{
         let mut x = Float::with_val(f64::MANTISSA_DIGITS, $x);
+        let rnd = mpfr::rnd_t::$rnd;
         unsafe {
-            mpfr::$mpfr_f(x.as_raw_mut(), x.as_raw(), mpfr::rnd_t::$rnd);
-            mpfr::get_d(x.as_raw(), mpfr::rnd_t::$rnd)
+            mpfr::$mpfr_f(x.as_raw_mut(), x.as_raw(), rnd);
+            mpfr::get_d(x.as_raw(), rnd)
         }
     }};
 }
@@ -1131,9 +1133,10 @@ macro_rules! mpfr_fn_ui {
 
     ($mpfr_f:ident($x:ident, $y:ident, $rnd:ident)) => {{
         let mut x = Float::with_val(f64::MANTISSA_DIGITS, $x);
+        let rnd = mpfr::rnd_t::$rnd;
         unsafe {
-            mpfr::$mpfr_f(x.as_raw_mut(), x.as_raw(), $y as u64, mpfr::rnd_t::$rnd);
-            mpfr::get_d(x.as_raw(), mpfr::rnd_t::$rnd)
+            mpfr::$mpfr_f(x.as_raw_mut(), x.as_raw(), $y as u64, rnd);
+            mpfr::get_d(x.as_raw(), rnd)
         }
     }};
 }
