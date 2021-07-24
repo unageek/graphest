@@ -8,7 +8,7 @@
 * Enter multiplication of `x` and `y` as `x y`, instead of `xy`.
 * Enter the sine of _x_ as `sin(x)`, instead of `sinx` or `sin x`.
 * Use parentheses to group a part of the relation like `1 / (x + 3)`.
-* In polar coordinates, the point (_x_, _y_) = (1, 0) has infinitely many representations: (_r_, _θ_) = (1, 0), (1, 2π), (1, -2π), (1, 4π), …; (-1, π), (-1, -π), (-1, 3π), …
+* In polar coordinates, the point (_x_, _y_) = (1, 0) has infinitely many representations: (_r_, _θ_) = (1, 0), (1, 2π), (1, −2π), (1, 4π), …; (−1, π), (−1, −π), (−1, 3π), …
 
 == Real-Valued Expressions
 

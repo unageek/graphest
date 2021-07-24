@@ -306,7 +306,7 @@ impl TupperIntervalSet {
                 };
                 interval!(inf, sup).unwrap()
             } else if n.inf() > 0.0 {
-                // n ∈ (0, +∞) ⧵ ℤ
+                // n ∈ (0, +∞) ∖ ℤ
                 let x = x.intersection(ZERO_TO_INF);
                 if x.is_empty() || x == ZERO {
                     Interval::EMPTY
@@ -394,7 +394,7 @@ impl TupperIntervalSet {
                         let a = x.inf();
                         let b = x.sup();
                         if n.inf() > 0.0 {
-                            // n ∈ (0, +∞) ⧵ ℤ
+                            // n ∈ (0, +∞) ∖ ℤ
                             let inf = if a == 0.0 {
                                 0.0
                             } else {

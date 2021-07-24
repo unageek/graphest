@@ -434,7 +434,7 @@ impl TupperIntervalSet {
     //
     //   gcd(x, y) = |r_{n-1}| ∈ |R_{n-1}| ⊆ Z_n ⊆ gcd(X, Y).
     //
-    // Therefore, for any intervals X and Y, gcd[X, Y] ⊆ gcd(X, Y).  ■
+    // Therefore, for any intervals X and Y, gcd[X, Y] ⊆ gcd(X, Y).  ∎
     //
     // Proposition.  For any intervals X and Y, and any k ≥ 2,
     // ∃i ∈ {1, …, k - 1} : R_{i-1} = R_{k-1} ∧ R_i = R_k ∧ Z_{i-1} = Z_{k-1} ⟹ gcd(X, Y) = Z_{k-1}.
@@ -454,13 +454,13 @@ impl TupperIntervalSet {
     //
     // By repeating the process, we get ∀m ∈ ℕ_{≥0} : Z_{i+mn} = Z_i.
     // Therefore, ∀j ∈ ℕ_{≥i} : Z_j = Z_i.
-    // Therefore, gcd(X, Y) = Z_i = Z_{k-1}.  ■
+    // Therefore, gcd(X, Y) = Z_i = Z_{k-1}.  ∎
     pub fn gcd(&self, rhs: &Self, site: Option<Site>) -> Self {
         let mut rs = Self::new();
-        // {gcd(x, y) | x ∈ X, y ∈ Y}
-        //   = {gcd(x, y) | x ∈ |X|, y ∈ |Y|}
-        //   = {gcd(max(x, y), min(x, y)) | x ∈ |X|, y ∈ |Y|}
-        //   ⊆ {gcd(x, y) | x ∈ max(|X|, |Y|), y ∈ min(|X|, |Y|)}.
+        // {gcd(x, y) ∣ x ∈ X, y ∈ Y}
+        //   = {gcd(x, y) ∣ x ∈ |X|, y ∈ |Y|}
+        //   = {gcd(max(x, y), min(x, y)) ∣ x ∈ |X|, y ∈ |Y|}
+        //   ⊆ {gcd(x, y) ∣ x ∈ max(|X|, |Y|), y ∈ min(|X|, |Y|)}.
         let xs = &self.abs();
         let ys = &rhs.abs();
         for x in xs {
@@ -552,21 +552,21 @@ impl TupperIntervalSet {
     //
     //   (1):  X ∩ ℚ = ∅ ∨ Y ∩ ℚ = ∅,
     //   (2):  X = Y = {0},
-    //   (3):  X = {0} ∧ Y ∩ ℚ\{0} ≠ ∅,
-    //   (4):  X ∩ ℚ\{0} ≠ ∅ ∧ Y = {0},
-    //   (5):  X ∩ ℚ\{0} ≠ ∅ ∧ Y ∩ ℚ\{0} ≠ ∅.
+    //   (3):  X = {0} ∧ Y ∩ ℚ∖{0} ≠ ∅,
+    //   (4):  X ∩ ℚ∖{0} ≠ ∅ ∧ Y = {0},
+    //   (5):  X ∩ ℚ∖{0} ≠ ∅ ∧ Y ∩ ℚ∖{0} ≠ ∅.
     //
     // Suppose (1).  Then, lcm[X, Y] = ∅ ⊆ lcm(X, Y).
     // Suppose (2).  Then, lcm[X, Y] = lcm(X, Y) = {0}.
     // Suppose (3).  As Y ≠ {0}, lcm(X, Y) = |X Y| / gcd(X, Y).
-    // Therefore, from 0 ∈ |X Y| and ∃y ∈ Y ∩ ℚ\{0} : |y| ∈ gcd(X, Y), 0 ∈ lcm(X, Y).
+    // Therefore, from 0 ∈ |X Y| and ∃y ∈ Y ∩ ℚ∖{0} : |y| ∈ gcd(X, Y), 0 ∈ lcm(X, Y).
     // Therefore, lcm[X, Y] = {0} ⊆ lcm(X, Y).
     // Suppose (4).  In the same manner, lcm[X, Y] ⊆ lcm(X, Y).
-    // Suppose (5).  Let x ∈ X ∩ ℚ\{0}, y ∈ Y ∩ ℚ\{0} ≠ ∅.
+    // Suppose (5).  Let x ∈ X ∩ ℚ∖{0}, y ∈ Y ∩ ℚ∖{0} ≠ ∅.
     // Then, |x y| / gcd(x, y) ∈ lcm(X, Y) = |X Y| / gcd(X, Y).
     // Therefore, lcm[X, Y] ⊆ lcm(X, Y).
     //
-    // Hence, the result.  ■
+    // Hence, the result.  ∎
     pub fn lcm(&self, rhs: &Self, site: Option<Site>) -> Self {
         const ZERO: Interval = const_interval!(0.0, 0.0);
         let mut rs = TupperIntervalSet::new();

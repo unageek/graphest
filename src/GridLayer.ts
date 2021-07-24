@@ -410,6 +410,7 @@ class GridLabelsLayer extends L.GridLayer {
   }
 
   private format(x: BigNumber) {
+    // Replace hyphen-minuses with minus signs.
     return x.toString().replaceAll("-", "−");
   }
 
