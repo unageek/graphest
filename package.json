@@ -27,7 +27,7 @@
     "@types/resize-observer-browser": "^0.1.6",
     "@typescript-eslint/eslint-plugin": "^4.28.3",
     "@typescript-eslint/parser": "^4.28.4",
-    "css-loader": "^6.1.0",
+    "css-loader": "^6.2.0",
     "electron": "^13.1.7",
     "electron-builder": "^22.11.7",
     "electron-notarize": "^1.0.0",
