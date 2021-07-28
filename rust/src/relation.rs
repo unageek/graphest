@@ -71,7 +71,7 @@ impl EvalCache {
                 + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
             e.insert(v);
             self.size_of_cx = self.cx.capacity()
-                * (size_of::<u64>() + size_of::<[u64; 2]>() + size_of::<Vec<TupperIntervalSet>>());
+                * (size_of::<u64>() + size_of::<Interval>() + size_of::<Vec<TupperIntervalSet>>());
         }
     }
 
@@ -82,7 +82,7 @@ impl EvalCache {
                 + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
             e.insert(v);
             self.size_of_cy = self.cy.capacity()
-                * (size_of::<u64>() + size_of::<[u64; 2]>() + size_of::<Vec<TupperIntervalSet>>());
+                * (size_of::<u64>() + size_of::<Interval>() + size_of::<Vec<TupperIntervalSet>>());
         }
     }
 
@@ -93,7 +93,9 @@ impl EvalCache {
                 self.size_of_values_in_heap += v.size_in_heap();
                 e.insert(v);
                 self.size_of_cxy = self.cxy.capacity()
-                    * (size_of::<u64>() + size_of::<[u64; 4]>() + size_of::<EvalResult>());
+                    * (size_of::<u64>()
+                        + size_of::<(Interval, Interval)>()
+                        + size_of::<EvalResult>());
             }
         }
     }
