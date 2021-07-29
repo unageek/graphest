@@ -98,16 +98,19 @@ struct _DecInterval {
 
 /// An interval with additional properties that are required by Tupper interval arithmetic.
 ///
-/// The decoration system is used instead of the interval properties `def` and `cont`,
-/// which are used by Tupper IA. The following table describes the relationship between them:
+/// The decoration system is used instead of the Tupper IA's interval properties: `def` and `cont`.
+/// For a nonempty interval, the relationship between them is:
 ///
-/// | Decoration   | def            | cont                   |
+/// | Decoration   | `def`          | `cont`                 |
 /// | ------------ | -------------- | ---------------------- |
 /// | `Com`, `Dac` | [T, T]         | [T, T]                 |
-/// | `Def`        | [T, T]         | [F, F]; [F, T]         |
-/// | `Trv`        | [F, F]; [F, T] | [F, F]; [F, T]; [T, T] |
+/// | `Def`        | [T, T]         | [F, F], [F, T]         |
+/// | `Trv`        | [F, F], [F, T] | [F, F], [F, T], [T, T] |
 ///
-/// [`Interval`] and [`Decoration`] are stored directly rather than through [`DecInterval`]
+/// Tupper IA primarily works with sets of intervals.
+/// The empty set is represented by the empty set of intervals, instead of the empty interval.
+///
+/// The interval and the decoration are stored directly rather than through [`DecInterval`]
 /// to reduce the size of the struct to 32 bytes from 48, which is due to the alignment.
 #[derive(Clone, Copy, Debug)]
 pub struct TupperInterval {
@@ -142,16 +145,17 @@ type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 
 /// A set of [`TupperInterval`]s.
 ///
-/// The traits [`Hash`], [`PartialEq`] and [`Eq`] discriminate interval sets only by their intervals
-/// and decorations, and the branch maps are ignored. This is because these traits are only used
-/// during construction of [`Relation`](crate::relation::Relation)s, where branch maps are always empty.
-/// Also note that the traits are sensitive to the order by which the intervals are inserted to.
-/// To compare interval sets, you first need to call `normalize(true)` on them.
+/// Notes on the traits [`PartialEq`], [`Eq`] and [`Hash`]:
+///
+/// - Unlike [`DecInterval`], the traits distinguish interval sets that have different decorations.
+///
+/// - The traits are sensitive to the order by which the intervals are inserted.
+///   To compare interval sets, you first need to call `normalize(true)` on them.
 #[derive(Clone, Debug)]
 pub struct TupperIntervalSet {
     xs: TupperIntervalVec,
 
-    /// The decoration of the intervals.
+    /// The decoration of the interval set.
     ///
     /// The same decoration is also stored in each interval.
     /// However, this is the only place where we can keep track of the decoration [`Decoration::Trv`]
@@ -168,7 +172,7 @@ impl TupperIntervalSet {
         }
     }
 
-    /// Returns the decoration of the intervals.
+    /// Returns the decoration of the interval set.
     pub fn decoration(&self) -> Decoration {
         if self.is_empty() {
             Decoration::Trv
@@ -211,7 +215,7 @@ impl TupperIntervalSet {
     /// Sorts intervals in a consistent order and merges overlapping intervals
     /// with the same branch map.
     ///
-    /// It does nothing when the set is small enough and `force` is set to `false`.
+    /// It does nothing when the set is small enough and `force` is `false`.
     pub fn normalize(&mut self, force: bool) {
         let xs = &mut self.xs;
         if !force && !xs.spilled() || xs.is_empty() {
@@ -280,7 +284,10 @@ impl TupperIntervalSet {
 impl PartialEq for TupperIntervalSet {
     fn eq(&self, rhs: &Self) -> bool {
         self.len() == rhs.len()
-            && self.iter().zip(rhs.iter()).all(|(x, y)| x.x == y.x)
+            && self
+                .iter()
+                .zip(rhs.iter())
+                .all(|(x, y)| x.x == y.x && x.g == y.g)
             && self.decoration() == rhs.decoration()
     }
 }
@@ -291,6 +298,7 @@ impl Hash for TupperIntervalSet {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for x in self.iter() {
             x.x.hash(state);
+            x.g.hash(state);
         }
         self.decoration().hash(state);
     }
