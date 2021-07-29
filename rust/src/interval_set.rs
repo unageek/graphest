@@ -147,9 +147,9 @@ type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 ///
 /// Notes on the traits [`PartialEq`], [`Eq`] and [`Hash`]:
 ///
-/// - Unlike [`DecInterval`], the traits distinguish interval sets that have different decorations.
+/// - Unlike [`DecInterval`], the traits distinguish interval sets with different decorations.
 ///
-/// - The traits are sensitive to the order by which the intervals are inserted.
+/// - The traits are sensitive to the order by which the intervals have been inserted.
 ///   To compare interval sets, you first need to call `normalize(true)` on them.
 #[derive(Clone, Debug)]
 pub struct TupperIntervalSet {
