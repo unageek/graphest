@@ -420,4 +420,114 @@ mod tests {
         ));
         assert_eq!(xs.decoration(), Trv);
     }
+
+    #[test]
+    fn normalize() {
+        fn test(input: Vec<TupperInterval>, output: Vec<TupperInterval>) {
+            let mut input = input.into_iter().collect::<TupperIntervalSet>();
+            let output = output.into_iter().collect::<TupperIntervalSet>();
+            input.normalize(true);
+            assert_eq!(input, output);
+        }
+
+        macro_rules! i {
+            ($a:expr, $b:expr) => {
+                const_dec_interval!($a, $b)
+            };
+        }
+
+        let g = BranchMap::new().inserted(Site::new(0), Branch::new(0));
+        let g2 = BranchMap::new().inserted(Site::new(0), Branch::new(1));
+
+        test(vec![], vec![]);
+
+        test(
+            vec![
+                TupperInterval::new(i!(0.0, 2.0), g),
+                TupperInterval::new(i!(1.0, 3.0), g),
+            ],
+            vec![TupperInterval::new(i!(0.0, 3.0), g)],
+        );
+
+        test(
+            vec![
+                TupperInterval::new(i!(1.0, 3.0), g),
+                TupperInterval::new(i!(0.0, 2.0), g),
+            ],
+            vec![TupperInterval::new(i!(0.0, 3.0), g)],
+        );
+
+        // Non-overlapping intervals are not merged.
+        test(
+            vec![
+                TupperInterval::new(i!(0.0, 1.0), g),
+                TupperInterval::new(i!(2.0, 3.0), g),
+            ],
+            vec![
+                TupperInterval::new(i!(0.0, 1.0), g),
+                TupperInterval::new(i!(2.0, 3.0), g),
+            ],
+        );
+
+        // Intervals with different branch maps are not merged.
+        test(
+            vec![
+                TupperInterval::new(i!(0.0, 2.0), g),
+                TupperInterval::new(i!(1.0, 3.0), g2),
+            ],
+            vec![
+                TupperInterval::new(i!(0.0, 2.0), g),
+                TupperInterval::new(i!(1.0, 3.0), g2),
+            ],
+        );
+
+        test(
+            vec![
+                TupperInterval::new(i!(0.0, 2.0), g),
+                TupperInterval::new(i!(1.0, 3.0), g2),
+                TupperInterval::new(i!(2.0, 4.0), g),
+            ],
+            vec![
+                TupperInterval::new(i!(0.0, 4.0), g),
+                TupperInterval::new(i!(1.0, 3.0), g2),
+            ],
+        );
+    }
+
+    #[test]
+    fn to_f64() {
+        let xs = TupperIntervalSet::new();
+        assert_eq!(xs.to_f64(), None);
+
+        for d in [Decoration::Com, Decoration::Dac, Decoration::Def] {
+            let mut xs = TupperIntervalSet::new();
+            xs.insert(TupperInterval::new(
+                DecInterval::set_dec(const_interval!(0.1, 0.1), d),
+                BranchMap::new(),
+            ));
+            assert_eq!(xs.to_f64(), Some(0.1));
+        }
+
+        let mut xs = TupperIntervalSet::new();
+        xs.insert(TupperInterval::new(
+            DecInterval::set_dec(const_interval!(0.1, 0.1), Decoration::Trv),
+            BranchMap::new(),
+        ));
+        assert_eq!(xs.to_f64(), None);
+
+        let mut xs = TupperIntervalSet::new();
+        xs.insert(TupperInterval::new(DecInterval::PI, BranchMap::new()));
+        assert_eq!(xs.to_f64(), None);
+
+        // The sign bit of 0.0 is positive.
+        let mut xs = TupperIntervalSet::new();
+        xs.insert(TupperInterval::new(
+            const_dec_interval!(0.0, 0.0),
+            BranchMap::new(),
+        ));
+        assert_eq!(xs.to_f64(), Some(0.0));
+        if let Some(zero) = xs.to_f64() {
+            assert!(zero.is_sign_positive());
+        }
+    }
 }
