@@ -137,6 +137,7 @@ pub enum StaticTermKind {
     X,
     Y,
     NTheta,
+    T,
     Unary(ScalarUnaryOp, StoreIndex),
     Binary(ScalarBinaryOp, StoreIndex, StoreIndex),
     Ternary(ScalarTernaryOp, StoreIndex, StoreIndex, StoreIndex),
@@ -260,7 +261,7 @@ impl StaticTerm {
                     ),
                 );
             }
-            X | Y | NTheta => panic!("this term cannot be evaluated"),
+            X | Y | NTheta | T => panic!("this term cannot be evaluated"),
         }
     }
 }

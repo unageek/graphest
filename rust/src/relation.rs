@@ -100,6 +100,7 @@ impl EvalCache {
         }
     }
 
+    /// Returns the approximate size allocated by the [`EvalCache`] in bytes.
     pub fn size_in_heap(&self) -> usize {
         // This is a lowest bound, the actual size can be much larger.
         self.size_of_cx + self.size_of_cy + self.size_of_cxy + self.size_of_values_in_heap
@@ -107,12 +108,6 @@ impl EvalCache {
 }
 
 /// Type of the relation, which should be used to choose the optimal graphing strategy.
-///
-/// The following relationships hold:
-///
-/// - `FunctionOfX` ⟹ `Implicit`
-/// - `FunctionOfY` ⟹ `Implicit`
-/// - `Implicit` ⟹ `Polar`
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
     /// y is a function of x.
@@ -121,10 +116,15 @@ pub enum RelationType {
     /// x is a function of y.
     /// More generally, the relation is of the form x R_1 f_1(y) ∨ … ∨ x R_n f_n(y).
     FunctionOfY,
-    /// Implicit relation of x and y.
+    /// An implicit relation.
     Implicit,
-    /// Implicit relation of x, y and θ.
-    Polar,
+}
+
+pub struct RelationArgs {
+    pub x: Interval,
+    pub y: Interval,
+    pub n_theta: Interval,
+    pub t: Interval,
 }
 
 #[derive(Clone, Debug)]
@@ -136,7 +136,10 @@ pub struct Relation {
     eval_count: usize,
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,
+    has_n_theta: bool,
+    has_t: bool,
     n_theta_range: Interval,
+    t_range: Interval,
     relation_type: RelationType,
 }
 
@@ -144,17 +147,11 @@ impl Relation {
     /// Evaluates the relation with the given arguments.
     ///
     /// Precondition: `cache` has never been passed to other relations.
-    pub fn eval(
-        &mut self,
-        x: Interval,
-        y: Interval,
-        n_theta: Interval,
-        cache: Option<&mut EvalCache>,
-    ) -> EvalResult {
+    pub fn eval(&mut self, args: &RelationArgs, cache: Option<&mut EvalCache>) -> EvalResult {
         self.eval_count += 1;
         match cache {
-            Some(cache) => self.eval_with_cache(x, y, n_theta, cache),
-            _ => self.eval_without_cache(x, y, n_theta),
+            Some(cache) => self.eval_with_cache(args, cache),
+            _ => self.eval_without_cache(args),
         }
     }
 
@@ -167,9 +164,19 @@ impl Relation {
         &self.forms
     }
 
+    /// Returns `true` if the relation contains n_θ.
+    pub fn has_n_theta(&self) -> bool {
+        self.has_n_theta
+    }
+
+    /// Returns `true` if the relation contains t.
+    pub fn has_t(&self) -> bool {
+        self.has_t
+    }
+
     /// Returns the range of n_θ that needs to be covered to plot the graph of the relation.
     ///
-    /// Each endpoint is either an integer or ±∞.
+    /// Each of the bounds is either an integer or ±∞.
     pub fn n_theta_range(&self) -> Interval {
         self.n_theta_range
     }
@@ -179,13 +186,15 @@ impl Relation {
         self.relation_type
     }
 
-    fn eval_with_cache(
-        &mut self,
-        x: Interval,
-        y: Interval,
-        n_theta: Interval,
-        cache: &mut EvalCache,
-    ) -> EvalResult {
+    /// Returns the range of t that needs to be covered to plot the graph of the relation.
+    pub fn t_range(&self) -> Interval {
+        self.t_range
+    }
+
+    fn eval_with_cache(&mut self, args: &RelationArgs, cache: &mut EvalCache) -> EvalResult {
+        let x = args.x;
+        let y = args.y;
+
         if let Some(r) = cache.get_xy(x, y) {
             return r.clone();
         }
@@ -209,7 +218,8 @@ impl Relation {
             match t.kind {
                 StaticTermKind::X => t.put(ts, DecInterval::new(x).into()),
                 StaticTermKind::Y => t.put(ts, DecInterval::new(y).into()),
-                StaticTermKind::NTheta => t.put(ts, DecInterval::new(n_theta).into()),
+                StaticTermKind::NTheta => t.put(ts, DecInterval::new(args.n_theta).into()),
+                StaticTermKind::T => t.put(ts, DecInterval::new(args.t).into()),
                 _ if t.vars == VarSet::EMPTY
                     || t.vars == VarSet::X && mx_ts.is_some()
                     || t.vars == VarSet::Y && my_ts.is_some() =>
@@ -234,14 +244,15 @@ impl Relation {
         r
     }
 
-    fn eval_without_cache(&mut self, x: Interval, y: Interval, n_theta: Interval) -> EvalResult {
+    fn eval_without_cache(&mut self, args: &RelationArgs) -> EvalResult {
         let ts = &mut self.ts;
         let terms = &self.terms;
         for t in terms {
             match t.kind {
-                StaticTermKind::X => t.put(ts, DecInterval::new(x).into()),
-                StaticTermKind::Y => t.put(ts, DecInterval::new(y).into()),
-                StaticTermKind::NTheta => t.put(ts, DecInterval::new(n_theta).into()),
+                StaticTermKind::X => t.put(ts, DecInterval::new(args.x).into()),
+                StaticTermKind::Y => t.put(ts, DecInterval::new(args.y).into()),
+                StaticTermKind::NTheta => t.put(ts, DecInterval::new(args.n_theta).into()),
+                StaticTermKind::T => t.put(ts, DecInterval::new(args.t).into()),
                 _ if t.vars == VarSet::EMPTY => {
                     // Constant subexpression.
                 }
@@ -285,17 +296,30 @@ impl FromStr for Relation {
         let relation_type = relation_type(&e);
         PreTransform.visit_expr_mut(&mut e);
         simplify(&mut e);
-        let period = polar_period(&e);
-        let n_theta_range = if let Some(period) = &period {
-            if *period == 0 {
-                const_interval!(0.0, 0.0)
+
+        let n_theta_range = {
+            let period = function_period(&e, &|name| name == "theta" || name == "θ");
+            if let Some(period) = &period {
+                if *period == 0 {
+                    const_interval!(0.0, 0.0)
+                } else {
+                    interval!(&format!("[0,{}]", Integer::from(period - 1))).unwrap()
+                }
             } else {
-                interval!(&format!("[0,{}]", Integer::from(period - 1))).unwrap()
+                Interval::ENTIRE
             }
-        } else {
-            Interval::ENTIRE
         };
         assert_eq!(n_theta_range.trunc(), n_theta_range);
+
+        let t_range = {
+            let period = function_period(&e, &|name| name == "t");
+            if let Some(period) = &period {
+                Interval::TAU * interval!(&format!("[0,{}]", period)).unwrap()
+            } else {
+                Interval::ENTIRE
+            }
+        };
+
         expand_polar_coords(&mut e);
         simplify(&mut e);
         SubDivTransform.visit_expr_mut(&mut e);
@@ -329,7 +353,10 @@ impl FromStr for Relation {
             eval_count: 0,
             mx,
             my,
+            has_n_theta: e.vars.contains(VarSet::N_THETA),
+            has_t: e.vars.contains(VarSet::T),
             n_theta_range,
+            t_range,
             relation_type,
         };
         slf.initialize();
@@ -436,33 +463,38 @@ fn expand_polar_coords(e: &mut Expr) {
     *e = Expr::binary(BinaryOp::Or, box e1, box e2);
 }
 
-/// Returns the period of a function of θ in multiples of 2π, i.e., any integer p that satisfies
-/// (e /. θ → θ + 2π p) = e. If the period is 0, the expression is independent of θ.
+/// Returns the period of a function of a variable t in multiples of 2π,
+/// i.e., an integer p that satisfies (e /. t → t + 2π p) = e.
+/// If the period is 0, the expression is independent of the variable.
+/// The name of the variable is specified by the predicate `var_name`.
 ///
 /// Precondition: `e` has been pre-transformed and simplified.
-pub fn polar_period(e: &Expr) -> Option<Integer> {
+fn function_period<F>(e: &Expr, var_name: &F) -> Option<Integer>
+where
+    F: Fn(&str) -> bool,
+{
     use {NaryOp::*, UnaryOp::*};
 
     match e {
         constant!(_) => Some(0.into()),
-        var!(name) if name == "theta" || name == "θ" => None,
+        var!(name) if var_name(name) => None,
         var!(_) => Some(0.into()),
         unary!(op, x) => {
-            if let Some(p) = polar_period(x) {
+            if let Some(p) = function_period(x, &*var_name) {
                 Some(p)
             } else if matches!(op, Cos | Sin | Tan) {
                 match x {
-                    var!(name) if name == "theta" || name == "θ" => {
+                    var!(name) if var_name(name) => {
                         // op(θ)
                         Some(1.into())
                     }
                     nary!(Plus, xs) => match &xs[..] {
-                        [constant!(_), var!(name)] if name == "theta" || name == "θ" => {
+                        [constant!(_), var!(name)] if var_name(name) => {
                             // op(b + θ)
                             Some(1.into())
                         }
                         [constant!(_), nary!(Times, xs)] => match &xs[..] {
-                            [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
+                            [constant!(a), var!(name)] if var_name(name) => {
                                 // op(b + a θ)
                                 if let Some(a) = &a.1 {
                                     let p = a.denom().clone();
@@ -480,7 +512,7 @@ pub fn polar_period(e: &Expr) -> Option<Integer> {
                         _ => None,
                     },
                     nary!(Times, xs) => match &xs[..] {
-                        [constant!(a), var!(name)] if name == "theta" || name == "θ" => {
+                        [constant!(a), var!(name)] if var_name(name) => {
                             // op(a θ)
                             if let Some(a) = &a.1 {
                                 let p = a.denom().clone();
@@ -502,8 +534,8 @@ pub fn polar_period(e: &Expr) -> Option<Integer> {
             }
         }
         binary!(_, x, y) => {
-            let xp = polar_period(x)?;
-            let yp = polar_period(y)?;
+            let xp = function_period(x, &*var_name)?;
+            let yp = function_period(y, &*var_name)?;
             Some(if xp == 0 {
                 yp
             } else if yp == 0 {
@@ -514,7 +546,7 @@ pub fn polar_period(e: &Expr) -> Option<Integer> {
         }
         nary!(_, xs) => xs
             .iter()
-            .map(|x| polar_period(x))
+            .map(|x| function_period(x, &*var_name))
             .collect::<Option<Vec<_>>>()
             .map(|ps| {
                 ps.into_iter().fold(Integer::from(0), |xp, yp| {
@@ -540,7 +572,7 @@ macro_rules! rel_op {
 /// Returns the type of the relation.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
-pub fn relation_type(e: &Expr) -> RelationType {
+fn relation_type(e: &Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
     match e {
         binary!(rel_op!(), var!(name), e) | binary!(rel_op!(), e, var!(name))
@@ -555,39 +587,28 @@ pub fn relation_type(e: &Expr) -> RelationType {
             // x = f(y) or f(y) = x
             FunctionOfY
         }
-        binary!(rel_op!(), e1, e2)
-            if VarSet::XY.contains(e1.vars) && VarSet::XY.contains(e2.vars) =>
-        {
+        binary!(rel_op!(), _, _) => Implicit,
+        binary!(And, _, _) => {
+            // This should not be `FunctionOfX` nor `FunctionOfY`.
+            // Example: "y = x && y = x + 0.0001"
+            //                              /
+            //                 +--+       +/-+
+            //                 |  |       /  |
+            //   FunctionOfX:  |  |/  ∧  /|  |   =   ?
+            //                 |  / T     |  | T
+            //                 +-/+       +--+
+            //                  /
+            //                              /
+            //                 +--+       +/-+       +--+
+            //                 |  | F     /  | T     |  | F
+            //      Implicit:  +--+/  ∧  /+--+   =   +--+
+            //                 |  / T     |  | F     |  | F
+            //                 +-/+       +--+       +--+
+            //                  /
+            // See `EvalResultMask::solution_certainly_exists` for how conjunctions are evaluated.
             Implicit
         }
-        binary!(rel_op!(), _, _) => Polar,
-        binary!(And, e1, e2) => {
-            match (relation_type(e1), relation_type(e2)) {
-                (Polar, _) | (_, Polar) => Polar,
-                _ => {
-                    // This should not be `FunctionOfX` nor `FunctionOfY`.
-                    // Example: "y = x && y = x + 0.0001"
-                    //                              /
-                    //                 +--+       +/-+
-                    //                 |  |       /  |
-                    //   FunctionOfX:  |  |/  ∧  /|  |   =   ?
-                    //                 |  / T     |  | T
-                    //                 +-/+       +--+
-                    //                  /
-                    //                              /
-                    //                 +--+       +/-+       +--+
-                    //                 |  | F     /  | T     |  | F
-                    //      Implicit:  +--+/  ∧  /+--+   =   +--+
-                    //                 |  / T     |  | F     |  | F
-                    //                 +-/+       +--+       +--+
-                    //                  /
-                    // See `EvalResultMask::solution_certainly_exists` for how conjunctions are evaluated.
-                    Implicit
-                }
-            }
-        }
         binary!(Or, e1, e2) => match (relation_type(e1), relation_type(e2)) {
-            (Polar, _) | (_, Polar) => Polar,
             (x, y) if x == y => x,
             _ => Implicit,
         },
@@ -600,15 +621,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn has_n_theta() {
+        fn f(rel: &str) -> bool {
+            rel.parse::<Relation>().unwrap().has_n_theta()
+        }
+
+        assert!(!f("x y r t = 0"));
+        assert!(f("θ = 0"));
+    }
+
+    #[test]
+    fn has_t() {
+        fn f(rel: &str) -> bool {
+            rel.parse::<Relation>().unwrap().has_t()
+        }
+
+        assert!(!f("x y r θ = 0"));
+        assert!(f("t = 0"));
+    }
+
+    #[test]
     fn n_theta_range() {
         fn f(rel: &str) -> Interval {
             rel.parse::<Relation>().unwrap().n_theta_range()
         }
 
-        assert_eq!(f("42 = 0"), const_interval!(0.0, 0.0));
-        assert_eq!(f("x = 0"), const_interval!(0.0, 0.0));
-        assert_eq!(f("y = 0"), const_interval!(0.0, 0.0));
-        assert_eq!(f("r = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("x y r t = 0"), const_interval!(0.0, 0.0));
         assert_eq!(f("θ = 0"), Interval::ENTIRE);
         assert_eq!(f("sin(θ) = 0"), const_interval!(0.0, 0.0));
         assert_eq!(f("cos(θ) = 0"), const_interval!(0.0, 0.0));
@@ -655,9 +693,27 @@ mod tests {
         assert_eq!(f("!(y = sin(x) && y = cos(x))"), FunctionOfX);
         assert_eq!(f("!(y = sin(x) || y = cos(x))"), Implicit);
         assert_eq!(f("r = 1"), Implicit);
-        assert_eq!(f("x = θ"), Polar);
-        assert_eq!(f("x = theta"), Polar);
-        assert_eq!(f("x = sin(θ) && r = cos(θ)"), Polar);
-        assert_eq!(f("x = sin(θ) || r = cos(θ)"), Polar);
+        assert_eq!(f("x = θ"), Implicit);
+        assert_eq!(f("x = theta"), Implicit);
+        assert_eq!(f("x = sin(θ) && r = cos(θ)"), Implicit);
+        assert_eq!(f("x = sin(θ) || r = cos(θ)"), Implicit);
+    }
+
+    #[test]
+    fn t_range() {
+        fn f(rel: &str) -> Interval {
+            rel.parse::<Relation>().unwrap().t_range()
+        }
+
+        assert_eq!(f("x y r θ = 0"), const_interval!(0.0, 0.0));
+        assert_eq!(f("t = 0"), Interval::ENTIRE);
+        assert_eq!(
+            f("sin(t) = 0"),
+            interval!(0.0, Interval::TAU.sup()).unwrap()
+        );
+        assert_eq!(
+            f("sin(3/5t) = 0"),
+            interval!(0.0, (const_interval!(5.0, 5.0) * Interval::TAU).sup()).unwrap()
+        );
     }
 }

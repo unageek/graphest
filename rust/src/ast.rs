@@ -131,13 +131,13 @@ pub enum ValueType {
 }
 
 bitflags! {
-    /// A set of free variables, subset of {x, y, n_θ}.
+    /// A set of free variables; a subset of {x, y, n_θ, t}.
     pub struct VarSet: u8 {
         const EMPTY = 0;
-        const X = 0b01;
-        const Y = 0b10;
-        const XY = 0b11;
-        const N_THETA = 0b100;
+        const X = 1;
+        const Y = 2;
+        const N_THETA = 4;
+        const T = 8;
     }
 }
 
@@ -455,8 +455,11 @@ impl Expr {
         self.ty = self.value_type();
         self.vars = match self {
             constant!(_) => VarSet::EMPTY,
-            var!(name) if name == "r" => VarSet::XY,
-            var!(name) if name == "theta" || name == "θ" => VarSet::XY | VarSet::N_THETA,
+            var!(name) if name == "r" => VarSet::X | VarSet::Y,
+            var!(name) if name == "t" => VarSet::T,
+            var!(name) if name == "theta" || name == "θ" => {
+                VarSet::X | VarSet::Y | VarSet::N_THETA
+            }
             var!(name) if name == "x" => VarSet::X,
             var!(name) if name == "y" => VarSet::Y,
             var!(name) if name == "<n-theta>" => VarSet::N_THETA,
@@ -479,7 +482,7 @@ impl Expr {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*, ValueType::*};
         match self {
             constant!(_) => Scalar,
-            var!(x) if x == "x" || x == "y" || x == "<n-theta>" => Scalar,
+            var!(x) if x == "t" || x == "x" || x == "y" || x == "<n-theta>" => Scalar,
             unary!(
                 Abs | Acos
                     | Acosh

@@ -4,7 +4,7 @@ use crate::{
     image::{Image, PixelIndex},
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
-    relation::{EvalCache, EvalCacheLevel, Relation, RelationType},
+    relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{interval, Decoration, Interval};
@@ -216,13 +216,15 @@ impl Graph {
     ) -> Self {
         let forms = rel.forms().clone();
         let relation_type = rel.relation_type();
+        let has_n_theta = rel.has_n_theta();
+        let has_t = rel.has_t();
         let mut g = Self {
             rel,
             forms,
             relation_type,
             im: Image::new(im_width, im_height),
             last_queued_blocks: Image::new(im_width, im_height),
-            bs_to_subdivide: BlockQueue::new(relation_type == RelationType::Polar),
+            bs_to_subdivide: BlockQueue::new(has_n_theta, has_t),
             sx: region.width() / Self::point_interval(im_width as f64),
             sy: region.height() / Self::point_interval(im_height as f64),
             tx: region.l,
@@ -236,9 +238,13 @@ impl Graph {
             mem_limit,
         };
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
-        if relation_type == RelationType::Polar {
+
+        let t_range = g.rel.t_range();
+        let mut bs = vec![Block::new(0, 0, k, k, Interval::ENTIRE, t_range)];
+
+        if g.rel.has_n_theta() {
             let n_theta_range = g.rel.n_theta_range();
-            let bs = {
+            bs = {
                 let a = n_theta_range.inf();
                 let b = n_theta_range.sup();
                 let mid = n_theta_range.mid().round();
@@ -254,18 +260,21 @@ impl Graph {
             .filter_map(|n| n.ok()) // Remove invalid constructions, namely, [-∞, -∞] and [+∞, +∞].
             .filter(|n| n.wid() != 1.0)
             .dedup()
-            .map(|n| Block::new(0, 0, k, k, n))
+            .flat_map(|n| {
+                bs.iter()
+                    .map(|b| Block::new(b.x, b.y, b.kx, b.ky, n, b.t))
+                    .collect::<Vec<_>>()
+            })
             .collect::<Vec<_>>();
-            let last_block = bs.len() - 1;
-            g.set_last_queued_block(&bs[last_block], last_block)
-                .unwrap();
-            for b in bs {
-                g.bs_to_subdivide.push_back(b);
-            }
-        } else {
-            g.bs_to_subdivide
-                .push_back(Block::new(0, 0, k, k, Interval::ENTIRE));
         }
+
+        let last_block = bs.len() - 1;
+        g.set_last_queued_block(&bs[last_block], last_block)
+            .unwrap();
+        for b in bs {
+            g.bs_to_subdivide.push_back(b);
+        }
+
         g
     }
 
@@ -321,15 +330,16 @@ impl Graph {
         let mut incomplete_sub_bs = vec![];
         // Blocks are queued in the Morton order. Thanks to that, the caches should work efficiently.
         let mut cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
-        let mut cache_eval_on_point = if self.relation_type == RelationType::Polar {
+        let mut cache_eval_on_point = if self.rel.has_n_theta() || self.rel.has_t() {
             EvalCache::new(EvalCacheLevel::PerAxis)
         } else {
             EvalCache::new(EvalCacheLevel::Full)
         };
         while let Some((bi, b)) = self.bs_to_subdivide.pop_front() {
             match b.next_dir {
-                SubdivisionDir::NTheta => Self::subdivide_on_n_theta(&mut sub_bs, b),
                 SubdivisionDir::XY => self.subdivide_on_xy(&mut sub_bs, b),
+                SubdivisionDir::NTheta => Self::subdivide_on_n_theta(&mut sub_bs, b),
+                SubdivisionDir::T => Self::subdivide_on_t(&mut sub_bs, b),
             }
 
             let n_sub_bs = sub_bs.len();
@@ -342,11 +352,11 @@ impl Graph {
                         &mut cache_eval_on_region,
                     )
                 } else {
-                    if self.relation_type == RelationType::Polar && !sub_b.n_theta.is_singleton() {
+                    if self.rel.has_n_theta() && !sub_b.n_theta.is_singleton() {
                         // Try finding a solution earlier.
                         let n = Self::point_interval(Self::simple_number(sub_b.n_theta));
                         self.refine_subpixel(
-                            Block::new(sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n),
+                            Block::new(sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n, sub_b.t),
                             false,
                             0,
                             &mut cache_eval_on_region,
@@ -372,37 +382,42 @@ impl Graph {
                 }
             }
 
-            let preferred_next_dir = if self.relation_type == RelationType::Polar {
-                let n_max = match b.next_dir {
-                    SubdivisionDir::NTheta => 3,
-                    SubdivisionDir::XY => 4,
-                };
-                if n_max * incomplete_sub_bs.len() <= n_sub_bs {
-                    // Subdivide in the same direction again.
-                    b.next_dir
-                } else {
-                    // Subdivide in other direction.
-                    match b.next_dir {
-                        SubdivisionDir::NTheta => SubdivisionDir::XY,
-                        SubdivisionDir::XY => SubdivisionDir::NTheta,
-                    }
-                }
+            let n_max = match b.next_dir {
+                SubdivisionDir::XY => 4,
+                SubdivisionDir::NTheta => 3,
+                // Many bisection steps are performed to refine t.
+                // So we deprioritize it.
+                SubdivisionDir::T => usize::MAX,
+            };
+            let preferred_next_dir = if n_max * incomplete_sub_bs.len() <= n_sub_bs {
+                // Subdivide in the same direction again.
+                b.next_dir
             } else {
-                SubdivisionDir::XY
+                // Subdivide in other direction.
+                match b.next_dir {
+                    SubdivisionDir::XY if self.rel.has_n_theta() => SubdivisionDir::NTheta,
+                    SubdivisionDir::XY if self.rel.has_t() => SubdivisionDir::T,
+                    SubdivisionDir::XY => SubdivisionDir::XY,
+                    SubdivisionDir::NTheta if self.rel.has_t() => SubdivisionDir::T,
+                    SubdivisionDir::NTheta => SubdivisionDir::XY,
+                    SubdivisionDir::T => SubdivisionDir::XY,
+                }
             };
 
             for mut sub_b in incomplete_sub_bs.drain(..) {
                 sub_b.next_dir = if preferred_next_dir == SubdivisionDir::NTheta
                     && sub_b.is_subdivisible_on_n_theta()
+                    || preferred_next_dir == SubdivisionDir::T && sub_b.is_subdivisible_on_t()
                 {
-                    SubdivisionDir::NTheta
+                    preferred_next_dir
                 } else if sub_b.is_subdivisible_on_xy() {
                     SubdivisionDir::XY
-                } else if self.relation_type == RelationType::Polar
-                    && sub_b.is_subdivisible_on_n_theta()
-                {
+                } else if self.rel.has_n_theta() && sub_b.is_subdivisible_on_n_theta() {
                     SubdivisionDir::NTheta
+                } else if self.rel.has_t() && sub_b.is_subdivisible_on_t() {
+                    SubdivisionDir::T
                 } else {
+                    // Cannot subdivide in any direction.
                     assert!(sub_b.is_subpixel());
                     let pixel = b.pixel_index();
                     *self.im.get_mut(pixel) = PixelState::UncertainNeverFalse;
@@ -421,7 +436,7 @@ impl Graph {
             {
                 if clear_cache_and_retry {
                     cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
-                    cache_eval_on_point = if self.relation_type == RelationType::Polar {
+                    cache_eval_on_point = if self.rel.has_n_theta() || self.rel.has_t() {
                         EvalCache::new(EvalCacheLevel::PerAxis)
                     } else {
                         EvalCache::new(EvalCacheLevel::Full)
@@ -489,7 +504,7 @@ impl Graph {
 
     /// Refine the block and returns `true` if refinement is complete.
     ///
-    /// Precondition: the block must be a pixel or a superpixel.
+    /// Precondition: the block is either a pixel or a superpixel.
     fn refine_pixel(
         &mut self,
         b: Block,
@@ -520,7 +535,7 @@ impl Graph {
         }
 
         let u_up = self.block_to_region_clipped(b).outer();
-        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, b.n_theta, Some(cache));
+        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, b.n_theta, b.t, Some(cache));
         let is_true = r_u_up
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
             .eval(&self.forms[..]);
@@ -558,7 +573,7 @@ impl Graph {
 
     /// Refine the block and returns `true` if refinement is complete.
     ///
-    /// Precondition: the block must be a subpixel.
+    /// Precondition: the block is a subpixel.
     fn refine_subpixel(
         &mut self,
         b: Block,
@@ -576,8 +591,13 @@ impl Graph {
         }
 
         let u_up = self.block_to_region(b).subpixel_outer(b);
-        let r_u_up =
-            Self::eval_on_region(&mut self.rel, &u_up, b.n_theta, Some(cache_eval_on_region));
+        let r_u_up = Self::eval_on_region(
+            &mut self.rel,
+            &u_up,
+            b.n_theta,
+            b.t,
+            Some(cache_eval_on_region),
+        );
 
         let p_dn = self.block_to_region(b.pixel_block()).inner();
         let inter = u_up.intersection(&p_dn);
@@ -642,6 +662,7 @@ impl Graph {
                 point.0,
                 point.1,
                 b.n_theta,
+                b.t,
                 Some(cache_eval_on_point),
             );
 
@@ -669,12 +690,16 @@ impl Graph {
         x: f64,
         y: f64,
         n_theta: Interval,
+        t: Interval,
         cache: Option<&mut EvalCache>,
     ) -> EvalResult {
         rel.eval(
-            Self::point_interval(x),
-            Self::point_interval(y),
-            n_theta,
+            &RelationArgs {
+                x: Self::point_interval(x),
+                y: Self::point_interval(y),
+                n_theta,
+                t,
+            },
             cache,
         )
     }
@@ -683,9 +708,18 @@ impl Graph {
         rel: &mut Relation,
         r: &Region,
         n_theta: Interval,
+        t: Interval,
         cache: Option<&mut EvalCache>,
     ) -> EvalResult {
-        rel.eval(r.0, r.1, n_theta, cache)
+        rel.eval(
+            &RelationArgs {
+                x: r.0,
+                y: r.1,
+                n_theta,
+                t,
+            },
+            cache,
+        )
     }
 
     /// Returns the region that corresponds to a subpixel block `b`.
@@ -746,8 +780,9 @@ impl Graph {
     }
 
     /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
+    /// Four sub-blocks are created at most.
     ///
-    /// Precondition: `b.subdivide_on_xy()`.
+    /// Precondition: `b.subdivide_on_xy()` is `true`.
     fn subdivide_on_xy(&self, sub_bs: &mut Vec<(Block, bool)>, b: Block) {
         if b.is_superpixel() {
             let x0 = 2 * b.x;
@@ -756,16 +791,16 @@ impl Graph {
             let y1 = y0 + 1;
             let kx = b.kx - 1;
             let ky = b.ky - 1;
-            let b00 = Block::new(x0, y0, kx, ky, b.n_theta);
+            let b00 = Block::new(x0, y0, kx, ky, b.n_theta, b.t);
             sub_bs.push((b00, true));
             if y1 * b00.height() < self.im.height() {
-                sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta), true));
+                sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta, b.t), true));
             }
             if x1 * b00.width() < self.im.width() {
-                sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta), true));
+                sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta, b.t), true));
             }
             if x1 * b00.width() < self.im.width() && y1 * b00.height() < self.im.height() {
-                sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta), true));
+                sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta, b.t), true));
             }
         } else {
             match self.relation_type {
@@ -776,8 +811,8 @@ impl Graph {
                     let y = b.y;
                     let kx = b.kx - 1;
                     let ky = b.ky;
-                    sub_bs.push((Block::new(x0, y, kx, ky, b.n_theta), false));
-                    sub_bs.push((Block::new(x1, y, kx, ky, b.n_theta), true));
+                    sub_bs.push((Block::new(x0, y, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x1, y, kx, ky, b.n_theta, b.t), true));
                 }
                 RelationType::FunctionOfY => {
                     // Subdivide only vertically.
@@ -786,8 +821,8 @@ impl Graph {
                     let y1 = y0 + 1;
                     let kx = b.kx;
                     let ky = b.ky - 1;
-                    sub_bs.push((Block::new(x, y0, kx, ky, b.n_theta), false));
-                    sub_bs.push((Block::new(x, y1, kx, ky, b.n_theta), true));
+                    sub_bs.push((Block::new(x, y0, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x, y1, kx, ky, b.n_theta, b.t), true));
                 }
                 _ => {
                     let x0 = 2 * b.x;
@@ -796,21 +831,22 @@ impl Graph {
                     let y1 = y0 + 1;
                     let kx = b.kx - 1;
                     let ky = b.ky - 1;
-                    sub_bs.push((Block::new(x0, y0, kx, ky, b.n_theta), false));
-                    sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta), false));
-                    sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta), false));
-                    sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta), true));
+                    sub_bs.push((Block::new(x0, y0, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta, b.t), true));
                 }
             }
         }
     }
 
     /// Subdivides `b.n_theta` and appends the sub-blocks to `sub_bs`.
+    /// Three sub-blocks are created at most.
     ///
     /// Preconditions:
     ///
-    /// - `b.is_subdivisible_on_n_theta()`.
-    /// - `b.n_theta` is subset of \[-∞, 0\] or \[0, +∞\].
+    /// - `b.is_subdivisible_on_n_theta()` is `true`.
+    /// - `b.n_theta` is a subset of either \[-∞, 0\] or \[0, +∞\].
     fn subdivide_on_n_theta(sub_bs: &mut Vec<(Block, bool)>, b: Block) {
         const MULT: f64 = 2.0; // The optimal value may depend on the relation.
         let n = b.n_theta;
@@ -833,7 +869,50 @@ impl Graph {
         sub_bs.extend(
             ns.iter()
                 .filter(|n| n.wid() != 1.0)
-                .map(|&n| (Block::new(b.x, b.y, b.kx, b.ky, n), false)),
+                .map(|&n| (Block::new(b.x, b.y, b.kx, b.ky, n, b.t), false)),
+        );
+        if let Some(last) = sub_bs.last_mut() {
+            last.1 = true;
+        }
+    }
+
+    /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
+    /// Four sub-blocks are created at most.
+    ///
+    /// Precondition: `b.is_subdivisible_on_t()` is `true`.
+    fn subdivide_on_t(sub_bs: &mut Vec<(Block, bool)>, b: Block) {
+        fn bisect(x: Interval) -> (Interval, Interval) {
+            let a = x.inf();
+            let b = x.sup();
+            let mid = if a == f64::NEG_INFINITY {
+                if b < 0.0 {
+                    (2.0 * b).max(f64::MIN)
+                } else if b == 0.0 {
+                    -1.0
+                } else {
+                    0.0
+                }
+            } else if b == f64::INFINITY {
+                if a < 0.0 {
+                    0.0
+                } else if a == 0.0 {
+                    1.0
+                } else {
+                    (2.0 * a).min(f64::MAX)
+                }
+            } else {
+                x.mid()
+            };
+            (interval!(a, mid).unwrap(), interval!(mid, b).unwrap())
+        }
+
+        let (t1, t2) = bisect(b.t);
+        let ((t1, t2), (t3, t4)) = (bisect(t1), bisect(t2));
+        sub_bs.extend(
+            [t1, t2, t3, t4]
+                .iter()
+                .filter(|t| !t.is_singleton())
+                .map(|&t| (Block::new(b.x, b.y, b.kx, b.ky, b.n_theta, t), false)),
         );
         if let Some(last) = sub_bs.last_mut() {
             last.1 = true;
@@ -866,7 +945,7 @@ mod tests {
         );
 
         // The bottom/left sides are pixel boundaries.
-        let b = Block::new(4, 8, -2, -2, Interval::ENTIRE);
+        let b = Block::new(4, 8, -2, -2, Interval::ENTIRE, Interval::ENTIRE);
         let u_up = u.subpixel_outer(b);
         assert_eq!(u_up.0.inf(), u.l.inf());
         assert_eq!(u_up.0.sup(), u.r.mid());
@@ -874,7 +953,7 @@ mod tests {
         assert_eq!(u_up.1.sup(), u.t.mid());
 
         // The top/right sides are pixel boundaries.
-        let b = Block::new(b.x + 3, b.y + 3, -2, -2, Interval::ENTIRE);
+        let b = Block::new(b.x + 3, b.y + 3, -2, -2, Interval::ENTIRE, Interval::ENTIRE);
         let u_up = u.subpixel_outer(b);
         assert_eq!(u_up.0.inf(), u.l.mid());
         assert_eq!(u_up.0.sup(), u.r.sup());

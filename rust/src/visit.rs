@@ -949,6 +949,7 @@ impl CollectStatic {
                 var!(x) if x == "x" => Some(StaticTermKind::X),
                 var!(x) if x == "y" => Some(StaticTermKind::Y),
                 var!(x) if x == "<n-theta>" => Some(StaticTermKind::NTheta),
+                var!(x) if x == "t" => Some(StaticTermKind::T),
                 unary!(op, x) => match op {
                     Abs => Some(ScalarUnaryOp::Abs),
                     Acos => Some(ScalarUnaryOp::Acos),
