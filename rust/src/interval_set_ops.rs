@@ -632,7 +632,7 @@ impl TupperIntervalSet {
 
     /// Returns the parity of the function f(x) = x^y.
     ///
-    /// Precondition: y is neither ±∞ nor NaN.
+    /// Precondition: `y` is finite.
     fn exponentiation_parity(y: f64) -> Parity {
         if y == y.trunc() {
             // y ∈ ℤ.

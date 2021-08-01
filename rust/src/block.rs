@@ -13,6 +13,7 @@ const MIN_K: i8 = -15;
 pub enum SubdivisionDir {
     XY = 0,
     NTheta = 1,
+    T = 2,
 }
 
 /// A rectangular region of an [`Image`](crate::image::Image) with the following bounds in pixels:
@@ -38,17 +39,20 @@ pub struct Block {
     pub ky: i8,
     /// The parameter n_θ for polar coordinates.
     pub n_theta: Interval,
+    /// The parameter t.
+    pub t: Interval,
     /// The direction that should be chosen when subdividing this block.
     pub next_dir: SubdivisionDir,
 }
 
 impl Block {
     /// Creates a new block.
-    pub fn new(x: u32, y: u32, kx: i8, ky: i8, n_theta: Interval) -> Self {
+    pub fn new(x: u32, y: u32, kx: i8, ky: i8, n_theta: Interval, t: Interval) -> Self {
         assert!(
             (kx >= 0 && ky >= 0 || kx <= 0 && ky <= 0)
                 && !n_theta.is_empty()
                 && n_theta == n_theta.trunc()
+                && !t.is_empty()
         );
         Self {
             x,
@@ -56,6 +60,7 @@ impl Block {
             kx,
             ky,
             n_theta,
+            t,
             next_dir: SubdivisionDir::XY,
         }
     }
@@ -78,6 +83,13 @@ impl Block {
         let n = self.n_theta;
         let mid = n.mid().round();
         n.inf() != mid && n.sup() != mid
+    }
+
+    /// Returns `true` if [`self.t`] can be subdivided.
+    pub fn is_subdivisible_on_t(&self) -> bool {
+        let t = self.t;
+        let mid = t.mid();
+        t.inf() != mid && t.sup() != mid
     }
 
     /// Returns `true` if the block can be subdivided both horizontally and vertically.
@@ -174,25 +186,31 @@ pub struct BlockQueue {
     y_back: u32,
     n_theta_front: Interval,
     n_theta_back: Interval,
+    t_front: Interval,
+    t_back: Interval,
     front_index: usize,
     back_index: usize,
-    polar: bool,
+    store_n_theta: bool,
+    store_t: bool,
 }
 
 impl BlockQueue {
     /// Creates an empty queue.
-    pub fn new(polar: bool) -> Self {
+    pub fn new(store_n_theta: bool, store_t: bool) -> Self {
         Self {
             seq: VecDeque::new(),
             x_front: 0,
             x_back: 0,
             y_front: 0,
             y_back: 0,
-            n_theta_front: Interval::EMPTY,
-            n_theta_back: Interval::EMPTY,
+            n_theta_front: Interval::ENTIRE,
+            n_theta_back: Interval::ENTIRE,
+            t_front: Interval::ENTIRE,
+            t_back: Interval::ENTIRE,
             front_index: 0,
             back_index: 0,
-            polar,
+            store_n_theta,
+            store_t,
         }
     }
 
@@ -207,19 +225,41 @@ impl BlockQueue {
     }
 
     /// Removes the first block from the queue and returns it with its original index.
-    /// It returns [`None`] if the queue is empty.
+    /// [`None`] is returned if the queue is empty.
     pub fn pop_front(&mut self) -> Option<(usize, Block)> {
         let x = self.x_front ^ self.pop_small_u32()?;
+        self.x_front = x;
+
         let y = self.y_front ^ self.pop_small_u32()?;
+        self.y_front = y;
+
         let kx = self.pop_i8()?;
         let ky = self.pop_i8()?;
-        let (n_theta, axis) = if self.polar {
-            (self.pop_n_theta()?, self.pop_subdivision_dir()?)
+
+        let n_theta = if self.store_n_theta {
+            if let Some(n_theta) = self.pop_opt_interval()? {
+                self.n_theta_front = n_theta;
+            }
+            self.n_theta_front
         } else {
-            (Interval::ENTIRE, SubdivisionDir::XY)
+            Interval::ENTIRE
         };
-        self.x_front = x;
-        self.y_front = y;
+
+        let t = if self.store_t {
+            if let Some(t) = self.pop_opt_interval()? {
+                self.t_front = t;
+            }
+            self.t_front
+        } else {
+            Interval::ENTIRE
+        };
+
+        let axis = if self.store_n_theta || self.store_t {
+            self.pop_subdivision_dir()?
+        } else {
+            SubdivisionDir::XY
+        };
+
         let front_index = self.front_index;
         self.front_index += 1;
         Some((
@@ -230,6 +270,7 @@ impl BlockQueue {
                 kx,
                 ky,
                 n_theta,
+                t,
                 next_dir: axis,
             },
         ))
@@ -238,15 +279,36 @@ impl BlockQueue {
     /// Appends the block to the back of the queue and returns the index where it is stored.
     pub fn push_back(&mut self, b: Block) -> usize {
         self.push_small_u32(b.x ^ self.x_back);
+        self.x_back = b.x;
+
         self.push_small_u32(b.y ^ self.y_back);
+        self.y_back = b.y;
+
         self.push_i8(b.kx);
         self.push_i8(b.ky);
-        if self.polar {
-            self.push_n_theta(b.n_theta);
+
+        if self.store_n_theta {
+            if b.n_theta == self.n_theta_back {
+                self.push_opt_interval(None);
+            } else {
+                self.push_opt_interval(Some(b.n_theta));
+                self.n_theta_back = b.n_theta;
+            }
+        }
+
+        if self.store_t {
+            if b.t == self.t_back {
+                self.push_opt_interval(None);
+            } else {
+                self.push_opt_interval(Some(b.t));
+                self.t_back = b.t;
+            }
+        }
+
+        if self.store_n_theta || self.store_t {
             self.push_subdivision_dir(b.next_dir);
         }
-        self.x_back = b.x;
-        self.y_back = b.y;
+
         let back_index = self.back_index;
         self.back_index += 1;
         back_index
@@ -261,18 +323,20 @@ impl BlockQueue {
         Some(self.seq.pop_front()? as i8)
     }
 
-    fn pop_n_theta(&mut self) -> Option<Interval> {
+    // TODO: Check bounds?
+    fn pop_opt_interval(&mut self) -> Option<Option<Interval>> {
         let mut bytes = [0u8; 16];
         for (src, dst) in self.seq.drain(..2).zip(bytes.iter_mut()) {
             *dst = src;
         }
-        if bytes[0] != 0xff || bytes[1] != 0xff {
+        if (bytes[0], bytes[1]) != (0xff, 0xff) {
             for (src, dst) in self.seq.drain(..14).zip(bytes.iter_mut().skip(2)) {
                 *dst = src;
             }
-            self.n_theta_front = Interval::try_from_be_bytes(bytes).unwrap();
+            Some(Some(Interval::try_from_be_bytes(bytes).unwrap()))
+        } else {
+            Some(None)
         }
-        Some(self.n_theta_front)
     }
 
     // PrefixVarint[1,2] is used to encode unsigned numbers:
@@ -325,6 +389,7 @@ impl BlockQueue {
         let axis = match self.seq.pop_front()? {
             0 => SubdivisionDir::XY,
             1 => SubdivisionDir::NTheta,
+            2 => SubdivisionDir::T,
             _ => panic!(),
         };
         Some(axis)
@@ -334,13 +399,12 @@ impl BlockQueue {
         self.seq.push_back(x as u8);
     }
 
-    fn push_n_theta(&mut self, x: Interval) {
-        if x == self.n_theta_back {
+    fn push_opt_interval(&mut self, x: Option<Interval>) {
+        if let Some(x) = x {
+            self.seq.extend(x.to_be_bytes());
+        } else {
             // A `f64` datum that starts with 0xffff is NaN, which never appears in interval bounds.
             self.seq.extend([0xff, 0xff]);
-        } else {
-            self.seq.extend(x.to_be_bytes());
-            self.n_theta_back = x;
         }
     }
 
@@ -370,7 +434,7 @@ mod tests {
 
     #[test]
     fn block() {
-        let b = Block::new(42, 42, 3, 5, Interval::ENTIRE);
+        let b = Block::new(42, 42, 3, 5, Interval::ENTIRE, Interval::ENTIRE);
         assert_eq!(b.width(), 8);
         assert_eq!(b.height(), 32);
         assert_eq!(b.widthf(), 8.0);
@@ -379,7 +443,7 @@ mod tests {
         assert!(b.is_superpixel());
         assert!(!b.is_subpixel());
 
-        let b = Block::new(42, 42, 0, 0, Interval::ENTIRE);
+        let b = Block::new(42, 42, 0, 0, Interval::ENTIRE, Interval::ENTIRE);
         assert_eq!(b.width(), 1);
         assert_eq!(b.height(), 1);
         assert_eq!(b.widthf(), 1.0);
@@ -391,12 +455,15 @@ mod tests {
         assert!(!b.is_superpixel());
         assert!(!b.is_subpixel());
 
-        let b = Block::new(42, 42, -3, -5, Interval::ENTIRE);
+        let b = Block::new(42, 42, -3, -5, Interval::ENTIRE, Interval::ENTIRE);
         assert_eq!(b.widthf(), 0.125);
         assert_eq!(b.heightf(), 0.03125);
         assert_eq!(b.pixel_align_x(), 8);
         assert_eq!(b.pixel_align_y(), 32);
-        assert_eq!(b.pixel_block(), Block::new(5, 1, 0, 0, Interval::ENTIRE));
+        assert_eq!(
+            b.pixel_block(),
+            Block::new(5, 1, 0, 0, Interval::ENTIRE, Interval::ENTIRE)
+        );
         assert_eq!(b.pixel_index(), PixelIndex::new(5, 1));
         assert!(!b.is_superpixel());
         assert!(b.is_subpixel());
@@ -404,18 +471,25 @@ mod tests {
 
     #[test]
     fn block_queue() {
-        let mut queue = BlockQueue::new(false);
+        let mut queue = BlockQueue::new(false, false);
         let blocks = [
-            Block::new(0, 0xffffffff, -128, -64, Interval::ENTIRE),
-            Block::new(0x7f, 0x10000000, -32, 0, Interval::ENTIRE),
-            Block::new(0x80, 0xfffffff, 0, 32, Interval::ENTIRE),
-            Block::new(0x3fff, 0x200000, 64, 127, Interval::ENTIRE),
-            Block::new(0x4000, 0x1fffff, 0, 0, Interval::ENTIRE),
-            Block::new(0x1fffff, 0x4000, 0, 0, Interval::ENTIRE),
-            Block::new(0x200000, 0x3fff, 0, 0, Interval::ENTIRE),
-            Block::new(0xfffffff, 0x80, 0, 0, Interval::ENTIRE),
-            Block::new(0x10000000, 0x7f, 0, 0, Interval::ENTIRE),
-            Block::new(0xffffffff, 0, 0, 0, Interval::ENTIRE),
+            Block::new(0, 0xffffffff, -128, -64, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(0x7f, 0x10000000, -32, 0, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(0x80, 0xfffffff, 0, 32, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(
+                0x3fff,
+                0x200000,
+                64,
+                127,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(0x4000, 0x1fffff, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(0x1fffff, 0x4000, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(0x200000, 0x3fff, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(0xfffffff, 0x80, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(0x10000000, 0x7f, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(0xffffffff, 0, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
         ];
         for (i, b) in blocks.iter().copied().enumerate() {
             let back_index = queue.push_back(b);
@@ -427,10 +501,21 @@ mod tests {
             assert_eq!(front, b);
         }
 
-        let mut queue = BlockQueue::new(true);
-        let b1 = Block::new(0, 0, 0, 0, const_interval!(-2.0, 3.0));
+        let mut queue = BlockQueue::new(true, false);
+        let b1 = Block::new(0, 0, 0, 0, const_interval!(-2.0, 3.0), Interval::ENTIRE);
         let b2 = Block {
             next_dir: SubdivisionDir::NTheta,
+            ..b1
+        };
+        queue.push_back(b1);
+        queue.push_back(b2);
+        assert_eq!(queue.pop_front().unwrap().1, b1);
+        assert_eq!(queue.pop_front().unwrap().1, b2);
+
+        let mut queue = BlockQueue::new(false, true);
+        let b1 = Block::new(0, 0, 0, 0, Interval::ENTIRE, const_interval!(-2.0, 3.0));
+        let b2 = Block {
+            next_dir: SubdivisionDir::T,
             ..b1
         };
         queue.push_back(b1);
