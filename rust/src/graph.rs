@@ -41,16 +41,16 @@ pub type QueuedBlockIndex = u32;
 
 /// A possibly empty rectangular region of the Cartesian plane.
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct Region(Interval, Interval);
+pub struct Region(pub Interval, pub Interval);
 
 impl Region {
     /// Returns the intersection of the regions.
-    fn intersection(&self, rhs: &Self) -> Self {
+    pub fn intersection(&self, rhs: &Self) -> Self {
         Self(self.0.intersection(rhs.0), self.1.intersection(rhs.1))
     }
 
     /// Returns `true` if the region is empty.
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.0.is_empty() || self.1.is_empty()
     }
 }
@@ -74,13 +74,18 @@ impl InexactRegion {
         Self { l, r, b, t }
     }
 
+    /// Returns the bottom bound.
+    pub fn bottom(&self) -> Interval {
+        self.b
+    }
+
     /// Returns the height of the region.
-    fn height(&self) -> Interval {
+    pub fn height(&self) -> Interval {
         self.t - self.b
     }
 
     /// Returns the inner region.
-    fn inner(&self) -> Region {
+    pub fn inner(&self) -> Region {
         Region(
             {
                 let l = self.l.sup();
@@ -103,12 +108,22 @@ impl InexactRegion {
         )
     }
 
+    /// Returns the left bound.
+    pub fn left(&self) -> Interval {
+        self.l
+    }
+
     /// Returns the outer region.
-    fn outer(&self) -> Region {
+    pub fn outer(&self) -> Region {
         Region(
             interval!(self.l.inf(), self.r.sup()).unwrap(),
             interval!(self.b.inf(), self.t.sup()).unwrap(),
         )
+    }
+
+    /// Returns the right bound.
+    pub fn right(&self) -> Interval {
+        self.r
     }
 
     /// Returns a subset of the outer region.
@@ -118,7 +133,7 @@ impl InexactRegion {
     /// the results form a partition of the outer boundary of the pixel.
     ///
     /// Precondition: the block is a subpixel.
-    fn subpixel_outer(&self, blk: &Block) -> Region {
+    pub fn subpixel_outer(&self, blk: &Block) -> Region {
         let mask_x = blk.pixel_align_x() - 1;
         let mask_y = blk.pixel_align_y() - 1;
 
@@ -145,9 +160,39 @@ impl InexactRegion {
         Region(interval!(l, r).unwrap(), interval!(b, t).unwrap())
     }
 
+    /// Returns the top bound.
+    pub fn top(&self) -> Interval {
+        self.t
+    }
+
+    /// Returns the region transformed by `t`.
+    pub fn transform(&self, t: &Transform) -> Self {
+        Self::new(
+            self.l.mul_add(t.sx, t.tx),
+            self.r.mul_add(t.sx, t.tx),
+            self.b.mul_add(t.sy, t.ty),
+            self.t.mul_add(t.sy, t.ty),
+        )
+    }
+
     /// Returns the width of the region.
-    fn width(&self) -> Interval {
+    pub fn width(&self) -> Interval {
         self.r - self.l
+    }
+}
+
+/// Represents 2-D affine transformation composed of scaling and translation.
+pub struct Transform {
+    sx: Interval,
+    sy: Interval,
+    tx: Interval,
+    ty: Interval,
+}
+
+impl Transform {
+    /// Creates a transformation that maps `(x, y)` to `(sx x + tx, sy y + ty)`.
+    pub fn new(sx: Interval, sy: Interval, tx: Interval, ty: Interval) -> Self {
+        Self { sx, sy, tx, ty }
     }
 }
 
@@ -193,15 +238,8 @@ pub struct Graph {
     last_queued_blocks: Image<QueuedBlockIndex>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
-    // Affine transformation from pixel coordinates (px, py) to real coordinates (x, y):
-    //
-    //   ⎛ x ⎞   ⎛ sx   0  tx ⎞ ⎛ px ⎞
-    //   ⎜ y ⎟ = ⎜  0  sy  ty ⎟ ⎜ py ⎟.
-    //   ⎝ 1 ⎠   ⎝  0   0   1 ⎠ ⎝  1 ⎠
-    sx: Interval,
-    sy: Interval,
-    tx: Interval,
-    ty: Interval,
+    // Affine transformation from pixel coordinates to real coordinates.
+    transform: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
 }
@@ -225,10 +263,12 @@ impl Graph {
             im: Image::new(im_width, im_height),
             last_queued_blocks: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(has_n_theta, has_t),
-            sx: region.width() / Self::point_interval(im_width as f64),
-            sy: region.height() / Self::point_interval(im_height as f64),
-            tx: region.l,
-            ty: region.b,
+            transform: Transform::new(
+                region.width() / Self::point_interval(im_width as f64),
+                region.height() / Self::point_interval(im_height as f64),
+                region.left(),
+                region.bottom(),
+            ),
             stats: GraphingStatistics {
                 pixels: im_width as usize * im_height as usize,
                 pixels_proven: 0,
@@ -729,11 +769,12 @@ impl Graph {
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
         InexactRegion::new(
-            Self::point_interval(px).mul_add(self.sx, self.tx),
-            Self::point_interval(px + pw).mul_add(self.sx, self.tx),
-            Self::point_interval(py).mul_add(self.sy, self.ty),
-            Self::point_interval(py + ph).mul_add(self.sy, self.ty),
+            Self::point_interval(px),
+            Self::point_interval(px + pw),
+            Self::point_interval(py),
+            Self::point_interval(py + ph),
         )
+        .transform(&self.transform)
     }
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
@@ -743,11 +784,12 @@ impl Graph {
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
         InexactRegion::new(
-            Self::point_interval(px).mul_add(self.sx, self.tx),
-            Self::point_interval((px + pw).min(self.im.width() as f64)).mul_add(self.sx, self.tx),
-            Self::point_interval(py).mul_add(self.sy, self.ty),
-            Self::point_interval((py + ph).min(self.im.height() as f64)).mul_add(self.sy, self.ty),
+            Self::point_interval(px),
+            Self::point_interval((px + pw).min(self.im.width() as f64)),
+            Self::point_interval(py),
+            Self::point_interval((py + ph).min(self.im.height() as f64)),
         )
+        .transform(&self.transform)
     }
 
     fn point_interval(x: f64) -> Interval {
@@ -949,18 +991,24 @@ mod tests {
         // The bottom/left sides are pixel boundaries.
         let b = Block::new(4, 8, -2, -2, Interval::ENTIRE, Interval::ENTIRE);
         let u_up = u.subpixel_outer(&b);
-        assert_eq!(u_up.0.inf(), u.l.inf());
-        assert_eq!(u_up.0.sup(), u.r.mid());
-        assert_eq!(u_up.1.inf(), u.b.inf());
-        assert_eq!(u_up.1.sup(), u.t.mid());
+        assert_eq!(
+            u_up,
+            Region(
+                interval!(u.left().inf(), u.right().mid()).unwrap(),
+                interval!(u.bottom().inf(), u.top().mid()).unwrap()
+            )
+        );
 
         // The top/right sides are pixel boundaries.
         let b = Block::new(b.x + 3, b.y + 3, -2, -2, Interval::ENTIRE, Interval::ENTIRE);
         let u_up = u.subpixel_outer(&b);
-        assert_eq!(u_up.0.inf(), u.l.mid());
-        assert_eq!(u_up.0.sup(), u.r.sup());
-        assert_eq!(u_up.1.inf(), u.b.mid());
-        assert_eq!(u_up.1.sup(), u.t.sup());
+        assert_eq!(
+            u_up,
+            Region(
+                interval!(u.left().mid(), u.right().sup()).unwrap(),
+                interval!(u.bottom().mid(), u.top().sup()).unwrap()
+            )
+        );
 
         let u = InexactRegion::new(
             const_interval!(0.33, 0.66),
