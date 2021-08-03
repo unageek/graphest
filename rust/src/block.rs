@@ -339,24 +339,24 @@ impl BlockQueue {
         }
     }
 
-    // PrefixVarint[1,2] is used to encode unsigned numbers:
+    // `u32` values are encoded with PrefixVarint[1,2] so that smaller numbers take less space:
     //
-    //    Range   `zeros`  Encoded bytes in `seq`
-    //   ------  --------  ----------------------------------------------------------------------
-    //                        6     0 -- Bit place in the original number
-    //    < 2^7         0  [0bxxxxxxx1]
-    //                        5    0     13      6
-    //   < 2^14         1  [0bxxxxxx10, 0byyyyyyyy]
-    //                        4   0      12      5   20     13
-    //   < 2^21         2  [0bxxxxx100, 0byyyyyyyy, 0byyyyyyyy]
-    //                        3  0       11      4   19     12   27     20
-    //   < 2^28         3  [0bxxxx1000, 0byyyyyyyy, 0byyyyyyyy, 0byyyyyyyy]
-    //                        2 0        10      3   18     11   26     19      31  27
-    //   < 2^32         4  [0bxxx10000, 0byyyyyyyy, 0byyyyyyyy, 0byyyyyyyy, 0b000yyyyy]
-    //                  |               -----------------------v----------------------
-    //                  |               These bytes can be interpreted as a part of a `u32` value
-    //                  |               in little endian.
-    //                  The number of trailing zeros in the first byte.
+    //    Range  `zeros`  Encoded bytes in `seq`
+    //   ------  -------  ------------------------------------------------------------
+    //                       6     0 -- Bit place in the original number
+    //    < 2^7        0  [0bxxxxxxx1]
+    //                       5    0     13      6
+    //   < 2^14        1  [0bxxxxxx10, 0byyyyyyyy]
+    //                       4   0      12      5   20     13
+    //   < 2^21        2  [0bxxxxx100, 0byyyyyyyy, 0byyyyyyyy]
+    //                       3  0       11      4   19     12   27     20
+    //   < 2^28        3  [0bxxxx1000, 0byyyyyyyy, 0byyyyyyyy, 0byyyyyyyy]
+    //                       2 0        10      3   18     11   26     19      31  27
+    //   < 2^32        4  [0bxxx10000, 0byyyyyyyy, 0byyyyyyyy, 0byyyyyyyy, 0b000yyyyy]
+    //                 |               -----------------------v----------------------
+    //                 |               Padded zeros to the right, these bytes can be
+    //                 |               interpreted as a `u32` value in little endian.
+    //                 The number of trailing zeros in the first byte.
     //
     // [1]: https://github.com/stoklund/varint#prefixvarint
     // [2]: https://news.ycombinator.com/item?id=11263667
