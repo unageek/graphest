@@ -27,7 +27,7 @@ pub enum SubdivisionDir {
 /// - a *subpixel* iff `∀k ∈ K : k ≤ 0 ∧ ∃k ∈ K : k < 0`,
 ///
 /// where `K = {kx, ky}`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Block {
     /// The horizontal index of the block in multiples of the block width.
     pub x: u32,
@@ -491,11 +491,11 @@ mod tests {
             Block::new(0x10000000, 0x7f, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
             Block::new(0xffffffff, 0, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
         ];
-        for (i, b) in blocks.iter().copied().enumerate() {
+        for (i, b) in blocks.iter().cloned().enumerate() {
             let back_index = queue.push_back(b);
             assert_eq!(back_index, i);
         }
-        for (i, b) in blocks.iter().copied().enumerate() {
+        for (i, b) in blocks.iter().cloned().enumerate() {
             let (front_index, front) = queue.pop_front().unwrap();
             assert_eq!(front_index, i);
             assert_eq!(front, b);
@@ -507,8 +507,8 @@ mod tests {
             next_dir: SubdivisionDir::NTheta,
             ..b1
         };
-        queue.push_back(b1);
-        queue.push_back(b2);
+        queue.push_back(b1.clone());
+        queue.push_back(b2.clone());
         assert_eq!(queue.pop_front().unwrap().1, b1);
         assert_eq!(queue.pop_front().unwrap().1, b2);
 
@@ -518,8 +518,8 @@ mod tests {
             next_dir: SubdivisionDir::T,
             ..b1
         };
-        queue.push_back(b1);
-        queue.push_back(b2);
+        queue.push_back(b1.clone());
+        queue.push_back(b2.clone());
         assert_eq!(queue.pop_front().unwrap().1, b1);
         assert_eq!(queue.pop_front().unwrap().1, b2);
     }

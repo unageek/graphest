@@ -118,7 +118,7 @@ impl InexactRegion {
     /// the results form a partition of the outer boundary of the pixel.
     ///
     /// Precondition: the block is a subpixel.
-    fn subpixel_outer(&self, blk: Block) -> Region {
+    fn subpixel_outer(&self, blk: &Block) -> Region {
         let mask_x = blk.pixel_align_x() - 1;
         let mask_y = blk.pixel_align_y() - 1;
 
@@ -337,16 +337,16 @@ impl Graph {
         };
         while let Some((bi, b)) = self.bs_to_subdivide.pop_front() {
             match b.next_dir {
-                SubdivisionDir::XY => self.subdivide_on_xy(&mut sub_bs, b),
-                SubdivisionDir::NTheta => Self::subdivide_on_n_theta(&mut sub_bs, b),
-                SubdivisionDir::T => Self::subdivide_on_t(&mut sub_bs, b),
+                SubdivisionDir::XY => self.subdivide_on_xy(&mut sub_bs, &b),
+                SubdivisionDir::NTheta => Self::subdivide_on_n_theta(&mut sub_bs, &b),
+                SubdivisionDir::T => Self::subdivide_on_t(&mut sub_bs, &b),
             }
 
             let n_sub_bs = sub_bs.len();
             for (sub_b, is_last_sibling) in sub_bs.drain(..) {
                 let complete = if !sub_b.is_subpixel() {
                     self.refine_pixel(
-                        sub_b,
+                        &sub_b,
                         is_last_sibling,
                         QueuedBlockIndex::try_from(bi).unwrap(),
                         &mut cache_eval_on_region,
@@ -356,7 +356,7 @@ impl Graph {
                         // Try finding a solution earlier.
                         let n = Self::point_interval(Self::simple_number(sub_b.n_theta));
                         self.refine_subpixel(
-                            Block::new(sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n, sub_b.t),
+                            &Block::new(sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n, sub_b.t),
                             false,
                             0,
                             &mut cache_eval_on_region,
@@ -364,7 +364,7 @@ impl Graph {
                         );
                     }
                     self.refine_subpixel(
-                        sub_b,
+                        &sub_b,
                         is_last_sibling,
                         QueuedBlockIndex::try_from(bi).unwrap(),
                         &mut cache_eval_on_region,
@@ -507,7 +507,7 @@ impl Graph {
     /// Precondition: the block is either a pixel or a superpixel.
     fn refine_pixel(
         &mut self,
-        b: Block,
+        b: &Block,
         b_is_last_sibling: bool,
         parent_block_index: QueuedBlockIndex,
         cache: &mut EvalCache,
@@ -576,7 +576,7 @@ impl Graph {
     /// Precondition: the block is a subpixel.
     fn refine_subpixel(
         &mut self,
-        b: Block,
+        b: &Block,
         b_is_last_sibling: bool,
         parent_block_index: QueuedBlockIndex,
         cache_eval_on_region: &mut EvalCache,
@@ -599,7 +599,7 @@ impl Graph {
             Some(cache_eval_on_region),
         );
 
-        let p_dn = self.block_to_region(b.pixel_block()).inner();
+        let p_dn = self.block_to_region(&b.pixel_block()).inner();
         let inter = u_up.intersection(&p_dn);
 
         // Save `locally_zero_mask` for later use (see the comment below).
@@ -723,7 +723,7 @@ impl Graph {
     }
 
     /// Returns the region that corresponds to a subpixel block `b`.
-    fn block_to_region(&self, b: Block) -> InexactRegion {
+    fn block_to_region(&self, b: &Block) -> InexactRegion {
         let pw = b.widthf();
         let ph = b.heightf();
         let px = b.x as f64 * pw;
@@ -737,7 +737,7 @@ impl Graph {
     }
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
-    fn block_to_region_clipped(&self, b: Block) -> InexactRegion {
+    fn block_to_region_clipped(&self, b: &Block) -> InexactRegion {
         let pw = b.widthf();
         let ph = b.heightf();
         let px = b.x as f64 * pw;
@@ -783,7 +783,7 @@ impl Graph {
     /// Four sub-blocks are created at most.
     ///
     /// Precondition: `b.subdivide_on_xy()` is `true`.
-    fn subdivide_on_xy(&self, sub_bs: &mut Vec<(Block, bool)>, b: Block) {
+    fn subdivide_on_xy(&self, sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
         if b.is_superpixel() {
             let x0 = 2 * b.x;
             let y0 = 2 * b.y;
@@ -792,14 +792,16 @@ impl Graph {
             let kx = b.kx - 1;
             let ky = b.ky - 1;
             let b00 = Block::new(x0, y0, kx, ky, b.n_theta, b.t);
+            let b00_width = b00.width();
+            let b00_height = b00.height();
             sub_bs.push((b00, true));
-            if y1 * b00.height() < self.im.height() {
+            if y1 * b00_height < self.im.height() {
                 sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta, b.t), true));
             }
-            if x1 * b00.width() < self.im.width() {
+            if x1 * b00_width < self.im.width() {
                 sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta, b.t), true));
             }
-            if x1 * b00.width() < self.im.width() && y1 * b00.height() < self.im.height() {
+            if x1 * b00_width < self.im.width() && y1 * b00_height < self.im.height() {
                 sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta, b.t), true));
             }
         } else {
@@ -847,7 +849,7 @@ impl Graph {
     ///
     /// - `b.is_subdivisible_on_n_theta()` is `true`.
     /// - `b.n_theta` is a subset of either \[-∞, 0\] or \[0, +∞\].
-    fn subdivide_on_n_theta(sub_bs: &mut Vec<(Block, bool)>, b: Block) {
+    fn subdivide_on_n_theta(sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
         const MULT: f64 = 2.0; // The optimal value may depend on the relation.
         let n = b.n_theta;
         let na = n.inf();
@@ -880,7 +882,7 @@ impl Graph {
     /// Four sub-blocks are created at most.
     ///
     /// Precondition: `b.is_subdivisible_on_t()` is `true`.
-    fn subdivide_on_t(sub_bs: &mut Vec<(Block, bool)>, b: Block) {
+    fn subdivide_on_t(sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
         fn bisect(x: Interval) -> (Interval, Interval) {
             let a = x.inf();
             let b = x.sup();
@@ -946,7 +948,7 @@ mod tests {
 
         // The bottom/left sides are pixel boundaries.
         let b = Block::new(4, 8, -2, -2, Interval::ENTIRE, Interval::ENTIRE);
-        let u_up = u.subpixel_outer(b);
+        let u_up = u.subpixel_outer(&b);
         assert_eq!(u_up.0.inf(), u.l.inf());
         assert_eq!(u_up.0.sup(), u.r.mid());
         assert_eq!(u_up.1.inf(), u.b.inf());
@@ -954,7 +956,7 @@ mod tests {
 
         // The top/right sides are pixel boundaries.
         let b = Block::new(b.x + 3, b.y + 3, -2, -2, Interval::ENTIRE, Interval::ENTIRE);
-        let u_up = u.subpixel_outer(b);
+        let u_up = u.subpixel_outer(&b);
         assert_eq!(u_up.0.inf(), u.l.mid());
         assert_eq!(u_up.0.sup(), u.r.sup());
         assert_eq!(u_up.1.inf(), u.b.mid());
