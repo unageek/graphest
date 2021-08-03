@@ -90,19 +90,9 @@ impl PixelRegion {
         Self { begin, end }
     }
 
-    /// Returns the height of the region in pixels.
-    pub fn height(&self) -> u32 {
-        self.end.y - self.begin.y
-    }
-
     /// Returns an iterator over the pixels in the region.
     pub fn iter(&self) -> PixelIter {
         self.into_iter()
-    }
-
-    /// Returns the width of the region in pixels.
-    pub fn width(&self) -> u32 {
-        self.end.x - self.begin.x
     }
 }
 
@@ -128,7 +118,7 @@ impl<'a> Iterator for PixelIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let p = self.p;
-        if p.y == self.region.end.y {
+        if p.x == self.region.end.x || p.y == self.region.end.y {
             return None;
         }
 
@@ -168,16 +158,10 @@ mod tests {
     #[test]
     fn pixel_region() {
         let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(1, 2));
-        assert_eq!(r.width(), 0);
-        assert_eq!(r.height(), 0);
-
         let mut iter = r.iter();
         assert_eq!(iter.next(), None);
 
         let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(4, 8));
-        assert_eq!(r.width(), 3);
-        assert_eq!(r.height(), 6);
-
         let mut iter = r.iter();
         for y in 2..8 {
             for x in 1..4 {

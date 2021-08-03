@@ -1130,6 +1130,44 @@ impl CollectStatic {
     }
 }
 
+pub struct FindParametricRelation<'a> {
+    xt_yt: Option<(StoreIndex, StoreIndex)>,
+    collector: &'a CollectStatic,
+}
+
+impl<'a> FindParametricRelation<'a> {
+    pub fn new(collector: &'a CollectStatic) -> Self {
+        Self {
+            xt_yt: None,
+            collector,
+        }
+    }
+
+    pub fn get(&self) -> Option<(StoreIndex, StoreIndex)> {
+        self.xt_yt.clone()
+    }
+}
+
+impl<'a> Visit<'a> for FindParametricRelation<'a> {
+    fn visit_expr(&mut self, e: &'a Expr) {
+        match e {
+            binary!(
+                BinaryOp::And,
+                binary!(BinaryOp::Eq, binary!(BinaryOp::Sub, var!(x), xt), _),
+                binary!(BinaryOp::Eq, binary!(BinaryOp::Sub, var!(y), yt), _)
+            ) if x == "x" && y == "y" => {
+                if xt.vars | yt.vars == VarSet::T {
+                    self.xt_yt = Some((
+                        self.collector.terms[self.collector.term_index[&xt.id]].store_index,
+                        self.collector.terms[self.collector.term_index[&yt.id]].store_index,
+                    ));
+                }
+            }
+            _ => (),
+        }
+    }
+}
+
 /// Collects the store indices of maximal scalar sub-expressions that contain exactly one free variable.
 /// Expressions of the kind [`ExprKind::Var`](crate::ast::ExprKind::Var) are excluded from collection.
 pub struct FindMaximalScalarTerms {

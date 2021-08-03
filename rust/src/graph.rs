@@ -1,5 +1,5 @@
 use crate::{
-    block::{Block, BlockQueue, SubdivisionDir},
+    block::{Block, BlockQueue, BlockQueueOptions, SubdivisionDir},
     eval_result::EvalResult,
     image::{Image, PixelIndex, PixelRegion},
     interval_set::{DecSignSet, SignSet},
@@ -262,7 +262,12 @@ impl Graph {
             relation_type,
             im: Image::new(im_width, im_height),
             last_queued_blocks: Image::new(im_width, im_height),
-            bs_to_subdivide: BlockQueue::new(has_n_theta, has_t),
+            bs_to_subdivide: BlockQueue::new(BlockQueueOptions {
+                store_xy: true,
+                store_n_theta: has_n_theta,
+                store_t: has_t,
+                store_next_dir: has_n_theta || has_t,
+            }),
             transform: Transform::new(
                 region.width() / Self::point_interval(im_width as f64),
                 region.height() / Self::point_interval(im_height as f64),

@@ -134,6 +134,7 @@ pub struct Relation {
     n_atom_forms: usize,
     ts: ValueStore<TupperIntervalSet>,
     eval_count: usize,
+    xt_yt: Option<(StoreIndex, StoreIndex)>,
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,
     has_n_theta: bool,
@@ -144,6 +145,22 @@ pub struct Relation {
 }
 
 impl Relation {
+    /// Evaluates the parametric relation x = f(t) && y = g(t) and returns (f(t), g(t)).
+    pub fn eval_parametric(&mut self, t: Interval) -> (TupperIntervalSet, TupperIntervalSet) {
+        self.eval_count += 1;
+
+        let (xt, yt) = self.xt_yt.unwrap();
+
+        self.eval_without_cache(&RelationArgs {
+            x: Interval::ENTIRE,
+            y: Interval::ENTIRE,
+            n_theta: Interval::ENTIRE,
+            t,
+        });
+
+        (self.ts[xt].clone(), self.ts[yt].clone())
+    }
+
     /// Evaluates the relation with the given arguments.
     ///
     /// Precondition: `cache` has never been passed to other relations.
@@ -341,6 +358,10 @@ impl FromStr for Relation {
             .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _)))
             .count();
 
+        let mut v = FindParametricRelation::new(&collector);
+        v.visit_expr(&e);
+        let xt_yt = v.get();
+
         let mut v = FindMaximalScalarTerms::new(collector);
         v.visit_expr(&e);
         let (mx, my) = v.mx_my();
@@ -351,6 +372,7 @@ impl FromStr for Relation {
             n_atom_forms,
             ts: ValueStore::new(TupperIntervalSet::new(), n_terms),
             eval_count: 0,
+            xt_yt,
             mx,
             my,
             has_n_theta: e.vars.contains(VarSet::N_THETA),
