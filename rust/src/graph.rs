@@ -1,7 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, SubdivisionDir},
     eval_result::EvalResult,
-    image::{Image, PixelIndex},
+    image::{Image, PixelIndex, PixelRegion},
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
@@ -320,7 +320,7 @@ impl Graph {
 
     pub fn get_gray_alpha_image(&self, im: &mut GrayAlphaImage) {
         assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for (src, dst) in self.im.iter().copied().zip(im.pixels_mut()) {
+        for (src, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
             *dst = match src {
                 PixelState::True => LumaA([0, 255]),
                 PixelState::False => LumaA([0, 0]),
@@ -332,7 +332,7 @@ impl Graph {
 
     pub fn get_image(&self, im: &mut RgbImage) {
         assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for (src, dst) in self.im.iter().copied().zip(im.pixels_mut()) {
+        for (src, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
             *dst = match src {
                 PixelState::True => Rgb([0, 0, 0]),
                 PixelState::False => Rgb([255, 255, 255]),
@@ -346,7 +346,7 @@ impl Graph {
         GraphingStatistics {
             pixels_proven: self
                 .im
-                .iter()
+                .pixels()
                 .copied()
                 .filter(|&s| s == PixelState::False || s == PixelState::True)
                 .count(),
@@ -497,7 +497,7 @@ impl Graph {
         if self.bs_to_subdivide.is_empty() {
             if self
                 .im
-                .iter()
+                .pixels()
                 .any(|&s| s == PixelState::UncertainNeverFalse)
             {
                 Err(GraphingError {
@@ -517,22 +517,22 @@ impl Graph {
         block_index: usize,
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-            #[allow(clippy::branches_sharing_code)]
             if b.is_superpixel() {
-                let pixel_begin = b.pixel_index();
-                let pixel_end = PixelIndex::new(
-                    (pixel_begin.x + b.width()).min(self.im.width()),
-                    (pixel_begin.y + b.height()).min(self.im.height()),
-                );
-                for y in pixel_begin.y..pixel_end.y {
-                    for x in pixel_begin.x..pixel_end.x {
-                        let pixel = PixelIndex::new(x, y);
-                        *self.last_queued_blocks.get_mut(pixel) = block_index;
-                    }
+                let pixels = {
+                    let begin = b.pixel_index();
+                    let end = PixelIndex::new(
+                        (begin.x + b.width()).min(self.im.width()),
+                        (begin.y + b.height()).min(self.im.height()),
+                    );
+                    PixelRegion::new(begin, end)
+                };
+
+                for p in pixels.iter() {
+                    *self.last_queued_blocks.get_mut(p) = block_index;
                 }
             } else {
-                let pixel = b.pixel_index();
-                *self.last_queued_blocks.get_mut(pixel) = block_index;
+                let p = b.pixel_index();
+                *self.last_queued_blocks.get_mut(p) = block_index;
             }
             Ok(())
         } else {
@@ -552,24 +552,16 @@ impl Graph {
         parent_block_index: QueuedBlockIndex,
         cache: &mut EvalCache,
     ) -> bool {
-        let pixel_begin = b.pixel_index();
-        let pixel_end = PixelIndex::new(
-            (pixel_begin.x + b.width()).min(self.im.width()),
-            (pixel_begin.y + b.height()).min(self.im.height()),
-        );
+        let pixels = {
+            let begin = b.pixel_index();
+            let end = PixelIndex::new(
+                (begin.x + b.width()).min(self.im.width()),
+                (begin.y + b.height()).min(self.im.height()),
+            );
+            PixelRegion::new(begin, end)
+        };
 
-        let mut all_true = true;
-        'outer: for y in pixel_begin.y..pixel_end.y {
-            for x in pixel_begin.x..pixel_end.x {
-                let pixel = PixelIndex::new(x, y);
-                let state = self.im.get(pixel);
-                if state != PixelState::True {
-                    all_true = false;
-                    break 'outer;
-                }
-            }
-        }
-        if all_true {
+        if pixels.iter().all(|p| self.im.get(p) == PixelState::True) {
             // All pixels have already been proven to be true.
             return true;
         }
@@ -587,25 +579,22 @@ impl Graph {
             return false;
         }
 
-        for y in pixel_begin.y..pixel_end.y {
-            for x in pixel_begin.x..pixel_end.x {
-                let pixel = PixelIndex::new(x, y);
-                let state = self.im.get(pixel);
-                assert_ne!(state, PixelState::False);
-                if state == PixelState::True {
-                    // This pixel has already been proven to be true.
-                    continue;
-                }
+        for p in pixels.iter() {
+            let state = self.im.get(p);
+            assert_ne!(state, PixelState::False);
+            if state == PixelState::True {
+                // This pixel has already been proven to be true.
+                continue;
+            }
 
-                if is_true {
-                    *self.im.get_mut(pixel) = PixelState::True;
-                } else if is_false
-                    && b_is_last_sibling
-                    && self.last_queued_blocks.get(pixel) == parent_block_index
-                    && state != PixelState::UncertainNeverFalse
-                {
-                    *self.im.get_mut(pixel) = PixelState::False;
-                }
+            if is_true {
+                *self.im.get_mut(p) = PixelState::True;
+            } else if is_false
+                && b_is_last_sibling
+                && self.last_queued_blocks.get(p) == parent_block_index
+                && state != PixelState::UncertainNeverFalse
+            {
+                *self.im.get_mut(p) = PixelState::False;
             }
         }
         true

@@ -12,7 +12,7 @@ pub struct Image<T: Clone + Copy + Default> {
 }
 
 impl<T: Clone + Copy + Default> Image<T> {
-    /// Creates a new [`Image`] with all pixels set to the default values.
+    /// Creates a new [`Image`] with all pixels set to the default value of the type.
     pub fn new(width: u32, height: u32) -> Self {
         assert!(width > 0 && width <= MAX_IMAGE_WIDTH && height > 0 && height <= MAX_IMAGE_WIDTH);
         Self {
@@ -20,11 +20,6 @@ impl<T: Clone + Copy + Default> Image<T> {
             height,
             data: vec![Default::default(); height as usize * width as usize],
         }
-    }
-
-    /// Returns the height of the image in pixels.
-    pub fn height(&self) -> u32 {
-        self.height
     }
 
     /// Returns the value of the pixel.
@@ -38,9 +33,13 @@ impl<T: Clone + Copy + Default> Image<T> {
         &mut self.data[i]
     }
 
-    /// Returns the iterator over the values in the lexicographical order of
-    /// of (`PixelIndex.y`, `PixelIndex.x`).
-    pub fn iter(&self) -> Iter<'_, T> {
+    /// Returns the height of the image in pixels.
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    /// Returns an iterator over the pixels of the image in the lexicographical order of `(y, x)`.
+    pub fn pixels(&self) -> Iter<'_, T> {
         self.data.iter()
     }
 
@@ -76,6 +75,75 @@ impl PixelIndex {
     }
 }
 
+/// A rectangular region of an [`Image`].
+#[derive(Clone, Debug)]
+pub struct PixelRegion {
+    begin: PixelIndex,
+    end: PixelIndex,
+}
+
+impl PixelRegion {
+    /// Creates a new [`PixelRegion`] that spans pixels within
+    /// `begin.x ≤ x < end.x` and `begin.y ≤ y < end.y`.
+    pub fn new(begin: PixelIndex, end: PixelIndex) -> Self {
+        assert!(begin.x <= end.x && begin.y <= end.y);
+        Self { begin, end }
+    }
+
+    /// Returns the height of the region in pixels.
+    pub fn height(&self) -> u32 {
+        self.end.y - self.begin.y
+    }
+
+    /// Returns an iterator over the pixels in the region.
+    pub fn iter(&self) -> PixelIter {
+        self.into_iter()
+    }
+
+    /// Returns the width of the region in pixels.
+    pub fn width(&self) -> u32 {
+        self.end.x - self.begin.x
+    }
+}
+
+impl<'a> IntoIterator for &'a PixelRegion {
+    type Item = PixelIndex;
+    type IntoIter = PixelIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PixelIter {
+            region: self,
+            p: self.begin,
+        }
+    }
+}
+
+pub struct PixelIter<'a> {
+    region: &'a PixelRegion,
+    p: PixelIndex,
+}
+
+impl<'a> Iterator for PixelIter<'a> {
+    type Item = PixelIndex;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let p = self.p;
+        if p.y == self.region.end.y {
+            return None;
+        }
+
+        let mut x = p.x + 1;
+        let mut y = p.y;
+        if x == self.region.end.x {
+            x = self.region.begin.x;
+            y += 1;
+        }
+        self.p = PixelIndex::new(x, y);
+
+        Some(p)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,8 +160,30 @@ mod tests {
         *im.get_mut(p) = 123456;
         assert_eq!(im.get(p), 123456);
         assert_eq!(
-            im.iter().copied().nth((p.y * im.width() + p.x) as usize),
+            im.pixels().copied().nth((p.y * im.width() + p.x) as usize),
             Some(123456)
         );
+    }
+
+    #[test]
+    fn pixel_region() {
+        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(1, 2));
+        assert_eq!(r.width(), 0);
+        assert_eq!(r.height(), 0);
+
+        let mut iter = r.iter();
+        assert_eq!(iter.next(), None);
+
+        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(4, 8));
+        assert_eq!(r.width(), 3);
+        assert_eq!(r.height(), 6);
+
+        let mut iter = r.iter();
+        for y in 2..8 {
+            for x in 1..4 {
+                assert_eq!(iter.next(), Some(PixelIndex::new(x, y)));
+            }
+        }
+        assert_eq!(iter.next(), None);
     }
 }
