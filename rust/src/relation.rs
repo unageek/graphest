@@ -599,19 +599,24 @@ macro_rules! rel_op {
 fn relation_type(e: &Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
     match e {
-        binary!(rel_op!(), var!(name), e) | binary!(rel_op!(), e, var!(name))
-            if name == "y" && VarSet::X.contains(e.vars) =>
+        binary!(rel_op!(), y @ var!(_), e) | binary!(rel_op!(), e, y @ var!(_))
+            if y.vars == VarSet::Y && VarSet::X.contains(e.vars) =>
         {
             // y = f(x) or f(x) = y
             FunctionOfX
         }
-        binary!(rel_op!(), var!(name), e) | binary!(rel_op!(), e, var!(name))
-            if name == "x" && VarSet::Y.contains(e.vars) =>
+        binary!(rel_op!(), x @ var!(_), e) | binary!(rel_op!(), e, x @ var!(_))
+            if x.vars == VarSet::X && VarSet::Y.contains(e.vars) =>
         {
             // x = f(y) or f(y) = x
             FunctionOfY
         }
         binary!(rel_op!(), _, _) => Implicit,
+        binary!(
+            And,
+            (binary!(Eq, x @ var!(_), f) | binary!(Eq, f, x @ var!(_))),
+            (binary!(Eq, y @ var!(_), g) | binary!(Eq, g, y @ var!(_)))
+        ) if x.vars | y.vars == VarSet::X | VarSet::Y && f.vars | g.vars == VarSet::T => Parametric,
         binary!(And, _, _) => {
             // This should not be `FunctionOfX` nor `FunctionOfY`.
             // Example: "y = x && y = x + 0.0001"
@@ -633,7 +638,8 @@ fn relation_type(e: &Expr) -> RelationType {
             Implicit
         }
         binary!(Or, e1, e2) => match (relation_type(e1), relation_type(e2)) {
-            (x, y) if x == y => x,
+            (FunctionOfX, FunctionOfX) => FunctionOfX,
+            (FunctionOfY, FunctionOfY) => FunctionOfY,
             _ => Implicit,
         },
         _ => panic!(),
@@ -721,6 +727,7 @@ mod tests {
         assert_eq!(f("x = theta"), Implicit);
         assert_eq!(f("x = sin(θ) && r = cos(θ)"), Implicit);
         assert_eq!(f("x = sin(θ) || r = cos(θ)"), Implicit);
+        assert_eq!(f("x = sin(t) && y = cos(t)"), Parametric);
     }
 
     #[test]
