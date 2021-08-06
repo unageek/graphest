@@ -323,8 +323,11 @@ impl BlockQueue {
         Some(self.seq.pop_front()? as i8)
     }
 
-    // TODO: Check bounds?
     fn pop_opt_interval(&mut self) -> Option<Option<Interval>> {
+        if self.seq.is_empty() {
+            return None;
+        }
+
         let mut bytes = [0u8; 16];
         for (src, dst) in self.seq.drain(..2).zip(bytes.iter_mut()) {
             *dst = src;
