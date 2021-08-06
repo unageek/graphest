@@ -118,6 +118,8 @@ pub enum RelationType {
     FunctionOfY,
     /// An implicit relation.
     Implicit,
+    /// A relation of the form x = f(t) ∧ y = g(t).
+    Parametric,
 }
 
 pub struct RelationArgs {
