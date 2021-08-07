@@ -1145,7 +1145,7 @@ impl<'a> FindParametricRelation<'a> {
     }
 
     pub fn get(&self) -> Option<(StoreIndex, StoreIndex)> {
-        self.xt_yt.clone()
+        self.xt_yt
     }
 }
 

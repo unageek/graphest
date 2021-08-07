@@ -101,7 +101,7 @@ impl Parametric {
                 }
             }
 
-            while self.im.size_in_heap()
+            if self.im.size_in_heap()
                 + self.last_queued_blocks.size_in_heap()
                 + self.block_queue.size_in_heap()
                 > self.mem_limit
