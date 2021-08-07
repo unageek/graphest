@@ -317,7 +317,7 @@ impl FromStr for Relation {
         simplify(&mut e);
 
         let n_theta_range = {
-            let period = function_period(&e, &|name| name == "theta" || name == "θ");
+            let period = function_period(&e, VarSet::N_THETA);
             if let Some(period) = &period {
                 if *period == 0 {
                     const_interval!(0.0, 0.0)
@@ -331,7 +331,7 @@ impl FromStr for Relation {
         assert_eq!(n_theta_range.trunc(), n_theta_range);
 
         let t_range = {
-            let period = function_period(&e, &|name| name == "t");
+            let period = function_period(&e, VarSet::T);
             if let Some(period) = &period {
                 Interval::TAU * interval!(&format!("[0,{}]", period)).unwrap()
             } else {
@@ -490,35 +490,31 @@ fn expand_polar_coords(e: &mut Expr) {
 /// Returns the period of a function of a variable t in multiples of 2π,
 /// i.e., an integer p that satisfies (e /. t → t + 2π p) = e.
 /// If the period is 0, the expression is independent of the variable.
-/// The name of the variable is specified by the predicate `var_name`.
 ///
 /// Precondition: `e` has been pre-transformed and simplified.
-fn function_period<F>(e: &Expr, var_name: &F) -> Option<Integer>
-where
-    F: Fn(&str) -> bool,
-{
+fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
     use {NaryOp::*, UnaryOp::*};
 
     match e {
         constant!(_) => Some(0.into()),
-        var!(name) if var_name(name) => None,
+        x @ var!(_) if x.vars == variable => None,
         var!(_) => Some(0.into()),
         unary!(op, x) => {
-            if let Some(p) = function_period(x, &*var_name) {
+            if let Some(p) = function_period(x, variable) {
                 Some(p)
             } else if matches!(op, Cos | Sin | Tan) {
                 match x {
-                    var!(name) if var_name(name) => {
+                    x @ var!(_) if x.vars == variable => {
                         // op(θ)
                         Some(1.into())
                     }
                     nary!(Plus, xs) => match &xs[..] {
-                        [constant!(_), var!(name)] if var_name(name) => {
+                        [constant!(_), x @ var!(_)] if x.vars == variable => {
                             // op(b + θ)
                             Some(1.into())
                         }
                         [constant!(_), nary!(Times, xs)] => match &xs[..] {
-                            [constant!(a), var!(name)] if var_name(name) => {
+                            [constant!(a), x @ var!(_)] if x.vars == variable => {
                                 // op(b + a θ)
                                 if let Some(a) = &a.1 {
                                     let p = a.denom().clone();
@@ -536,7 +532,7 @@ where
                         _ => None,
                     },
                     nary!(Times, xs) => match &xs[..] {
-                        [constant!(a), var!(name)] if var_name(name) => {
+                        [constant!(a), x @ var!(_)] if x.vars == variable => {
                             // op(a θ)
                             if let Some(a) = &a.1 {
                                 let p = a.denom().clone();
@@ -558,8 +554,8 @@ where
             }
         }
         binary!(_, x, y) => {
-            let xp = function_period(x, &*var_name)?;
-            let yp = function_period(y, &*var_name)?;
+            let xp = function_period(x, variable)?;
+            let yp = function_period(y, variable)?;
             Some(if xp == 0 {
                 yp
             } else if yp == 0 {
@@ -570,7 +566,7 @@ where
         }
         nary!(_, xs) => xs
             .iter()
-            .map(|x| function_period(x, &*var_name))
+            .map(|x| function_period(x, variable))
             .collect::<Option<Vec<_>>>()
             .map(|ps| {
                 ps.into_iter().fold(Integer::from(0), |xp, yp| {
