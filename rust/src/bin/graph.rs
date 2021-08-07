@@ -1,7 +1,7 @@
 use clap::{App, AppSettings, Arg, ArgSettings};
 use graphest::{
-    graph::{Graph, GraphingStatistics, InexactRegion},
-    relation::Relation,
+    graph::{Graph, GraphingStatistics, Implicit, InexactRegion, Parametric},
+    relation::{Relation, RelationType},
 };
 use image::{GrayAlphaImage, RgbImage};
 use inari::{const_interval, interval, Interval};
@@ -111,13 +111,15 @@ fn main() {
     let output = matches.value_of_os("output");
     let size = matches.values_of_t_or_exit::<u32>("size");
 
-    let mut g = Graph::new(
-        rel,
-        InexactRegion::new(bounds[0], bounds[1], bounds[2], bounds[3]),
-        size[0],
-        size[1],
-        mem_limit,
-    );
+    let region = InexactRegion::new(bounds[0], bounds[1], bounds[2], bounds[3]);
+
+    let mut g: Box<dyn Graph> = match rel.relation_type() {
+        RelationType::Parametric => {
+            Box::new(Parametric::new(rel, region, size[0], size[1], mem_limit))
+        }
+        _ => Box::new(Implicit::new(rel, region, size[0], size[1], mem_limit)),
+    };
+
     let mut gray_alpha_im: Option<GrayAlphaImage> = None;
     let mut rgb_im: Option<RgbImage> = None;
     if gray_alpha {

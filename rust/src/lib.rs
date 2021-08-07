@@ -2,7 +2,6 @@
 #![feature(box_patterns, box_syntax, once_cell)]
 
 pub mod graph;
-pub mod parametric;
 pub mod relation;
 
 #[cfg(feature = "arb")]

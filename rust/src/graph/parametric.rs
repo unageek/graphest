@@ -1,3 +1,4 @@
+use super::Graph;
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
     graph::{
@@ -6,7 +7,7 @@ use crate::{
     },
     image::PixelRegion,
     image::{Image, PixelIndex},
-    relation::Relation,
+    relation::{Relation, RelationType},
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Decoration, Interval};
@@ -16,7 +17,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub struct Graph {
+pub struct Parametric {
     rel: Relation,
     im: Image<PixelState>,
     last_queued_blocks: Image<QueuedBlockIndex>,
@@ -29,7 +30,7 @@ pub struct Graph {
     mem_limit: usize,
 }
 
-impl Graph {
+impl Parametric {
     pub fn new(
         rel: Relation,
         region: InexactRegion,
@@ -37,6 +38,8 @@ impl Graph {
         im_height: u32,
         mem_limit: usize,
     ) -> Self {
+        assert_eq!(rel.relation_type(), RelationType::Parametric);
+
         let im_width_interval = Self::point_interval(im_width as f64);
         let im_height_interval = Self::point_interval(im_height as f64);
         let mut g = Self {
@@ -70,66 +73,6 @@ impl Graph {
             .push_back(Block::new(0, 0, 0, 0, Interval::ENTIRE, t_range));
 
         g
-    }
-
-    pub fn get_gray_alpha_image(&self, im: &mut GrayAlphaImage) {
-        assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for ((src, bi), dst) in self
-            .im
-            .pixels()
-            .copied()
-            .zip(self.last_queued_blocks.pixels().copied())
-            .zip(im.pixels_mut())
-        {
-            *dst = match src {
-                PixelState::True => LumaA([0, 255]),
-                PixelState::Uncertain if bi < self.first_block_in_queue => LumaA([0, 0]),
-                _ => LumaA([0, 128]),
-            }
-        }
-        imageops::flip_vertical_in_place(im);
-    }
-
-    pub fn get_image(&self, im: &mut RgbImage) {
-        assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for ((src, bi), dst) in self
-            .im
-            .pixels()
-            .copied()
-            .zip(self.last_queued_blocks.pixels().copied())
-            .zip(im.pixels_mut())
-        {
-            *dst = match src {
-                PixelState::True => Rgb([0, 0, 0]),
-                PixelState::Uncertain if bi < self.first_block_in_queue => Rgb([255, 255, 255]),
-                _ => Rgb([64, 128, 192]),
-            }
-        }
-        imageops::flip_vertical_in_place(im);
-    }
-
-    pub fn get_statistics(&self) -> GraphingStatistics {
-        GraphingStatistics {
-            pixels_proven: self
-                .im
-                .pixels()
-                .copied()
-                .zip(self.last_queued_blocks.pixels().copied())
-                .filter(|&(s, bi)| s == PixelState::True || bi < self.first_block_in_queue)
-                .count(),
-            eval_count: self.rel.eval_count(),
-            ..self.stats
-        }
-    }
-
-    /// Refines the graph for a given amount of time.
-    ///
-    /// Returns `Ok(true)`/`Ok(false)` if graphing is complete/incomplete after refinement.
-    pub fn refine(&mut self, timeout: Duration) -> Result<bool, GraphingError> {
-        let now = Instant::now();
-        let result = self.refine_impl(timeout, &now);
-        self.stats.time_elapsed += now.elapsed();
-        result
     }
 
     fn refine_impl(&mut self, timeout: Duration, now: &Instant) -> Result<bool, GraphingError> {
@@ -358,5 +301,64 @@ impl Graph {
                 .filter(|t| !t.is_singleton())
                 .map(|&t| Block::new(0, 0, 0, 0, Interval::ENTIRE, t)),
         );
+    }
+}
+
+impl Graph for Parametric {
+    fn get_gray_alpha_image(&self, im: &mut GrayAlphaImage) {
+        assert!(im.width() == self.im.width() && im.height() == self.im.height());
+        for ((src, bi), dst) in self
+            .im
+            .pixels()
+            .copied()
+            .zip(self.last_queued_blocks.pixels().copied())
+            .zip(im.pixels_mut())
+        {
+            *dst = match src {
+                PixelState::True => LumaA([0, 255]),
+                PixelState::Uncertain if bi < self.first_block_in_queue => LumaA([0, 0]),
+                _ => LumaA([0, 128]),
+            }
+        }
+        imageops::flip_vertical_in_place(im);
+    }
+
+    fn get_image(&self, im: &mut RgbImage) {
+        assert!(im.width() == self.im.width() && im.height() == self.im.height());
+        for ((src, bi), dst) in self
+            .im
+            .pixels()
+            .copied()
+            .zip(self.last_queued_blocks.pixels().copied())
+            .zip(im.pixels_mut())
+        {
+            *dst = match src {
+                PixelState::True => Rgb([0, 0, 0]),
+                PixelState::Uncertain if bi < self.first_block_in_queue => Rgb([255, 255, 255]),
+                _ => Rgb([64, 128, 192]),
+            }
+        }
+        imageops::flip_vertical_in_place(im);
+    }
+
+    fn get_statistics(&self) -> GraphingStatistics {
+        GraphingStatistics {
+            pixels_proven: self
+                .im
+                .pixels()
+                .copied()
+                .zip(self.last_queued_blocks.pixels().copied())
+                .filter(|&(s, bi)| s == PixelState::True || bi < self.first_block_in_queue)
+                .count(),
+            eval_count: self.rel.eval_count(),
+            ..self.stats
+        }
+    }
+
+    fn refine(&mut self, timeout: Duration) -> Result<bool, GraphingError> {
+        let now = Instant::now();
+        let result = self.refine_impl(timeout, &now);
+        self.stats.time_elapsed += now.elapsed();
+        result
     }
 }
