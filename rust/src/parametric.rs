@@ -10,6 +10,7 @@ use crate::{
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Decoration, Interval};
+use itertools::Itertools;
 use std::{
     convert::TryFrom,
     time::{Duration, Instant},
@@ -136,17 +137,22 @@ impl Graph {
         while let Some((bi, b)) = self.block_queue.pop_front() {
             self.first_block_in_queue = (bi + 1) as QueuedBlockIndex;
 
-            if let Some(pixels) = self.refine_hoge(&b) {
+            let incomplete_regions = self.refine_hoge(&b);
+            if !incomplete_regions.is_empty() {
                 if b.is_subdivisible_on_t() {
                     Self::subdivide(&mut sub_bs, &b);
                     for sub_b in sub_bs.drain(..) {
                         let index = self.block_queue.push_back(sub_b);
-                        self.set_last_queued_block(&pixels, index)?;
+                        for r in &incomplete_regions {
+                            self.set_last_queued_block(&r, index)?;
+                        }
                     }
                 } else {
-                    for p in pixels.iter() {
-                        if self.im.get(p) == PixelState::Uncertain {
-                            *self.im.get_mut(p) = PixelState::UncertainNeverFalse;
+                    for r in incomplete_regions {
+                        for p in r.iter() {
+                            if self.im.get(p) == PixelState::Uncertain {
+                                *self.im.get_mut(p) = PixelState::UncertainNeverFalse;
+                            }
                         }
                     }
                 }
@@ -201,36 +207,30 @@ impl Graph {
         }
     }
 
-    fn refine_hoge(&mut self, b: &Block) -> Option<PixelRegion> {
+    fn refine_hoge(&mut self, b: &Block) -> Vec<PixelRegion> {
         let (x, y) = self.rel.eval_parametric(b.t);
 
-        if x.is_empty() || y.is_empty() {
-            return None;
-        }
+        let rs = x
+            .iter()
+            .cartesian_product(y.iter())
+            .filter(|(x, y)| x.g.union(y.g).is_some())
+            .map(|(x, y)| {
+                InexactRegion::new(
+                    Self::point_interval_possibly_infinite(x.x.inf()),
+                    Self::point_interval_possibly_infinite(x.x.sup()),
+                    Self::point_interval_possibly_infinite(y.x.inf()),
+                    Self::point_interval_possibly_infinite(y.x.sup()),
+                )
+                .transform(&self.inv_transform)
+                .outer()
+            })
+            .collect::<Vec<_>>();
 
-        let x_hull = interval!(
-            x.iter().fold(f64::INFINITY, |inf, x| inf.min(x.x.inf())),
-            x.iter()
-                .fold(f64::NEG_INFINITY, |sup, x| sup.max(x.x.sup()))
-        )
-        .unwrap();
-        let y_hull = interval!(
-            y.iter().fold(f64::INFINITY, |inf, x| inf.min(x.x.inf())),
-            y.iter()
-                .fold(f64::NEG_INFINITY, |sup, x| sup.max(x.x.sup()))
-        )
-        .unwrap();
-
-        let r = InexactRegion::new(
-            Self::point_interval_possibly_infinite(x_hull.inf()),
-            Self::point_interval_possibly_infinite(x_hull.sup()),
-            Self::point_interval_possibly_infinite(y_hull.inf()),
-            Self::point_interval_possibly_infinite(y_hull.sup()),
-        )
-        .transform(&self.inv_transform)
-        .outer();
+        let mut incomplete_regions = vec![];
 
         if x.decoration() >= Decoration::Def && y.decoration() >= Decoration::Def {
+            let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
+
             // Check that `r` is interior to a single pixel.
             let px = interval!(r.0.inf().floor(), r.0.sup().ceil()).unwrap();
             let py = interval!(r.1.inf().floor(), r.1.sup().ceil()).unwrap();
@@ -245,62 +245,66 @@ impl Graph {
             {
                 let p = PixelIndex::new(px.inf() as u32, py.inf() as u32);
                 *self.im.get_mut(p) = PixelState::True;
-                return None;
+                return incomplete_regions;
             }
         }
 
-        let im_r = Region(
-            interval!(0.0, self.im.width() as f64).unwrap(),
-            interval!(0.0, self.im.height() as f64).unwrap(),
-        );
+        for r in rs {
+            let im_r = Region(
+                interval!(0.0, self.im.width() as f64).unwrap(),
+                interval!(0.0, self.im.height() as f64).unwrap(),
+            );
 
-        let reg = r;
-        let reg = {
-            let l = reg.0.inf();
-            let r = reg.0.sup();
-            let b = reg.1.inf();
-            let t = reg.1.sup();
+            let reg = r;
+            let reg = {
+                let l = reg.0.inf();
+                let r = reg.0.sup();
+                let b = reg.1.inf();
+                let t = reg.1.sup();
 
-            let pl = if l.floor() == l {
-                l.floor() - 1.0
-            } else {
-                l.floor()
-            };
-            let pr = if r.ceil() == r {
-                r.ceil() + 1.0
-            } else {
-                r.ceil()
-            };
-            let pb = if b.floor() == b {
-                b.floor() - 1.0
-            } else {
-                b.floor()
-            };
-            let pt = if t.ceil() == t {
-                t.ceil() + 1.0
-            } else {
-                t.ceil()
-            };
+                let pl = if l.floor() == l {
+                    l.floor() - 1.0
+                } else {
+                    l.floor()
+                };
+                let pr = if r.ceil() == r {
+                    r.ceil() + 1.0
+                } else {
+                    r.ceil()
+                };
+                let pb = if b.floor() == b {
+                    b.floor() - 1.0
+                } else {
+                    b.floor()
+                };
+                let pt = if t.ceil() == t {
+                    t.ceil() + 1.0
+                } else {
+                    t.ceil()
+                };
 
-            Region(interval!(pl, pr).unwrap(), interval!(pb, pt).unwrap())
+                Region(interval!(pl, pr).unwrap(), interval!(pb, pt).unwrap())
+            }
+            .intersection(&im_r);
+
+            if reg.is_empty() {
+                // The region is completely outside of the image.
+                continue;
+            }
+
+            let r = PixelRegion::new(
+                PixelIndex::new(reg.0.inf() as u32, reg.1.inf() as u32),
+                PixelIndex::new(reg.0.sup() as u32, reg.1.sup() as u32),
+            );
+
+            if r.iter().all(|p| self.im.get(p) == PixelState::True) {
+                continue;
+            } else {
+                incomplete_regions.push(r)
+            }
         }
-        .intersection(&im_r);
 
-        if reg.is_empty() {
-            // The region is completely outside of the image.
-            return None;
-        }
-
-        let pixels = PixelRegion::new(
-            PixelIndex::new(reg.0.inf() as u32, reg.1.inf() as u32),
-            PixelIndex::new(reg.0.sup() as u32, reg.1.sup() as u32),
-        );
-
-        if pixels.iter().all(|p| self.im.get(p) == PixelState::True) {
-            None
-        } else {
-            Some(pixels)
-        }
+        incomplete_regions
     }
 
     fn point_interval(x: f64) -> Interval {
