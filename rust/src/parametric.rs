@@ -136,9 +136,7 @@ impl Graph {
         while let Some((bi, b)) = self.block_queue.pop_front() {
             self.first_block_in_queue = (bi + 1) as QueuedBlockIndex;
 
-            let (complete, pixels) = self.refine_hoge(&b);
-            if !complete {
-                let pixels = pixels.unwrap();
+            if let Some(pixels) = self.refine_hoge(&b) {
                 if b.is_subdivisible_on_t() {
                     Self::subdivide(&mut sub_bs, &b);
                     for sub_b in sub_bs.drain(..) {
@@ -203,11 +201,11 @@ impl Graph {
         }
     }
 
-    fn refine_hoge(&mut self, b: &Block) -> (bool, Option<PixelRegion>) {
+    fn refine_hoge(&mut self, b: &Block) -> Option<PixelRegion> {
         let (x, y) = self.rel.eval_parametric(b.t);
 
         if x.is_empty() || y.is_empty() {
-            return (true, None);
+            return None;
         }
 
         let x_hull = interval!(
@@ -247,7 +245,7 @@ impl Graph {
             {
                 let p = PixelIndex::new(px.inf() as u32, py.inf() as u32);
                 *self.im.get_mut(p) = PixelState::True;
-                return (true, None);
+                return None;
             }
         }
 
@@ -290,7 +288,7 @@ impl Graph {
 
         if reg.is_empty() {
             // The region is completely outside of the image.
-            return (true, None);
+            return None;
         }
 
         let pixels = PixelRegion::new(
@@ -299,9 +297,9 @@ impl Graph {
         );
 
         if pixels.iter().all(|p| self.im.get(p) == PixelState::True) {
-            (true, None)
+            None
         } else {
-            (false, Some(pixels))
+            Some(pixels)
         }
     }
 
