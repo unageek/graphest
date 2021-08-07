@@ -1106,6 +1106,7 @@ impl CollectStatic {
         use BinaryOp::*;
         for t in self.exprs.iter().copied() {
             let k = match &*t {
+                binary!(ExplicitEq, _, _) => Some(StaticFormKind::Constant(true)),
                 binary!(And, x, y) => {
                     Some(StaticFormKind::And(self.form_index(x), self.form_index(y)))
                 }
@@ -1150,18 +1151,17 @@ impl<'a> FindParametricRelation<'a> {
 
 impl<'a> Visit<'a> for FindParametricRelation<'a> {
     fn visit_expr(&mut self, e: &'a Expr) {
+        use BinaryOp::*;
         match e {
             binary!(
-                BinaryOp::And,
-                binary!(BinaryOp::Eq, binary!(BinaryOp::Sub, var!(x), xt), _),
-                binary!(BinaryOp::Eq, binary!(BinaryOp::Sub, var!(y), yt), _)
-            ) if x == "x" && y == "y" => {
-                if xt.vars | yt.vars == VarSet::T {
-                    self.xt_yt = Some((
-                        self.collector.terms[self.collector.term_index[&xt.id]].store_index,
-                        self.collector.terms[self.collector.term_index[&yt.id]].store_index,
-                    ));
-                }
+                And,
+                binary!(ExplicitEq, x @ var!(_), xt),
+                binary!(ExplicitEq, y @ var!(_), yt)
+            ) if x.vars == VarSet::X && y.vars == VarSet::Y && xt.vars | yt.vars == VarSet::T => {
+                self.xt_yt = Some((
+                    self.collector.terms[self.collector.term_index[&xt.id]].store_index,
+                    self.collector.terms[self.collector.term_index[&yt.id]].store_index,
+                ));
             }
             _ => (),
         }

@@ -42,6 +42,7 @@ impl EvalResultMask {
     fn eval_impl(slf: &[bool], forms: &[StaticForm], i: usize) -> bool {
         use StaticFormKind::*;
         match &forms[i].kind {
+            Constant(b) => *b,
             Atomic(_, _) => slf[i],
             And(x, y) => {
                 Self::eval_impl(slf, forms, *x as usize) && Self::eval_impl(slf, forms, *y as usize)
@@ -75,6 +76,7 @@ impl EvalResultMask {
     ) -> bool {
         use StaticFormKind::*;
         match &forms[i].kind {
+            Constant(b) => *b,
             Atomic(_, _) => slf[i],
             And(x, y) => {
                 if Self::eval_impl(locally_zero_mask, forms, *x as usize) {

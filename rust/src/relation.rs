@@ -14,7 +14,7 @@ use inari::{const_interval, interval, DecInterval, Interval};
 use rug::Integer;
 use std::{
     collections::{hash_map::Entry, HashMap},
-    mem::size_of,
+    mem::{size_of, take},
     str::FromStr,
 };
 
@@ -312,7 +312,7 @@ impl FromStr for Relation {
             }
         }
         UpdateMetadata.visit_expr_mut(&mut e);
-        let relation_type = relation_type(&e);
+        let relation_type = relation_type(&mut e);
         PreTransform.visit_expr_mut(&mut e);
         simplify(&mut e);
 
@@ -596,7 +596,7 @@ macro_rules! rel_op {
 /// Returns the type of the relation.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
-fn relation_type(e: &Expr) -> RelationType {
+fn relation_type(e: &mut Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
     match e {
         binary!(rel_op!(), y @ var!(_), e) | binary!(rel_op!(), e, y @ var!(_))
@@ -616,7 +616,22 @@ fn relation_type(e: &Expr) -> RelationType {
             And,
             (binary!(Eq, x @ var!(_), f) | binary!(Eq, f, x @ var!(_))),
             (binary!(Eq, y @ var!(_), g) | binary!(Eq, g, y @ var!(_)))
-        ) if x.vars | y.vars == VarSet::X | VarSet::Y && f.vars | g.vars == VarSet::T => Parametric,
+        ) if x.vars | y.vars == VarSet::X | VarSet::Y && f.vars | g.vars == VarSet::T => {
+            *e = if x.vars == VarSet::X {
+                Expr::binary(
+                    And,
+                    box Expr::binary(ExplicitEq, box take(x), box take(f)),
+                    box Expr::binary(ExplicitEq, box take(y), box take(g)),
+                )
+            } else {
+                Expr::binary(
+                    And,
+                    box Expr::binary(ExplicitEq, box take(y), box take(g)),
+                    box Expr::binary(ExplicitEq, box take(x), box take(f)),
+                )
+            };
+            Parametric
+        }
         binary!(And, _, _) => {
             // This should not be `FunctionOfX` nor `FunctionOfY`.
             // Example: "y = x && y = x + 0.0001"
