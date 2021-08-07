@@ -220,6 +220,11 @@ impl BlockQueue {
         }
     }
 
+    /// Returns the index that will be returned by the next call to [`Self::pop_front`].
+    pub fn front_index(&self) -> usize {
+        self.front_index
+    }
+
     /// Returns `true` if the queue is empty.
     pub fn is_empty(&self) -> bool {
         self.seq.is_empty()

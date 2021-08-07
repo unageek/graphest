@@ -21,9 +21,7 @@ pub struct Parametric {
     rel: Relation,
     im: Image<PixelState>,
     last_queued_blocks: Image<QueuedBlockIndex>,
-    // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     block_queue: BlockQueue,
-    first_block_in_queue: QueuedBlockIndex,
     // Affine transformation from real coordinates to pixel coordinates.
     inv_transform: Transform,
     stats: GraphingStatistics,
@@ -50,7 +48,6 @@ impl Parametric {
                 store_t: true,
                 ..Default::default()
             }),
-            first_block_in_queue: 0,
             inv_transform: {
                 Transform::new(
                     im_width_interval / region.width(),
@@ -78,8 +75,6 @@ impl Parametric {
     fn refine_impl(&mut self, timeout: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         while let Some((bi, b)) = self.block_queue.pop_front() {
-            self.first_block_in_queue = (bi + 1) as QueuedBlockIndex;
-
             let incomplete_regions = self.refine_hoge(&b);
             if !incomplete_regions.is_empty() {
                 if b.is_subdivisible_on_t() {
@@ -316,7 +311,11 @@ impl Graph for Parametric {
         {
             *dst = match src {
                 PixelState::True => LumaA([0, 255]),
-                PixelState::Uncertain if bi < self.first_block_in_queue => LumaA([0, 0]),
+                PixelState::Uncertain
+                    if bi < self.block_queue.front_index() as QueuedBlockIndex =>
+                {
+                    LumaA([0, 0])
+                }
                 _ => LumaA([0, 128]),
             }
         }
@@ -334,7 +333,11 @@ impl Graph for Parametric {
         {
             *dst = match src {
                 PixelState::True => Rgb([0, 0, 0]),
-                PixelState::Uncertain if bi < self.first_block_in_queue => Rgb([255, 255, 255]),
+                PixelState::Uncertain
+                    if bi < self.block_queue.front_index() as QueuedBlockIndex =>
+                {
+                    Rgb([255, 255, 255])
+                }
                 _ => Rgb([64, 128, 192]),
             }
         }
@@ -348,7 +351,9 @@ impl Graph for Parametric {
                 .pixels()
                 .copied()
                 .zip(self.last_queued_blocks.pixels().copied())
-                .filter(|&(s, bi)| s == PixelState::True || bi < self.first_block_in_queue)
+                .filter(|&(s, bi)| {
+                    s == PixelState::True || bi < self.block_queue.front_index() as QueuedBlockIndex
+                })
                 .count(),
             eval_count: self.rel.eval_count(),
             ..self.stats
