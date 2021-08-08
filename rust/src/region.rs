@@ -38,12 +38,12 @@ impl Region {
         self.0.subset(rhs.0) && self.1.subset(rhs.1)
     }
 
-    /// Returns the projection of the region onto the x-axis.
+    /// Returns the x component of the region.
     pub fn x(&self) -> Interval {
         self.0
     }
 
-    /// Returns the projection of the region onto the y-axis.
+    /// Returns the y component of the region.
     pub fn y(&self) -> Interval {
         self.1
     }

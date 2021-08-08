@@ -20,11 +20,10 @@ impl Default for PixelState {
     }
 }
 
-/// The index of a [`Block`] in a [block-queue].
+/// The index of a [`Block`](crate::block::Block) in a [`BlockQueue`](crate::block::BlockQueue).
 ///
-/// Indices returned by the methods of [block-queue] are [`usize`], but [`u32`] would be large enough.
-///
-/// [block-queue]: [`crate::block::BlockQueue`]
+/// Indices returned by the methods of [`BlockQueue`](crate::block::BlockQueue) are [`usize`],
+/// but [`u32`] would be large enough.
 pub type QueuedBlockIndex = u32;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
