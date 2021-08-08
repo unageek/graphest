@@ -87,7 +87,14 @@ impl PixelRegion {
     /// `begin.x ≤ x < end.x` and `begin.y ≤ y < end.y`.
     pub fn new(begin: PixelIndex, end: PixelIndex) -> Self {
         assert!(begin.x <= end.x && begin.y <= end.y);
-        Self { begin, end }
+        if begin.x == end.x || begin.y == end.y {
+            Self {
+                begin: PixelIndex::new(0, 0),
+                end: PixelIndex::new(0, 0),
+            }
+        } else {
+            Self { begin, end }
+        }
     }
 
     /// Returns an iterator over the pixels in the region.
@@ -118,7 +125,7 @@ impl<'a> Iterator for PixelIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let p = self.p;
-        if p.x == self.region.end.x || p.y == self.region.end.y {
+        if p.y == self.region.end.y {
             return None;
         }
 
@@ -158,6 +165,14 @@ mod tests {
     #[test]
     fn pixel_region() {
         let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(1, 2));
+        let mut iter = r.iter();
+        assert_eq!(iter.next(), None);
+
+        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(4, 2));
+        let mut iter = r.iter();
+        assert_eq!(iter.next(), None);
+
+        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(1, 8));
         let mut iter = r.iter();
         assert_eq!(iter.next(), None);
 
