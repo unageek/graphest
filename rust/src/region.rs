@@ -196,6 +196,52 @@ mod tests {
     use inari::const_interval;
 
     #[test]
+    fn region() {
+        let r = Region::new(Interval::EMPTY, Interval::EMPTY);
+        assert_eq!(r, Region::EMPTY);
+        assert!(r.is_empty());
+        assert!(r.subset(&r));
+
+        let r = Region::new(Interval::EMPTY, const_interval!(2.0, 4.0));
+        assert_eq!(r, Region::EMPTY);
+        assert!(r.is_empty());
+
+        let r = Region::new(const_interval!(2.0, 4.0), Interval::EMPTY);
+        assert_eq!(r, Region::EMPTY);
+        assert!(r.is_empty());
+
+        let r = Region::new(const_interval!(1.0, 4.0), const_interval!(2.0, 5.0));
+        let s = Region::new(const_interval!(2.0, 3.0), const_interval!(3.0, 4.0));
+        assert!(r.subset(&r));
+        assert!(Region::EMPTY.subset(&r));
+        assert!(!r.subset(&s));
+        assert!(s.subset(&r));
+
+        let r = Region::new(const_interval!(1.0, 3.0), const_interval!(2.0, 4.0));
+        let s = Region::new(const_interval!(2.0, 4.0), const_interval!(3.0, 5.0));
+        assert_eq!(
+            r.convex_hull(&s),
+            Region::new(const_interval!(1.0, 4.0), const_interval!(2.0, 5.0))
+        );
+        assert_eq!(
+            r.intersection(&s),
+            Region::new(const_interval!(2.0, 3.0), const_interval!(3.0, 4.0))
+        );
+        assert!(!r.subset(&s));
+        assert!(!s.subset(&r));
+
+        let r = Region::new(const_interval!(1.0, 2.0), const_interval!(2.0, 3.0));
+        let s = Region::new(const_interval!(3.0, 4.0), const_interval!(4.0, 5.0));
+        assert_eq!(
+            r.convex_hull(&s),
+            Region::new(const_interval!(1.0, 4.0), const_interval!(2.0, 5.0))
+        );
+        assert!(r.intersection(&s).is_empty());
+        assert!(!r.subset(&s));
+        assert!(!s.subset(&r));
+    }
+
+    #[test]
     fn inexact_region() {
         let u = InexactRegion::new(
             const_interval!(0.33, 0.34),
