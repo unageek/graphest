@@ -50,6 +50,11 @@ impl Region {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty() || self.1.is_empty()
     }
+
+    /// Returns `true` if `self` is a subset of `rhs`.
+    pub fn subset(&self, rhs: &Self) -> bool {
+        self.is_empty() || self.0.subset(rhs.0) && self.1.subset(rhs.1)
+    }
 }
 
 /// A rectangular region of the Cartesian plane with inexact bounds.

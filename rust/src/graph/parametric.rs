@@ -150,71 +150,53 @@ impl Parametric {
         /// Returns the smallest region whose bounds are integers
         /// and which contains `r` in its interior.
         fn outer_pixels(r: &Region) -> Region {
-            const EPSILON: Interval = const_interval!(0.0, 5e-324);
-
-            fn down(x: Interval) -> f64 {
-                (x - EPSILON).inf().floor()
-            }
-
-            fn up(x: Interval) -> f64 {
-                (x + EPSILON).sup().ceil()
-            }
-
+            const TINY: Interval = const_interval!(-5e-324, 5e-324);
+            let r0 = r.0 + TINY;
+            let r1 = r.1 + TINY;
             Region(
-                interval!(down(r.0), up(r.0)).unwrap(),
-                interval!(down(r.1), up(r.1)).unwrap(),
+                interval!(r0.inf().floor(), r0.sup().ceil()).unwrap(),
+                interval!(r1.inf().floor(), r1.sup().ceil()).unwrap(),
             )
         }
 
         let (x, y) = self.rel.eval_parametric(block.t);
-
         let rs = x
             .iter()
             .cartesian_product(y.iter())
             .filter(|(x, y)| x.g.union(y.g).is_some())
             .map(|(x, y)| {
-                InexactRegion::new(
+                let r = InexactRegion::new(
                     Self::point_interval_possibly_infinite(x.x.inf()),
                     Self::point_interval_possibly_infinite(x.x.sup()),
                     Self::point_interval_possibly_infinite(y.x.inf()),
                     Self::point_interval_possibly_infinite(y.x.sup()),
                 )
                 .transform(&self.inv_transform)
-                .outer()
+                .outer();
+                outer_pixels(&r)
             })
             .collect::<Vec<_>>();
 
         let mut incomplete_regions = vec![];
 
+        let im_r = Region(
+            interval!(0.0, self.im.width() as f64).unwrap(),
+            interval!(0.0, self.im.height() as f64).unwrap(),
+        );
+
         if x.decoration().min(y.decoration()) >= Decoration::Def {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
-            // Check that `r` is interior to a single pixel.
-            let px = interval!(r.0.inf().floor(), r.0.sup().ceil()).unwrap();
-            let py = interval!(r.1.inf().floor(), r.1.sup().ceil()).unwrap();
-            if px.wid() == 1.0
-                && py.wid() == 1.0
-                && r.0.interior(px)
-                && r.1.interior(py)
-                && px.inf() >= 0.0
-                && px.inf() < self.im.width() as f64
-                && py.inf() >= 0.0
-                && py.inf() < self.im.height() as f64
-            {
-                let p = PixelIndex::new(px.inf() as u32, py.inf() as u32);
+            if r.0.wid() == 1.0 && r.1.wid() == 1.0 && r.subset(&im_r) {
+                // The hull of the regions is interior to a single pixel.
+                let p = PixelIndex::new(r.0.inf() as u32, r.1.inf() as u32);
                 *self.im.get_mut(p) = PixelState::True;
                 return incomplete_regions;
             }
         }
 
         for r in rs {
-            let im_r = Region(
-                interval!(0.0, self.im.width() as f64).unwrap(),
-                interval!(0.0, self.im.height() as f64).unwrap(),
-            );
-
-            outer_pixels(&r).intersection(&im_r);
-
+            let r = r.intersection(&im_r);
             if r.is_empty() {
                 // The region is completely outside of the image.
                 continue;
