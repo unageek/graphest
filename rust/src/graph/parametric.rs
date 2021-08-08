@@ -281,9 +281,7 @@ impl Graph for Parametric {
         {
             *dst = match src {
                 PixelState::True => LumaA([0, 255]),
-                PixelState::Uncertain
-                    if bi < self.block_queue.front_index() as QueuedBlockIndex =>
-                {
+                PixelState::Uncertain if (bi as usize) < self.block_queue.front_index() => {
                     LumaA([0, 0])
                 }
                 _ => LumaA([0, 128]),
@@ -303,9 +301,7 @@ impl Graph for Parametric {
         {
             *dst = match src {
                 PixelState::True => Rgb([0, 0, 0]),
-                PixelState::Uncertain
-                    if bi < self.block_queue.front_index() as QueuedBlockIndex =>
-                {
+                PixelState::Uncertain if (bi as usize) < self.block_queue.front_index() => {
                     Rgb([255, 255, 255])
                 }
                 _ => Rgb([64, 128, 192]),
@@ -322,7 +318,7 @@ impl Graph for Parametric {
                 .copied()
                 .zip(self.last_queued_blocks.pixels().copied())
                 .filter(|&(s, bi)| {
-                    s == PixelState::True || bi < self.block_queue.front_index() as QueuedBlockIndex
+                    s == PixelState::True || (bi as usize) < self.block_queue.front_index()
                 })
                 .count(),
             eval_count: self.rel.eval_count(),
