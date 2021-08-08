@@ -1106,6 +1106,7 @@ impl CollectStatic {
         use BinaryOp::*;
         for t in self.exprs.iter().copied() {
             let k = match &*t {
+                binary!(ExplicitEq, _, _) => Some(StaticFormKind::Constant(true)),
                 binary!(And, x, y) => {
                     Some(StaticFormKind::And(self.form_index(x), self.form_index(y)))
                 }
@@ -1127,6 +1128,45 @@ impl CollectStatic {
 
     fn store_index(&self, e: &Expr) -> StoreIndex {
         self.terms[self.term_index[&e.id]].store_index
+    }
+}
+
+/// Finds the store indices of `f_t` and `g_t` if the expression matches the form
+/// `(And (ExplicitEq x f_t) (ExplicitEq y g_t))`.
+pub struct FindParametricRelation<'a> {
+    collector: &'a CollectStatic,
+    xt_yt: Option<(StoreIndex, StoreIndex)>,
+}
+
+impl<'a> FindParametricRelation<'a> {
+    pub fn new(collector: &'a CollectStatic) -> Self {
+        Self {
+            collector,
+            xt_yt: None,
+        }
+    }
+
+    pub fn get(&self) -> Option<(StoreIndex, StoreIndex)> {
+        self.xt_yt
+    }
+}
+
+impl<'a> Visit<'a> for FindParametricRelation<'a> {
+    fn visit_expr(&mut self, e: &'a Expr) {
+        use BinaryOp::*;
+        match e {
+            binary!(
+                And,
+                binary!(ExplicitEq, x @ var!(_), xt),
+                binary!(ExplicitEq, y @ var!(_), yt)
+            ) if x.vars == VarSet::X && y.vars == VarSet::Y && xt.vars | yt.vars == VarSet::T => {
+                self.xt_yt = Some((
+                    self.collector.terms[self.collector.term_index[&xt.id]].store_index,
+                    self.collector.terms[self.collector.term_index[&yt.id]].store_index,
+                ));
+            }
+            _ => (),
+        }
     }
 }
 

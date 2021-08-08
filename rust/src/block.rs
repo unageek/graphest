@@ -174,11 +174,20 @@ impl Block {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct BlockQueueOptions {
+    pub store_xy: bool,
+    pub store_n_theta: bool,
+    pub store_t: bool,
+    pub store_next_dir: bool,
+}
+
 /// A queue that stores [`Block`]s.
 ///
 /// The [`Block`]s are entropy-encoded internally so that the closer the indices of consecutive
 /// blocks are (which is expected by using the Morton order), the less memory it consumes.
 pub struct BlockQueue {
+    opts: BlockQueueOptions,
     seq: VecDeque<u8>,
     x_front: u32,
     x_back: u32,
@@ -190,14 +199,13 @@ pub struct BlockQueue {
     t_back: Interval,
     front_index: usize,
     back_index: usize,
-    store_n_theta: bool,
-    store_t: bool,
 }
 
 impl BlockQueue {
     /// Creates an empty queue.
-    pub fn new(store_n_theta: bool, store_t: bool) -> Self {
+    pub fn new(opts: BlockQueueOptions) -> Self {
         Self {
+            opts,
             seq: VecDeque::new(),
             x_front: 0,
             x_back: 0,
@@ -209,9 +217,12 @@ impl BlockQueue {
             t_back: Interval::ENTIRE,
             front_index: 0,
             back_index: 0,
-            store_n_theta,
-            store_t,
         }
+    }
+
+    /// Returns the index that will be returned by the next call to [`Self::pop_front`].
+    pub fn front_index(&self) -> usize {
+        self.front_index
     }
 
     /// Returns `true` if the queue is empty.
@@ -227,16 +238,22 @@ impl BlockQueue {
     /// Removes the first block from the queue and returns it with its original index.
     /// [`None`] is returned if the queue is empty.
     pub fn pop_front(&mut self) -> Option<(usize, Block)> {
-        let x = self.x_front ^ self.pop_small_u32()?;
-        self.x_front = x;
+        let (x, y, kx, ky) = if self.opts.store_xy {
+            let x = self.x_front ^ self.pop_small_u32()?;
+            self.x_front = x;
 
-        let y = self.y_front ^ self.pop_small_u32()?;
-        self.y_front = y;
+            let y = self.y_front ^ self.pop_small_u32()?;
+            self.y_front = y;
 
-        let kx = self.pop_i8()?;
-        let ky = self.pop_i8()?;
+            let kx = self.pop_i8()?;
+            let ky = self.pop_i8()?;
 
-        let n_theta = if self.store_n_theta {
+            (x, y, kx, ky)
+        } else {
+            (0, 0, 0, 0)
+        };
+
+        let n_theta = if self.opts.store_n_theta {
             if let Some(n_theta) = self.pop_opt_interval()? {
                 self.n_theta_front = n_theta;
             }
@@ -245,7 +262,7 @@ impl BlockQueue {
             Interval::ENTIRE
         };
 
-        let t = if self.store_t {
+        let t = if self.opts.store_t {
             if let Some(t) = self.pop_opt_interval()? {
                 self.t_front = t;
             }
@@ -254,7 +271,7 @@ impl BlockQueue {
             Interval::ENTIRE
         };
 
-        let axis = if self.store_n_theta || self.store_t {
+        let next_dir = if self.opts.store_next_dir {
             self.pop_subdivision_dir()?
         } else {
             SubdivisionDir::XY
@@ -271,23 +288,25 @@ impl BlockQueue {
                 ky,
                 n_theta,
                 t,
-                next_dir: axis,
+                next_dir,
             },
         ))
     }
 
     /// Appends the block to the back of the queue and returns the index where it is stored.
     pub fn push_back(&mut self, b: Block) -> usize {
-        self.push_small_u32(b.x ^ self.x_back);
-        self.x_back = b.x;
+        if self.opts.store_xy {
+            self.push_small_u32(b.x ^ self.x_back);
+            self.x_back = b.x;
 
-        self.push_small_u32(b.y ^ self.y_back);
-        self.y_back = b.y;
+            self.push_small_u32(b.y ^ self.y_back);
+            self.y_back = b.y;
 
-        self.push_i8(b.kx);
-        self.push_i8(b.ky);
+            self.push_i8(b.kx);
+            self.push_i8(b.ky);
+        }
 
-        if self.store_n_theta {
+        if self.opts.store_n_theta {
             if b.n_theta == self.n_theta_back {
                 self.push_opt_interval(None);
             } else {
@@ -296,7 +315,7 @@ impl BlockQueue {
             }
         }
 
-        if self.store_t {
+        if self.opts.store_t {
             if b.t == self.t_back {
                 self.push_opt_interval(None);
             } else {
@@ -305,7 +324,7 @@ impl BlockQueue {
             }
         }
 
-        if self.store_n_theta || self.store_t {
+        if self.opts.store_next_dir {
             self.push_subdivision_dir(b.next_dir);
         }
 
@@ -474,7 +493,10 @@ mod tests {
 
     #[test]
     fn block_queue() {
-        let mut queue = BlockQueue::new(false, false);
+        let mut queue = BlockQueue::new(BlockQueueOptions {
+            store_xy: true,
+            ..Default::default()
+        });
         let blocks = [
             Block::new(0, 0xffffffff, -128, -64, Interval::ENTIRE, Interval::ENTIRE),
             Block::new(0x7f, 0x10000000, -32, 0, Interval::ENTIRE, Interval::ENTIRE),
@@ -504,7 +526,12 @@ mod tests {
             assert_eq!(front, b);
         }
 
-        let mut queue = BlockQueue::new(true, false);
+        let mut queue = BlockQueue::new(BlockQueueOptions {
+            store_xy: true,
+            store_n_theta: true,
+            store_next_dir: true,
+            ..Default::default()
+        });
         let b1 = Block::new(0, 0, 0, 0, const_interval!(-2.0, 3.0), Interval::ENTIRE);
         let b2 = Block {
             next_dir: SubdivisionDir::NTheta,
@@ -515,7 +542,12 @@ mod tests {
         assert_eq!(queue.pop_front().unwrap().1, b1);
         assert_eq!(queue.pop_front().unwrap().1, b2);
 
-        let mut queue = BlockQueue::new(false, true);
+        let mut queue = BlockQueue::new(BlockQueueOptions {
+            store_xy: true,
+            store_t: true,
+            store_next_dir: true,
+            ..Default::default()
+        });
         let b1 = Block::new(0, 0, 0, 0, Interval::ENTIRE, const_interval!(-2.0, 3.0));
         let b2 = Block {
             next_dir: SubdivisionDir::T,

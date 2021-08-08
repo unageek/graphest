@@ -73,6 +73,8 @@ pub enum BinaryOp {
     BesselY,
     Div,
     Eq,
+    /// Equality in explicit relations.
+    ExplicitEq,
     GammaInc,
     Gcd,
     Ge,
@@ -438,7 +440,7 @@ impl Expr {
             }
             unary!(Not, _) => None,
             binary!(
-                And | Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt | Or,
+                And | Eq | ExplicitEq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt | Or,
                 _,
                 _
             ) => None,
@@ -559,11 +561,11 @@ impl Expr {
             nary!(List, xs) if xs.iter().all(|x| x.ty == Scalar) => Vector,
             unary!(Not, x) if x.ty == Boolean => Boolean,
             binary!(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
-            binary!(Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt, x, y)
-                if x.ty == Scalar && y.ty == Scalar =>
-            {
-                Boolean
-            }
+            binary!(
+                Eq | ExplicitEq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
+                x,
+                y
+            ) if x.ty == Scalar && y.ty == Scalar => Boolean,
             uninit!() => panic!(),
             _ => Unknown,
         }

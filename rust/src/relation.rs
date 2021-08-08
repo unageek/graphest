@@ -14,7 +14,7 @@ use inari::{const_interval, interval, DecInterval, Interval};
 use rug::Integer;
 use std::{
     collections::{hash_map::Entry, HashMap},
-    mem::size_of,
+    mem::{size_of, take},
     str::FromStr,
 };
 
@@ -118,6 +118,8 @@ pub enum RelationType {
     FunctionOfY,
     /// An implicit relation.
     Implicit,
+    /// A relation of the form x = f(t) ∧ y = g(t).
+    Parametric,
 }
 
 pub struct RelationArgs {
@@ -134,6 +136,7 @@ pub struct Relation {
     n_atom_forms: usize,
     ts: ValueStore<TupperIntervalSet>,
     eval_count: usize,
+    xt_yt: Option<(StoreIndex, StoreIndex)>,
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,
     has_n_theta: bool,
@@ -144,6 +147,24 @@ pub struct Relation {
 }
 
 impl Relation {
+    /// Evaluates the parametric equation x = f(t) ∧ y = g(t) and returns (f(t), g(t)).
+    pub fn eval_parametric(&mut self, t: Interval) -> (TupperIntervalSet, TupperIntervalSet) {
+        assert_eq!(self.relation_type, RelationType::Parametric);
+
+        self.eval(
+            &RelationArgs {
+                x: Interval::ENTIRE,
+                y: Interval::ENTIRE,
+                n_theta: Interval::ENTIRE,
+                t,
+            },
+            None,
+        );
+
+        let (xt, yt) = self.xt_yt.unwrap();
+        (self.ts[xt].clone(), self.ts[yt].clone())
+    }
+
     /// Evaluates the relation with the given arguments.
     ///
     /// Precondition: `cache` has never been passed to other relations.
@@ -293,12 +314,12 @@ impl FromStr for Relation {
             }
         }
         UpdateMetadata.visit_expr_mut(&mut e);
-        let relation_type = relation_type(&e);
+        let relation_type = relation_type(&mut e);
         PreTransform.visit_expr_mut(&mut e);
         simplify(&mut e);
 
         let n_theta_range = {
-            let period = function_period(&e, &|name| name == "theta" || name == "θ");
+            let period = function_period(&e, VarSet::N_THETA);
             if let Some(period) = &period {
                 if *period == 0 {
                     const_interval!(0.0, 0.0)
@@ -312,7 +333,7 @@ impl FromStr for Relation {
         assert_eq!(n_theta_range.trunc(), n_theta_range);
 
         let t_range = {
-            let period = function_period(&e, &|name| name == "t");
+            let period = function_period(&e, VarSet::T);
             if let Some(period) = &period {
                 Interval::TAU * interval!(&format!("[0,{}]", period)).unwrap()
             } else {
@@ -341,6 +362,10 @@ impl FromStr for Relation {
             .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _)))
             .count();
 
+        let mut v = FindParametricRelation::new(&collector);
+        v.visit_expr(&e);
+        let xt_yt = v.get();
+
         let mut v = FindMaximalScalarTerms::new(collector);
         v.visit_expr(&e);
         let (mx, my) = v.mx_my();
@@ -351,6 +376,7 @@ impl FromStr for Relation {
             n_atom_forms,
             ts: ValueStore::new(TupperIntervalSet::new(), n_terms),
             eval_count: 0,
+            xt_yt,
             mx,
             my,
             has_n_theta: e.vars.contains(VarSet::N_THETA),
@@ -466,35 +492,31 @@ fn expand_polar_coords(e: &mut Expr) {
 /// Returns the period of a function of a variable t in multiples of 2π,
 /// i.e., an integer p that satisfies (e /. t → t + 2π p) = e.
 /// If the period is 0, the expression is independent of the variable.
-/// The name of the variable is specified by the predicate `var_name`.
 ///
 /// Precondition: `e` has been pre-transformed and simplified.
-fn function_period<F>(e: &Expr, var_name: &F) -> Option<Integer>
-where
-    F: Fn(&str) -> bool,
-{
+fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
     use {NaryOp::*, UnaryOp::*};
 
     match e {
         constant!(_) => Some(0.into()),
-        var!(name) if var_name(name) => None,
+        x @ var!(_) if x.vars.contains(variable) => None,
         var!(_) => Some(0.into()),
         unary!(op, x) => {
-            if let Some(p) = function_period(x, &*var_name) {
+            if let Some(p) = function_period(x, variable) {
                 Some(p)
             } else if matches!(op, Cos | Sin | Tan) {
                 match x {
-                    var!(name) if var_name(name) => {
+                    x @ var!(_) if x.vars.contains(variable) => {
                         // op(θ)
                         Some(1.into())
                     }
                     nary!(Plus, xs) => match &xs[..] {
-                        [constant!(_), var!(name)] if var_name(name) => {
+                        [constant!(_), x @ var!(_)] if x.vars.contains(variable) => {
                             // op(b + θ)
                             Some(1.into())
                         }
                         [constant!(_), nary!(Times, xs)] => match &xs[..] {
-                            [constant!(a), var!(name)] if var_name(name) => {
+                            [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                                 // op(b + a θ)
                                 if let Some(a) = &a.1 {
                                     let p = a.denom().clone();
@@ -512,7 +534,7 @@ where
                         _ => None,
                     },
                     nary!(Times, xs) => match &xs[..] {
-                        [constant!(a), var!(name)] if var_name(name) => {
+                        [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                             // op(a θ)
                             if let Some(a) = &a.1 {
                                 let p = a.denom().clone();
@@ -534,8 +556,8 @@ where
             }
         }
         binary!(_, x, y) => {
-            let xp = function_period(x, &*var_name)?;
-            let yp = function_period(y, &*var_name)?;
+            let xp = function_period(x, variable)?;
+            let yp = function_period(y, variable)?;
             Some(if xp == 0 {
                 yp
             } else if yp == 0 {
@@ -546,7 +568,7 @@ where
         }
         nary!(_, xs) => xs
             .iter()
-            .map(|x| function_period(x, &*var_name))
+            .map(|x| function_period(x, variable))
             .collect::<Option<Vec<_>>>()
             .map(|ps| {
                 ps.into_iter().fold(Integer::from(0), |xp, yp| {
@@ -569,25 +591,49 @@ macro_rules! rel_op {
     };
 }
 
-/// Returns the type of the relation.
+/// Determines the type of the relation.
+///
+/// If the relation is of type [`RelationType::Parametric`], it is normalized to the form
+/// `(And (ExplicitEq x f_t) (ExplicitEq y g_t))`.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
-fn relation_type(e: &Expr) -> RelationType {
+fn relation_type(e: &mut Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
     match e {
-        binary!(rel_op!(), var!(name), e) | binary!(rel_op!(), e, var!(name))
-            if name == "y" && VarSet::X.contains(e.vars) =>
+        binary!(rel_op!(), y @ var!(_), f_x) | binary!(rel_op!(), f_x, y @ var!(_))
+            if y.vars == VarSet::Y && VarSet::X.contains(f_x.vars) =>
         {
             // y = f(x) or f(x) = y
             FunctionOfX
         }
-        binary!(rel_op!(), var!(name), e) | binary!(rel_op!(), e, var!(name))
-            if name == "x" && VarSet::Y.contains(e.vars) =>
+        binary!(rel_op!(), x @ var!(_), f_y) | binary!(rel_op!(), f_y, x @ var!(_))
+            if x.vars == VarSet::X && VarSet::Y.contains(f_y.vars) =>
         {
             // x = f(y) or f(y) = x
             FunctionOfY
         }
         binary!(rel_op!(), _, _) => Implicit,
+        binary!(
+            And,
+            (binary!(Eq, x @ var!(_), f_t) | binary!(Eq, f_t, x @ var!(_))),
+            (binary!(Eq, y @ var!(_), g_t) | binary!(Eq, g_t, y @ var!(_)))
+        ) if x.vars | y.vars == VarSet::X | VarSet::Y && f_t.vars | g_t.vars == VarSet::T => {
+            *e = if x.vars == VarSet::X {
+                Expr::binary(
+                    And,
+                    box Expr::binary(ExplicitEq, box take(x), box take(f_t)),
+                    box Expr::binary(ExplicitEq, box take(y), box take(g_t)),
+                )
+            } else {
+                Expr::binary(
+                    And,
+                    box Expr::binary(ExplicitEq, box take(y), box take(g_t)),
+                    box Expr::binary(ExplicitEq, box take(x), box take(f_t)),
+                )
+            };
+            // x = f(t) ∧ y = g(t)
+            Parametric
+        }
         binary!(And, _, _) => {
             // This should not be `FunctionOfX` nor `FunctionOfY`.
             // Example: "y = x && y = x + 0.0001"
@@ -609,7 +655,8 @@ fn relation_type(e: &Expr) -> RelationType {
             Implicit
         }
         binary!(Or, e1, e2) => match (relation_type(e1), relation_type(e2)) {
-            (x, y) if x == y => x,
+            (FunctionOfX, FunctionOfX) => FunctionOfX,
+            (FunctionOfY, FunctionOfY) => FunctionOfY,
             _ => Implicit,
         },
         _ => panic!(),
@@ -695,8 +742,10 @@ mod tests {
         assert_eq!(f("r = 1"), Implicit);
         assert_eq!(f("x = θ"), Implicit);
         assert_eq!(f("x = theta"), Implicit);
-        assert_eq!(f("x = sin(θ) && r = cos(θ)"), Implicit);
-        assert_eq!(f("x = sin(θ) || r = cos(θ)"), Implicit);
+        assert_eq!(f("x = 1 && y = sin(t)"), Parametric);
+        assert_eq!(f("x = cos(t) && y = 1"), Parametric);
+        assert_eq!(f("x = cos(t) && y = sin(t)"), Parametric);
+        assert_eq!(f("y = sin(t) && x = cos(t)"), Parametric);
     }
 
     #[test]

@@ -87,22 +87,19 @@ impl PixelRegion {
     /// `begin.x ≤ x < end.x` and `begin.y ≤ y < end.y`.
     pub fn new(begin: PixelIndex, end: PixelIndex) -> Self {
         assert!(begin.x <= end.x && begin.y <= end.y);
-        Self { begin, end }
-    }
-
-    /// Returns the height of the region in pixels.
-    pub fn height(&self) -> u32 {
-        self.end.y - self.begin.y
+        if begin.x == end.x || begin.y == end.y {
+            Self {
+                begin: PixelIndex::new(0, 0),
+                end: PixelIndex::new(0, 0),
+            }
+        } else {
+            Self { begin, end }
+        }
     }
 
     /// Returns an iterator over the pixels in the region.
     pub fn iter(&self) -> PixelIter {
         self.into_iter()
-    }
-
-    /// Returns the width of the region in pixels.
-    pub fn width(&self) -> u32 {
-        self.end.x - self.begin.x
     }
 }
 
@@ -168,16 +165,18 @@ mod tests {
     #[test]
     fn pixel_region() {
         let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(1, 2));
-        assert_eq!(r.width(), 0);
-        assert_eq!(r.height(), 0);
+        let mut iter = r.iter();
+        assert_eq!(iter.next(), None);
 
+        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(4, 2));
+        let mut iter = r.iter();
+        assert_eq!(iter.next(), None);
+
+        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(1, 8));
         let mut iter = r.iter();
         assert_eq!(iter.next(), None);
 
         let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(4, 8));
-        assert_eq!(r.width(), 3);
-        assert_eq!(r.height(), 6);
-
         let mut iter = r.iter();
         for y in 2..8 {
             for x in 1..4 {

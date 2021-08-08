@@ -268,6 +268,7 @@ impl StaticTerm {
 
 #[derive(Clone, Debug)]
 pub enum StaticFormKind {
+    Constant(bool),
     Atomic(RelOp, StoreIndex),
     And(FormIndex, FormIndex),
     Or(FormIndex, FormIndex),
@@ -292,7 +293,9 @@ impl StaticForm {
             Atomic(NeqZero, x) => ts[*x].neq_zero(),
             Atomic(NleZero, x) => ts[*x].nle_zero(),
             Atomic(NltZero, x) => ts[*x].nlt_zero(),
-            And(_, _) | Or(_, _) => panic!("non-atomic formulas cannot be evaluated"),
+            Constant(_) | And(_, _) | Or(_, _) => {
+                panic!("constant or non-atomic formulas cannot be evaluated")
+            }
         }
     }
 }
