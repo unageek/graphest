@@ -5,8 +5,7 @@ use crate::{
         GraphingError, GraphingErrorKind, GraphingStatistics, InexactRegion, PixelState,
         QueuedBlockIndex, Region, Transform,
     },
-    image::PixelRegion,
-    image::{Image, PixelIndex},
+    image::{Image, PixelIndex, PixelRegion},
     relation::{Relation, RelationType},
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
@@ -131,11 +130,11 @@ impl Parametric {
 
     fn set_last_queued_block(
         &mut self,
-        pixels: &PixelRegion,
+        r: &PixelRegion,
         block_index: usize,
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-            for p in pixels.iter() {
+            for p in r.iter() {
                 *self.last_queued_blocks.get_mut(p) = block_index;
             }
             Ok(())
@@ -177,7 +176,7 @@ impl Parametric {
             })
             .collect::<Vec<_>>();
 
-        let mut incomplete_regions = vec![];
+        let mut incomplete_rs = vec![];
 
         let im_r = Region(
             interval!(0.0, self.im.width() as f64).unwrap(),
@@ -188,20 +187,20 @@ impl Parametric {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
             if r.0.wid() == 1.0 && r.1.wid() == 1.0 && r.subset(&im_r) {
-                // The hull of the regions is interior to a single pixel.
+                // f(t) × g(t) is interior to a single pixel.
                 let p = PixelIndex::new(r.0.inf() as u32, r.1.inf() as u32);
                 *self.im.get_mut(p) = PixelState::True;
-                return incomplete_regions;
+                return incomplete_rs;
             }
         }
 
         for r in rs {
             let r = r.intersection(&im_r);
             if r.is_empty() {
-                // The region is completely outside of the image.
                 continue;
             }
 
+            // If the region touches the image from the outside, `r` will be empty.
             let r = PixelRegion::new(
                 PixelIndex::new(r.0.inf() as u32, r.1.inf() as u32),
                 PixelIndex::new(r.0.sup() as u32, r.1.sup() as u32),
@@ -210,11 +209,11 @@ impl Parametric {
             if r.iter().all(|p| self.im.get(p) == PixelState::True) {
                 continue;
             } else {
-                incomplete_regions.push(r)
+                incomplete_rs.push(r)
             }
         }
 
-        incomplete_regions
+        incomplete_rs
     }
 
     fn point_interval(x: f64) -> Interval {
