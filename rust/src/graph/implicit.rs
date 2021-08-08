@@ -17,6 +17,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// The graphing algorithm for relations of type
+/// [`RelationType::FunctionOfX`], [`RelationType::FunctionOfY`] or [`RelationType::Implicit`].
 pub struct Implicit {
     rel: Relation,
     forms: Vec<StaticForm>,

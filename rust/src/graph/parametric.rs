@@ -14,6 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// The graphing algorithm for relations of type [`RelationType::Parametric`].
 pub struct Parametric {
     rel: Relation,
     im: Image<PixelState>,
