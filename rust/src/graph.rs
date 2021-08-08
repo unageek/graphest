@@ -22,9 +22,11 @@ impl Default for PixelState {
     }
 }
 
-/// The index of a [`Block`] in a [`BlockQueue`].
+/// The index of a [`Block`] in a [block-queue].
 ///
-/// Indices returned by the methods of [`BlockQueue`] are [`usize`], but [`u32`] would be large enough.
+/// Indices returned by the methods of [block-queue] are [`usize`], but [`u32`] would be large enough.
+///
+/// [block-queue]: [`crate::block::BlockQueue`]
 pub type QueuedBlockIndex = u32;
 
 /// A possibly empty rectangular region of the Cartesian plane.
