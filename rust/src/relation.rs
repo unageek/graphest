@@ -497,24 +497,24 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
 
     match e {
         constant!(_) => Some(0.into()),
-        x @ var!(_) if x.vars == variable => None,
+        x @ var!(_) if x.vars.contains(variable) => None,
         var!(_) => Some(0.into()),
         unary!(op, x) => {
             if let Some(p) = function_period(x, variable) {
                 Some(p)
             } else if matches!(op, Cos | Sin | Tan) {
                 match x {
-                    x @ var!(_) if x.vars == variable => {
+                    x @ var!(_) if x.vars.contains(variable) => {
                         // op(θ)
                         Some(1.into())
                     }
                     nary!(Plus, xs) => match &xs[..] {
-                        [constant!(_), x @ var!(_)] if x.vars == variable => {
+                        [constant!(_), x @ var!(_)] if x.vars.contains(variable) => {
                             // op(b + θ)
                             Some(1.into())
                         }
                         [constant!(_), nary!(Times, xs)] => match &xs[..] {
-                            [constant!(a), x @ var!(_)] if x.vars == variable => {
+                            [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                                 // op(b + a θ)
                                 if let Some(a) = &a.1 {
                                     let p = a.denom().clone();
@@ -532,7 +532,7 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                         _ => None,
                     },
                     nary!(Times, xs) => match &xs[..] {
-                        [constant!(a), x @ var!(_)] if x.vars == variable => {
+                        [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                             // op(a θ)
                             if let Some(a) = &a.1 {
                                 let p = a.denom().clone();
