@@ -74,16 +74,17 @@ impl Parametric {
 
     fn refine_impl(&mut self, timeout: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
-        while let Some((bi, b)) = self.block_queue.pop_front() {
-            let incomplete_regions = self.refine_hoge(&b);
+        while let Some((_, b)) = self.block_queue.pop_front() {
+            let incomplete_regions = self.refine_t(&b);
             if !incomplete_regions.is_empty() {
                 if b.is_subdivisible_on_t() {
                     Self::subdivide(&mut sub_bs, &b);
+                    let mut last_index = 0;
                     for sub_b in sub_bs.drain(..) {
-                        let index = self.block_queue.push_back(sub_b);
-                        for r in &incomplete_regions {
-                            self.set_last_queued_block(&r, index)?;
-                        }
+                        last_index = self.block_queue.push_back(sub_b);
+                    }
+                    for r in incomplete_regions {
+                        self.set_last_queued_block(&r, last_index)?;
                     }
                 } else {
                     for r in incomplete_regions {
@@ -145,8 +146,27 @@ impl Parametric {
         }
     }
 
-    fn refine_hoge(&mut self, b: &Block) -> Vec<PixelRegion> {
-        let (x, y) = self.rel.eval_parametric(b.t);
+    fn refine_t(&mut self, block: &Block) -> Vec<PixelRegion> {
+        /// Returns the smallest region whose bounds are integers
+        /// and which contains `r` in its interior.
+        fn outer_pixels(r: &Region) -> Region {
+            const EPSILON: Interval = const_interval!(0.0, 5e-324);
+
+            fn down(x: Interval) -> f64 {
+                (x - EPSILON).inf().floor()
+            }
+
+            fn up(x: Interval) -> f64 {
+                (x + EPSILON).sup().ceil()
+            }
+
+            Region(
+                interval!(down(r.0), up(r.0)).unwrap(),
+                interval!(down(r.1), up(r.1)).unwrap(),
+            )
+        }
+
+        let (x, y) = self.rel.eval_parametric(block.t);
 
         let rs = x
             .iter()
@@ -166,7 +186,7 @@ impl Parametric {
 
         let mut incomplete_regions = vec![];
 
-        if x.decoration() >= Decoration::Def && y.decoration() >= Decoration::Def {
+        if x.decoration().min(y.decoration()) >= Decoration::Def {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
             // Check that `r` is interior to a single pixel.
@@ -193,46 +213,16 @@ impl Parametric {
                 interval!(0.0, self.im.height() as f64).unwrap(),
             );
 
-            let reg = r;
-            let reg = {
-                let l = reg.0.inf();
-                let r = reg.0.sup();
-                let b = reg.1.inf();
-                let t = reg.1.sup();
+            outer_pixels(&r).intersection(&im_r);
 
-                let pl = if l.floor() == l {
-                    l.floor() - 1.0
-                } else {
-                    l.floor()
-                };
-                let pr = if r.ceil() == r {
-                    r.ceil() + 1.0
-                } else {
-                    r.ceil()
-                };
-                let pb = if b.floor() == b {
-                    b.floor() - 1.0
-                } else {
-                    b.floor()
-                };
-                let pt = if t.ceil() == t {
-                    t.ceil() + 1.0
-                } else {
-                    t.ceil()
-                };
-
-                Region(interval!(pl, pr).unwrap(), interval!(pb, pt).unwrap())
-            }
-            .intersection(&im_r);
-
-            if reg.is_empty() {
+            if r.is_empty() {
                 // The region is completely outside of the image.
                 continue;
             }
 
             let r = PixelRegion::new(
-                PixelIndex::new(reg.0.inf() as u32, reg.1.inf() as u32),
-                PixelIndex::new(reg.0.sup() as u32, reg.1.sup() as u32),
+                PixelIndex::new(r.0.inf() as u32, r.1.inf() as u32),
+                PixelIndex::new(r.0.sup() as u32, r.1.sup() as u32),
             );
 
             if r.iter().all(|p| self.im.get(p) == PixelState::True) {
@@ -260,7 +250,7 @@ impl Parametric {
     }
 
     /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
-    /// two sub-blocks are created at most.
+    /// Two sub-blocks are created.
     ///
     /// Precondition: `b.is_subdivisible_on_t()` is `true`.
     fn subdivide(sub_bs: &mut Vec<Block>, b: &Block) {
@@ -293,7 +283,6 @@ impl Parametric {
         sub_bs.extend(
             [t1, t2]
                 .iter()
-                .filter(|t| !t.is_singleton())
                 .map(|&t| Block::new(0, 0, 0, 0, Interval::ENTIRE, t)),
         );
     }

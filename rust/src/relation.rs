@@ -595,14 +595,14 @@ macro_rules! rel_op {
 fn relation_type(e: &mut Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
     match e {
-        binary!(rel_op!(), y @ var!(_), e) | binary!(rel_op!(), e, y @ var!(_))
-            if y.vars == VarSet::Y && VarSet::X.contains(e.vars) =>
+        binary!(rel_op!(), y @ var!(_), f_x) | binary!(rel_op!(), f_x, y @ var!(_))
+            if y.vars == VarSet::Y && VarSet::X.contains(f_x.vars) =>
         {
             // y = f(x) or f(x) = y
             FunctionOfX
         }
-        binary!(rel_op!(), x @ var!(_), e) | binary!(rel_op!(), e, x @ var!(_))
-            if x.vars == VarSet::X && VarSet::Y.contains(e.vars) =>
+        binary!(rel_op!(), x @ var!(_), f_y) | binary!(rel_op!(), f_y, x @ var!(_))
+            if x.vars == VarSet::X && VarSet::Y.contains(f_y.vars) =>
         {
             // x = f(y) or f(y) = x
             FunctionOfY
@@ -610,22 +610,23 @@ fn relation_type(e: &mut Expr) -> RelationType {
         binary!(rel_op!(), _, _) => Implicit,
         binary!(
             And,
-            (binary!(Eq, x @ var!(_), f) | binary!(Eq, f, x @ var!(_))),
-            (binary!(Eq, y @ var!(_), g) | binary!(Eq, g, y @ var!(_)))
-        ) if x.vars | y.vars == VarSet::X | VarSet::Y && f.vars | g.vars == VarSet::T => {
+            (binary!(Eq, x @ var!(_), f_t) | binary!(Eq, f_t, x @ var!(_))),
+            (binary!(Eq, y @ var!(_), g_t) | binary!(Eq, g_t, y @ var!(_)))
+        ) if x.vars | y.vars == VarSet::X | VarSet::Y && f_t.vars | g_t.vars == VarSet::T => {
             *e = if x.vars == VarSet::X {
                 Expr::binary(
                     And,
-                    box Expr::binary(ExplicitEq, box take(x), box take(f)),
-                    box Expr::binary(ExplicitEq, box take(y), box take(g)),
+                    box Expr::binary(ExplicitEq, box take(x), box take(f_t)),
+                    box Expr::binary(ExplicitEq, box take(y), box take(g_t)),
                 )
             } else {
                 Expr::binary(
                     And,
-                    box Expr::binary(ExplicitEq, box take(y), box take(g)),
-                    box Expr::binary(ExplicitEq, box take(x), box take(f)),
+                    box Expr::binary(ExplicitEq, box take(y), box take(g_t)),
+                    box Expr::binary(ExplicitEq, box take(x), box take(f_t)),
                 )
             };
+            // x = f(t) ∧ y = g(t)
             Parametric
         }
         binary!(And, _, _) => {
