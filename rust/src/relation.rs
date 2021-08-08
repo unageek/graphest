@@ -591,7 +591,10 @@ macro_rules! rel_op {
     };
 }
 
-/// Returns the type of the relation.
+/// Determines the type of the relation.
+///
+/// If the relation is of type [`RelationType::Parametric`], it is normalized to the form
+/// `(And (ExplicitEq x f_t) (ExplicitEq y g_t))`.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
 fn relation_type(e: &mut Expr) -> RelationType {
@@ -742,6 +745,7 @@ mod tests {
         assert_eq!(f("x = 1 && y = sin(t)"), Parametric);
         assert_eq!(f("x = cos(t) && y = 1"), Parametric);
         assert_eq!(f("x = cos(t) && y = sin(t)"), Parametric);
+        assert_eq!(f("y = sin(t) && x = cos(t)"), Parametric);
     }
 
     #[test]
