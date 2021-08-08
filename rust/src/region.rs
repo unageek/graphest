@@ -20,12 +20,12 @@ impl Region {
 
     /// Returns the convex hull of the regions.
     pub fn convex_hull(&self, rhs: &Self) -> Self {
-        Self(self.0.convex_hull(rhs.0), self.1.convex_hull(rhs.1))
+        Self::new(self.0.convex_hull(rhs.0), self.1.convex_hull(rhs.1))
     }
 
     /// Returns the intersection of the regions.
     pub fn intersection(&self, rhs: &Self) -> Self {
-        Self(self.0.intersection(rhs.0), self.1.intersection(rhs.1))
+        Self::new(self.0.intersection(rhs.0), self.1.intersection(rhs.1))
     }
 
     /// Returns `true` if the region is empty.
