@@ -147,7 +147,7 @@ pub struct Relation {
 }
 
 impl Relation {
-    /// Evaluates the parametric relation x = f(t) ∧ y = g(t) and returns (f(t), g(t)).
+    /// Evaluates the parametric equation x = f(t) ∧ y = g(t) and returns (f(t), g(t)).
     pub fn eval_parametric(&mut self, t: Interval) -> (TupperIntervalSet, TupperIntervalSet) {
         assert_eq!(self.relation_type, RelationType::Parametric);
 

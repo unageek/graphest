@@ -20,4 +20,5 @@ mod interval_set_ops;
 mod ops;
 mod parse;
 mod rational_ops;
+mod region;
 mod visit;

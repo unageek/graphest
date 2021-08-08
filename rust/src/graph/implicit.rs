@@ -2,13 +2,11 @@ use super::Graph;
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions, SubdivisionDir},
     eval_result::EvalResult,
-    graph::{
-        GraphingError, GraphingErrorKind, GraphingStatistics, InexactRegion, PixelState,
-        QueuedBlockIndex, Region, Transform,
-    },
+    graph::{GraphingError, GraphingErrorKind, GraphingStatistics, PixelState, QueuedBlockIndex},
     image::{Image, PixelIndex, PixelRegion},
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
+    region::{InexactRegion, Region, Transform},
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
@@ -427,12 +425,14 @@ impl Implicit {
         //    "|y - sin(x)| + |x ≥ 0 ? 0 : 1| = 0".
         let dac_mask = r_u_up.map(|DecSignSet(_, d)| d >= Decoration::Dac);
 
+        let x = inter.x();
+        let y = inter.y();
         let points = [
-            (Self::simple_number(inter.0), Self::simple_number(inter.1)),
-            (inter.0.inf(), inter.1.inf()), // bottom left
-            (inter.0.sup(), inter.1.inf()), // bottom right
-            (inter.0.inf(), inter.1.sup()), // top left
-            (inter.0.sup(), inter.1.sup()), // top right
+            (Self::simple_number(x), Self::simple_number(y)),
+            (x.inf(), y.inf()), // bottom left
+            (x.sup(), y.inf()), // bottom right
+            (x.inf(), y.sup()), // top left
+            (x.sup(), y.sup()), // top right
         ];
 
         let mut neg_mask = r_u_up.map(|_| false);
@@ -494,8 +494,8 @@ impl Implicit {
     ) -> EvalResult {
         rel.eval(
             &RelationArgs {
-                x: r.0,
-                y: r.1,
+                x: r.x(),
+                y: r.y(),
                 n_theta,
                 t,
             },

@@ -1,11 +1,9 @@
 use super::Graph;
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
-    graph::{
-        GraphingError, GraphingErrorKind, GraphingStatistics, InexactRegion, PixelState,
-        QueuedBlockIndex, Region, Transform,
-    },
+    graph::{GraphingError, GraphingErrorKind, GraphingStatistics, PixelState, QueuedBlockIndex},
     image::{Image, PixelIndex, PixelRegion},
+    region::{InexactRegion, Region, Transform},
     relation::{Relation, RelationType},
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
@@ -150,9 +148,9 @@ impl Parametric {
         /// and which contains `r` in its interior.
         fn outer_pixels(r: &Region) -> Region {
             const TINY: Interval = const_interval!(-5e-324, 5e-324);
-            let r0 = r.0 + TINY;
-            let r1 = r.1 + TINY;
-            Region(
+            let r0 = r.x() + TINY;
+            let r1 = r.y() + TINY;
+            Region::new(
                 interval!(r0.inf().floor(), r0.sup().ceil()).unwrap(),
                 interval!(r1.inf().floor(), r1.sup().ceil()).unwrap(),
             )
@@ -178,7 +176,7 @@ impl Parametric {
 
         let mut incomplete_rs = vec![];
 
-        let im_r = Region(
+        let im_r = Region::new(
             interval!(0.0, self.im.width() as f64).unwrap(),
             interval!(0.0, self.im.height() as f64).unwrap(),
         );
@@ -186,9 +184,11 @@ impl Parametric {
         if x.decoration().min(y.decoration()) >= Decoration::Def {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
-            if r.0.wid() == 1.0 && r.1.wid() == 1.0 && r.subset(&im_r) {
+            let x = r.x();
+            let y = r.y();
+            if x.wid() == 1.0 && y.wid() == 1.0 && r.subset(&im_r) {
                 // f(t) × g(t) is interior to a single pixel.
-                let p = PixelIndex::new(r.0.inf() as u32, r.1.inf() as u32);
+                let p = PixelIndex::new(x.inf() as u32, y.inf() as u32);
                 *self.im.get_mut(p) = PixelState::True;
                 return incomplete_rs;
             }
@@ -200,10 +200,12 @@ impl Parametric {
                 continue;
             }
 
+            let x = r.x();
+            let y = r.y();
             // If the region touches the image from the outside, `r` will be empty.
             let r = PixelRegion::new(
-                PixelIndex::new(r.0.inf() as u32, r.1.inf() as u32),
-                PixelIndex::new(r.0.sup() as u32, r.1.sup() as u32),
+                PixelIndex::new(x.inf() as u32, y.inf() as u32),
+                PixelIndex::new(x.sup() as u32, y.sup() as u32),
             );
 
             if r.iter().all(|p| self.im.get(p) == PixelState::True) {
