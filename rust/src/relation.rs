@@ -147,19 +147,21 @@ pub struct Relation {
 }
 
 impl Relation {
-    /// Evaluates the parametric relation x = f(t) && y = g(t) and returns (f(t), g(t)).
+    /// Evaluates the parametric relation x = f(t) ∧ y = g(t) and returns (f(t), g(t)).
     pub fn eval_parametric(&mut self, t: Interval) -> (TupperIntervalSet, TupperIntervalSet) {
-        self.eval_count += 1;
+        assert_eq!(self.relation_type, RelationType::Parametric);
+
+        self.eval(
+            &RelationArgs {
+                x: Interval::ENTIRE,
+                y: Interval::ENTIRE,
+                n_theta: Interval::ENTIRE,
+                t,
+            },
+            None,
+        );
 
         let (xt, yt) = self.xt_yt.unwrap();
-
-        self.eval_without_cache(&RelationArgs {
-            x: Interval::ENTIRE,
-            y: Interval::ENTIRE,
-            n_theta: Interval::ENTIRE,
-            t,
-        });
-
         (self.ts[xt].clone(), self.ts[yt].clone())
     }
 
@@ -737,9 +739,9 @@ mod tests {
         assert_eq!(f("r = 1"), Implicit);
         assert_eq!(f("x = θ"), Implicit);
         assert_eq!(f("x = theta"), Implicit);
-        assert_eq!(f("x = sin(θ) && r = cos(θ)"), Implicit);
-        assert_eq!(f("x = sin(θ) || r = cos(θ)"), Implicit);
-        assert_eq!(f("x = sin(t) && y = cos(t)"), Parametric);
+        assert_eq!(f("x = 1 && y = sin(t)"), Parametric);
+        assert_eq!(f("x = cos(t) && y = 1"), Parametric);
+        assert_eq!(f("x = cos(t) && y = sin(t)"), Parametric);
     }
 
     #[test]

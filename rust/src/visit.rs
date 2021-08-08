@@ -1131,16 +1131,18 @@ impl CollectStatic {
     }
 }
 
+/// Finds the store indices of `f_t` and `g_t` if the expression matches the form
+/// `(And (ExplicitEq x f_t) (ExplicitEq y g_t))`.
 pub struct FindParametricRelation<'a> {
-    xt_yt: Option<(StoreIndex, StoreIndex)>,
     collector: &'a CollectStatic,
+    xt_yt: Option<(StoreIndex, StoreIndex)>,
 }
 
 impl<'a> FindParametricRelation<'a> {
     pub fn new(collector: &'a CollectStatic) -> Self {
         Self {
-            xt_yt: None,
             collector,
+            xt_yt: None,
         }
     }
 
