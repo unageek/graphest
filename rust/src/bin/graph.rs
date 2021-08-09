@@ -55,12 +55,6 @@ fn main() {
                 .about("Bounds of the region to plot over."),
         )
         .arg(
-            Arg::new("def")
-                .long("def")
-                .multiple(true)
-                .about("Custom definition."),
-        )
-        .arg(
             Arg::new("gray-alpha")
                 .long("gray-alpha")
                 .setting(ArgSettings::Hidden),
