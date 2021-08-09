@@ -112,6 +112,7 @@ impl Context {
     }
 }
 
+/// The context that is used when parsing relations.
 static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
     const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
     let ctx = Context::new()

@@ -9,16 +9,19 @@ use crate::{
     region::{InexactRegion, Region, Transform},
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
 };
-use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
+use image::{imageops, ImageBuffer, Pixel};
 use inari::{interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
     convert::TryFrom,
+    ops::{Deref, DerefMut},
     time::{Duration, Instant},
 };
 
-/// The graphing algorithm for relations of type
-/// [`RelationType::FunctionOfX`], [`RelationType::FunctionOfY`] or [`RelationType::Implicit`].
+/// The graphing algorithm for implicit relations.
+///
+/// An implicit relation is a relation of type [`RelationType::FunctionOfX`],
+/// [`RelationType::FunctionOfY`] or [`RelationType::Implicit`].
 pub struct Implicit {
     rel: Relation,
     forms: Vec<StaticForm>,
@@ -117,7 +120,7 @@ impl Implicit {
         g
     }
 
-    fn refine_impl(&mut self, timeout: Duration, now: &Instant) -> Result<bool, GraphingError> {
+    fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         let mut incomplete_sub_bs = vec![];
         // Blocks are queued in the Morton order. Thanks to that, the caches should work efficiently.
@@ -241,7 +244,7 @@ impl Implicit {
                 }
             }
 
-            if now.elapsed() > timeout {
+            if now.elapsed() > duration {
                 break;
             }
         }
@@ -708,25 +711,22 @@ impl Implicit {
 }
 
 impl Graph for Implicit {
-    fn get_gray_alpha_image(&self, im: &mut GrayAlphaImage) {
+    fn get_image<P, Container>(
+        &self,
+        im: &mut ImageBuffer<P, Container>,
+        true_color: P,
+        uncertain_color: P,
+        false_color: P,
+    ) where
+        P: Pixel + 'static,
+        Container: Deref<Target = [P::Subpixel]> + DerefMut,
+    {
         assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for (src, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
-            *dst = match src {
-                PixelState::True => LumaA([0, 255]),
-                PixelState::False => LumaA([0, 0]),
-                _ => LumaA([0, 128]),
-            }
-        }
-        imageops::flip_vertical_in_place(im);
-    }
-
-    fn get_image(&self, im: &mut RgbImage) {
-        assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for (src, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
-            *dst = match src {
-                PixelState::True => Rgb([0, 0, 0]),
-                PixelState::False => Rgb([255, 255, 255]),
-                _ => Rgb([64, 128, 192]),
+        for (s, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
+            *dst = match s {
+                PixelState::True => true_color,
+                PixelState::False => false_color,
+                _ => uncertain_color,
             }
         }
         imageops::flip_vertical_in_place(im);
@@ -745,9 +745,9 @@ impl Graph for Implicit {
         }
     }
 
-    fn refine(&mut self, timeout: Duration) -> Result<bool, GraphingError> {
+    fn refine(&mut self, duration: Duration) -> Result<bool, GraphingError> {
         let now = Instant::now();
-        let result = self.refine_impl(timeout, &now);
+        let result = self.refine_impl(duration, &now);
         self.stats.time_elapsed += now.elapsed();
         result
     }

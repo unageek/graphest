@@ -107,7 +107,7 @@ impl EvalCache {
     }
 }
 
-/// Type of the relation, which should be used to choose the optimal graphing strategy.
+/// The type of a [`Relation`], which should be used when choosing the optimal graphing algorithm.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
     /// y is a function of x.
@@ -129,6 +129,7 @@ pub struct RelationArgs {
     pub t: Interval,
 }
 
+/// A mathematical relation whose graph is to be plotted.
 #[derive(Clone, Debug)]
 pub struct Relation {
     terms: Vec<StaticTerm>,

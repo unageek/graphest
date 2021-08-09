@@ -2,9 +2,9 @@ use clap::{App, AppSettings, Arg, ArgSettings};
 use graphest::{
     Graph, GraphingStatistics, Implicit, InexactRegion, Parametric, Relation, RelationType,
 };
-use image::{GrayAlphaImage, RgbImage};
+use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
-use std::time::Duration;
+use std::{ffi::OsStr, time::Duration};
 
 fn print_statistics_header() {
     println!(
@@ -106,13 +106,23 @@ fn main() {
 
     let region = InexactRegion::new(bounds[0], bounds[1], bounds[2], bounds[3]);
 
-    let mut g: Box<dyn Graph> = match rel.relation_type() {
-        RelationType::Parametric => {
-            Box::new(Parametric::new(rel, region, size[0], size[1], mem_limit))
-        }
-        _ => Box::new(Implicit::new(rel, region, size[0], size[1], mem_limit)),
+    match rel.relation_type() {
+        RelationType::Parametric => plot(
+            Parametric::new(rel, region, size[0], size[1], mem_limit),
+            gray_alpha,
+            size,
+            output,
+        ),
+        _ => plot(
+            Implicit::new(rel, region, size[0], size[1], mem_limit),
+            gray_alpha,
+            size,
+            output,
+        ),
     };
+}
 
+fn plot<G: Graph>(mut g: G, gray_alpha: bool, size: Vec<u32>, output: Option<&OsStr>) {
     let mut gray_alpha_im: Option<GrayAlphaImage> = None;
     let mut rgb_im: Option<RgbImage> = None;
     if gray_alpha {
@@ -134,21 +144,26 @@ fn main() {
 
         if let Some(output) = output {
             if let Some(im) = &mut gray_alpha_im {
-                g.get_gray_alpha_image(im);
+                g.get_image(im, LumaA([0, 255]), LumaA([0, 128]), LumaA([0, 0]));
                 im.save(output).expect("saving image failed");
             } else if let Some(im) = &mut rgb_im {
-                g.get_image(im);
+                g.get_image(
+                    im,
+                    Rgb([0, 0, 0]),
+                    Rgb([64, 128, 192]),
+                    Rgb([255, 255, 255]),
+                );
                 im.save(output).expect("saving image failed");
             }
         }
 
         match result {
+            Ok(false) => continue,
             Ok(true) => break,
             Err(e) => {
                 eprintln!("Warning: {}", e);
                 break;
             }
-            _ => (),
         }
     }
 }

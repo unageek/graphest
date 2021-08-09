@@ -96,7 +96,7 @@ struct _DecInterval {
     d: Decoration,
 }
 
-/// An interval with additional properties that are required by Tupper interval arithmetic.
+/// An interval augmented with properties that are required by Tupper interval arithmetic.
 ///
 /// The decoration system is used instead of the Tupper IA's interval properties: `def` and `cont`.
 /// For a nonempty interval, the relationship between them is:
@@ -369,7 +369,7 @@ impl<'a> IntoIterator for &'a TupperIntervalSet {
 }
 
 bitflags! {
-    /// A set of signs: negative, positive or zero.
+    /// A set of signs; a subset of {−, 0, +}.
     pub struct SignSet: u8 {
         const NEG = 1;
         const ZERO = 2;

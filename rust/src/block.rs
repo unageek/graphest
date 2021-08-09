@@ -2,7 +2,7 @@ use crate::image::PixelIndex;
 use inari::Interval;
 use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping};
 
-/// The level of the smallest horizontal/vertical subdivision.
+/// The smallest level of horizontal/vertical subdivision.
 ///
 /// The value is currently fixed, but it could be determined based on the size of the image.
 const MIN_K: i8 = -15;
@@ -16,9 +16,10 @@ pub enum SubdivisionDir {
     T = 2,
 }
 
-/// A rectangular region of an [`Image`](crate::image::Image) with the following bounds in pixels:
-/// `[x 2^kx, (x + 1) 2^kx] × [y 2^ky, (y + 1) 1^ky]`.
-/// It also contains additional information that are required by certain kinds of graphs.
+/// A subset of the domain of a relation.
+///
+/// The fields `x`, `y`, `kx` and `ky` determines a rectangular region of an [`Image`](crate::image::Image):
+/// `[x 2^kx, (x + 1) 2^kx] × [y 2^ky, (y + 1) 1^ky]`, where coordinates are in pixels.
 ///
 /// A block is said to be:
 ///
@@ -42,6 +43,7 @@ pub struct Block {
     /// The parameter t.
     pub t: Interval,
     /// The direction that should be chosen when subdividing this block.
+    // TODO: It is awkward that a block has this field.
     pub next_dir: SubdivisionDir,
 }
 

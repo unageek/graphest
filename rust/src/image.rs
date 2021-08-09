@@ -1,9 +1,9 @@
 use std::{mem::size_of, slice::Iter};
 
-/// The limit of the width/height of an [`Image`] in pixels.
+/// The maximum limit of the width/height of an [`Image`] in pixels.
 const MAX_IMAGE_WIDTH: u32 = 32768;
 
-/// A two-dimensional image.
+/// A two-dimensional image with a generic pixel type.
 #[derive(Debug)]
 pub struct Image<T: Clone + Copy + Default> {
     width: u32,
@@ -115,6 +115,7 @@ impl<'a> IntoIterator for &'a PixelRegion {
     }
 }
 
+/// An iterator that iterates over the pixels of an [`Image`].
 pub struct PixelIter<'a> {
     region: &'a PixelRegion,
     p: PixelIndex,

@@ -6,15 +6,18 @@ use crate::{
     region::{InexactRegion, Region, Transform},
     relation::{Relation, RelationType},
 };
-use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
+use image::{imageops, ImageBuffer, Pixel};
 use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
     convert::TryFrom,
+    ops::{Deref, DerefMut},
     time::{Duration, Instant},
 };
 
-/// The graphing algorithm for relations of type [`RelationType::Parametric`].
+/// The graphing algorithm for parametric relations.
+///
+/// A parametric relation is a relation of type [`RelationType::Parametric`].
 pub struct Parametric {
     rel: Relation,
     im: Image<PixelState>,
@@ -70,7 +73,7 @@ impl Parametric {
         g
     }
 
-    fn refine_impl(&mut self, timeout: Duration, now: &Instant) -> Result<bool, GraphingError> {
+    fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         while let Some((_, b)) = self.block_queue.pop_front() {
             let incomplete_regions = self.refine_t(&b);
@@ -105,7 +108,7 @@ impl Parametric {
                 });
             }
 
-            if now.elapsed() > timeout {
+            if now.elapsed() > duration {
                 break;
             }
         }
@@ -273,41 +276,30 @@ impl Parametric {
 }
 
 impl Graph for Parametric {
-    fn get_gray_alpha_image(&self, im: &mut GrayAlphaImage) {
+    fn get_image<P, Container>(
+        &self,
+        im: &mut ImageBuffer<P, Container>,
+        true_color: P,
+        uncertain_color: P,
+        false_color: P,
+    ) where
+        P: Pixel + 'static,
+        Container: Deref<Target = [P::Subpixel]> + DerefMut,
+    {
         assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for ((src, bi), dst) in self
+        for ((s, bi), dst) in self
             .im
             .pixels()
             .copied()
             .zip(self.last_queued_blocks.pixels().copied())
             .zip(im.pixels_mut())
         {
-            *dst = match src {
-                PixelState::True => LumaA([0, 255]),
+            *dst = match s {
+                PixelState::True => true_color,
                 PixelState::Uncertain if (bi as usize) < self.block_queue.front_index() => {
-                    LumaA([0, 0])
+                    false_color
                 }
-                _ => LumaA([0, 128]),
-            }
-        }
-        imageops::flip_vertical_in_place(im);
-    }
-
-    fn get_image(&self, im: &mut RgbImage) {
-        assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for ((src, bi), dst) in self
-            .im
-            .pixels()
-            .copied()
-            .zip(self.last_queued_blocks.pixels().copied())
-            .zip(im.pixels_mut())
-        {
-            *dst = match src {
-                PixelState::True => Rgb([0, 0, 0]),
-                PixelState::Uncertain if (bi as usize) < self.block_queue.front_index() => {
-                    Rgb([255, 255, 255])
-                }
-                _ => Rgb([64, 128, 192]),
+                _ => uncertain_color,
             }
         }
         imageops::flip_vertical_in_place(im);
@@ -329,9 +321,9 @@ impl Graph for Parametric {
         }
     }
 
-    fn refine(&mut self, timeout: Duration) -> Result<bool, GraphingError> {
+    fn refine(&mut self, duration: Duration) -> Result<bool, GraphingError> {
         let now = Instant::now();
-        let result = self.refine_impl(timeout, &now);
+        let result = self.refine_impl(duration, &now);
         self.stats.time_elapsed += now.elapsed();
         result
     }
