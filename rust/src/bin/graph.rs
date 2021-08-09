@@ -1,7 +1,6 @@
 use clap::{App, AppSettings, Arg, ArgSettings};
 use graphest::{
-    graph::{Graph, GraphingStatistics, Implicit, InexactRegion, Parametric},
-    relation::{Relation, RelationType},
+    Graph, GraphingStatistics, Implicit, InexactRegion, Parametric, Relation, RelationType,
 };
 use image::{GrayAlphaImage, RgbImage};
 use inari::{const_interval, interval, Interval};
