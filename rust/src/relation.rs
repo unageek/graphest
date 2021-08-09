@@ -118,7 +118,8 @@ pub enum RelationType {
     FunctionOfY,
     /// An implicit relation.
     Implicit,
-    /// A relation of the form x = f(t) ∧ y = g(t).
+    /// A relation of the form x = f(t) ∧ y = g(t) ∧ P(t),
+    /// where P(t) is an optional constraint on t.
     Parametric,
 }
 
@@ -137,7 +138,8 @@ pub struct Relation {
     n_atom_forms: usize,
     ts: ValueStore<TupperIntervalSet>,
     eval_count: usize,
-    xt_yt: Option<(StoreIndex, StoreIndex)>,
+    x_explicit: Option<StoreIndex>,
+    y_explicit: Option<StoreIndex>,
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,
     has_n_theta: bool,
@@ -148,11 +150,16 @@ pub struct Relation {
 }
 
 impl Relation {
-    /// Evaluates the parametric equation x = f(t) ∧ y = g(t) and returns (f(t), g(t)).
-    pub fn eval_parametric(&mut self, t: Interval) -> (TupperIntervalSet, TupperIntervalSet) {
+    /// Evaluates the parametric equation x = f(t) ∧ y = g(t) ∧ P(t) and returns (f(t), g(t), P(t)).
+    ///
+    /// If the constraint P(t) is absent, P(t) = true is assumed.
+    pub fn eval_parametric(
+        &mut self,
+        t: Interval,
+    ) -> (TupperIntervalSet, TupperIntervalSet, EvalResult) {
         assert_eq!(self.relation_type, RelationType::Parametric);
 
-        self.eval(
+        let p = self.eval(
             &RelationArgs {
                 x: Interval::ENTIRE,
                 y: Interval::ENTIRE,
@@ -162,8 +169,11 @@ impl Relation {
             None,
         );
 
-        let (xt, yt) = self.xt_yt.unwrap();
-        (self.ts[xt].clone(), self.ts[yt].clone())
+        (
+            self.ts[self.x_explicit.unwrap()].clone(),
+            self.ts[self.y_explicit.unwrap()].clone(),
+            p,
+        )
     }
 
     /// Evaluates the relation with the given arguments.
@@ -363,9 +373,13 @@ impl FromStr for Relation {
             .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _)))
             .count();
 
-        let mut v = FindParametricRelation::new(&collector);
+        let mut v = FindExplicitRelation::new(&collector, VarSet::X);
         v.visit_expr(&e);
-        let xt_yt = v.get();
+        let x_explicit = v.get();
+
+        let mut v = FindExplicitRelation::new(&collector, VarSet::Y);
+        v.visit_expr(&e);
+        let y_explicit = v.get();
 
         let mut v = FindMaximalScalarTerms::new(collector);
         v.visit_expr(&e);
@@ -377,7 +391,8 @@ impl FromStr for Relation {
             n_atom_forms,
             ts: ValueStore::new(TupperIntervalSet::new(), n_terms),
             eval_count: 0,
-            xt_yt,
+            x_explicit,
+            y_explicit,
             mx,
             my,
             has_n_theta: e.vars.contains(VarSet::N_THETA),
@@ -586,20 +601,87 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
     }
 }
 
+struct ParametricRelationParts {
+    xt: Option<Expr>, // x = f(t)
+    yt: Option<Expr>, // y = f(t)
+    pt: Vec<Expr>,    // P(t)
+}
+
+fn normalize_parametric_relation(e: &mut Expr) -> bool {
+    use BinaryOp::*;
+
+    let mut parts = ParametricRelationParts {
+        xt: None,
+        yt: None,
+        pt: vec![],
+    };
+
+    if !e.vars.contains(VarSet::T)
+        || !normalize_parametric_relation_impl(&mut e.clone(), &mut parts)
+    {
+        return false;
+    }
+
+    if let (Some(xt), Some(yt), pt) = (parts.xt, parts.yt, parts.pt) {
+        let mut conjuncts = vec![box xt, box yt];
+        conjuncts.extend(pt.into_iter().map(|e| box e));
+        let mut it = conjuncts.into_iter();
+        let first = it.next().unwrap();
+        *e = *it.fold(first, |acc, e| box Expr::binary(And, acc, e));
+        UpdateMetadata.visit_expr_mut(e);
+        true
+    } else {
+        false
+    }
+}
+
+fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelationParts) -> bool {
+    use BinaryOp::*;
+    match e {
+        binary!(And, e1, e2) => {
+            normalize_parametric_relation_impl(e1, parts)
+                && normalize_parametric_relation_impl(e2, parts)
+        }
+        binary!(Eq, x @ var!(_), e) | binary!(Eq, e, x @ var!(_))
+            if x.vars == VarSet::X && VarSet::T.contains(e.vars) =>
+        {
+            parts.xt.is_none() && {
+                parts.xt = Some(Expr::binary(ExplicitEq, box take(x), box take(e)));
+                true
+            }
+        }
+        binary!(Eq, x @ var!(_), e) | binary!(Eq, e, x @ var!(_))
+            if x.vars == VarSet::Y && VarSet::T.contains(e.vars) =>
+        {
+            parts.yt.is_none() && {
+                parts.yt = Some(Expr::binary(ExplicitEq, box take(x), box take(e)));
+                true
+            }
+        }
+        e if VarSet::T.contains(e.vars) => {
+            parts.pt.push(take(e));
+            true
+        }
+        _ => false,
+    }
+}
+
 macro_rules! rel_op {
     () => {
         Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt
     };
 }
 
-/// Determines the type of the relation.
-///
-/// If the relation is of type [`RelationType::Parametric`], it is normalized to the form
-/// `(And (ExplicitEq x f_t) (ExplicitEq y g_t))`.
+/// Determines the type of the relation and normalizes explicit relations in it.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
 fn relation_type(e: &mut Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
+
+    if normalize_parametric_relation(e) {
+        return Parametric;
+    }
+
     match e {
         binary!(rel_op!(), y @ var!(_), f_x) | binary!(rel_op!(), f_x, y @ var!(_))
             if y.vars == VarSet::Y && VarSet::X.contains(f_x.vars) =>
@@ -746,7 +828,10 @@ mod tests {
         assert_eq!(f("x = 1 && y = sin(t)"), Parametric);
         assert_eq!(f("x = cos(t) && y = 1"), Parametric);
         assert_eq!(f("x = cos(t) && y = sin(t)"), Parametric);
-        assert_eq!(f("y = sin(t) && x = cos(t)"), Parametric);
+        assert_eq!(f("sin(t) = y && cos(t) = x"), Parametric);
+        assert_eq!(f("x = cos(t) && y = sin(t) && 0 < t < 1"), Parametric);
+        assert_eq!(f("0 < t < 1 && sin(t) = y && cos(t) = x"), Parametric);
+        assert_eq!(f("x = t && y = t && x = 2t"), Implicit);
     }
 
     #[test]
