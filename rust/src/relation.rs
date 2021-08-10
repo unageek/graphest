@@ -150,9 +150,9 @@ pub struct Relation {
 }
 
 impl Relation {
-    /// Evaluates the parametric equation x = f(t) ∧ y = g(t) ∧ P(t) and returns (f(t), g(t), P(t)).
+    /// Evaluates the parametric relation x = f(t) ∧ y = g(t) ∧ P(t) and returns (f(t), g(t), P(t)).
     ///
-    /// If the constraint P(t) is absent, P(t) = true is assumed.
+    /// If P(t) is absent, its value is assumed to be always true.
     pub fn eval_parametric(
         &mut self,
         t: Interval,
@@ -650,11 +650,11 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
                 true
             }
         }
-        binary!(Eq, x @ var!(_), e) | binary!(Eq, e, x @ var!(_))
-            if x.vars == VarSet::Y && VarSet::T.contains(e.vars) =>
+        binary!(Eq, y @ var!(_), e) | binary!(Eq, e, y @ var!(_))
+            if y.vars == VarSet::Y && VarSet::T.contains(e.vars) =>
         {
             parts.yt.is_none() && {
-                parts.yt = Some(Expr::binary(ExplicitEq, box take(x), box take(e)));
+                parts.yt = Some(Expr::binary(ExplicitEq, box take(y), box take(e)));
                 true
             }
         }
@@ -672,7 +672,8 @@ macro_rules! rel_op {
     };
 }
 
-/// Determines the type of the relation and normalizes explicit relations in it.
+/// Determines the type of the relation, and if it contains explicit relations,
+/// normalizes them to the form `(ExplicitEq x e)`.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
 fn relation_type(e: &mut Expr) -> RelationType {

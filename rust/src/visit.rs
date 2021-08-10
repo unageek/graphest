@@ -1131,8 +1131,9 @@ impl CollectStatic {
     }
 }
 
-/// Finds the store index of the term `f(x)` in a relation … ∧ y = f(x) ∧ …,
-/// where the equality is expressed with [`BinaryOp::ExplicitEq`].
+/// Finds the store index of the term `e` in `(ExplicitEq x e)`
+/// which can be nested in top-level [`BinaryOp::And`] operations,
+/// where `x` is the variable specified in the constructor.
 pub struct FindExplicitRelation<'a> {
     collector: &'a CollectStatic,
     variable: VarSet,
@@ -1158,9 +1159,9 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
         use BinaryOp::*;
         match e {
             binary!(And, _, _) => traverse_expr(self, e),
-            binary!(ExplicitEq, x @ var!(_), f) if x.vars == self.variable => {
+            binary!(ExplicitEq, x @ var!(_), e) if x.vars == self.variable => {
                 self.store_index =
-                    Some(self.collector.terms[self.collector.term_index[&f.id]].store_index);
+                    Some(self.collector.terms[self.collector.term_index[&e.id]].store_index);
             }
             _ => (),
         }
