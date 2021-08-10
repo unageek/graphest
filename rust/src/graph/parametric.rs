@@ -3,6 +3,8 @@ use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
     graph::{GraphingError, GraphingErrorKind, GraphingStatistics, PixelState, QueuedBlockIndex},
     image::{Image, PixelIndex, PixelRegion},
+    interval_set::{DecSignSet, SignSet},
+    ops::StaticForm,
     region::{InexactRegion, Region, Transform},
     relation::{Relation, RelationType},
 };
@@ -20,6 +22,7 @@ use std::{
 /// A parametric relation is a relation of type [`RelationType::Parametric`].
 pub struct Parametric {
     rel: Relation,
+    forms: Vec<StaticForm>,
     im: Image<PixelState>,
     last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
@@ -41,8 +44,10 @@ impl Parametric {
 
         let im_width_interval = Self::point_interval(im_width as f64);
         let im_height_interval = Self::point_interval(im_height as f64);
+        let forms = rel.forms().clone();
         let mut g = Self {
             rel,
+            forms,
             im: Image::new(im_width, im_height),
             last_queued_blocks: Image::new(im_width, im_height),
             block_queue: BlockQueue::new(BlockQueueOptions {
@@ -160,7 +165,7 @@ impl Parametric {
             )
         }
 
-        let (x, y) = self.rel.eval_parametric(block.t);
+        let (x, y, cond) = self.rel.eval_parametric(block.t);
         let rs = x
             .iter()
             .cartesian_product(y.iter())
@@ -178,6 +183,13 @@ impl Parametric {
             })
             .collect::<Vec<_>>();
 
+        let cond_is_true = cond
+            .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
+            .eval(&self.forms[..]);
+        let cond_is_false = !cond
+            .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
+            .eval(&self.forms[..]);
+
         let mut incomplete_rs = vec![];
 
         let im_r = Region::new(
@@ -185,7 +197,7 @@ impl Parametric {
             interval!(0.0, self.im.height() as f64).unwrap(),
         );
 
-        if x.decoration().min(y.decoration()) >= Decoration::Def {
+        if x.decoration().min(y.decoration()) >= Decoration::Def && cond_is_true {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
             let x = r.x();
@@ -196,6 +208,8 @@ impl Parametric {
                 *self.im.get_mut(p) = PixelState::True;
                 return incomplete_rs;
             }
+        } else if cond_is_false {
+            return incomplete_rs;
         }
 
         for r in rs {

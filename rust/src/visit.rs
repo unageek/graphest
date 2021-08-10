@@ -1131,39 +1131,37 @@ impl CollectStatic {
     }
 }
 
-/// Finds the store indices of `f_t` and `g_t` if the expression matches the form
-/// `(And (ExplicitEq x f_t) (ExplicitEq y g_t))`.
-pub struct FindParametricRelation<'a> {
+/// Finds the store index of the term `e` in `(ExplicitEq x e)`
+/// which can be nested in top-level [`BinaryOp::And`] operations,
+/// where `x` is the variable specified in the constructor.
+pub struct FindExplicitRelation<'a> {
     collector: &'a CollectStatic,
-    xt_yt: Option<(StoreIndex, StoreIndex)>,
+    variable: VarSet,
+    store_index: Option<StoreIndex>,
 }
 
-impl<'a> FindParametricRelation<'a> {
-    pub fn new(collector: &'a CollectStatic) -> Self {
+impl<'a> FindExplicitRelation<'a> {
+    pub fn new(collector: &'a CollectStatic, variable: VarSet) -> Self {
         Self {
             collector,
-            xt_yt: None,
+            variable,
+            store_index: None,
         }
     }
 
-    pub fn get(&self) -> Option<(StoreIndex, StoreIndex)> {
-        self.xt_yt
+    pub fn get(&self) -> Option<StoreIndex> {
+        self.store_index
     }
 }
 
-impl<'a> Visit<'a> for FindParametricRelation<'a> {
+impl<'a> Visit<'a> for FindExplicitRelation<'a> {
     fn visit_expr(&mut self, e: &'a Expr) {
         use BinaryOp::*;
         match e {
-            binary!(
-                And,
-                binary!(ExplicitEq, x @ var!(_), xt),
-                binary!(ExplicitEq, y @ var!(_), yt)
-            ) if x.vars == VarSet::X && y.vars == VarSet::Y && xt.vars | yt.vars == VarSet::T => {
-                self.xt_yt = Some((
-                    self.collector.terms[self.collector.term_index[&xt.id]].store_index,
-                    self.collector.terms[self.collector.term_index[&yt.id]].store_index,
-                ));
+            binary!(And, _, _) => traverse_expr(self, e),
+            binary!(ExplicitEq, x @ var!(_), e) if x.vars == self.variable => {
+                self.store_index =
+                    Some(self.collector.terms[self.collector.term_index[&e.id]].store_index);
             }
             _ => (),
         }
