@@ -672,8 +672,8 @@ macro_rules! rel_op {
     };
 }
 
-/// Determines the type of the relation. If the type is [`Parametric`],
-/// normalizes its explicit parts to the form `(ExplicitEq x e)`.
+/// Determines the type of the relation. If it is [`RelationType::Parametric`],
+/// normalizes explicit parts of the relation to the form `(ExplicitEq x e)`.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
 fn relation_type(e: &mut Expr) -> RelationType {
