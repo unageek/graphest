@@ -207,7 +207,7 @@ impl Context {
         &BUILTIN_CONTEXT
     }
 
-    pub fn apply(&self, name: &str, mut args: Vec<Expr>) -> Option<Expr> {
+    pub fn apply(&self, name: &str, args: Vec<Expr>) -> Option<Expr> {
         for d in self.defs.get(name)? {
             match *d {
                 Def::Function { arity, .. } if args.len() == arity => {
@@ -217,9 +217,9 @@ impl Context {
                 Def::Function {
                     left_associative, ..
                 } if left_associative && args.len() >= 2 => {
-                    let mut args = args.drain(..);
-                    let x0 = args.next().unwrap();
-                    let t = args.fold(x0, |t, x| d.apply(vec![t, x]));
+                    let mut it = args.into_iter();
+                    let x0 = it.next().unwrap();
+                    let t = it.fold(x0, |t, x| d.apply(vec![t, x]));
                     return Some(t);
                 }
                 _ => (),
