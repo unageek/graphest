@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "graphest"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "bindgen",
  "bitflags",
