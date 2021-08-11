@@ -81,7 +81,7 @@ impl Parametric {
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         while let Some(b) = self.block_queue.pop_front() {
-            let incomplete_regions = self.refine_t(&b);
+            let incomplete_regions = self.process_block(&b);
             if !incomplete_regions.is_empty() {
                 if b.is_subdivisible_on_t() {
                     Self::subdivide(&mut sub_bs, &b);
@@ -152,7 +152,9 @@ impl Parametric {
         }
     }
 
-    fn refine_t(&mut self, block: &Block) -> Vec<PixelRegion> {
+    /// Tries to prove or disprove the existence of a solution in the block
+    /// and returns pixels that cover the block if it is unsuccessful.
+    fn process_block(&mut self, block: &Block) -> Vec<PixelRegion> {
         /// Returns the smallest region whose bounds are integers
         /// and which contains `r` in its interior.
         fn outer_pixels(r: &Region) -> Region {

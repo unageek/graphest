@@ -141,7 +141,7 @@ impl Implicit {
             let n_sub_bs = sub_bs.len();
             for (sub_b, is_last_sibling) in sub_bs.drain(..) {
                 let complete = if !sub_b.is_subpixel() {
-                    self.refine_pixel(
+                    self.process_block(
                         &sub_b,
                         is_last_sibling,
                         QueuedBlockIndex::try_from(bi).unwrap(),
@@ -151,7 +151,7 @@ impl Implicit {
                     if self.rel.has_n_theta() && !sub_b.n_theta.is_singleton() {
                         // Try finding a solution earlier.
                         let n = Self::point_interval(Self::simple_number(sub_b.n_theta));
-                        self.refine_subpixel(
+                        self.process_subpixel_block(
                             &Block::new(sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n, sub_b.t),
                             false,
                             0,
@@ -159,7 +159,7 @@ impl Implicit {
                             &mut cache_eval_on_point,
                         );
                     }
-                    self.refine_subpixel(
+                    self.process_subpixel_block(
                         &sub_b,
                         is_last_sibling,
                         QueuedBlockIndex::try_from(bi).unwrap(),
@@ -297,10 +297,11 @@ impl Implicit {
         }
     }
 
-    /// Refine the block and returns `true` if refinement is complete.
+    /// Tries to prove or disprove the existence of a solution in the block
+    /// and returns `true` if it is successful.
     ///
     /// Precondition: the block is either a pixel or a superpixel.
-    fn refine_pixel(
+    fn process_block(
         &mut self,
         b: &Block,
         b_is_last_sibling: bool,
@@ -355,10 +356,11 @@ impl Implicit {
         true
     }
 
-    /// Refine the block and returns `true` if refinement is complete.
+    /// Tries to prove or disprove the existence of a solution in the block
+    /// and returns `true` if it is successful.
     ///
     /// Precondition: the block is a subpixel.
-    fn refine_subpixel(
+    fn process_subpixel_block(
         &mut self,
         b: &Block,
         b_is_last_sibling: bool,
