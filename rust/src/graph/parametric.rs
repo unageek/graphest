@@ -80,15 +80,15 @@ impl Parametric {
 
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
-        while let Some((_, b)) = self.block_queue.pop_front() {
+        while let Some(b) = self.block_queue.pop_front() {
             let incomplete_regions = self.refine_t(&b);
             if !incomplete_regions.is_empty() {
                 if b.is_subdivisible_on_t() {
                     Self::subdivide(&mut sub_bs, &b);
-                    let mut last_index = 0;
                     for sub_b in sub_bs.drain(..) {
-                        last_index = self.block_queue.push_back(sub_b);
+                        self.block_queue.push_back(sub_b);
                     }
+                    let last_index = self.block_queue.end_index() - 1;
                     for r in incomplete_regions {
                         self.set_last_queued_block(&r, last_index)?;
                     }
@@ -310,7 +310,7 @@ impl Graph for Parametric {
         {
             *dst = match s {
                 PixelState::True => true_color,
-                PixelState::Uncertain if (bi as usize) < self.block_queue.front_index() => {
+                PixelState::Uncertain if (bi as usize) < self.block_queue.begin_index() => {
                     false_color
                 }
                 _ => uncertain_color,
@@ -327,7 +327,7 @@ impl Graph for Parametric {
                 .copied()
                 .zip(self.last_queued_blocks.pixels().copied())
                 .filter(|&(s, bi)| {
-                    s == PixelState::True || (bi as usize) < self.block_queue.front_index()
+                    s == PixelState::True || (bi as usize) < self.block_queue.begin_index()
                 })
                 .count(),
             eval_count: self.rel.eval_count(),

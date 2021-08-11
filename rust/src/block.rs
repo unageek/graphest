@@ -176,6 +176,7 @@ impl Block {
     }
 }
 
+/// Specifies which fields of [`Block`]s should be stored in a [`BlockQueue`].
 #[derive(Clone, Debug, Default)]
 pub struct BlockQueueOptions {
     pub store_xy: bool,
@@ -191,6 +192,8 @@ pub struct BlockQueueOptions {
 pub struct BlockQueue {
     opts: BlockQueueOptions,
     seq: VecDeque<u8>,
+    begin_index: usize,
+    end_index: usize,
     x_front: u32,
     x_back: u32,
     y_front: u32,
@@ -199,8 +202,6 @@ pub struct BlockQueue {
     n_theta_back: Interval,
     t_front: Interval,
     t_back: Interval,
-    front_index: usize,
-    back_index: usize,
 }
 
 impl BlockQueue {
@@ -209,6 +210,8 @@ impl BlockQueue {
         Self {
             opts,
             seq: VecDeque::new(),
+            begin_index: 0,
+            end_index: 0,
             x_front: 0,
             x_back: 0,
             y_front: 0,
@@ -217,14 +220,30 @@ impl BlockQueue {
             n_theta_back: Interval::ENTIRE,
             t_front: Interval::ENTIRE,
             t_back: Interval::ENTIRE,
-            front_index: 0,
-            back_index: 0,
         }
     }
 
-    /// Returns the index that will be returned by the next call to [`Self::pop_front`].
-    pub fn front_index(&self) -> usize {
-        self.front_index
+    /// Returns the index of the first block in the queue.
+    ///
+    /// Initially, the index is zero, and is incremented by and only by calling to [`Self::pop_front`].
+    /// Therefore, the index is tied to a block in the queue and never reused for another block.
+    ///
+    /// You can obtain the index of the block right **after** it is returned by [`Self::pop_front`]
+    /// by `queue.begin_index() - 1`. Beware the off-by-one error.
+    pub fn begin_index(&self) -> usize {
+        self.begin_index
+    }
+
+    /// Returns the index of one past the last block in the queue.
+    ///
+    /// Initially, the index is zero, and is incremented by and only by calling to [`Self::push_back`].
+    ///
+    /// You can obtain the index of the block right **after** it is passed to [`Self::push_back`]
+    /// by `queue.end_index() - 1`. Beware the off-by-one error.
+    ///
+    /// See also [`Self::begin_index`].
+    pub fn end_index(&self) -> usize {
+        self.end_index
     }
 
     /// Returns `true` if the queue is empty.
@@ -232,14 +251,9 @@ impl BlockQueue {
         self.seq.is_empty()
     }
 
-    /// Returns the index that will be returned by the next call to [`Self::push_back`].
-    pub fn next_back_index(&self) -> usize {
-        self.back_index
-    }
-
-    /// Removes the first block from the queue and returns it with its original index.
+    /// Removes the first block from the queue and returns it.
     /// [`None`] is returned if the queue is empty.
-    pub fn pop_front(&mut self) -> Option<(usize, Block)> {
+    pub fn pop_front(&mut self) -> Option<Block> {
         let (x, y, kx, ky) = if self.opts.store_xy {
             let x = self.x_front ^ self.pop_small_u32()?;
             self.x_front = x;
@@ -279,24 +293,21 @@ impl BlockQueue {
             SubdivisionDir::XY
         };
 
-        let front_index = self.front_index;
-        self.front_index += 1;
-        Some((
-            front_index,
-            Block {
-                x,
-                y,
-                kx,
-                ky,
-                n_theta,
-                t,
-                next_dir,
-            },
-        ))
+        self.begin_index += 1;
+
+        Some(Block {
+            x,
+            y,
+            kx,
+            ky,
+            n_theta,
+            t,
+            next_dir,
+        })
     }
 
-    /// Appends the block to the back of the queue and returns the index where it is stored.
-    pub fn push_back(&mut self, b: Block) -> usize {
+    /// Appends the block to the back of the queue.
+    pub fn push_back(&mut self, b: Block) {
         if self.opts.store_xy {
             self.push_small_u32(b.x ^ self.x_back);
             self.x_back = b.x;
@@ -330,9 +341,7 @@ impl BlockQueue {
             self.push_subdivision_dir(b.next_dir);
         }
 
-        let back_index = self.back_index;
-        self.back_index += 1;
-        back_index
+        self.end_index += 1;
     }
 
     /// Returns the approximate size allocated by the [`BlockQueue`] in bytes.
@@ -518,15 +527,21 @@ mod tests {
             Block::new(0x10000000, 0x7f, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
             Block::new(0xffffffff, 0, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
         ];
+        assert_eq!(queue.begin_index(), 0);
+        assert_eq!(queue.end_index(), 0);
         for (i, b) in blocks.iter().cloned().enumerate() {
-            let back_index = queue.push_back(b);
-            assert_eq!(back_index, i);
+            queue.push_back(b);
+            assert_eq!(queue.begin_index(), 0);
+            assert_eq!(queue.end_index(), i + 1);
         }
         for (i, b) in blocks.iter().cloned().enumerate() {
-            let (front_index, front) = queue.pop_front().unwrap();
-            assert_eq!(front_index, i);
-            assert_eq!(front, b);
+            assert_eq!(queue.pop_front(), Some(b));
+            assert_eq!(queue.begin_index(), i + 1);
+            assert_eq!(queue.end_index(), blocks.len());
         }
+        assert_eq!(queue.pop_front(), None);
+        assert_eq!(queue.begin_index(), blocks.len());
+        assert_eq!(queue.end_index(), blocks.len());
 
         let mut queue = BlockQueue::new(BlockQueueOptions {
             store_xy: true,
@@ -541,8 +556,8 @@ mod tests {
         };
         queue.push_back(b1.clone());
         queue.push_back(b2.clone());
-        assert_eq!(queue.pop_front().unwrap().1, b1);
-        assert_eq!(queue.pop_front().unwrap().1, b2);
+        assert_eq!(queue.pop_front(), Some(b1));
+        assert_eq!(queue.pop_front(), Some(b2));
 
         let mut queue = BlockQueue::new(BlockQueueOptions {
             store_xy: true,
@@ -557,7 +572,7 @@ mod tests {
         };
         queue.push_back(b1.clone());
         queue.push_back(b2.clone());
-        assert_eq!(queue.pop_front().unwrap().1, b1);
-        assert_eq!(queue.pop_front().unwrap().1, b2);
+        assert_eq!(queue.pop_front(), Some(b1));
+        assert_eq!(queue.pop_front(), Some(b2));
     }
 }

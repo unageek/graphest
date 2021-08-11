@@ -130,7 +130,8 @@ impl Implicit {
         } else {
             EvalCache::new(EvalCacheLevel::Full)
         };
-        while let Some((bi, b)) = self.bs_to_subdivide.pop_front() {
+        while let Some(b) = self.bs_to_subdivide.pop_front() {
+            let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
                 SubdivisionDir::XY => self.subdivide_on_xy(&mut sub_bs, &b),
                 SubdivisionDir::NTheta => Self::subdivide_on_n_theta(&mut sub_bs, &b),
@@ -167,12 +168,11 @@ impl Implicit {
                     )
                 };
                 if !complete {
-                    // We can't queue the block yet because we need to modify `sub_b.next_dir`
-                    // after all sub-blocks are processed.
-                    self.set_last_queued_block(
-                        &sub_b,
-                        self.bs_to_subdivide.next_back_index() + incomplete_sub_bs.len(),
-                    )?;
+                    // We are not ready to push the block `sub_b` to the queue yet
+                    // because we first need to collect all incomplete blocks
+                    // and then modify the field `next_dir` of them.
+                    let last_index = self.bs_to_subdivide.end_index() + incomplete_sub_bs.len();
+                    self.set_last_queued_block(&sub_b, last_index)?;
                     incomplete_sub_bs.push(sub_b);
                 }
             }
