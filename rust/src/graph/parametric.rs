@@ -153,7 +153,7 @@ impl Parametric {
     }
 
     /// Tries to prove or disprove the existence of a solution in the block
-    /// and returns pixels that cover the block if it is unsuccessful.
+    /// and if it is unsuccessful, returns pixels that the block is interior to the union of them.
     fn process_block(&mut self, block: &Block) -> Vec<PixelRegion> {
         /// Returns the smallest region whose bounds are integers
         /// and which contains `r` in its interior.

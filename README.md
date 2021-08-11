@@ -9,8 +9,9 @@
 ## Features
 
 - Plot arbitrary equations/inequalities
-- Never gives an incorrect result; in case of doubt, please [report that here](https://github.com/unageek/graphest/issues/new)
+- Never gives an incorrect result; if you find a relation that is incorrectly plotted, please [report it here](https://github.com/unageek/graphest/issues/new)
 - Cartesian and polar coordinates
+- Parametric relations
 - Full interactivity
 - Extensive set of [mathematical functions](docs/guide/README.adoc)
 
