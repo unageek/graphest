@@ -212,7 +212,7 @@ impl Parametric {
                 if Self::is_pixel(&r1) && Self::is_pixel(&r2) {
                     // There is at least one solution in each of the contiguous pixels
                     // from `r1` to `r2`.
-                    let ps = Self::to_pixel_region(&r.intersection(&im_r));
+                    let ps = Self::to_pixel_region(&r12.intersection(&im_r));
                     for p in &ps {
                         *self.im.get_mut(p) = PixelState::True;
                     }
