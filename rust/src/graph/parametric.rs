@@ -113,7 +113,7 @@ impl Parametric {
                 > self.mem_limit
             {
                 if clear_cache_and_retry {
-                    self.cache = EvalParametricCache::new();
+                    self.cache.clear();
                     clear_cache_and_retry = false;
                 } else {
                     return Err(GraphingError {

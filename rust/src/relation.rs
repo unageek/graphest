@@ -113,6 +113,7 @@ impl EvalCache {
 
 type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, EvalResult);
 
+/// A cache for evaluation results of a parametric relation.
 pub struct EvalParametricCache {
     ct: HashMap<Interval, EvalParametricResult>,
     size_of_ct: usize,
@@ -127,6 +128,13 @@ impl EvalParametricCache {
             size_of_ct: 0,
             size_of_values_in_heap: 0,
         }
+    }
+
+    /// Clears the cache and releases the allocated memory.
+    pub fn clear(&mut self) {
+        self.ct = HashMap::new();
+        self.size_of_ct = 0;
+        self.size_of_values_in_heap = 0;
     }
 
     pub fn get(&self, t: Interval) -> Option<&EvalParametricResult> {
