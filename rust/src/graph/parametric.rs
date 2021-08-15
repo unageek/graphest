@@ -193,6 +193,7 @@ impl Parametric {
                 }
                 return incomplete_pixels;
             } else if dec >= Decoration::Dac && (r.x().wid() == 1.0 || r.y().wid() == 1.0) {
+                assert_eq!(rs.len(), 1);
                 let r1 = {
                     let t = Self::point_interval_possibly_infinite(block.t.inf());
                     let (x, y, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
