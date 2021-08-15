@@ -26,7 +26,9 @@ pub struct Parametric {
     im: Image<PixelState>,
     last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
-    // Affine transformation from real coordinates to pixel coordinates.
+    /// The pixel-aligned region that matches the entire image.
+    im_region: Region,
+    /// The affine transformation from real coordinates to pixel coordinates.
     inv_transform: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
@@ -55,6 +57,10 @@ impl Parametric {
                 store_t: true,
                 ..Default::default()
             }),
+            im_region: Region::new(
+                interval!(0.0, im_width as f64).unwrap(),
+                interval!(0.0, im_height as f64).unwrap(),
+            ),
             inv_transform: {
                 Transform::new(
                     im_width_interval / region.width(),
@@ -83,19 +89,19 @@ impl Parametric {
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         while let Some(b) = self.block_queue.pop_front() {
-            let incomplete_pixel_regions = self.process_block(&b);
-            if !incomplete_pixel_regions.is_empty() {
+            let incomplete_pixels = self.process_block(&b);
+            if !incomplete_pixels.is_empty() {
                 if b.is_subdivisible_on_t() {
                     Self::subdivide(&mut sub_bs, &b);
                     for sub_b in sub_bs.drain(..) {
                         self.block_queue.push_back(sub_b);
                     }
                     let last_index = self.block_queue.end_index() - 1;
-                    for ps in incomplete_pixel_regions {
+                    for ps in incomplete_pixels {
                         self.set_last_queued_block(&ps, last_index)?;
                     }
                 } else {
-                    for ps in incomplete_pixel_regions {
+                    for ps in incomplete_pixels {
                         for p in &ps {
                             if self.im.get(p) == PixelState::Uncertain {
                                 *self.im.get_mut(p) = PixelState::UncertainNeverFalse;
@@ -174,12 +180,7 @@ impl Parametric {
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..]);
 
-        let mut incomplete_pixel_regions = vec![];
-
-        let im_r = Region::new(
-            interval!(0.0, self.im.width() as f64).unwrap(),
-            interval!(0.0, self.im.height() as f64).unwrap(),
-        );
+        let mut incomplete_pixels = vec![];
 
         let dec = x.decoration().min(y.decoration());
         if dec >= Decoration::Def && cond_is_true {
@@ -187,11 +188,11 @@ impl Parametric {
 
             if Self::is_pixel(&r) {
                 // f(t) × g(t) is interior to a single pixel.
-                let ps = Self::to_pixel_region(&r.intersection(&im_r));
+                let ps = self.pixels_in_image(&r);
                 for p in &ps {
                     *self.im.get_mut(p) = PixelState::True;
                 }
-                return incomplete_pixel_regions;
+                return incomplete_pixels;
             } else if dec >= Decoration::Dac && (r.x().wid() == 1.0 || r.y().wid() == 1.0) {
                 let r1 = {
                     let t = Self::point_interval_possibly_infinite(block.t.inf());
@@ -212,35 +213,53 @@ impl Parametric {
                 if Self::is_pixel(&r1) && Self::is_pixel(&r2) {
                     // There is at least one solution in each of the contiguous pixels
                     // from `r1` to `r2`.
-                    let ps = Self::to_pixel_region(&r12.intersection(&im_r));
+                    let ps = self.pixels_in_image(&r12);
                     for p in &ps {
                         *self.im.get_mut(p) = PixelState::True;
                     }
 
                     if r12 == r {
-                        return incomplete_pixel_regions;
+                        return incomplete_pixels;
                     }
                 }
             }
         } else if cond_is_false {
-            return incomplete_pixel_regions;
+            return incomplete_pixels;
         }
 
         for r in rs {
-            let ps = Self::to_pixel_region(&r.intersection(&im_r));
+            let ps = self.pixels_in_image(&r);
             if ps.iter().all(|p| self.im.get(p) == PixelState::True) {
                 continue;
             } else {
-                incomplete_pixel_regions.push(ps)
+                incomplete_pixels.push(ps)
             }
         }
 
-        incomplete_pixel_regions
+        incomplete_pixels
     }
 
-    /// Returns `true` if the region represents a pixel.
+    /// For the pixel-aligned region,
+    /// returns `true` if both the width and the height of the region are `1.0`.
     fn is_pixel(r: &Region) -> bool {
         r.x().wid() == 1.0 && r.y().wid() == 1.0
+    }
+
+    /// For the pixel-aligned region,
+    /// returns the pixels of the region that are contained in the image.
+    fn pixels_in_image(&self, r: &Region) -> PixelRegion {
+        let r = r.intersection(&self.im_region);
+        if r.is_empty() {
+            PixelRegion::EMPTY
+        } else {
+            // If `r` is degenerate, the result is the empty region.
+            let x = r.x();
+            let y = r.y();
+            PixelRegion::new(
+                PixelIndex::new(x.inf() as u32, y.inf() as u32),
+                PixelIndex::new(x.sup() as u32, y.sup() as u32),
+            )
+        }
     }
 
     fn point_interval(x: f64) -> Interval {
@@ -257,8 +276,8 @@ impl Parametric {
         }
     }
 
-    /// Returns pixel-aligned regions whose union contains the possible combinations of `x × y`
-    /// in its interior.
+    /// Returns pixel-aligned regions,
+    /// each of which contains a possible combination of `x × y` in its interior.
     fn regions(x: &TupperIntervalSet, y: &TupperIntervalSet, inv_t: &Transform) -> Vec<Region> {
         /// Returns the smallest region whose bounds are integers
         /// and which contains `r` in its interior.
@@ -325,26 +344,6 @@ impl Parametric {
                 .iter()
                 .map(|&t| Block::new(0, 0, 0, 0, Interval::ENTIRE, t)),
         );
-    }
-
-    /// Returns the pixel region that corresponds to the pixel-aligned region.
-    ///
-    /// The empty pixel region is returned if `r` is empty or degenerate.
-    ///
-    /// Preconditions:
-    /// - `r` is a subset of `[0, u32::MAX] × [0, u32::MAX]`.
-    /// - `r` is empty, or each bound of `r` is an integer.
-    fn to_pixel_region(r: &Region) -> PixelRegion {
-        if r.is_empty() {
-            PixelRegion::EMPTY
-        } else {
-            let x = r.x();
-            let y = r.y();
-            PixelRegion::new(
-                PixelIndex::new(x.inf() as u32, y.inf() as u32),
-                PixelIndex::new(x.sup() as u32, y.sup() as u32),
-            )
-        }
     }
 }
 
