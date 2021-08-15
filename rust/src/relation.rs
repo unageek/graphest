@@ -13,7 +13,7 @@ use crate::{
 use inari::{const_interval, interval, DecInterval, Interval};
 use rug::Integer;
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::HashMap,
     mem::{size_of, take},
     str::FromStr,
 };
@@ -77,38 +77,30 @@ impl EvalCache {
     }
 
     pub fn insert_x_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, x: Interval, f: F) {
-        if let Entry::Vacant(e) = self.cx.entry(x) {
-            let v = f();
-            self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
-                + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
-            e.insert(v);
-            self.size_of_cx = self.cx.capacity()
-                * (size_of::<u64>() + size_of::<Interval>() + size_of::<Vec<TupperIntervalSet>>());
-        }
+        let v = f();
+        self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
+            + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
+        self.cx.insert(x, v);
+        self.size_of_cx = self.cx.capacity()
+            * (size_of::<u64>() + size_of::<Interval>() + size_of::<Vec<TupperIntervalSet>>());
     }
 
     pub fn insert_y_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, y: Interval, f: F) {
-        if let Entry::Vacant(e) = self.cy.entry(y) {
-            let v = f();
-            self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
-                + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
-            e.insert(v);
-            self.size_of_cy = self.cy.capacity()
-                * (size_of::<u64>() + size_of::<Interval>() + size_of::<Vec<TupperIntervalSet>>());
-        }
+        let v = f();
+        self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
+            + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
+        self.cy.insert(y, v);
+        self.size_of_cy = self.cy.capacity()
+            * (size_of::<u64>() + size_of::<Interval>() + size_of::<Vec<TupperIntervalSet>>());
     }
 
     pub fn insert_xy_with<F: FnOnce() -> EvalResult>(&mut self, x: Interval, y: Interval, f: F) {
         if self.level == EvalCacheLevel::Full {
-            if let Entry::Vacant(e) = self.cxy.entry((x, y)) {
-                let v = f();
-                self.size_of_values_in_heap += v.size_in_heap();
-                e.insert(v);
-                self.size_of_cxy = self.cxy.capacity()
-                    * (size_of::<u64>()
-                        + size_of::<(Interval, Interval)>()
-                        + size_of::<EvalResult>());
-            }
+            let v = f();
+            self.size_of_values_in_heap += v.size_in_heap();
+            self.cxy.insert((x, y), v);
+            self.size_of_cxy = self.cxy.capacity()
+                * (size_of::<u64>() + size_of::<(Interval, Interval)>() + size_of::<EvalResult>());
         }
     }
 
@@ -245,16 +237,22 @@ impl Relation {
 
         let terms = &self.terms;
         let ts = &mut self.ts;
-        let mx_ts = cache.get_x(x);
-        let my_ts = cache.get_y(y);
-        if let Some(mx_ts) = mx_ts {
-            for (i, &mx) in self.mx.iter().enumerate() {
-                ts[mx] = mx_ts[i].clone();
+        let mut mx_ts_is_cached = false;
+        let mut my_ts_is_cached = false;
+        {
+            let mx_ts = cache.get_x(x);
+            let my_ts = cache.get_y(y);
+            if let Some(mx_ts) = mx_ts {
+                for (i, &mx) in self.mx.iter().enumerate() {
+                    ts[mx] = mx_ts[i].clone();
+                }
+                mx_ts_is_cached = true;
             }
-        }
-        if let Some(my_ts) = my_ts {
-            for (i, &my) in self.my.iter().enumerate() {
-                ts[my] = my_ts[i].clone();
+            if let Some(my_ts) = my_ts {
+                for (i, &my) in self.my.iter().enumerate() {
+                    ts[my] = my_ts[i].clone();
+                }
+                my_ts_is_cached = true;
             }
         }
 
@@ -265,8 +263,8 @@ impl Relation {
                 StaticTermKind::NTheta => t.put(ts, DecInterval::new(args.n_theta).into()),
                 StaticTermKind::T => t.put(ts, DecInterval::new(args.t).into()),
                 _ if t.vars == VarSet::EMPTY
-                    || t.vars == VarSet::X && mx_ts.is_some()
-                    || t.vars == VarSet::Y && my_ts.is_some() =>
+                    || t.vars == VarSet::X && mx_ts_is_cached
+                    || t.vars == VarSet::Y && my_ts_is_cached =>
                 {
                     // Constant or cached subexpression.
                 }
@@ -282,8 +280,12 @@ impl Relation {
         );
 
         let ts = &self.ts;
-        cache.insert_x_with(x, || self.mx.iter().map(|&i| ts[i].clone()).collect());
-        cache.insert_y_with(y, || self.my.iter().map(|&i| ts[i].clone()).collect());
+        if !mx_ts_is_cached {
+            cache.insert_x_with(x, || self.mx.iter().map(|&i| ts[i].clone()).collect());
+        }
+        if !my_ts_is_cached {
+            cache.insert_y_with(y, || self.my.iter().map(|&i| ts[i].clone()).collect());
+        }
         cache.insert_xy_with(x, y, || r.clone());
         r
     }
