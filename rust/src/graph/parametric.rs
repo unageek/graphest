@@ -3,10 +3,10 @@ use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
     graph::{GraphingError, GraphingErrorKind, GraphingStatistics, PixelState, QueuedBlockIndex},
     image::{Image, PixelIndex, PixelRegion},
-    interval_set::{DecSignSet, SignSet},
+    interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     ops::StaticForm,
     region::{InexactRegion, Region, Transform},
-    relation::{Relation, RelationType},
+    relation::{EvalParametricCache, Relation, RelationType},
 };
 use image::{imageops, ImageBuffer, Pixel};
 use inari::{const_interval, interval, Decoration, Interval};
@@ -26,10 +26,13 @@ pub struct Parametric {
     im: Image<PixelState>,
     last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
-    // Affine transformation from real coordinates to pixel coordinates.
+    /// The pixel-aligned region that matches the entire image.
+    im_region: Region,
+    /// The affine transformation from real coordinates to pixel coordinates.
     inv_transform: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
+    cache: EvalParametricCache,
 }
 
 impl Parametric {
@@ -54,6 +57,10 @@ impl Parametric {
                 store_t: true,
                 ..Default::default()
             }),
+            im_region: Region::new(
+                interval!(0.0, im_width as f64).unwrap(),
+                interval!(0.0, im_height as f64).unwrap(),
+            ),
             inv_transform: {
                 Transform::new(
                     im_width_interval / region.width(),
@@ -69,6 +76,7 @@ impl Parametric {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
+            cache: EvalParametricCache::new(),
         };
 
         let t_range = g.rel.t_range();
@@ -81,20 +89,20 @@ impl Parametric {
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         while let Some(b) = self.block_queue.pop_front() {
-            let incomplete_regions = self.process_block(&b);
-            if !incomplete_regions.is_empty() {
+            let incomplete_pixels = self.process_block(&b);
+            if !incomplete_pixels.is_empty() {
                 if b.is_subdivisible_on_t() {
                     Self::subdivide(&mut sub_bs, &b);
                     for sub_b in sub_bs.drain(..) {
                         self.block_queue.push_back(sub_b);
                     }
                     let last_index = self.block_queue.end_index() - 1;
-                    for r in incomplete_regions {
-                        self.set_last_queued_block(&r, last_index)?;
+                    for ps in incomplete_pixels {
+                        self.set_last_queued_block(&ps, last_index)?;
                     }
                 } else {
-                    for r in incomplete_regions {
-                        for p in r.iter() {
+                    for ps in incomplete_pixels {
+                        for p in &ps {
                             if self.im.get(p) == PixelState::Uncertain {
                                 *self.im.get_mut(p) = PixelState::UncertainNeverFalse;
                             }
@@ -103,14 +111,21 @@ impl Parametric {
                 }
             }
 
-            if self.im.size_in_heap()
+            let mut clear_cache_and_retry = true;
+            while self.im.size_in_heap()
                 + self.last_queued_blocks.size_in_heap()
                 + self.block_queue.size_in_heap()
+                + self.cache.size_in_heap()
                 > self.mem_limit
             {
-                return Err(GraphingError {
-                    kind: GraphingErrorKind::ReachedMemLimit,
-                });
+                if clear_cache_and_retry {
+                    self.cache.clear();
+                    clear_cache_and_retry = false;
+                } else {
+                    return Err(GraphingError {
+                        kind: GraphingErrorKind::ReachedMemLimit,
+                    });
+                }
             }
 
             if now.elapsed() > duration {
@@ -155,35 +170,8 @@ impl Parametric {
     /// Tries to prove or disprove the existence of a solution in the block
     /// and if it is unsuccessful, returns pixels that the block is interior to the union of them.
     fn process_block(&mut self, block: &Block) -> Vec<PixelRegion> {
-        /// Returns the smallest region whose bounds are integers
-        /// and which contains `r` in its interior.
-        fn outer_pixels(r: &Region) -> Region {
-            const TINY: Interval = const_interval!(-5e-324, 5e-324);
-            let r0 = r.x() + TINY;
-            let r1 = r.y() + TINY;
-            Region::new(
-                interval!(r0.inf().floor(), r0.sup().ceil()).unwrap(),
-                interval!(r1.inf().floor(), r1.sup().ceil()).unwrap(),
-            )
-        }
-
-        let (x, y, cond) = self.rel.eval_parametric(block.t);
-        let rs = x
-            .iter()
-            .cartesian_product(y.iter())
-            .filter(|(x, y)| x.g.union(y.g).is_some())
-            .map(|(x, y)| {
-                let r = InexactRegion::new(
-                    Self::point_interval_possibly_infinite(x.x.inf()),
-                    Self::point_interval_possibly_infinite(x.x.sup()),
-                    Self::point_interval_possibly_infinite(y.x.inf()),
-                    Self::point_interval_possibly_infinite(y.x.sup()),
-                )
-                .transform(&self.inv_transform)
-                .outer();
-                outer_pixels(&r)
-            })
-            .collect::<Vec<_>>();
+        let (x, y, cond) = self.rel.eval_parametric(block.t, None);
+        let rs = Self::regions(&x, &y, &self.inv_transform);
 
         let cond_is_true = cond
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
@@ -192,50 +180,85 @@ impl Parametric {
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..]);
 
-        let mut incomplete_rs = vec![];
+        let mut incomplete_pixels = vec![];
 
-        let im_r = Region::new(
-            interval!(0.0, self.im.width() as f64).unwrap(),
-            interval!(0.0, self.im.height() as f64).unwrap(),
-        );
-
-        if x.decoration().min(y.decoration()) >= Decoration::Def && cond_is_true {
+        let dec = x.decoration().min(y.decoration());
+        if dec >= Decoration::Def && cond_is_true {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
-            let x = r.x();
-            let y = r.y();
-            if x.wid() == 1.0 && y.wid() == 1.0 && r.subset(&im_r) {
+            if Self::is_pixel(&r) {
                 // f(t) × g(t) is interior to a single pixel.
-                let p = PixelIndex::new(x.inf() as u32, y.inf() as u32);
-                *self.im.get_mut(p) = PixelState::True;
-                return incomplete_rs;
+                for p in &self.pixels_in_image(&r) {
+                    *self.im.get_mut(p) = PixelState::True;
+                }
+                return incomplete_pixels;
+            } else if dec >= Decoration::Dac && (r.x().wid() == 1.0 || r.y().wid() == 1.0) {
+                assert_eq!(rs.len(), 1);
+                let r1 = {
+                    let t = Self::point_interval_possibly_infinite(block.t.inf());
+                    let (x, y, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
+                    let rs = Self::regions(&x, &y, &self.inv_transform);
+                    assert_eq!(rs.len(), 1);
+                    rs[0].clone()
+                };
+                let r2 = {
+                    let t = Self::point_interval_possibly_infinite(block.t.sup());
+                    let (x, y, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
+                    let rs = Self::regions(&x, &y, &self.inv_transform);
+                    assert_eq!(rs.len(), 1);
+                    rs[0].clone()
+                };
+                let r12 = r1.convex_hull(&r2);
+
+                if Self::is_pixel(&r1) && Self::is_pixel(&r2) {
+                    // There is at least one solution in each of the contiguous pixels
+                    // between `r1` and `r2`.
+                    for p in &self.pixels_in_image(&r12) {
+                        *self.im.get_mut(p) = PixelState::True;
+                    }
+
+                    if r12 == r {
+                        return incomplete_pixels;
+                    }
+                }
             }
         } else if cond_is_false {
-            return incomplete_rs;
+            return incomplete_pixels;
         }
 
         for r in rs {
-            let r = r.intersection(&im_r);
-            if r.is_empty() {
-                continue;
-            }
-
-            let x = r.x();
-            let y = r.y();
-            // If the region touches the image from the outside, `r` will be empty.
-            let r = PixelRegion::new(
-                PixelIndex::new(x.inf() as u32, y.inf() as u32),
-                PixelIndex::new(x.sup() as u32, y.sup() as u32),
-            );
-
-            if r.iter().all(|p| self.im.get(p) == PixelState::True) {
+            let ps = self.pixels_in_image(&r);
+            if ps.iter().all(|p| self.im.get(p) == PixelState::True) {
                 continue;
             } else {
-                incomplete_rs.push(r)
+                incomplete_pixels.push(ps)
             }
         }
 
-        incomplete_rs
+        incomplete_pixels
+    }
+
+    /// For the pixel-aligned region,
+    /// returns `true` if both the width and the height of the region are `1.0`.
+    fn is_pixel(r: &Region) -> bool {
+        r.x().wid() == 1.0 && r.y().wid() == 1.0
+    }
+
+    /// For the pixel-aligned region,
+    /// returns the pixels in the region that are contained in the image.
+    fn pixels_in_image(&self, r: &Region) -> PixelRegion {
+        let r = r.intersection(&self.im_region);
+        if r.is_empty() {
+            PixelRegion::EMPTY
+        } else {
+            // If `r` is degenerate, the result is `PixelRegion::EMPTY`.
+            let x = r.x();
+            let y = r.y();
+            PixelRegion::new(
+                PixelIndex::new(x.inf() as u32, y.inf() as u32),
+                PixelIndex::new(x.sup() as u32, y.sup() as u32),
+            )
+        }
     }
 
     fn point_interval(x: f64) -> Interval {
@@ -250,6 +273,38 @@ impl Parametric {
         } else {
             Self::point_interval(x)
         }
+    }
+
+    /// Returns pixel-aligned regions,
+    /// each of which contains a possible combination of `x × y` in its interior.
+    fn regions(x: &TupperIntervalSet, y: &TupperIntervalSet, inv_t: &Transform) -> Vec<Region> {
+        /// Returns the smallest pixel-aligned region that contains `r` in its interior.
+        fn outer_pixels(r: &Region) -> Region {
+            // 5e-324 is interpreted as the smallest positive subnormal number.
+            const TINY: Interval = const_interval!(-5e-324, 5e-324);
+            let x = r.x() + TINY;
+            let y = r.y() + TINY;
+            Region::new(
+                interval!(x.inf().floor(), x.sup().ceil()).unwrap(),
+                interval!(y.inf().floor(), y.sup().ceil()).unwrap(),
+            )
+        }
+
+        x.iter()
+            .cartesian_product(y.iter())
+            .filter(|(x, y)| x.g.union(y.g).is_some())
+            .map(|(x, y)| {
+                let r = InexactRegion::new(
+                    Self::point_interval_possibly_infinite(x.x.inf()),
+                    Self::point_interval_possibly_infinite(x.x.sup()),
+                    Self::point_interval_possibly_infinite(y.x.inf()),
+                    Self::point_interval_possibly_infinite(y.x.sup()),
+                )
+                .transform(inv_t)
+                .outer();
+                outer_pixels(&r)
+            })
+            .collect::<Vec<_>>()
     }
 
     /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.

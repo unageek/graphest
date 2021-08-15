@@ -111,6 +111,49 @@ impl EvalCache {
     }
 }
 
+type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, EvalResult);
+
+/// A cache for evaluation results of a parametric relation.
+pub struct EvalParametricCache {
+    ct: HashMap<Interval, EvalParametricResult>,
+    size_of_ct: usize,
+    size_of_values_in_heap: usize,
+}
+
+impl EvalParametricCache {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self {
+            ct: HashMap::new(),
+            size_of_ct: 0,
+            size_of_values_in_heap: 0,
+        }
+    }
+
+    /// Clears the cache and releases the allocated memory.
+    pub fn clear(&mut self) {
+        self.ct = HashMap::new();
+        self.size_of_ct = 0;
+        self.size_of_values_in_heap = 0;
+    }
+
+    pub fn get(&self, t: Interval) -> Option<&EvalParametricResult> {
+        self.ct.get(&(t))
+    }
+
+    pub fn insert(&mut self, t: Interval, r: EvalParametricResult) {
+        self.size_of_values_in_heap += r.0.size_in_heap() + r.1.size_in_heap() + r.2.size_in_heap();
+        self.ct.insert(t, r);
+        self.size_of_ct = self.ct.capacity()
+            * (size_of::<u64>() + size_of::<Interval>() + size_of::<EvalParametricResult>());
+    }
+
+    /// Returns the approximate size allocated by the [`EvalParametricCache`] in bytes.
+    pub fn size_in_heap(&self) -> usize {
+        self.size_of_ct + self.size_of_values_in_heap
+    }
+}
+
 /// The type of a [`Relation`], which should be used when choosing the optimal graphing algorithm.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
@@ -154,32 +197,6 @@ pub struct Relation {
 }
 
 impl Relation {
-    /// Evaluates the parametric relation x = f(t) ∧ y = g(t) ∧ P(t) and returns (f(t), g(t), P(t)).
-    ///
-    /// If P(t) is absent, its value is assumed to be always true.
-    pub fn eval_parametric(
-        &mut self,
-        t: Interval,
-    ) -> (TupperIntervalSet, TupperIntervalSet, EvalResult) {
-        assert_eq!(self.relation_type, RelationType::Parametric);
-
-        let p = self.eval(
-            &RelationArgs {
-                x: Interval::ENTIRE,
-                y: Interval::ENTIRE,
-                n_theta: Interval::ENTIRE,
-                t,
-            },
-            None,
-        );
-
-        (
-            self.ts[self.x_explicit.unwrap()].clone(),
-            self.ts[self.y_explicit.unwrap()].clone(),
-            p,
-        )
-    }
-
     /// Evaluates the relation with the given arguments.
     ///
     /// Precondition: `cache` has never been passed to other relations.
@@ -194,6 +211,31 @@ impl Relation {
     /// Returns the number of calls of `self.eval` that have been made thus far.
     pub fn eval_count(&self) -> usize {
         self.eval_count
+    }
+
+    /// Evaluates the parametric relation x = f(t) ∧ y = g(t) ∧ P(t) and returns (f(t), g(t), P(t)).
+    ///
+    /// If P(t) is absent, its value is assumed to be always true.
+    ///
+    /// Precondition: `cache` has never been passed to other relations.
+    pub fn eval_parametric(
+        &mut self,
+        t: Interval,
+        cache: Option<&mut EvalParametricCache>,
+    ) -> EvalParametricResult {
+        assert_eq!(self.relation_type, RelationType::Parametric);
+
+        match cache {
+            Some(cache) => match cache.get(t) {
+                Some(r) => r.clone(),
+                _ => {
+                    let r = self.eval_parametric_without_cache(t);
+                    cache.insert(t, r.clone());
+                    r
+                }
+            },
+            _ => self.eval_parametric_without_cache(t),
+        }
     }
 
     pub fn forms(&self) -> &Vec<StaticForm> {
@@ -311,6 +353,24 @@ impl Relation {
                 .iter()
                 .map(|f| f.eval(ts))
                 .collect(),
+        )
+    }
+
+    fn eval_parametric_without_cache(&mut self, t: Interval) -> EvalParametricResult {
+        let p = self.eval(
+            &RelationArgs {
+                x: Interval::ENTIRE,
+                y: Interval::ENTIRE,
+                n_theta: Interval::ENTIRE,
+                t,
+            },
+            None,
+        );
+
+        (
+            self.ts[self.x_explicit.unwrap()].clone(),
+            self.ts[self.y_explicit.unwrap()].clone(),
+            p,
         )
     }
 

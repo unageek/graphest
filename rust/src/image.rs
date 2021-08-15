@@ -83,15 +83,17 @@ pub struct PixelRegion {
 }
 
 impl PixelRegion {
+    pub const EMPTY: Self = Self {
+        begin: PixelIndex { x: 0, y: 0 },
+        end: PixelIndex { x: 0, y: 0 },
+    };
+
     /// Creates a new [`PixelRegion`] that spans pixels within
     /// `begin.x ≤ x < end.x` and `begin.y ≤ y < end.y`.
     pub fn new(begin: PixelIndex, end: PixelIndex) -> Self {
         assert!(begin.x <= end.x && begin.y <= end.y);
         if begin.x == end.x || begin.y == end.y {
-            Self {
-                begin: PixelIndex::new(0, 0),
-                end: PixelIndex::new(0, 0),
-            }
+            Self::EMPTY
         } else {
             Self { begin, end }
         }
