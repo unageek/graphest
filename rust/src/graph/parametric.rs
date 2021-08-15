@@ -188,8 +188,7 @@ impl Parametric {
 
             if Self::is_pixel(&r) {
                 // f(t) × g(t) is interior to a single pixel.
-                let ps = self.pixels_in_image(&r);
-                for p in &ps {
+                for p in &self.pixels_in_image(&r) {
                     *self.im.get_mut(p) = PixelState::True;
                 }
                 return incomplete_pixels;
@@ -212,9 +211,8 @@ impl Parametric {
 
                 if Self::is_pixel(&r1) && Self::is_pixel(&r2) {
                     // There is at least one solution in each of the contiguous pixels
-                    // from `r1` to `r2`.
-                    let ps = self.pixels_in_image(&r12);
-                    for p in &ps {
+                    // between `r1` and `r2`.
+                    for p in &self.pixels_in_image(&r12) {
                         *self.im.get_mut(p) = PixelState::True;
                     }
 
