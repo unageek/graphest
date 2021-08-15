@@ -34,6 +34,8 @@ pub struct Implicit {
     transform: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
+    cache_eval_on_region: EvalCache,
+    cache_eval_on_point: EvalCache,
 }
 
 impl Implicit {
@@ -78,6 +80,12 @@ impl Implicit {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
+            cache_eval_on_region: EvalCache::new(EvalCacheLevel::PerAxis),
+            cache_eval_on_point: if has_n_theta || has_t {
+                EvalCache::new(EvalCacheLevel::PerAxis)
+            } else {
+                EvalCache::new(EvalCacheLevel::Full)
+            },
         };
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
 
@@ -123,13 +131,6 @@ impl Implicit {
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         let mut incomplete_sub_bs = vec![];
-        // Blocks are queued in the Morton order. Thanks to that, the caches should work efficiently.
-        let mut cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
-        let mut cache_eval_on_point = if self.rel.has_n_theta() || self.rel.has_t() {
-            EvalCache::new(EvalCacheLevel::PerAxis)
-        } else {
-            EvalCache::new(EvalCacheLevel::Full)
-        };
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
@@ -145,7 +146,6 @@ impl Implicit {
                         &sub_b,
                         is_last_sibling,
                         QueuedBlockIndex::try_from(bi).unwrap(),
-                        &mut cache_eval_on_region,
                     )
                 } else {
                     if self.rel.has_n_theta() && !sub_b.n_theta.is_singleton() {
@@ -155,16 +155,12 @@ impl Implicit {
                             &Block::new(sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n, sub_b.t),
                             false,
                             0,
-                            &mut cache_eval_on_region,
-                            &mut cache_eval_on_point,
                         );
                     }
                     self.process_subpixel_block(
                         &sub_b,
                         is_last_sibling,
                         QueuedBlockIndex::try_from(bi).unwrap(),
-                        &mut cache_eval_on_region,
-                        &mut cache_eval_on_point,
                     )
                 };
                 if !complete {
@@ -225,17 +221,13 @@ impl Implicit {
             while self.im.size_in_heap()
                 + self.last_queued_blocks.size_in_heap()
                 + self.bs_to_subdivide.size_in_heap()
-                + cache_eval_on_region.size_in_heap()
-                + cache_eval_on_point.size_in_heap()
+                + self.cache_eval_on_region.size_in_heap()
+                + self.cache_eval_on_point.size_in_heap()
                 > self.mem_limit
             {
                 if clear_cache_and_retry {
-                    cache_eval_on_region = EvalCache::new(EvalCacheLevel::PerAxis);
-                    cache_eval_on_point = if self.rel.has_n_theta() || self.rel.has_t() {
-                        EvalCache::new(EvalCacheLevel::PerAxis)
-                    } else {
-                        EvalCache::new(EvalCacheLevel::Full)
-                    };
+                    self.cache_eval_on_region.clear();
+                    self.cache_eval_on_point.clear();
                     clear_cache_and_retry = false;
                 } else {
                     return Err(GraphingError {
@@ -306,7 +298,6 @@ impl Implicit {
         b: &Block,
         b_is_last_sibling: bool,
         parent_block_index: QueuedBlockIndex,
-        cache: &mut EvalCache,
     ) -> bool {
         let pixels = {
             let begin = b.pixel_index();
@@ -323,7 +314,13 @@ impl Implicit {
         }
 
         let u_up = self.block_to_region_clipped(b).outer();
-        let r_u_up = Self::eval_on_region(&mut self.rel, &u_up, b.n_theta, b.t, Some(cache));
+        let r_u_up = Self::eval_on_region(
+            &mut self.rel,
+            &u_up,
+            b.n_theta,
+            b.t,
+            Some(&mut self.cache_eval_on_region),
+        );
         let is_true = r_u_up
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
             .eval(&self.forms[..]);
@@ -365,8 +362,6 @@ impl Implicit {
         b: &Block,
         b_is_last_sibling: bool,
         parent_block_index: QueuedBlockIndex,
-        cache_eval_on_region: &mut EvalCache,
-        cache_eval_on_point: &mut EvalCache,
     ) -> bool {
         let pixel = b.pixel_index();
         let state = self.im.get(pixel);
@@ -382,7 +377,7 @@ impl Implicit {
             &u_up,
             b.n_theta,
             b.t,
-            Some(cache_eval_on_region),
+            Some(&mut self.cache_eval_on_region),
         );
 
         let p_dn = self.block_to_region(&b.pixel_block()).inner();
@@ -451,7 +446,7 @@ impl Implicit {
                 point.1,
                 b.n_theta,
                 b.t,
-                Some(cache_eval_on_point),
+                Some(&mut self.cache_eval_on_point),
             );
 
             // `ss` is nonempty if the decoration is ≥ `Def`, which will be ensured

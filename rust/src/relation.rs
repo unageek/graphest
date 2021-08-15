@@ -24,6 +24,7 @@ pub enum EvalCacheLevel {
     Full,
 }
 
+/// A cache for evaluation results of an implicit relation.
 pub struct EvalCache {
     level: EvalCacheLevel,
     cx: HashMap<Interval, Vec<TupperIntervalSet>>,
@@ -47,6 +48,17 @@ impl EvalCache {
             size_of_cxy: 0,
             size_of_values_in_heap: 0,
         }
+    }
+
+    /// Clears the cache and releases the allocated memory.
+    pub fn clear(&mut self) {
+        self.cx = HashMap::new();
+        self.cy = HashMap::new();
+        self.cxy = HashMap::new();
+        self.size_of_cx = 0;
+        self.size_of_cy = 0;
+        self.size_of_cxy = 0;
+        self.size_of_values_in_heap = 0;
     }
 
     pub fn get_x(&self, x: Interval) -> Option<&Vec<TupperIntervalSet>> {
