@@ -245,13 +245,13 @@ impl Parametric {
     }
 
     /// For the pixel-aligned region,
-    /// returns the pixels of the region that are contained in the image.
+    /// returns the pixels in the region that are contained in the image.
     fn pixels_in_image(&self, r: &Region) -> PixelRegion {
         let r = r.intersection(&self.im_region);
         if r.is_empty() {
             PixelRegion::EMPTY
         } else {
-            // If `r` is degenerate, the result is the empty region.
+            // If `r` is degenerate, the result is `PixelRegion::EMPTY`.
             let x = r.x();
             let y = r.y();
             PixelRegion::new(
@@ -278,15 +278,15 @@ impl Parametric {
     /// Returns pixel-aligned regions,
     /// each of which contains a possible combination of `x × y` in its interior.
     fn regions(x: &TupperIntervalSet, y: &TupperIntervalSet, inv_t: &Transform) -> Vec<Region> {
-        /// Returns the smallest region whose bounds are integers
-        /// and which contains `r` in its interior.
+        /// Returns the smallest pixel-aligned region that contains `r` in its interior.
         fn outer_pixels(r: &Region) -> Region {
+            // 5e-324 is interpreted as the smallest positive subnormal number.
             const TINY: Interval = const_interval!(-5e-324, 5e-324);
-            let r0 = r.x() + TINY;
-            let r1 = r.y() + TINY;
+            let x = r.x() + TINY;
+            let y = r.y() + TINY;
             Region::new(
-                interval!(r0.inf().floor(), r0.sup().ceil()).unwrap(),
-                interval!(r1.inf().floor(), r1.sup().ceil()).unwrap(),
+                interval!(x.inf().floor(), x.sup().ceil()).unwrap(),
+                interval!(y.inf().floor(), y.sup().ceil()).unwrap(),
             )
         }
 
