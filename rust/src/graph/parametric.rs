@@ -171,7 +171,7 @@ impl Parametric {
     /// and if it is unsuccessful, returns pixels that the block is interior to the union of them.
     fn process_block(&mut self, block: &Block) -> Vec<PixelRegion> {
         let (x, y, cond) = self.rel.eval_parametric(block.t, None);
-        let rs = Self::regions(&x, &y, &self.inv_transform);
+        let rs = self.regions(&x, &y);
 
         let cond_is_true = cond
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
@@ -197,14 +197,14 @@ impl Parametric {
                 let r1 = {
                     let t = Self::point_interval_possibly_infinite(block.t.inf());
                     let (x, y, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
-                    let rs = Self::regions(&x, &y, &self.inv_transform);
+                    let rs = self.regions(&x, &y);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
                 let r2 = {
                     let t = Self::point_interval_possibly_infinite(block.t.sup());
                     let (x, y, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
-                    let rs = Self::regions(&x, &y, &self.inv_transform);
+                    let rs = self.regions(&x, &y);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
@@ -277,7 +277,7 @@ impl Parametric {
 
     /// Returns pixel-aligned regions,
     /// each of which contains a possible combination of `x × y` in its interior.
-    fn regions(x: &TupperIntervalSet, y: &TupperIntervalSet, inv_t: &Transform) -> Vec<Region> {
+    fn regions(&self, x: &TupperIntervalSet, y: &TupperIntervalSet) -> Vec<Region> {
         /// Returns the smallest pixel-aligned region that contains `r` in its interior.
         fn outer_pixels(r: &Region) -> Region {
             // 5e-324 is interpreted as the smallest positive subnormal number.
@@ -300,7 +300,7 @@ impl Parametric {
                     Self::point_interval_possibly_infinite(y.x.inf()),
                     Self::point_interval_possibly_infinite(y.x.sup()),
                 )
-                .transform(inv_t)
+                .transform(&self.inv_transform)
                 .outer();
                 outer_pixels(&r)
             })
