@@ -229,6 +229,7 @@ impl Parametric {
         for r in rs {
             let ps = self.pixels_in_image(&r);
             if ps.iter().all(|p| self.im.get(p) == PixelState::True) {
+                // The case where `ps` is empty goes here.
                 continue;
             } else {
                 incomplete_pixels.push(ps)
