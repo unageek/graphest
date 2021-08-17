@@ -188,12 +188,9 @@ impl TupperIntervalSet {
             self.xs.push(x);
         }
 
-        let d = self.d.min(x.d);
-        if self.d != d {
-            self.d = d;
-            for x in self.xs.iter_mut() {
-                x.d = d;
-            }
+        self.d = self.d.min(x.d);
+        for x in self.xs.iter_mut() {
+            x.d = self.d;
         }
     }
 
