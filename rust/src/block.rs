@@ -81,22 +81,10 @@ impl Block {
     }
 
     /// Returns `true` if [`self.n_theta`] can be subdivided.
-    pub fn is_subdivisible_on_n_theta(&self) -> bool {
+    pub fn is_n_theta_subdivisible(&self) -> bool {
         let n = self.n_theta;
         let mid = n.mid().round();
         n.inf() != mid && n.sup() != mid
-    }
-
-    /// Returns `true` if [`self.t`] can be subdivided.
-    pub fn is_subdivisible_on_t(&self) -> bool {
-        let t = self.t;
-        let mid = t.mid();
-        t.inf() != mid && t.sup() != mid
-    }
-
-    /// Returns `true` if the block can be subdivided both horizontally and vertically.
-    pub fn is_subdivisible_on_xy(&self) -> bool {
-        self.kx > MIN_K && self.ky > MIN_K
     }
 
     /// Returns `true` if the block is a subpixel.
@@ -107,6 +95,18 @@ impl Block {
     /// Returns `true` if the block is a superpixel.
     pub fn is_superpixel(&self) -> bool {
         self.kx > 0 || self.ky > 0
+    }
+
+    /// Returns `true` if [`self.t`] can be subdivided.
+    pub fn is_t_subdivisible(&self) -> bool {
+        let t = self.t;
+        let mid = t.mid();
+        t.inf() != mid && t.sup() != mid
+    }
+
+    /// Returns `true` if the block can be subdivided both horizontally and vertically.
+    pub fn is_xy_subdivisible(&self) -> bool {
+        self.kx > MIN_K && self.ky > MIN_K
     }
 
     /// Returns the width of a pixel divided by the block's width.

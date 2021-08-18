@@ -91,8 +91,8 @@ impl Parametric {
         while let Some(b) = self.block_queue.pop_front() {
             let incomplete_pixels = self.process_block(&b);
             if !incomplete_pixels.is_empty() {
-                if b.is_subdivisible_on_t() {
-                    Self::subdivide(&mut sub_bs, &b);
+                if b.is_t_subdivisible() {
+                    Self::subdivide_t(&mut sub_bs, &b);
                     for sub_b in sub_bs.drain(..) {
                         self.block_queue.push_back(sub_b);
                     }
@@ -311,8 +311,8 @@ impl Parametric {
     /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
     /// Two sub-blocks are created.
     ///
-    /// Precondition: `b.is_subdivisible_on_t()` is `true`.
-    fn subdivide(sub_bs: &mut Vec<Block>, b: &Block) {
+    /// Precondition: `b.is_t_subdivisible()` is `true`.
+    fn subdivide_t(sub_bs: &mut Vec<Block>, b: &Block) {
         fn bisect(x: Interval) -> (Interval, Interval) {
             let a = x.inf();
             let b = x.sup();

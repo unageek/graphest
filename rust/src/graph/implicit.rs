@@ -134,9 +134,9 @@ impl Implicit {
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
-                SubdivisionDir::XY => self.subdivide_on_xy(&mut sub_bs, &b),
-                SubdivisionDir::NTheta => Self::subdivide_on_n_theta(&mut sub_bs, &b),
-                SubdivisionDir::T => Self::subdivide_on_t(&mut sub_bs, &b),
+                SubdivisionDir::XY => self.subdivide_xy(&mut sub_bs, &b),
+                SubdivisionDir::NTheta => Self::subdivide_n_theta(&mut sub_bs, &b),
+                SubdivisionDir::T => Self::subdivide_t(&mut sub_bs, &b),
             }
 
             let n_sub_bs = sub_bs.len();
@@ -197,15 +197,15 @@ impl Implicit {
 
             for mut sub_b in incomplete_sub_bs.drain(..) {
                 sub_b.next_dir = if preferred_next_dir == SubdivisionDir::NTheta
-                    && sub_b.is_subdivisible_on_n_theta()
-                    || preferred_next_dir == SubdivisionDir::T && sub_b.is_subdivisible_on_t()
+                    && sub_b.is_n_theta_subdivisible()
+                    || preferred_next_dir == SubdivisionDir::T && sub_b.is_t_subdivisible()
                 {
                     preferred_next_dir
-                } else if sub_b.is_subdivisible_on_xy() {
+                } else if sub_b.is_xy_subdivisible() {
                     SubdivisionDir::XY
-                } else if self.rel.has_n_theta() && sub_b.is_subdivisible_on_n_theta() {
+                } else if self.rel.has_n_theta() && sub_b.is_n_theta_subdivisible() {
                     SubdivisionDir::NTheta
-                } else if self.rel.has_t() && sub_b.is_subdivisible_on_t() {
+                } else if self.rel.has_t() && sub_b.is_t_subdivisible() {
                     SubdivisionDir::T
                 } else {
                     // Cannot subdivide in any direction.
@@ -567,8 +567,8 @@ impl Implicit {
     /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
     /// Four sub-blocks are created at most.
     ///
-    /// Precondition: `b.subdivide_on_xy()` is `true`.
-    fn subdivide_on_xy(&self, sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
+    /// Precondition: `b.is_xy_subdivisible()` is `true`.
+    fn subdivide_xy(&self, sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
         if b.is_superpixel() {
             let x0 = 2 * b.x;
             let y0 = 2 * b.y;
@@ -632,9 +632,9 @@ impl Implicit {
     ///
     /// Preconditions:
     ///
-    /// - `b.is_subdivisible_on_n_theta()` is `true`.
+    /// - `b.is_n_theta_subdivisible()` is `true`.
     /// - `b.n_theta` is a subset of either \[-∞, 0\] or \[0, +∞\].
-    fn subdivide_on_n_theta(sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
+    fn subdivide_n_theta(sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
         const MULT: f64 = 2.0; // The optimal value may depend on the relation.
         let n = b.n_theta;
         let na = n.inf();
@@ -666,8 +666,8 @@ impl Implicit {
     /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
     /// Four sub-blocks are created at most.
     ///
-    /// Precondition: `b.is_subdivisible_on_t()` is `true`.
-    fn subdivide_on_t(sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
+    /// Precondition: `b.is_t_subdivisible()` is `true`.
+    fn subdivide_t(sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
         fn bisect(x: Interval) -> (Interval, Interval) {
             let a = x.inf();
             let b = x.sup();
