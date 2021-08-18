@@ -13,6 +13,7 @@ use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
     convert::TryFrom,
+    mem::swap,
     ops::{Deref, DerefMut},
     time::{Duration, Instant},
 };
@@ -171,7 +172,11 @@ impl Parametric {
     /// and if it is unsuccessful, returns pixels that the block is interior to the union of them.
     fn process_block(&mut self, block: &Block) -> Vec<PixelRegion> {
         let (x, y, cond) = self.rel.eval_parametric(block.t, None);
-        let rs = self.regions(&x, &y);
+        let rs = self
+            .regions(&x, &y)
+            .into_iter()
+            .map(|r| Self::outer_pixels(&r))
+            .collect::<Vec<_>>();
 
         let cond_is_true = cond
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
@@ -208,18 +213,43 @@ impl Parametric {
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
-                let r12 = r1.convex_hull(&r2);
 
-                if Self::is_pixel(&r1) && Self::is_pixel(&r2) {
-                    // There is at least one solution in each of the contiguous pixels
-                    // between `r1` and `r2`.
-                    for p in &self.pixels_in_image(&r12) {
-                        *self.im.get_mut(p) = PixelState::True;
+                let mut r12 = Region::EMPTY;
+                if r.x().wid() == 1.0 {
+                    // `r` is a single column.
+                    let mut y1 = r1.y();
+                    let mut y2 = r2.y();
+                    if y2.precedes(y1) {
+                        swap(&mut y1, &mut y2);
                     }
+                    if y1.precedes(y2) {
+                        r12 = Self::outer_pixels(&Region::new(
+                            r1.x(),
+                            interval!(y1.sup(), y2.inf()).unwrap(),
+                        ));
+                    }
+                } else {
+                    // `r` is a single row.
+                    let mut x1 = r1.x();
+                    let mut x2 = r2.x();
+                    if x2.precedes(x1) {
+                        swap(&mut x1, &mut x2);
+                    }
+                    if x1.precedes(x2) {
+                        r12 = Self::outer_pixels(&Region::new(
+                            interval!(x1.sup(), x2.inf()).unwrap(),
+                            r1.y(),
+                        ));
+                    }
+                }
 
-                    if r12 == r {
-                        return incomplete_pixels;
-                    }
+                // There is at least one solution per pixel of `r12`.
+                for p in &self.pixels_in_image(&r12) {
+                    *self.im.get_mut(p) = PixelState::True;
+                }
+
+                if r12 == r {
+                    return incomplete_pixels;
                 }
             }
         } else if cond_is_false {
@@ -243,6 +273,18 @@ impl Parametric {
     /// returns `true` if both the width and the height of the region are `1.0`.
     fn is_pixel(r: &Region) -> bool {
         r.x().wid() == 1.0 && r.y().wid() == 1.0
+    }
+
+    /// Returns the smallest pixel-aligned region that contains `r` in its interior.
+    fn outer_pixels(r: &Region) -> Region {
+        // 5e-324 is interpreted as the smallest positive subnormal number.
+        const TINY: Interval = const_interval!(-5e-324, 5e-324);
+        let x = r.x() + TINY;
+        let y = r.y() + TINY;
+        Region::new(
+            interval!(x.inf().floor(), x.sup().ceil()).unwrap(),
+            interval!(y.inf().floor(), y.sup().ceil()).unwrap(),
+        )
     }
 
     /// For the pixel-aligned region,
@@ -276,34 +318,20 @@ impl Parametric {
         }
     }
 
-    /// Returns pixel-aligned regions,
-    /// each of which contains a possible combination of `x × y` in its interior.
+    /// Returns enclosures of possible combinations of `x × y` in pixel coordinates.
     fn regions(&self, x: &TupperIntervalSet, y: &TupperIntervalSet) -> Vec<Region> {
-        /// Returns the smallest pixel-aligned region that contains `r` in its interior.
-        fn outer_pixels(r: &Region) -> Region {
-            // 5e-324 is interpreted as the smallest positive subnormal number.
-            const TINY: Interval = const_interval!(-5e-324, 5e-324);
-            let x = r.x() + TINY;
-            let y = r.y() + TINY;
-            Region::new(
-                interval!(x.inf().floor(), x.sup().ceil()).unwrap(),
-                interval!(y.inf().floor(), y.sup().ceil()).unwrap(),
-            )
-        }
-
         x.iter()
             .cartesian_product(y.iter())
             .filter(|(x, y)| x.g.union(y.g).is_some())
             .map(|(x, y)| {
-                let r = InexactRegion::new(
+                InexactRegion::new(
                     Self::point_interval_possibly_infinite(x.x.inf()),
                     Self::point_interval_possibly_infinite(x.x.sup()),
                     Self::point_interval_possibly_infinite(y.x.inf()),
                     Self::point_interval_possibly_infinite(y.x.sup()),
                 )
                 .transform(&self.inv_transform)
-                .outer();
-                outer_pixels(&r)
+                .outer()
             })
             .collect::<Vec<_>>()
     }
