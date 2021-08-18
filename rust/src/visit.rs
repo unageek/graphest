@@ -718,6 +718,7 @@ impl VisitMut for SubDivTransform {
                 let (num, den) = xs
                     .drain(..)
                     .fold((vec![], vec![]), |(mut num, mut den), e| {
+                        #[allow(clippy::collapsible_match)] // false-positive
                         match e {
                             binary!(Pow, x, y @ constant!(_))
                                 if test_rational(&y, |x| *x < 0.0) =>
