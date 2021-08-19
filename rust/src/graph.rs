@@ -91,9 +91,11 @@ pub trait Graph {
     fn refine(&mut self, duration: Duration) -> Result<bool, GraphingError>;
 }
 
+mod explicit;
 mod implicit;
 mod parametric;
 
 pub use crate::region::InexactRegion;
+pub use explicit::Explicit;
 pub use implicit::Implicit;
 pub use parametric::Parametric;

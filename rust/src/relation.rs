@@ -111,6 +111,48 @@ impl EvalCache {
     }
 }
 
+type EvalFunctionResult = (TupperIntervalSet, EvalResult);
+
+pub struct EvalFunctionCache {
+    ct: HashMap<Interval, EvalFunctionResult>,
+    size_of_ct: usize,
+    size_of_values_in_heap: usize,
+}
+
+impl EvalFunctionCache {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self {
+            ct: HashMap::new(),
+            size_of_ct: 0,
+            size_of_values_in_heap: 0,
+        }
+    }
+
+    /// Clears the cache and releases the allocated memory.
+    pub fn clear(&mut self) {
+        self.ct = HashMap::new();
+        self.size_of_ct = 0;
+        self.size_of_values_in_heap = 0;
+    }
+
+    pub fn get(&self, t: Interval) -> Option<&EvalFunctionResult> {
+        self.ct.get(&(t))
+    }
+
+    pub fn insert(&mut self, t: Interval, r: EvalFunctionResult) {
+        self.size_of_values_in_heap += r.0.size_in_heap() + r.1.size_in_heap();
+        self.ct.insert(t, r);
+        self.size_of_ct = self.ct.capacity()
+            * (size_of::<u64>() + size_of::<Interval>() + size_of::<EvalParametricResult>());
+    }
+
+    /// Returns the approximate size allocated by the [`EvalFunctionCache`] in bytes.
+    pub fn size_in_heap(&self) -> usize {
+        self.size_of_ct + self.size_of_values_in_heap
+    }
+}
+
 type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, EvalResult);
 
 /// A cache for evaluation results of a parametric relation.
@@ -149,6 +191,10 @@ impl EvalParametricCache {
 /// The type of a [`Relation`], which should be used when choosing the optimal graphing algorithm.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
+    /// A relation of the form y = f(x) ∧ P(x), where P(x) is an optional constraint on x.
+    ExplicitFunctionOfX,
+    /// A relation of the form x = f(y) ∧ P(y), where P(y) is an optional constraint on y.
+    ExplicitFunctionOfY,
     /// y is a function of x.
     /// More generally, the relation is of the form y R_1 f_1(x) ∨ … ∨ y R_n f_n(x).
     FunctionOfX,
@@ -203,6 +249,29 @@ impl Relation {
     /// Returns the number of calls of `self.eval` that have been made thus far.
     pub fn eval_count(&self) -> usize {
         self.eval_count
+    }
+
+    /// Evaluates the explicit relation y = f(x) ∧ P(x) and returns (f(x), P(x)).
+    ///
+    /// If P(x) is absent, its value is assumed to be always true.
+    pub fn eval_function_of_x(
+        &mut self,
+        x: Interval,
+        cache: Option<&mut EvalFunctionCache>,
+    ) -> (TupperIntervalSet, EvalResult) {
+        assert_eq!(self.relation_type, RelationType::ExplicitFunctionOfX);
+
+        match cache {
+            Some(cache) => match cache.get(x) {
+                Some(r) => r.clone(),
+                _ => {
+                    let r = self.eval_function_of_x_without_cache(x);
+                    cache.insert(x, r.clone());
+                    r
+                }
+            },
+            _ => self.eval_function_of_x_without_cache(x),
+        }
     }
 
     /// Evaluates the parametric relation x = f(t) ∧ y = g(t) ∧ P(t) and returns (f(t), g(t), P(t)).
@@ -346,6 +415,20 @@ impl Relation {
                 .map(|f| f.eval(ts))
                 .collect(),
         )
+    }
+
+    fn eval_function_of_x_without_cache(&mut self, x: Interval) -> EvalFunctionResult {
+        let p = self.eval(
+            &RelationArgs {
+                x,
+                y: Interval::ENTIRE,
+                n_theta: Interval::ENTIRE,
+                t: Interval::ENTIRE,
+            },
+            None,
+        );
+
+        (self.ts[self.y_explicit.unwrap()].clone(), p)
     }
 
     fn eval_parametric_without_cache(&mut self, t: Interval) -> EvalParametricResult {
@@ -667,12 +750,72 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
     }
 }
 
+struct ExplicitRelationParts {
+    y: Option<Expr>, // y = f(x)
+    px: Vec<Expr>,   // P(x)
+}
+
+/// Tries to identify `e` as an explicit relation.
+fn normalize_explicit_relation(e: &mut Expr, y_var: VarSet, x_var: VarSet) -> bool {
+    use BinaryOp::*;
+
+    let mut parts = ExplicitRelationParts {
+        y: None,
+        px: vec![],
+    };
+
+    if !normalize_explicit_relation_impl(&mut e.clone(), &mut parts, y_var, x_var) {
+        return false;
+    }
+
+    if let (Some(y), px) = (parts.y, parts.px) {
+        let mut conjuncts = vec![box y];
+        conjuncts.extend(px.into_iter().map(|e| box e));
+        let mut it = conjuncts.into_iter();
+        let first = it.next().unwrap();
+        *e = *it.fold(first, |acc, e| box Expr::binary(And, acc, e));
+        UpdateMetadata.visit_expr_mut(e);
+        true
+    } else {
+        false
+    }
+}
+
+fn normalize_explicit_relation_impl(
+    e: &mut Expr,
+    parts: &mut ExplicitRelationParts,
+    y_var: VarSet,
+    x_var: VarSet,
+) -> bool {
+    use BinaryOp::*;
+    match e {
+        binary!(And, e1, e2) => {
+            normalize_explicit_relation_impl(e1, parts, y_var, x_var)
+                && normalize_explicit_relation_impl(e2, parts, y_var, x_var)
+        }
+        binary!(Eq, y @ var!(_), e) | binary!(Eq, e, y @ var!(_))
+            if y.vars == y_var && x_var.contains(e.vars) =>
+        {
+            parts.y.is_none() && {
+                parts.y = Some(Expr::binary(ExplicitEq, box take(y), box take(e)));
+                true
+            }
+        }
+        e if VarSet::X.contains(e.vars) => {
+            parts.px.push(take(e));
+            true
+        }
+        _ => false,
+    }
+}
+
 struct ParametricRelationParts {
     xt: Option<Expr>, // x = f(t)
     yt: Option<Expr>, // y = f(t)
     pt: Vec<Expr>,    // P(t)
 }
 
+/// Tries to identify `e` as a parametric relation.
 fn normalize_parametric_relation(e: &mut Expr) -> bool {
     use BinaryOp::*;
 
@@ -744,6 +887,14 @@ macro_rules! rel_op {
 /// Precondition: [`EliminateNot`] has been applied.
 fn relation_type(e: &mut Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
+
+    if normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
+        return ExplicitFunctionOfX;
+    }
+
+    if normalize_explicit_relation(e, VarSet::X, VarSet::Y) {
+        return ExplicitFunctionOfY;
+    }
 
     if normalize_parametric_relation(e) {
         return Parametric;
@@ -873,20 +1024,20 @@ mod tests {
         }
 
         assert_eq!(f("1 < 2"), Implicit);
-        assert_eq!(f("y = 0"), FunctionOfX);
-        assert_eq!(f("0 = y"), FunctionOfX);
-        assert_eq!(f("y = sin(x)"), FunctionOfX);
+        assert_eq!(f("y = 0"), ExplicitFunctionOfX);
+        assert_eq!(f("0 = y"), ExplicitFunctionOfX);
+        assert_eq!(f("y = sin(x)"), ExplicitFunctionOfX);
         assert_eq!(f("!(y = sin(x))"), FunctionOfX);
-        assert_eq!(f("x = 0"), FunctionOfY);
-        assert_eq!(f("0 = x"), FunctionOfY);
-        assert_eq!(f("x = sin(y)"), FunctionOfY);
+        assert_eq!(f("x = 0"), ExplicitFunctionOfY);
+        assert_eq!(f("0 = x"), ExplicitFunctionOfY);
+        assert_eq!(f("x = sin(y)"), ExplicitFunctionOfY);
         assert_eq!(f("!(x = sin(y))"), FunctionOfY);
         assert_eq!(f("x y = 0"), Implicit);
         assert_eq!(f("y = sin(x y)"), Implicit);
         assert_eq!(f("sin(x) = 0"), Implicit);
         assert_eq!(f("sin(y) = 0"), Implicit);
         assert_eq!(f("y = sin(x) && y = cos(x)"), Implicit);
-        assert_eq!(f("y = sin(x) || y = cos(x)"), FunctionOfX);
+        assert_eq!(f("y = sin(x) || y = cos(x)"), Implicit);
         assert_eq!(f("!(y = sin(x) && y = cos(x))"), FunctionOfX);
         assert_eq!(f("!(y = sin(x) || y = cos(x))"), Implicit);
         assert_eq!(f("r = 1"), Implicit);

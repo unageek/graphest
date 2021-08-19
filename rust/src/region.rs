@@ -1,5 +1,5 @@
 use crate::block::Block;
-use inari::{interval, Interval};
+use inari::{const_interval, interval, Interval};
 
 /// A possibly empty rectangular region of the Cartesian plane.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -162,10 +162,26 @@ impl InexactRegion {
     /// Returns the region transformed by `t`.
     pub fn transform(&self, t: &Transform) -> Self {
         Self::new(
-            self.l.mul_add(t.sx, t.tx),
-            self.r.mul_add(t.sx, t.tx),
-            self.b.mul_add(t.sy, t.ty),
-            self.t.mul_add(t.sy, t.ty),
+            match t.sxd {
+                Some(sxd) => self.l / sxd,
+                _ => self.l,
+            }
+            .mul_add(t.sx, t.tx),
+            match t.sxd {
+                Some(sxd) => self.r / sxd,
+                _ => self.r,
+            }
+            .mul_add(t.sx, t.tx),
+            match t.syd {
+                Some(syd) => self.b / syd,
+                _ => self.b,
+            }
+            .mul_add(t.sy, t.ty),
+            match t.syd {
+                Some(syd) => self.t / syd,
+                _ => self.t,
+            }
+            .mul_add(t.sy, t.ty),
         )
     }
 
@@ -178,15 +194,42 @@ impl InexactRegion {
 /// A 2-D affine geometric transformation composed of scaling and translation.
 pub struct Transform {
     sx: Interval,
+    sxd: Option<Interval>,
     tx: Interval,
     sy: Interval,
+    syd: Option<Interval>,
     ty: Interval,
 }
 
 impl Transform {
     /// Creates a transformation that maps `(x, y)` to `(sx x + tx, sy y + ty)`.
     pub fn new(sx: Interval, tx: Interval, sy: Interval, ty: Interval) -> Self {
-        Self { sx, tx, sy, ty }
+        Self {
+            sx,
+            sxd: None,
+            tx,
+            sy,
+            syd: None,
+            ty,
+        }
+    }
+
+    /// Creates a transformation that maps `(x, y)` to `(sx x / sxd + tx, sy y / syd + ty)`.
+    pub fn with_predivision_factors(
+        (sx, sxd): (Interval, Interval),
+        tx: Interval,
+        (sy, syd): (Interval, Interval),
+        ty: Interval,
+    ) -> Self {
+        const ONE: Interval = const_interval!(1.0, 1.0);
+        Self {
+            sx,
+            sxd: if sxd == ONE { None } else { Some(sxd) },
+            tx,
+            sy,
+            syd: if syd == ONE { None } else { Some(syd) },
+            ty,
+        }
     }
 }
 
