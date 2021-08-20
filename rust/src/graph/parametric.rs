@@ -47,9 +47,9 @@ impl Parametric {
     ) -> Self {
         assert_eq!(rel.relation_type(), RelationType::Parametric);
 
+        let forms = rel.forms().clone();
         let im_width_interval = Self::point_interval(im_width as f64);
         let im_height_interval = Self::point_interval(im_height as f64);
-        let forms = rel.forms().clone();
         let mut g = Self {
             rel,
             forms,
@@ -414,7 +414,9 @@ impl Graph for Parametric {
                 .copied()
                 .zip(self.last_queued_blocks.pixels().copied())
                 .filter(|&(s, bi)| {
-                    s == PixelState::True || (bi as usize) < self.block_queue.begin_index()
+                    s == PixelState::True
+                        || s == PixelState::Uncertain
+                            && (bi as usize) < self.block_queue.begin_index()
                 })
                 .count(),
             eval_count: self.rel.eval_count(),
