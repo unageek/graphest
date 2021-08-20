@@ -1,8 +1,9 @@
-use super::Graph;
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions, SubdivisionDir},
     eval_result::EvalResult,
-    graph::{GraphingError, GraphingErrorKind, GraphingStatistics, PixelState, QueuedBlockIndex},
+    graph::{
+        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, PixelState, QueuedBlockIndex,
+    },
     image::{Image, PixelIndex, PixelRegion},
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
