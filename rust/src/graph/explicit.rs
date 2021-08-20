@@ -28,8 +28,9 @@ pub struct Explicit {
     last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
     im_region: Region,
-    transform: Transform,
-    inv_transform: Transform,
+    transform_x: Transform,
+    inv_transform_x: Transform,
+    inv_transform_y: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
     cache: EvalFunctionCache,
@@ -68,13 +69,21 @@ impl Explicit {
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
             ),
-            transform: Transform::with_predivision_factors(
+            transform_x: Transform::with_predivision_factors(
                 (region.width(), im_width_interval),
                 region.left(),
                 (ONE, ONE),
                 const_interval!(0.0, 0.0),
             ),
-            inv_transform: {
+            inv_transform_x: {
+                Transform::with_predivision_factors(
+                    (im_width_interval, region.width()),
+                    -im_width_interval * (region.left() / region.width()),
+                    (ONE, ONE),
+                    const_interval!(0.0, 0.0),
+                )
+            },
+            inv_transform_y: {
                 Transform::with_predivision_factors(
                     (ONE, ONE),
                     const_interval!(0.0, 0.0),
@@ -183,7 +192,7 @@ impl Explicit {
             .regions(pixel_x, &y)
             .iter()
             .into_iter()
-            .map(|r| Self::outer_pixels(r))
+            .map(|r| Self::outer_pixels_y(r))
             .collect::<Vec<_>>();
 
         let cond_is_true = cond
@@ -243,7 +252,7 @@ impl Explicit {
             .regions(pixel_x, &y)
             .iter()
             .into_iter()
-            .map(|r| Self::outer_pixels(r))
+            .map(|r| Self::outer_pixels_y(r))
             .collect::<Vec<_>>();
 
         let cond_is_true = cond
@@ -292,10 +301,10 @@ impl Explicit {
                         y1,
                         y2,
                     )
-                    .transform(&self.inv_transform)
+                    .transform(&self.inv_transform_y)
                     .inner();
                     if !r.is_empty() {
-                        r12 = Self::outer_pixels(&r);
+                        r12 = Self::outer_pixels_y(&r);
                     }
                 }
 
@@ -309,6 +318,45 @@ impl Explicit {
             }
         } else if cond_is_false {
             return incomplete_pixels;
+        }
+
+        // Try to locate true pixels.
+        if !x_dn.is_empty() {
+            let x = Self::simple_fraction(x_dn);
+            let im_x = {
+                let x = Self::point_interval(x);
+                let im_x = InexactRegion::new(x, x, Interval::ENTIRE, Interval::ENTIRE)
+                    .transform(&self.inv_transform_x)
+                    .outer()
+                    .x();
+                if im_x.is_singleton() || Self::outer_pixels1(im_x).wid() == 1.0 {
+                    Some(Self::outer_pixels1(im_x))
+                } else {
+                    None
+                }
+            };
+
+            if let Some(im_x) = im_x {
+                let (y, cond) = Self::eval_on_point(&mut self.rel, x, Some(&mut self.cache));
+                let im_r = self
+                    .regions(im_x, &y)
+                    .into_iter()
+                    .fold(Region::EMPTY, |acc, r| acc.convex_hull(&r));
+
+                let cond_is_true = cond
+                    .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
+                    .eval(&self.forms[..]);
+                let dec = y.decoration();
+
+                if dec >= Decoration::Def && cond_is_true {
+                    let r_pixels = Self::outer_pixels_y(&im_r);
+                    if im_r.y().is_singleton() || r_pixels.y().wid() == 1.0 {
+                        for p in &self.pixels_in_image(&r_pixels) {
+                            *self.im.get_mut(p) = PixelState::True;
+                        }
+                    }
+                }
+            }
         }
 
         for r in rs {
@@ -336,7 +384,7 @@ impl Explicit {
             Self::point_interval(py),
             Self::point_interval(py + ph),
         )
-        .transform(&self.transform)
+        .transform(&self.transform_x)
     }
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
@@ -351,7 +399,7 @@ impl Explicit {
             Self::point_interval(py),
             Self::point_interval((py + ph).min(self.im.height() as f64)),
         )
-        .transform(&self.transform)
+        .transform(&self.transform_x)
     }
 
     fn regions(&self, x: Interval, y: &TupperIntervalSet) -> Vec<Region> {
@@ -363,7 +411,7 @@ impl Explicit {
                     Self::point_interval_possibly_infinite(y.x.inf()),
                     Self::point_interval_possibly_infinite(y.x.sup()),
                 )
-                .transform(&self.inv_transform)
+                .transform(&self.inv_transform_y)
                 .outer()
             })
             .collect::<Vec<_>>()
@@ -398,10 +446,14 @@ impl Explicit {
         rel.eval_function_of_x(x, None)
     }
 
-    fn outer_pixels(r: &Region) -> Region {
+    fn outer_pixels1(x: Interval) -> Interval {
         const TINY: Interval = const_interval!(-5e-324, 5e-324);
-        let r1 = r.y() + TINY;
-        Region::new(r.x(), interval!(r1.inf().floor(), r1.sup().ceil()).unwrap())
+        let x1 = x + TINY;
+        interval!(x1.inf().floor(), x1.sup().ceil()).unwrap()
+    }
+
+    fn outer_pixels_y(r: &Region) -> Region {
+        Region::new(r.x(), Self::outer_pixels1(r.y()))
     }
 
     /// For the pixel-aligned region,
@@ -432,6 +484,26 @@ impl Explicit {
             const_interval!(f64::MAX, f64::INFINITY)
         } else {
             Self::point_interval(x)
+        }
+    }
+
+    fn simple_fraction(x: Interval) -> f64 {
+        let a = x.inf();
+        let b = x.sup();
+        let a_bits = a.to_bits();
+        let b_bits = b.to_bits();
+        let diff = a_bits ^ b_bits;
+        // The number of leading equal bits.
+        let n = diff.leading_zeros();
+        if n == 64 {
+            return a;
+        }
+        // Set all bits from the MSB through the first differing bit.
+        let mask = !0u64 << (64 - n - 1);
+        if a <= 0.0 {
+            f64::from_bits(a_bits & mask)
+        } else {
+            f64::from_bits(b_bits & mask)
         }
     }
 
