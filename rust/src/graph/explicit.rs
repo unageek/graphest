@@ -499,7 +499,9 @@ impl Graph for Explicit {
                 .copied()
                 .zip(self.last_queued_blocks.pixels().copied())
                 .filter(|&(s, bi)| {
-                    s == PixelState::True || (bi as usize) < self.block_queue.begin_index()
+                    s == PixelState::True
+                        || s == PixelState::Uncertain
+                            && (bi as usize) < self.block_queue.begin_index()
                 })
                 .count(),
             eval_count: self.rel.eval_count(),
