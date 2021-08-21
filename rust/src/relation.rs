@@ -111,24 +111,16 @@ impl EvalCache {
     }
 }
 
-type EvalFunctionResult = (TupperIntervalSet, EvalResult);
+type EvalExplicitResult = (TupperIntervalSet, EvalResult);
 
-pub struct EvalFunctionCache {
-    ct: HashMap<Interval, EvalFunctionResult>,
+#[derive(Default)]
+pub struct EvalExplicitCache {
+    ct: HashMap<Interval, EvalExplicitResult>,
     size_of_ct: usize,
     size_of_values_in_heap: usize,
 }
 
-impl EvalFunctionCache {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self {
-            ct: HashMap::new(),
-            size_of_ct: 0,
-            size_of_values_in_heap: 0,
-        }
-    }
-
+impl EvalExplicitCache {
     /// Clears the cache and releases the allocated memory.
     pub fn clear(&mut self) {
         self.ct = HashMap::new();
@@ -136,11 +128,11 @@ impl EvalFunctionCache {
         self.size_of_values_in_heap = 0;
     }
 
-    pub fn get(&self, t: Interval) -> Option<&EvalFunctionResult> {
+    pub fn get(&self, t: Interval) -> Option<&EvalExplicitResult> {
         self.ct.get(&(t))
     }
 
-    pub fn insert(&mut self, t: Interval, r: EvalFunctionResult) {
+    pub fn insert(&mut self, t: Interval, r: EvalExplicitResult) {
         self.size_of_values_in_heap += r.0.size_in_heap() + r.1.size_in_heap();
         self.ct.insert(t, r);
         self.size_of_ct = self.ct.capacity()
@@ -254,23 +246,26 @@ impl Relation {
     /// Evaluates the explicit relation y = f(x) ∧ P(x) and returns (f(x), P(x)).
     ///
     /// If P(x) is absent, its value is assumed to be always true.
-    pub fn eval_function_of_x(
+    pub fn eval_explicit(
         &mut self,
         x: Interval,
-        cache: Option<&mut EvalFunctionCache>,
-    ) -> (TupperIntervalSet, EvalResult) {
-        assert_eq!(self.relation_type, RelationType::ExplicitFunctionOfX);
+        cache: Option<&mut EvalExplicitCache>,
+    ) -> EvalExplicitResult {
+        assert!(matches!(
+            self.relation_type,
+            RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY
+        ));
 
         match cache {
             Some(cache) => match cache.get(x) {
                 Some(r) => r.clone(),
                 _ => {
-                    let r = self.eval_function_of_x_without_cache(x);
+                    let r = self.eval_explicit_without_cache(x);
                     cache.insert(x, r.clone());
                     r
                 }
             },
-            _ => self.eval_function_of_x_without_cache(x),
+            _ => self.eval_explicit_without_cache(x),
         }
     }
 
@@ -417,18 +412,36 @@ impl Relation {
         )
     }
 
-    fn eval_function_of_x_without_cache(&mut self, x: Interval) -> EvalFunctionResult {
-        let p = self.eval(
-            &RelationArgs {
-                x,
-                y: Interval::ENTIRE,
-                n_theta: Interval::ENTIRE,
-                t: Interval::ENTIRE,
-            },
-            None,
-        );
+    fn eval_explicit_without_cache(&mut self, x: Interval) -> EvalExplicitResult {
+        match self.relation_type {
+            RelationType::ExplicitFunctionOfX => {
+                let p = self.eval(
+                    &RelationArgs {
+                        x,
+                        y: Interval::ENTIRE,
+                        n_theta: Interval::ENTIRE,
+                        t: Interval::ENTIRE,
+                    },
+                    None,
+                );
 
-        (self.ts[self.y_explicit.unwrap()].clone(), p)
+                (self.ts[self.y_explicit.unwrap()].clone(), p)
+            }
+            RelationType::ExplicitFunctionOfY => {
+                let p = self.eval(
+                    &RelationArgs {
+                        x: Interval::ENTIRE,
+                        y: x,
+                        n_theta: Interval::ENTIRE,
+                        t: Interval::ENTIRE,
+                    },
+                    None,
+                );
+
+                (self.ts[self.x_explicit.unwrap()].clone(), p)
+            }
+            _ => panic!(),
+        }
     }
 
     fn eval_parametric_without_cache(&mut self, t: Interval) -> EvalParametricResult {

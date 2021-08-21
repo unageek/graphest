@@ -108,7 +108,7 @@ fn main() {
     let region = InexactRegion::new(bounds[0], bounds[1], bounds[2], bounds[3]);
 
     match rel.relation_type() {
-        RelationType::ExplicitFunctionOfX => plot(
+        RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY => plot(
             Explicit::new(rel, region, size[0], size[1], mem_limit),
             gray_alpha,
             size,

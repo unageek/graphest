@@ -8,7 +8,7 @@ use crate::{
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     ops::StaticForm,
     region::{InexactRegion, Region, Transform},
-    relation::{EvalFunctionCache, Relation, RelationType},
+    relation::{EvalExplicitCache, Relation, RelationType},
 };
 use image::{imageops, ImageBuffer, Pixel};
 use inari::{const_interval, interval, Decoration, Interval};
@@ -23,7 +23,7 @@ use std::{
 pub struct Explicit {
     rel: Relation,
     forms: Vec<StaticForm>,
-    _relation_type: RelationType,
+    transpose: bool,
     im: Image<PixelState>,
     last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
@@ -33,7 +33,7 @@ pub struct Explicit {
     real_to_im_y: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
-    cache: EvalFunctionCache,
+    cache: EvalExplicitCache,
 }
 
 impl Explicit {
@@ -52,15 +52,23 @@ impl Explicit {
         ));
 
         let forms = rel.forms().clone();
-        let relation_type = rel.relation_type();
+        let transpose = rel.relation_type() == RelationType::ExplicitFunctionOfY;
+        let im = Image::new(im_width, im_height);
+        let last_queued_blocks = Image::new(im_width, im_height);
+
+        let (im_width, im_height) = if transpose {
+            (im_height, im_width)
+        } else {
+            (im_width, im_height)
+        };
         let im_width_interval = Self::point_interval(im_width as f64);
         let im_height_interval = Self::point_interval(im_height as f64);
         let mut g = Self {
             rel,
             forms,
-            _relation_type: relation_type,
-            im: Image::new(im_width, im_height),
-            last_queued_blocks: Image::new(im_width, im_height),
+            transpose,
+            im,
+            last_queued_blocks,
             block_queue: BlockQueue::new(BlockQueueOptions {
                 store_xy: true,
                 ..Default::default()
@@ -98,7 +106,7 @@ impl Explicit {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache: EvalFunctionCache::new(),
+            cache: Default::default(),
         };
 
         let kx = (im_width as f64).log2().ceil() as i8;
@@ -186,7 +194,7 @@ impl Explicit {
 
         let px = {
             let begin = b.pixel_index().x;
-            let end = (begin + b.width()).min(self.im.width());
+            let end = (begin + b.width()).min(self.im_width());
             interval!(begin as f64, end as f64).unwrap()
         };
         let pys = self
@@ -379,11 +387,31 @@ impl Explicit {
         let py = b.y as f64 * ph;
         InexactRegion::new(
             Self::point_interval(px),
-            Self::point_interval((px + pw).min(self.im.width() as f64)),
+            Self::point_interval((px + pw).min(self.im_width() as f64)),
             Self::point_interval(py),
-            Self::point_interval((py + ph).min(self.im.height() as f64)),
+            Self::point_interval((py + ph).min(self.im_height() as f64)),
         )
         .transform(&self.im_to_real_x)
+    }
+
+    fn eval_on_interval(rel: &mut Relation, x: Interval) -> (TupperIntervalSet, EvalResult) {
+        rel.eval_explicit(x, None)
+    }
+
+    fn eval_on_point(
+        rel: &mut Relation,
+        x: f64,
+        cache: Option<&mut EvalExplicitCache>,
+    ) -> (TupperIntervalSet, EvalResult) {
+        rel.eval_explicit(Self::point_interval(x), cache)
+    }
+
+    fn im_height(&self) -> u32 {
+        if self.transpose {
+            self.im.width()
+        } else {
+            self.im.height()
+        }
     }
 
     fn im_intervals(&self, y: &TupperIntervalSet) -> Vec<Interval> {
@@ -402,33 +430,12 @@ impl Explicit {
             .collect::<Vec<_>>()
     }
 
-    fn set_last_queued_block(
-        &mut self,
-        r: &PixelRegion,
-        block_index: usize,
-    ) -> Result<(), GraphingError> {
-        if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-            for p in r.iter() {
-                self.last_queued_blocks[p] = block_index;
-            }
-            Ok(())
+    fn im_width(&self) -> u32 {
+        if self.transpose {
+            self.im.height()
         } else {
-            Err(GraphingError {
-                kind: GraphingErrorKind::BlockIndexOverflow,
-            })
+            self.im.width()
         }
-    }
-
-    fn eval_on_point(
-        rel: &mut Relation,
-        x: f64,
-        cache: Option<&mut EvalFunctionCache>,
-    ) -> (TupperIntervalSet, EvalResult) {
-        rel.eval_function_of_x(Self::point_interval(x), cache)
-    }
-
-    fn eval_on_interval(rel: &mut Relation, x: Interval) -> (TupperIntervalSet, EvalResult) {
-        rel.eval_function_of_x(x, None)
     }
 
     fn outer_pixels(x: Interval) -> Interval {
@@ -445,8 +452,11 @@ impl Explicit {
             PixelRegion::EMPTY
         } else {
             // If `r` is degenerate, the result is `PixelRegion::EMPTY`.
-            let x = r.x();
-            let y = r.y();
+            let mut x = r.x();
+            let mut y = r.y();
+            if self.transpose {
+                swap(&mut x, &mut y);
+            }
             PixelRegion::new(
                 PixelIndex::new(x.inf() as u32, y.inf() as u32),
                 PixelIndex::new(x.sup() as u32, y.sup() as u32),
@@ -465,6 +475,23 @@ impl Explicit {
             const_interval!(f64::MAX, f64::INFINITY)
         } else {
             Self::point_interval(x)
+        }
+    }
+
+    fn set_last_queued_block(
+        &mut self,
+        ps: &PixelRegion,
+        block_index: usize,
+    ) -> Result<(), GraphingError> {
+        if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
+            for p in ps {
+                self.last_queued_blocks[p] = block_index;
+            }
+            Ok(())
+        } else {
+            Err(GraphingError {
+                kind: GraphingErrorKind::BlockIndexOverflow,
+            })
         }
     }
 
@@ -500,7 +527,7 @@ impl Explicit {
             let b0 = Block::new(x0, 0, kx, 0, b.n_theta, b.t);
             let b0_width = b0.width();
             sub_bs.push(b0);
-            if x1 * b0_width < self.im.width() {
+            if x1 * b0_width < self.im_width() {
                 sub_bs.push(Block::new(x1, 0, kx, 0, b.n_theta, b.t));
             }
         } else {
