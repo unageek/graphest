@@ -182,16 +182,16 @@ impl Explicit {
             let u_up = self.block_to_region_clipped(&b).outer();
             u_up.x()
         };
-        let pixel_x = {
+        let px = {
             let begin = b.pixel_index().x;
             let end = (begin + b.width()).min(self.im.width());
             interval!(begin as f64, end as f64).unwrap()
         };
-        let (y, cond) = Self::eval_on_interval(&mut self.rel, x);
-        let ys = self
-            .intervals(&y)
+        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x);
+        let pys = self
+            .im_intervals(&ys)
             .into_iter()
-            .map(|y| Self::outer_pixels1(y))
+            .map(Self::outer_pixels)
             .collect::<Vec<_>>();
 
         let cond_is_true = cond
@@ -203,16 +203,15 @@ impl Explicit {
 
         let mut incomplete_pixels = vec![];
 
-        let dec = y.decoration();
+        let dec = ys.decoration();
         if dec >= Decoration::Def && cond_is_true {
-            let y = ys
+            let py = pys
                 .iter()
                 .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y));
 
-            if y.wid() == 1.0 {
+            if py.wid() == 1.0 {
                 // y is interior to a single row.
-                let r = Region::new(pixel_x, y);
-                for p in &self.pixels_in_image(&r) {
+                for p in &self.pixels_in_image(&Region::new(px, py)) {
                     *self.im.get_mut(p) = PixelState::True;
                 }
                 return incomplete_pixels;
@@ -221,9 +220,8 @@ impl Explicit {
             return incomplete_pixels;
         }
 
-        for y in ys {
-            let r = Region::new(pixel_x, y);
-            let ps = self.pixels_in_image(&r);
+        for py in pys {
+            let ps = self.pixels_in_image(&Region::new(px, py));
             if ps.iter().all(|p| self.im.get(p) == PixelState::True) {
                 // The case where `ps` is empty goes here.
                 continue;
@@ -244,16 +242,16 @@ impl Explicit {
             let p_dn = self.block_to_region(&b.pixel_block()).inner();
             x_up.intersection(p_dn.x())
         };
-        let x_pixel = {
+        let px = {
             let begin = b.pixel_index().x;
             let end = begin + 1;
             interval!(begin as f64, end as f64).unwrap()
         };
-        let (y, cond) = Self::eval_on_interval(&mut self.rel, x_up);
-        let ys = self
-            .intervals(&y)
+        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x_up);
+        let pys = self
+            .im_intervals(&ys)
             .into_iter()
-            .map(|y| Self::outer_pixels1(y))
+            .map(Self::outer_pixels)
             .collect::<Vec<_>>();
 
         let cond_is_true = cond
@@ -265,21 +263,20 @@ impl Explicit {
 
         let mut incomplete_pixels = vec![];
 
-        let dec = y.decoration();
+        let dec = ys.decoration();
         if dec >= Decoration::Def && cond_is_true {
-            let y = ys
+            let py = pys
                 .iter()
                 .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y));
 
-            if y.wid() == 1.0 {
+            if py.wid() == 1.0 {
                 // y is interior to a single row.
-                let r = Region::new(x_pixel, y);
-                for p in &self.pixels_in_image(&r) {
+                for p in &self.pixels_in_image(&Region::new(px, py)) {
                     *self.im.get_mut(p) = PixelState::True;
                 }
                 return incomplete_pixels;
             } else if dec >= Decoration::Dac && !x_dn.is_empty() {
-                assert_eq!(ys.len(), 1);
+                assert_eq!(pys.len(), 1);
                 let mut y1 = {
                     let (y, _) =
                         Self::eval_on_point(&mut self.rel, x_dn.inf(), Some(&mut self.cache));
@@ -293,31 +290,29 @@ impl Explicit {
                     y.iter().next().unwrap().x
                 };
 
-                let mut y_pixels = Interval::EMPTY;
+                let mut py12 = Interval::EMPTY;
                 if y2.precedes(y1) {
                     swap(&mut y1, &mut y2);
                 }
                 if y1.precedes(y2) {
-                    let y = InexactRegion::new(
-                        Self::point_interval(x_pixel.inf()),
-                        Self::point_interval(x_pixel.sup()),
-                        y1,
-                        y2,
-                    )
-                    .transform(&self.real_to_im_y)
-                    .inner()
-                    .y();
-                    if !y.is_empty() {
-                        y_pixels = Self::outer_pixels1(y);
-                    }
+                    py12 = Self::outer_pixels(
+                        InexactRegion::new(
+                            Self::point_interval(px.inf()),
+                            Self::point_interval(px.sup()),
+                            y1,
+                            y2,
+                        )
+                        .transform(&self.real_to_im_y)
+                        .inner()
+                        .y(),
+                    );
                 }
 
-                let r_pixels = Region::new(x_pixel, y_pixels);
-                for p in &self.pixels_in_image(&r_pixels) {
+                for p in &self.pixels_in_image(&Region::new(px, py12)) {
                     *self.im.get_mut(p) = PixelState::True;
                 }
 
-                if y_pixels == y {
+                if py12 == py {
                     return incomplete_pixels;
                 }
             }
@@ -328,36 +323,35 @@ impl Explicit {
         // Try to locate true pixels.
         if !x_dn.is_empty() {
             let x = Self::simple_fraction(x_dn);
-            let x_pixels = {
+            let px = {
                 let x = Self::point_interval(x);
                 let im_x = InexactRegion::new(x, x, Interval::ENTIRE, Interval::ENTIRE)
                     .transform(&self.real_to_im_x)
                     .outer()
                     .x();
-                if im_x.is_singleton() || Self::outer_pixels1(im_x).wid() == 1.0 {
-                    Some(Self::outer_pixels1(im_x))
+                if im_x.is_singleton() || Self::outer_pixels(im_x).wid() == 1.0 {
+                    Some(Self::outer_pixels(im_x))
                 } else {
                     None
                 }
             };
 
-            if let Some(x_pixels) = x_pixels {
-                let (y, cond) = Self::eval_on_point(&mut self.rel, x, Some(&mut self.cache));
+            if let Some(px) = px {
+                let (ys, cond) = Self::eval_on_point(&mut self.rel, x, Some(&mut self.cache));
                 let im_y = self
-                    .intervals(&y)
+                    .im_intervals(&ys)
                     .into_iter()
                     .fold(Interval::EMPTY, |acc, y| acc.convex_hull(y));
 
                 let cond_is_true = cond
                     .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
                     .eval(&self.forms[..]);
-                let dec = y.decoration();
+                let dec = ys.decoration();
 
                 if dec >= Decoration::Def && cond_is_true {
-                    let y_pixels = Self::outer_pixels1(im_y);
-                    let r_pixels = Region::new(x_pixels, y_pixels);
-                    if im_y.is_singleton() || y_pixels.wid() == 1.0 {
-                        for p in &self.pixels_in_image(&r_pixels) {
+                    let py = Self::outer_pixels(im_y);
+                    if im_y.is_singleton() || py.wid() == 1.0 {
+                        for p in &self.pixels_in_image(&Region::new(px, py)) {
                             *self.im.get_mut(p) = PixelState::True;
                         }
                     }
@@ -365,9 +359,8 @@ impl Explicit {
             }
         }
 
-        for y in ys {
-            let r = Region::new(x_pixel, y);
-            let ps = self.pixels_in_image(&r);
+        for py in pys {
+            let ps = self.pixels_in_image(&Region::new(px, py));
             if ps.iter().all(|p| self.im.get(p) == PixelState::True) {
                 // The case where `ps` is empty goes here.
                 continue;
@@ -409,7 +402,7 @@ impl Explicit {
         .transform(&self.im_to_real_x)
     }
 
-    fn intervals(&self, y: &TupperIntervalSet) -> Vec<Interval> {
+    fn im_intervals(&self, y: &TupperIntervalSet) -> Vec<Interval> {
         y.iter()
             .map(|y| {
                 InexactRegion::new(
@@ -454,7 +447,7 @@ impl Explicit {
         rel.eval_function_of_x(x, None)
     }
 
-    fn outer_pixels1(x: Interval) -> Interval {
+    fn outer_pixels(x: Interval) -> Interval {
         const TINY: Interval = const_interval!(-5e-324, 5e-324);
         let x1 = x + TINY;
         interval!(x1.inf().floor(), x1.sup().ceil()).unwrap()
