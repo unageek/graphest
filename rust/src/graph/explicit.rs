@@ -28,9 +28,9 @@ pub struct Explicit {
     last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
     im_region: Region,
-    transform_x: Transform,
-    inv_transform_x: Transform,
-    inv_transform_y: Transform,
+    im_to_real_x: Transform,
+    real_to_im_x: Transform,
+    real_to_im_y: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
     cache: EvalFunctionCache,
@@ -69,13 +69,13 @@ impl Explicit {
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
             ),
-            transform_x: Transform::with_predivision_factors(
+            im_to_real_x: Transform::with_predivision_factors(
                 (region.width(), im_width_interval),
                 region.left(),
                 (ONE, ONE),
                 const_interval!(0.0, 0.0),
             ),
-            inv_transform_x: {
+            real_to_im_x: {
                 Transform::with_predivision_factors(
                     (im_width_interval, region.width()),
                     -im_width_interval * (region.left() / region.width()),
@@ -83,7 +83,7 @@ impl Explicit {
                     const_interval!(0.0, 0.0),
                 )
             },
-            inv_transform_y: {
+            real_to_im_y: {
                 Transform::with_predivision_factors(
                     (ONE, ONE),
                     const_interval!(0.0, 0.0),
@@ -301,7 +301,7 @@ impl Explicit {
                         y1,
                         y2,
                     )
-                    .transform(&self.inv_transform_y)
+                    .transform(&self.real_to_im_y)
                     .inner();
                     if !r.is_empty() {
                         r12 = Self::outer_pixels_y(&r);
@@ -326,7 +326,7 @@ impl Explicit {
             let im_x = {
                 let x = Self::point_interval(x);
                 let im_x = InexactRegion::new(x, x, Interval::ENTIRE, Interval::ENTIRE)
-                    .transform(&self.inv_transform_x)
+                    .transform(&self.real_to_im_x)
                     .outer()
                     .x();
                 if im_x.is_singleton() || Self::outer_pixels1(im_x).wid() == 1.0 {
@@ -384,7 +384,7 @@ impl Explicit {
             Self::point_interval(py),
             Self::point_interval(py + ph),
         )
-        .transform(&self.transform_x)
+        .transform(&self.im_to_real_x)
     }
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
@@ -399,7 +399,7 @@ impl Explicit {
             Self::point_interval(py),
             Self::point_interval((py + ph).min(self.im.height() as f64)),
         )
-        .transform(&self.transform_x)
+        .transform(&self.im_to_real_x)
     }
 
     fn regions(&self, x: Interval, y: &TupperIntervalSet) -> Vec<Region> {
@@ -411,7 +411,7 @@ impl Explicit {
                     Self::point_interval_possibly_infinite(y.x.inf()),
                     Self::point_interval_possibly_infinite(y.x.sup()),
                 )
-                .transform(&self.inv_transform_y)
+                .transform(&self.real_to_im_y)
                 .outer()
             })
             .collect::<Vec<_>>()
