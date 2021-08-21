@@ -2,7 +2,11 @@ use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
     eval_result::EvalResult,
     graph::{
-        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, PixelState, QueuedBlockIndex,
+        common::{
+            point_interval, point_interval_possibly_infinite, simple_fraction, PixelState,
+            QueuedBlockIndex,
+        },
+        Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
     },
     image::{Image, PixelIndex, PixelRegion},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
@@ -61,8 +65,8 @@ impl Explicit {
         } else {
             (im_width, im_height)
         };
-        let im_width_interval = Self::point_interval(im_width as f64);
-        let im_height_interval = Self::point_interval(im_height as f64);
+        let im_width_interval = point_interval(im_width as f64);
+        let im_height_interval = point_interval(im_height as f64);
         let mut g = Self {
             rel,
             forms,
@@ -296,8 +300,8 @@ impl Explicit {
                 if y1.precedes(y2) {
                     py12 = Self::outer_pixels(
                         InexactRegion::new(
-                            Self::point_interval(px.inf()),
-                            Self::point_interval(px.sup()),
+                            point_interval(px.inf()),
+                            point_interval(px.sup()),
                             y1,
                             y2,
                         )
@@ -321,9 +325,9 @@ impl Explicit {
 
         // Try to locate true pixels.
         if !x_dn.is_empty() {
-            let x = Self::simple_fraction(x_dn);
+            let x = simple_fraction(x_dn);
             let px = {
-                let x = Self::point_interval(x);
+                let x = point_interval(x);
                 let im_x = InexactRegion::new(x, x, Interval::ENTIRE, Interval::ENTIRE)
                     .transform(&self.real_to_im_x)
                     .outer()
@@ -371,10 +375,10 @@ impl Explicit {
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
         InexactRegion::new(
-            Self::point_interval(px),
-            Self::point_interval(px + pw),
-            Self::point_interval(py),
-            Self::point_interval(py + ph),
+            point_interval(px),
+            point_interval(px + pw),
+            point_interval(py),
+            point_interval(py + ph),
         )
         .transform(&self.im_to_real_x)
     }
@@ -386,10 +390,10 @@ impl Explicit {
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
         InexactRegion::new(
-            Self::point_interval(px),
-            Self::point_interval((px + pw).min(self.im_width() as f64)),
-            Self::point_interval(py),
-            Self::point_interval((py + ph).min(self.im_height() as f64)),
+            point_interval(px),
+            point_interval((px + pw).min(self.im_width() as f64)),
+            point_interval(py),
+            point_interval((py + ph).min(self.im_height() as f64)),
         )
         .transform(&self.im_to_real_x)
     }
@@ -403,7 +407,7 @@ impl Explicit {
         x: f64,
         cache: Option<&mut EvalExplicitCache>,
     ) -> (TupperIntervalSet, EvalResult) {
-        rel.eval_explicit(Self::point_interval(x), cache)
+        rel.eval_explicit(point_interval(x), cache)
     }
 
     fn im_height(&self) -> u32 {
@@ -420,8 +424,8 @@ impl Explicit {
                 InexactRegion::new(
                     Interval::ENTIRE,
                     Interval::ENTIRE,
-                    Self::point_interval_possibly_infinite(y.x.inf()),
-                    Self::point_interval_possibly_infinite(y.x.sup()),
+                    point_interval_possibly_infinite(y.x.inf()),
+                    point_interval_possibly_infinite(y.x.sup()),
                 )
                 .transform(&self.real_to_im_y)
                 .outer()
@@ -464,20 +468,6 @@ impl Explicit {
         }
     }
 
-    fn point_interval(x: f64) -> Interval {
-        interval!(x, x).unwrap()
-    }
-
-    fn point_interval_possibly_infinite(x: f64) -> Interval {
-        if x == f64::NEG_INFINITY {
-            const_interval!(f64::NEG_INFINITY, f64::MIN)
-        } else if x == f64::INFINITY {
-            const_interval!(f64::MAX, f64::INFINITY)
-        } else {
-            Self::point_interval(x)
-        }
-    }
-
     fn set_last_queued_block(
         &mut self,
         ps: &PixelRegion,
@@ -492,26 +482,6 @@ impl Explicit {
             Err(GraphingError {
                 kind: GraphingErrorKind::BlockIndexOverflow,
             })
-        }
-    }
-
-    fn simple_fraction(x: Interval) -> f64 {
-        let a = x.inf();
-        let b = x.sup();
-        let a_bits = a.to_bits();
-        let b_bits = b.to_bits();
-        let diff = a_bits ^ b_bits;
-        // The number of leading equal bits.
-        let n = diff.leading_zeros();
-        if n == 64 {
-            return a;
-        }
-        // Set all bits from the MSB through the first differing bit.
-        let mask = !0u64 << (64 - n - 1);
-        if a <= 0.0 {
-            f64::from_bits(a_bits & mask)
-        } else {
-            f64::from_bits(b_bits & mask)
         }
     }
 

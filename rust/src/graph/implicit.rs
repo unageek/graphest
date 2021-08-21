@@ -2,7 +2,8 @@ use crate::{
     block::{Block, BlockQueue, BlockQueueOptions, SubdivisionDir},
     eval_result::EvalResult,
     graph::{
-        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, PixelState, QueuedBlockIndex,
+        common::{point_interval, simple_fraction, PixelState, QueuedBlockIndex},
+        Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
     },
     image::{Image, PixelIndex, PixelRegion},
     interval_set::{DecSignSet, SignSet},
@@ -69,9 +70,9 @@ impl Implicit {
                 store_next_dir: has_n_theta || has_t,
             }),
             im_to_real: Transform::new(
-                region.width() / Self::point_interval(im_width as f64),
+                region.width() / point_interval(im_width as f64),
                 region.left(),
-                region.height() / Self::point_interval(im_height as f64),
+                region.height() / point_interval(im_height as f64),
                 region.bottom(),
             ),
             stats: GraphingStatistics {
@@ -151,7 +152,7 @@ impl Implicit {
                 } else {
                     if self.rel.has_n_theta() && !sub_b.n_theta.is_singleton() {
                         // Try finding a solution earlier.
-                        let n = Self::point_interval(Self::simple_number(sub_b.n_theta));
+                        let n = point_interval(simple_fraction(sub_b.n_theta));
                         self.process_subpixel_block(
                             &Block::new(sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n, sub_b.t),
                             false,
@@ -431,7 +432,7 @@ impl Implicit {
         let x = inter.x();
         let y = inter.y();
         let points = [
-            (Self::simple_number(x), Self::simple_number(y)),
+            (simple_fraction(x), simple_fraction(y)),
             (x.inf(), y.inf()), // bottom left
             (x.sup(), y.inf()), // bottom right
             (x.inf(), y.sup()), // top left
@@ -479,8 +480,8 @@ impl Implicit {
     ) -> EvalResult {
         rel.eval(
             &RelationArgs {
-                x: Self::point_interval(x),
-                y: Self::point_interval(y),
+                x: point_interval(x),
+                y: point_interval(y),
                 n_theta,
                 t,
             },
@@ -513,10 +514,10 @@ impl Implicit {
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
         InexactRegion::new(
-            Self::point_interval(px),
-            Self::point_interval(px + pw),
-            Self::point_interval(py),
-            Self::point_interval(py + ph),
+            point_interval(px),
+            point_interval(px + pw),
+            point_interval(py),
+            point_interval(py + ph),
         )
         .transform(&self.im_to_real)
     }
@@ -528,41 +529,12 @@ impl Implicit {
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
         InexactRegion::new(
-            Self::point_interval(px),
-            Self::point_interval((px + pw).min(self.im.width() as f64)),
-            Self::point_interval(py),
-            Self::point_interval((py + ph).min(self.im.height() as f64)),
+            point_interval(px),
+            point_interval((px + pw).min(self.im.width() as f64)),
+            point_interval(py),
+            point_interval((py + ph).min(self.im.height() as f64)),
         )
         .transform(&self.im_to_real)
-    }
-
-    fn point_interval(x: f64) -> Interval {
-        interval!(x, x).unwrap()
-    }
-
-    /// Returns a number within the interval whose significand is as short as possible in the binary
-    /// representation. For such inputs, arithmetic expressions are more likely to be evaluated
-    /// exactly.
-    ///
-    /// Precondition: the interval is nonempty.
-    fn simple_number(x: Interval) -> f64 {
-        let a = x.inf();
-        let b = x.sup();
-        let a_bits = a.to_bits();
-        let b_bits = b.to_bits();
-        let diff = a_bits ^ b_bits;
-        // The number of leading equal bits.
-        let n = diff.leading_zeros();
-        if n == 64 {
-            return a;
-        }
-        // Set all bits from the MSB through the first differing bit.
-        let mask = !0u64 << (64 - n - 1);
-        if a <= 0.0 {
-            f64::from_bits(a_bits & mask)
-        } else {
-            f64::from_bits(b_bits & mask)
-        }
     }
 
     /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
