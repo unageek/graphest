@@ -182,12 +182,13 @@ impl Explicit {
             let u_up = self.block_to_region_clipped(&b).outer();
             u_up.x()
         };
+        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x);
+
         let px = {
             let begin = b.pixel_index().x;
             let end = (begin + b.width()).min(self.im.width());
             interval!(begin as f64, end as f64).unwrap()
         };
-        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x);
         let pys = self
             .im_intervals(&ys)
             .into_iter()
@@ -201,8 +202,6 @@ impl Explicit {
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..]);
 
-        let mut incomplete_pixels = vec![];
-
         let dec = ys.decoration();
         if dec >= Decoration::Def && cond_is_true {
             let py = pys
@@ -214,23 +213,16 @@ impl Explicit {
                 for p in &self.pixels_in_image(&Region::new(px, py)) {
                     self.im[p] = PixelState::True;
                 }
-                return incomplete_pixels;
+                return vec![];
             }
         } else if cond_is_false {
-            return incomplete_pixels;
+            return vec![];
         }
 
-        for py in pys {
-            let ps = self.pixels_in_image(&Region::new(px, py));
-            if ps.iter().all(|p| self.im[p] == PixelState::True) {
-                // The case where `ps` is empty goes here.
-                continue;
-            } else {
-                incomplete_pixels.push(ps)
-            }
-        }
-
-        incomplete_pixels
+        pys.into_iter()
+            .map(|py| self.pixels_in_image(&Region::new(px, py)))
+            .filter(|ps| ps.iter().any(|p| self.im[p] != PixelState::True))
+            .collect()
     }
 
     fn process_subpixel_block(&mut self, b: &Block) -> Vec<PixelRegion> {
@@ -242,12 +234,13 @@ impl Explicit {
             let p_dn = self.block_to_region(&b.pixel_block()).inner();
             x_up.intersection(p_dn.x())
         };
+        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x_up);
+
         let px = {
             let begin = b.pixel_index().x;
             let end = begin + 1;
             interval!(begin as f64, end as f64).unwrap()
         };
-        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x_up);
         let pys = self
             .im_intervals(&ys)
             .into_iter()
@@ -261,8 +254,6 @@ impl Explicit {
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..]);
 
-        let mut incomplete_pixels = vec![];
-
         let dec = ys.decoration();
         if dec >= Decoration::Def && cond_is_true {
             let py = pys
@@ -274,7 +265,7 @@ impl Explicit {
                 for p in &self.pixels_in_image(&Region::new(px, py)) {
                     self.im[p] = PixelState::True;
                 }
-                return incomplete_pixels;
+                return vec![];
             } else if dec >= Decoration::Dac && !x_dn.is_empty() {
                 assert_eq!(pys.len(), 1);
                 let mut y1 = {
@@ -313,11 +304,11 @@ impl Explicit {
                 }
 
                 if py12 == py {
-                    return incomplete_pixels;
+                    return vec![];
                 }
             }
         } else if cond_is_false {
-            return incomplete_pixels;
+            return vec![];
         }
 
         // Try to locate true pixels.
@@ -359,17 +350,10 @@ impl Explicit {
             }
         }
 
-        for py in pys {
-            let ps = self.pixels_in_image(&Region::new(px, py));
-            if ps.iter().all(|p| self.im[p] == PixelState::True) {
-                // The case where `ps` is empty goes here.
-                continue;
-            } else {
-                incomplete_pixels.push(ps)
-            }
-        }
-
-        incomplete_pixels
+        pys.into_iter()
+            .map(|py| self.pixels_in_image(&Region::new(px, py)))
+            .filter(|ps| ps.iter().any(|p| self.im[p] != PixelState::True))
+            .collect()
     }
 
     /// Returns the region that corresponds to a subpixel block `b`.
