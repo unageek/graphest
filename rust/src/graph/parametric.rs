@@ -66,9 +66,9 @@ impl Parametric {
             inv_transform: {
                 Transform::new(
                     im_width_interval / region.width(),
-                    -region.left() * (im_width_interval / region.width()),
+                    -im_width_interval * (region.left() / region.width()),
                     im_height_interval / region.height(),
-                    -region.bottom() * (im_height_interval / region.height()),
+                    -im_height_interval * (region.bottom() / region.height()),
                 )
             },
             stats: GraphingStatistics {
