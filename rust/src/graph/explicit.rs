@@ -130,8 +130,8 @@ impl Explicit {
                 } else {
                     for ps in incomplete_pixels {
                         for p in &ps {
-                            if self.im.get(p) == PixelState::Uncertain {
-                                *self.im.get_mut(p) = PixelState::UncertainNeverFalse;
+                            if self.im[p] == PixelState::Uncertain {
+                                self.im[p] = PixelState::UncertainNeverFalse;
                             }
                         }
                     }
@@ -212,7 +212,7 @@ impl Explicit {
             if py.wid() == 1.0 {
                 // y is interior to a single row.
                 for p in &self.pixels_in_image(&Region::new(px, py)) {
-                    *self.im.get_mut(p) = PixelState::True;
+                    self.im[p] = PixelState::True;
                 }
                 return incomplete_pixels;
             }
@@ -222,7 +222,7 @@ impl Explicit {
 
         for py in pys {
             let ps = self.pixels_in_image(&Region::new(px, py));
-            if ps.iter().all(|p| self.im.get(p) == PixelState::True) {
+            if ps.iter().all(|p| self.im[p] == PixelState::True) {
                 // The case where `ps` is empty goes here.
                 continue;
             } else {
@@ -272,7 +272,7 @@ impl Explicit {
             if py.wid() == 1.0 {
                 // y is interior to a single row.
                 for p in &self.pixels_in_image(&Region::new(px, py)) {
-                    *self.im.get_mut(p) = PixelState::True;
+                    self.im[p] = PixelState::True;
                 }
                 return incomplete_pixels;
             } else if dec >= Decoration::Dac && !x_dn.is_empty() {
@@ -309,7 +309,7 @@ impl Explicit {
                 }
 
                 for p in &self.pixels_in_image(&Region::new(px, py12)) {
-                    *self.im.get_mut(p) = PixelState::True;
+                    self.im[p] = PixelState::True;
                 }
 
                 if py12 == py {
@@ -352,7 +352,7 @@ impl Explicit {
                     let py = Self::outer_pixels(im_y);
                     if im_y.is_singleton() || py.wid() == 1.0 {
                         for p in &self.pixels_in_image(&Region::new(px, py)) {
-                            *self.im.get_mut(p) = PixelState::True;
+                            self.im[p] = PixelState::True;
                         }
                     }
                 }
@@ -361,7 +361,7 @@ impl Explicit {
 
         for py in pys {
             let ps = self.pixels_in_image(&Region::new(px, py));
-            if ps.iter().all(|p| self.im.get(p) == PixelState::True) {
+            if ps.iter().all(|p| self.im[p] == PixelState::True) {
                 // The case where `ps` is empty goes here.
                 continue;
             } else {
@@ -425,7 +425,7 @@ impl Explicit {
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
             for p in r.iter() {
-                *self.last_queued_blocks.get_mut(p) = block_index;
+                self.last_queued_blocks[p] = block_index;
             }
             Ok(())
         } else {
