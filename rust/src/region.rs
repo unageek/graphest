@@ -178,15 +178,15 @@ impl InexactRegion {
 /// A 2-D affine geometric transformation composed of scaling and translation.
 pub struct Transform {
     sx: Interval,
-    sy: Interval,
     tx: Interval,
+    sy: Interval,
     ty: Interval,
 }
 
 impl Transform {
     /// Creates a transformation that maps `(x, y)` to `(sx x + tx, sy y + ty)`.
-    pub fn new(sx: Interval, sy: Interval, tx: Interval, ty: Interval) -> Self {
-        Self { sx, sy, tx, ty }
+    pub fn new(sx: Interval, tx: Interval, sy: Interval, ty: Interval) -> Self {
+        Self { sx, tx, sy, ty }
     }
 }
 

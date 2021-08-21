@@ -70,8 +70,8 @@ impl Implicit {
             }),
             transform: Transform::new(
                 region.width() / Self::point_interval(im_width as f64),
-                region.height() / Self::point_interval(im_height as f64),
                 region.left(),
+                region.height() / Self::point_interval(im_height as f64),
                 region.bottom(),
             ),
             stats: GraphingStatistics {

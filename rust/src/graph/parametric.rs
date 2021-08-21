@@ -66,8 +66,8 @@ impl Parametric {
             inv_transform: {
                 Transform::new(
                     im_width_interval / region.width(),
-                    im_height_interval / region.height(),
                     -region.left() * (im_width_interval / region.width()),
+                    im_height_interval / region.height(),
                     -region.bottom() * (im_height_interval / region.height()),
                 )
             },
