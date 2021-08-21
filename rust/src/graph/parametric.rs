@@ -186,8 +186,6 @@ impl Parametric {
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..]);
 
-        let mut incomplete_pixels = vec![];
-
         let dec = xs.decoration().min(ys.decoration());
         if dec >= Decoration::Def && cond_is_true {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
@@ -197,7 +195,7 @@ impl Parametric {
                 for p in &self.pixels_in_image(&r) {
                     self.im[p] = PixelState::True;
                 }
-                return incomplete_pixels;
+                return vec![];
             } else if dec >= Decoration::Dac && (r.x().wid() == 1.0 || r.y().wid() == 1.0) {
                 assert_eq!(rs.len(), 1);
                 let r1 = {
@@ -250,24 +248,17 @@ impl Parametric {
                 }
 
                 if r12 == r {
-                    return incomplete_pixels;
+                    return vec![];
                 }
             }
         } else if cond_is_false {
-            return incomplete_pixels;
+            return vec![];
         }
 
-        for r in rs {
-            let ps = self.pixels_in_image(&r);
-            if ps.iter().all(|p| self.im[p] == PixelState::True) {
-                // The case where `ps` is empty goes here.
-                continue;
-            } else {
-                incomplete_pixels.push(ps)
-            }
-        }
-
-        incomplete_pixels
+        rs.into_iter()
+            .map(|r| self.pixels_in_image(&r))
+            .filter(|ps| ps.iter().any(|p| self.im[p] != PixelState::True))
+            .collect()
     }
 
     /// Returns enclosures of possible combinations of `x × y` in image coordinates.
