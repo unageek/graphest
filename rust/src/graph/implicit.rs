@@ -212,7 +212,7 @@ impl Implicit {
                     // Cannot subdivide in any direction.
                     assert!(sub_b.is_subpixel());
                     let pixel = b.pixel_index();
-                    *self.im.get_mut(pixel) = PixelState::UncertainNeverFalse;
+                    self.im[pixel] = PixelState::UncertainNeverFalse;
                     continue;
                 };
                 self.bs_to_subdivide.push_back(sub_b);
@@ -276,11 +276,11 @@ impl Implicit {
                 };
 
                 for p in pixels.iter() {
-                    *self.last_queued_blocks.get_mut(p) = block_index;
+                    self.last_queued_blocks[p] = block_index;
                 }
             } else {
                 let p = b.pixel_index();
-                *self.last_queued_blocks.get_mut(p) = block_index;
+                self.last_queued_blocks[p] = block_index;
             }
             Ok(())
         } else {
@@ -309,7 +309,7 @@ impl Implicit {
             PixelRegion::new(begin, end)
         };
 
-        if pixels.iter().all(|p| self.im.get(p) == PixelState::True) {
+        if pixels.iter().all(|p| self.im[p] == PixelState::True) {
             // All pixels have already been proven to be true.
             return true;
         }
@@ -334,7 +334,7 @@ impl Implicit {
         }
 
         for p in pixels.iter() {
-            let state = self.im.get(p);
+            let state = self.im[p];
             assert_ne!(state, PixelState::False);
             if state == PixelState::True {
                 // This pixel has already been proven to be true.
@@ -342,13 +342,13 @@ impl Implicit {
             }
 
             if is_true {
-                *self.im.get_mut(p) = PixelState::True;
+                self.im[p] = PixelState::True;
             } else if is_false
                 && b_is_last_sibling
-                && self.last_queued_blocks.get(p) == parent_block_index
+                && self.last_queued_blocks[p] == parent_block_index
                 && state != PixelState::UncertainNeverFalse
             {
-                *self.im.get_mut(p) = PixelState::False;
+                self.im[p] = PixelState::False;
             }
         }
         true
@@ -365,7 +365,7 @@ impl Implicit {
         parent_block_index: QueuedBlockIndex,
     ) -> bool {
         let pixel = b.pixel_index();
-        let state = self.im.get(pixel);
+        let state = self.im[pixel];
         assert_ne!(state, PixelState::False);
         if state == PixelState::True {
             // This pixel has already been proven to be true.
@@ -390,7 +390,7 @@ impl Implicit {
         if locally_zero_mask.eval(&self.forms[..]) && !inter.is_empty() {
             // The relation is true everywhere in the subpixel, and the subpixel certainly overlaps
             // with the pixel. Therefore, the pixel contains a solution.
-            *self.im.get_mut(pixel) = PixelState::True;
+            self.im[pixel] = PixelState::True;
             return true;
         }
         if !r_u_up
@@ -399,10 +399,10 @@ impl Implicit {
         {
             // The relation is false everywhere in the subpixel.
             if b_is_last_sibling
-                && self.last_queued_blocks.get(pixel) == parent_block_index
+                && self.last_queued_blocks[pixel] == parent_block_index
                 && state != PixelState::UncertainNeverFalse
             {
-                *self.im.get_mut(pixel) = PixelState::False;
+                self.im[pixel] = PixelState::False;
             }
             return true;
         }
@@ -461,7 +461,7 @@ impl Implicit {
                     .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
             {
                 // Found a solution.
-                *self.im.get_mut(pixel) = PixelState::True;
+                self.im[pixel] = PixelState::True;
                 return true;
             }
         }

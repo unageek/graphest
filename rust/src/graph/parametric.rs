@@ -105,8 +105,8 @@ impl Parametric {
                 } else {
                     for ps in incomplete_pixels {
                         for p in &ps {
-                            if self.im.get(p) == PixelState::Uncertain {
-                                *self.im.get_mut(p) = PixelState::UncertainNeverFalse;
+                            if self.im[p] == PixelState::Uncertain {
+                                self.im[p] = PixelState::UncertainNeverFalse;
                             }
                         }
                     }
@@ -159,7 +159,7 @@ impl Parametric {
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
             for p in r.iter() {
-                *self.last_queued_blocks.get_mut(p) = block_index;
+                self.last_queued_blocks[p] = block_index;
             }
             Ok(())
         } else {
@@ -195,7 +195,7 @@ impl Parametric {
             if Self::is_pixel(&r) {
                 // f(t) × g(t) is interior to a single pixel.
                 for p in &self.pixels_in_image(&r) {
-                    *self.im.get_mut(p) = PixelState::True;
+                    self.im[p] = PixelState::True;
                 }
                 return incomplete_pixels;
             } else if dec >= Decoration::Dac && (r.x().wid() == 1.0 || r.y().wid() == 1.0) {
@@ -246,7 +246,7 @@ impl Parametric {
 
                 // There is at least one solution per pixel of `r12`.
                 for p in &self.pixels_in_image(&r12) {
-                    *self.im.get_mut(p) = PixelState::True;
+                    self.im[p] = PixelState::True;
                 }
 
                 if r12 == r {
@@ -259,7 +259,7 @@ impl Parametric {
 
         for r in rs {
             let ps = self.pixels_in_image(&r);
-            if ps.iter().all(|p| self.im.get(p) == PixelState::True) {
+            if ps.iter().all(|p| self.im[p] == PixelState::True) {
                 // The case where `ps` is empty goes here.
                 continue;
             } else {

@@ -1,4 +1,8 @@
-use std::{mem::size_of, slice::Iter};
+use std::{
+    mem::size_of,
+    ops::{Index, IndexMut},
+    slice::Iter,
+};
 
 /// The maximum limit of the width/height of an [`Image`] in pixels.
 const MAX_IMAGE_WIDTH: u32 = 32768;
@@ -20,17 +24,6 @@ impl<T: Clone + Copy + Default> Image<T> {
             height,
             data: vec![Default::default(); height as usize * width as usize],
         }
-    }
-
-    /// Returns the value of the pixel.
-    pub fn get(&self, p: PixelIndex) -> T {
-        self.data[self.index(p)]
-    }
-
-    /// Returns a mutable reference to the value of the pixel.
-    pub fn get_mut(&mut self, p: PixelIndex) -> &mut T {
-        let i = self.index(p);
-        &mut self.data[i]
     }
 
     /// Returns the height of the image in pixels.
@@ -56,6 +49,21 @@ impl<T: Clone + Copy + Default> Image<T> {
     /// Returns the flattened index of the pixel.
     fn index(&self, p: PixelIndex) -> usize {
         p.y as usize * self.width as usize + p.x as usize
+    }
+}
+
+impl<T: Clone + Copy + Default> Index<PixelIndex> for Image<T> {
+    type Output = T;
+
+    fn index(&self, index: PixelIndex) -> &Self::Output {
+        &self.data[self.index(index)]
+    }
+}
+
+impl<T: Clone + Copy + Default> IndexMut<PixelIndex> for Image<T> {
+    fn index_mut(&mut self, index: PixelIndex) -> &mut Self::Output {
+        let i = self.index(index);
+        &mut self.data[i]
     }
 }
 
@@ -156,9 +164,9 @@ mod tests {
         assert_eq!(im.width(), 34);
         assert_eq!(im.height(), 45);
 
-        assert_eq!(im.get(p), 0);
-        *im.get_mut(p) = 123456;
-        assert_eq!(im.get(p), 123456);
+        assert_eq!(im[p], 0);
+        im[p] = 123456;
+        assert_eq!(im[p], 123456);
         assert_eq!(
             im.pixels().copied().nth((p.y * im.width() + p.x) as usize),
             Some(123456)
