@@ -114,6 +114,7 @@ impl EvalCache {
 type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, EvalResult);
 
 /// A cache for evaluation results of a parametric relation.
+#[derive(Default)]
 pub struct EvalParametricCache {
     ct: HashMap<Interval, EvalParametricResult>,
     size_of_ct: usize,
@@ -121,15 +122,6 @@ pub struct EvalParametricCache {
 }
 
 impl EvalParametricCache {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self {
-            ct: HashMap::new(),
-            size_of_ct: 0,
-            size_of_values_in_heap: 0,
-        }
-    }
-
     /// Clears the cache and releases the allocated memory.
     pub fn clear(&mut self) {
         self.ct = HashMap::new();

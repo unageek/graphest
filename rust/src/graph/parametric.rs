@@ -78,7 +78,7 @@ impl Parametric {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache: EvalParametricCache::new(),
+            cache: Default::default(),
         };
 
         let t_range = g.rel.t_range();
