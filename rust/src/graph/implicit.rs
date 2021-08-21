@@ -31,8 +31,8 @@ pub struct Implicit {
     last_queued_blocks: Image<QueuedBlockIndex>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
-    // Affine transformation from pixel coordinates to real coordinates.
-    transform: Transform,
+    // Affine transformation from image coordinates to real coordinates.
+    im_to_real: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
     cache_eval_on_region: EvalCache,
@@ -68,7 +68,7 @@ impl Implicit {
                 store_t: has_t,
                 store_next_dir: has_n_theta || has_t,
             }),
-            transform: Transform::new(
+            im_to_real: Transform::new(
                 region.width() / Self::point_interval(im_width as f64),
                 region.left(),
                 region.height() / Self::point_interval(im_height as f64),
@@ -518,7 +518,7 @@ impl Implicit {
             Self::point_interval(py),
             Self::point_interval(py + ph),
         )
-        .transform(&self.transform)
+        .transform(&self.im_to_real)
     }
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
@@ -533,7 +533,7 @@ impl Implicit {
             Self::point_interval(py),
             Self::point_interval((py + ph).min(self.im.height() as f64)),
         )
-        .transform(&self.transform)
+        .transform(&self.im_to_real)
     }
 
     fn point_interval(x: f64) -> Interval {

@@ -30,8 +30,8 @@ pub struct Parametric {
     block_queue: BlockQueue,
     /// The pixel-aligned region that matches the entire image.
     im_region: Region,
-    /// The affine transformation from real coordinates to pixel coordinates.
-    inv_transform: Transform,
+    /// The affine transformation from real coordinates to image coordinates.
+    real_to_im: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
     cache: EvalParametricCache,
@@ -63,7 +63,7 @@ impl Parametric {
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
             ),
-            inv_transform: {
+            real_to_im: {
                 Transform::new(
                     im_width_interval / region.width(),
                     -im_width_interval * (region.left() / region.width()),
@@ -174,7 +174,7 @@ impl Parametric {
     fn process_block(&mut self, block: &Block) -> Vec<PixelRegion> {
         let (x, y, cond) = self.rel.eval_parametric(block.t, None);
         let rs = self
-            .regions(&x, &y)
+            .im_regions(&x, &y)
             .into_iter()
             .map(|r| Self::outer_pixels(&r))
             .collect::<Vec<_>>();
@@ -203,14 +203,14 @@ impl Parametric {
                 let r1 = {
                     let t = Self::point_interval_possibly_infinite(block.t.inf());
                     let (x, y, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
-                    let rs = self.regions(&x, &y);
+                    let rs = self.im_regions(&x, &y);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
                 let r2 = {
                     let t = Self::point_interval_possibly_infinite(block.t.sup());
                     let (x, y, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
-                    let rs = self.regions(&x, &y);
+                    let rs = self.im_regions(&x, &y);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
@@ -270,6 +270,24 @@ impl Parametric {
         incomplete_pixels
     }
 
+    /// Returns enclosures of possible combinations of `x × y` in image coordinates.
+    fn im_regions(&self, x: &TupperIntervalSet, y: &TupperIntervalSet) -> Vec<Region> {
+        x.iter()
+            .cartesian_product(y.iter())
+            .filter(|(x, y)| x.g.union(y.g).is_some())
+            .map(|(x, y)| {
+                InexactRegion::new(
+                    Self::point_interval_possibly_infinite(x.x.inf()),
+                    Self::point_interval_possibly_infinite(x.x.sup()),
+                    Self::point_interval_possibly_infinite(y.x.inf()),
+                    Self::point_interval_possibly_infinite(y.x.sup()),
+                )
+                .transform(&self.real_to_im)
+                .outer()
+            })
+            .collect::<Vec<_>>()
+    }
+
     /// For the pixel-aligned region,
     /// returns `true` if both the width and the height of the region are `1.0`.
     fn is_pixel(r: &Region) -> bool {
@@ -317,24 +335,6 @@ impl Parametric {
         } else {
             Self::point_interval(x)
         }
-    }
-
-    /// Returns enclosures of possible combinations of `x × y` in pixel coordinates.
-    fn regions(&self, x: &TupperIntervalSet, y: &TupperIntervalSet) -> Vec<Region> {
-        x.iter()
-            .cartesian_product(y.iter())
-            .filter(|(x, y)| x.g.union(y.g).is_some())
-            .map(|(x, y)| {
-                InexactRegion::new(
-                    Self::point_interval_possibly_infinite(x.x.inf()),
-                    Self::point_interval_possibly_infinite(x.x.sup()),
-                    Self::point_interval_possibly_infinite(y.x.inf()),
-                    Self::point_interval_possibly_infinite(y.x.sup()),
-                )
-                .transform(&self.inv_transform)
-                .outer()
-            })
-            .collect::<Vec<_>>()
     }
 
     /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
