@@ -23,7 +23,7 @@ use std::{
 pub struct Explicit {
     rel: Relation,
     forms: Vec<StaticForm>,
-    relation_type: RelationType,
+    _relation_type: RelationType,
     im: Image<PixelState>,
     last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
@@ -58,7 +58,7 @@ impl Explicit {
         let mut g = Self {
             rel,
             forms,
-            relation_type,
+            _relation_type: relation_type,
             im: Image::new(im_width, im_height),
             last_queued_blocks: Image::new(im_width, im_height),
             block_queue: BlockQueue::new(BlockQueueOptions {
@@ -179,7 +179,7 @@ impl Explicit {
 
     fn process_block(&mut self, b: &Block) -> Vec<PixelRegion> {
         let x = {
-            let u_up = self.block_to_region_clipped(&b).outer();
+            let u_up = self.block_to_region_clipped(b).outer();
             u_up.x()
         };
         let (ys, cond) = Self::eval_on_interval(&mut self.rel, x);
@@ -227,7 +227,7 @@ impl Explicit {
 
     fn process_subpixel_block(&mut self, b: &Block) -> Vec<PixelRegion> {
         let x_up = {
-            let u_up = self.block_to_region(&b).subpixel_outer(b);
+            let u_up = self.block_to_region(b).subpixel_outer(b);
             u_up.x()
         };
         let x_dn = {
@@ -493,10 +493,10 @@ impl Explicit {
     ///
     /// Precondition: `b.subdivide_on_xy()` is `true`.
     fn subdivide_on_x(&self, sub_bs: &mut Vec<Block>, b: &Block) {
+        let x0 = 2 * b.x;
+        let x1 = x0 + 1;
+        let kx = b.kx - 1;
         if b.is_superpixel() {
-            let x0 = 2 * b.x;
-            let x1 = x0 + 1;
-            let kx = b.kx - 1;
             let b0 = Block::new(x0, 0, kx, 0, b.n_theta, b.t);
             let b0_width = b0.width();
             sub_bs.push(b0);
@@ -504,10 +504,6 @@ impl Explicit {
                 sub_bs.push(Block::new(x1, 0, kx, 0, b.n_theta, b.t));
             }
         } else {
-            // Subdivide only horizontally.
-            let x0 = 2 * b.x;
-            let x1 = x0 + 1;
-            let kx = b.kx - 1;
             sub_bs.push(Block::new(x0, 0, kx, 0, b.n_theta, b.t));
             sub_bs.push(Block::new(x1, 0, kx, 0, b.n_theta, b.t));
         }
