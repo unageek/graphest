@@ -139,7 +139,7 @@ impl EvalExplicitCache {
             * (size_of::<u64>() + size_of::<Interval>() + size_of::<EvalParametricResult>());
     }
 
-    /// Returns the approximate size allocated by the [`EvalFunctionCache`] in bytes.
+    /// Returns the approximate size allocated by the [`EvalExplicitCache`] in bytes.
     pub fn size_in_heap(&self) -> usize {
         self.size_of_ct + self.size_of_values_in_heap
     }
