@@ -172,9 +172,9 @@ impl Parametric {
     /// Tries to prove or disprove the existence of a solution in the block
     /// and if it is unsuccessful, returns pixels that the block is interior to the union of them.
     fn process_block(&mut self, block: &Block) -> Vec<PixelRegion> {
-        let (x, y, cond) = self.rel.eval_parametric(block.t, None);
+        let (xs, ys, cond) = self.rel.eval_parametric(block.t, None);
         let rs = self
-            .im_regions(&x, &y)
+            .im_regions(&xs, &ys)
             .into_iter()
             .map(|r| Self::outer_pixels(&r))
             .collect::<Vec<_>>();
@@ -188,7 +188,7 @@ impl Parametric {
 
         let mut incomplete_pixels = vec![];
 
-        let dec = x.decoration().min(y.decoration());
+        let dec = xs.decoration().min(ys.decoration());
         if dec >= Decoration::Def && cond_is_true {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
@@ -202,15 +202,15 @@ impl Parametric {
                 assert_eq!(rs.len(), 1);
                 let r1 = {
                     let t = Self::point_interval_possibly_infinite(block.t.inf());
-                    let (x, y, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
-                    let rs = self.im_regions(&x, &y);
+                    let (xs, ys, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
+                    let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
                 let r2 = {
                     let t = Self::point_interval_possibly_infinite(block.t.sup());
-                    let (x, y, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
-                    let rs = self.im_regions(&x, &y);
+                    let (xs, ys, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
+                    let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
@@ -271,9 +271,9 @@ impl Parametric {
     }
 
     /// Returns enclosures of possible combinations of `x × y` in image coordinates.
-    fn im_regions(&self, x: &TupperIntervalSet, y: &TupperIntervalSet) -> Vec<Region> {
-        x.iter()
-            .cartesian_product(y.iter())
+    fn im_regions(&self, xs: &TupperIntervalSet, ys: &TupperIntervalSet) -> Vec<Region> {
+        xs.iter()
+            .cartesian_product(ys.iter())
             .filter(|(x, y)| x.g.union(y.g).is_some())
             .map(|(x, y)| {
                 InexactRegion::new(
