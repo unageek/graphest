@@ -208,6 +208,17 @@ pub struct RelationArgs {
     pub t: Interval,
 }
 
+impl Default for RelationArgs {
+    fn default() -> Self {
+        Self {
+            x: Interval::ENTIRE,
+            y: Interval::ENTIRE,
+            n_theta: Interval::ENTIRE,
+            t: Interval::ENTIRE,
+        }
+    }
+}
+
 /// A mathematical relation whose graph is to be plotted.
 #[derive(Clone, Debug)]
 pub struct Relation {
@@ -419,9 +430,7 @@ impl Relation {
                 let p = self.eval(
                     &RelationArgs {
                         x,
-                        y: Interval::ENTIRE,
-                        n_theta: Interval::ENTIRE,
-                        t: Interval::ENTIRE,
+                        ..Default::default()
                     },
                     None,
                 );
@@ -431,10 +440,8 @@ impl Relation {
             RelationType::ExplicitFunctionOfY => {
                 let p = self.eval(
                     &RelationArgs {
-                        x: Interval::ENTIRE,
                         y: x,
-                        n_theta: Interval::ENTIRE,
-                        t: Interval::ENTIRE,
+                        ..Default::default()
                     },
                     None,
                 );
@@ -448,10 +455,8 @@ impl Relation {
     fn eval_parametric_without_cache(&mut self, t: Interval) -> EvalParametricResult {
         let p = self.eval(
             &RelationArgs {
-                x: Interval::ENTIRE,
-                y: Interval::ENTIRE,
-                n_theta: Interval::ENTIRE,
                 t,
+                ..Default::default()
             },
             None,
         );
