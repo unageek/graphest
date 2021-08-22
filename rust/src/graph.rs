@@ -64,6 +64,9 @@ pub trait Graph {
     ///
     /// Returns `Ok(true)`/`Ok(false)` if graphing is complete/incomplete after refinement.
     fn refine(&mut self, duration: Duration) -> Result<bool, GraphingError>;
+
+    /// Returns the amount of memory allocated by `self` in bytes.
+    fn size_in_heap(&self) -> usize;
 }
 
 mod common;

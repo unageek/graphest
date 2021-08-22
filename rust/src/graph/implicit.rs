@@ -220,13 +220,7 @@ impl Implicit {
             }
 
             let mut clear_cache_and_retry = true;
-            while self.im.size_in_heap()
-                + self.last_queued_blocks.size_in_heap()
-                + self.bs_to_subdivide.size_in_heap()
-                + self.cache_eval_on_region.size_in_heap()
-                + self.cache_eval_on_point.size_in_heap()
-                > self.mem_limit
-            {
+            while self.size_in_heap() > self.mem_limit {
                 if clear_cache_and_retry {
                     self.cache_eval_on_region.clear();
                     self.cache_eval_on_point.clear();
@@ -720,5 +714,13 @@ impl Graph for Implicit {
         let result = self.refine_impl(duration, &now);
         self.stats.time_elapsed += now.elapsed();
         result
+    }
+
+    fn size_in_heap(&self) -> usize {
+        self.im.size_in_heap()
+            + self.last_queued_blocks.size_in_heap()
+            + self.bs_to_subdivide.size_in_heap()
+            + self.cache_eval_on_region.size_in_heap()
+            + self.cache_eval_on_point.size_in_heap()
     }
 }

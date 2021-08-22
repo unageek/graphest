@@ -498,14 +498,6 @@ impl Explicit {
         }
     }
 
-    /// Returns the amount of memory allocated by `self` in bytes.
-    fn size_in_heap(&self) -> usize {
-        self.im.size_in_heap()
-            + self.last_queued_blocks.size_in_heap()
-            + self.block_queue.size_in_heap()
-            + self.cache.size_in_heap()
-    }
-
     /// Subdivides the block and appends the sub-blocks to `sub_bs`.
     /// Two sub-blocks are created at most.
     ///
@@ -581,5 +573,12 @@ impl Graph for Explicit {
         let result = self.refine_impl(duration, &now);
         self.stats.time_elapsed += now.elapsed();
         result
+    }
+
+    fn size_in_heap(&self) -> usize {
+        self.im.size_in_heap()
+            + self.last_queued_blocks.size_in_heap()
+            + self.block_queue.size_in_heap()
+            + self.cache.size_in_heap()
     }
 }
