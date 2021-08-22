@@ -5,31 +5,6 @@ use std::{
     time::Duration,
 };
 
-/// The graphing status of a pixel.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PixelState {
-    /// There may be or may not be a solution in the pixel.
-    Uncertain,
-    /// Uncertain but we can't prove absence of solutions due to subdivision limit.
-    UncertainNeverFalse,
-    /// There are no solutions in the pixel.
-    False,
-    /// There is at least one solution in the pixel.
-    True,
-}
-
-impl Default for PixelState {
-    fn default() -> Self {
-        PixelState::Uncertain
-    }
-}
-
-/// The index of a [`Block`](crate::block::Block) in a [`BlockQueue`](crate::block::BlockQueue).
-///
-/// Indices returned by the methods of [`BlockQueue`](crate::block::BlockQueue) are [`usize`],
-/// but [`u32`] would be large enough.
-pub type QueuedBlockIndex = u32;
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GraphingErrorKind {
     BlockIndexOverflow,
@@ -91,9 +66,12 @@ pub trait Graph {
     fn refine(&mut self, duration: Duration) -> Result<bool, GraphingError>;
 }
 
+mod common;
+mod explicit;
 mod implicit;
 mod parametric;
 
 pub use crate::region::InexactRegion;
+pub use explicit::Explicit;
 pub use implicit::Implicit;
 pub use parametric::Parametric;

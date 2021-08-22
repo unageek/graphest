@@ -1,7 +1,8 @@
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
     graph::{
-        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, PixelState, QueuedBlockIndex,
+        common::{point_interval, point_interval_possibly_infinite, PixelState, QueuedBlockIndex},
+        Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
     },
     image::{Image, PixelIndex, PixelRegion},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
@@ -48,8 +49,8 @@ impl Parametric {
         assert_eq!(rel.relation_type(), RelationType::Parametric);
 
         let forms = rel.forms().clone();
-        let im_width_interval = Self::point_interval(im_width as f64);
-        let im_height_interval = Self::point_interval(im_height as f64);
+        let im_width_interval = point_interval(im_width as f64);
+        let im_height_interval = point_interval(im_height as f64);
         let mut g = Self {
             rel,
             forms,
@@ -199,14 +200,14 @@ impl Parametric {
             } else if dec >= Decoration::Dac && (r.x().wid() == 1.0 || r.y().wid() == 1.0) {
                 assert_eq!(rs.len(), 1);
                 let r1 = {
-                    let t = Self::point_interval_possibly_infinite(block.t.inf());
+                    let t = point_interval_possibly_infinite(block.t.inf());
                     let (xs, ys, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
                 let r2 = {
-                    let t = Self::point_interval_possibly_infinite(block.t.sup());
+                    let t = point_interval_possibly_infinite(block.t.sup());
                     let (xs, ys, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
@@ -268,10 +269,10 @@ impl Parametric {
             .filter(|(x, y)| x.g.union(y.g).is_some())
             .map(|(x, y)| {
                 InexactRegion::new(
-                    Self::point_interval_possibly_infinite(x.x.inf()),
-                    Self::point_interval_possibly_infinite(x.x.sup()),
-                    Self::point_interval_possibly_infinite(y.x.inf()),
-                    Self::point_interval_possibly_infinite(y.x.sup()),
+                    point_interval_possibly_infinite(x.x.inf()),
+                    point_interval_possibly_infinite(x.x.sup()),
+                    point_interval_possibly_infinite(y.x.inf()),
+                    point_interval_possibly_infinite(y.x.sup()),
                 )
                 .transform(&self.real_to_im)
                 .outer()
@@ -311,20 +312,6 @@ impl Parametric {
                 PixelIndex::new(x.inf() as u32, y.inf() as u32),
                 PixelIndex::new(x.sup() as u32, y.sup() as u32),
             )
-        }
-    }
-
-    fn point_interval(x: f64) -> Interval {
-        interval!(x, x).unwrap()
-    }
-
-    fn point_interval_possibly_infinite(x: f64) -> Interval {
-        if x == f64::NEG_INFINITY {
-            const_interval!(f64::NEG_INFINITY, f64::MIN)
-        } else if x == f64::INFINITY {
-            const_interval!(f64::MAX, f64::INFINITY)
-        } else {
-            Self::point_interval(x)
         }
     }
 

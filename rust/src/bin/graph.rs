@@ -1,6 +1,7 @@
 use clap::{App, AppSettings, Arg, ArgSettings};
 use graphest::{
-    Graph, GraphingStatistics, Implicit, InexactRegion, Parametric, Relation, RelationType,
+    Explicit, Graph, GraphingStatistics, Implicit, InexactRegion, Parametric, Relation,
+    RelationType,
 };
 use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
@@ -107,6 +108,12 @@ fn main() {
     let region = InexactRegion::new(bounds[0], bounds[1], bounds[2], bounds[3]);
 
     match rel.relation_type() {
+        RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY => plot(
+            Explicit::new(rel, region, size[0], size[1], mem_limit),
+            gray_alpha,
+            size,
+            output,
+        ),
         RelationType::Parametric => plot(
             Parametric::new(rel, region, size[0], size[1], mem_limit),
             gray_alpha,
