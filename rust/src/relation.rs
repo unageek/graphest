@@ -201,6 +201,7 @@ pub enum RelationType {
     Parametric,
 }
 
+#[derive(Clone, Debug)]
 pub struct RelationArgs {
     pub x: Interval,
     pub y: Interval,
@@ -250,14 +251,18 @@ impl Relation {
         }
     }
 
-    /// Returns the number of calls of `self.eval` that have been made thus far.
+    /// Returns the total number of times the functions [`Self::eval`], [`Self::eval_explicit`]
+    /// and [`Self::eval_parametric`] are called for `self`.
     pub fn eval_count(&self) -> usize {
         self.eval_count
     }
 
-    /// Evaluates the explicit relation y = f(x) ∧ P(x) and returns (f(x), P(x)).
+    /// Evaluates the explicit relation y = f(x) ∧ P(x) (or x = f(y) ∧ P(y))
+    /// and returns (f(x), P(x)) (or (f(y), P(y))).
     ///
-    /// If P(x) is absent, its value is assumed to be always true.
+    /// If P(x) (or P(y)) is absent, its value is assumed to be always true.
+    ///
+    /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_explicit(
         &mut self,
         x: Interval,
@@ -820,7 +825,7 @@ fn normalize_explicit_relation_impl(
                 true
             }
         }
-        e if VarSet::X.contains(e.vars) => {
+        e if x_var.contains(e.vars) => {
             parts.px.push(take(e));
             true
         }
@@ -1042,15 +1047,21 @@ mod tests {
             rel.parse::<Relation>().unwrap().relation_type()
         }
 
-        assert_eq!(f("1 < 2"), Implicit);
-        assert_eq!(f("y = 0"), ExplicitFunctionOfX);
-        assert_eq!(f("0 = y"), ExplicitFunctionOfX);
+        assert_eq!(f("y = 1"), ExplicitFunctionOfX);
         assert_eq!(f("y = sin(x)"), ExplicitFunctionOfX);
+        assert_eq!(f("y = sin(x) && 0 < x < 1 < 2"), ExplicitFunctionOfX);
+        assert_eq!(f("0 < x < 1 < 2 && sin(x) = y"), ExplicitFunctionOfX);
         assert_eq!(f("!(y = sin(x))"), FunctionOfX);
-        assert_eq!(f("x = 0"), ExplicitFunctionOfY);
-        assert_eq!(f("0 = x"), ExplicitFunctionOfY);
+        assert_eq!(f("x = 1"), ExplicitFunctionOfY);
         assert_eq!(f("x = sin(y)"), ExplicitFunctionOfY);
+        assert_eq!(f("x = sin(y) && 0 < y < 1 < 2"), ExplicitFunctionOfY);
+        assert_eq!(f("0 < y < 1 < 2 && sin(y) = x"), ExplicitFunctionOfY);
         assert_eq!(f("!(x = sin(y))"), FunctionOfY);
+        assert!(matches!(
+            f("x = 1 && y = 1"),
+            ExplicitFunctionOfX | ExplicitFunctionOfY
+        ));
+        assert_eq!(f("1 < 2"), Implicit);
         assert_eq!(f("x y = 0"), Implicit);
         assert_eq!(f("y = sin(x y)"), Implicit);
         assert_eq!(f("sin(x) = 0"), Implicit);
