@@ -308,8 +308,8 @@ impl Explicit {
                 if y1.precedes(y2) {
                     py12 = Self::outer_pixels(
                         InexactRegion::new(
-                            point_interval(px.inf()),
-                            point_interval(px.sup()),
+                            const_interval!(0.0, 0.0),
+                            const_interval!(1.0, 1.0),
                             y1,
                             y2,
                         )
@@ -336,10 +336,11 @@ impl Explicit {
             let x = simple_fraction(x_dn);
             let px = {
                 let x = point_interval(x);
-                let im_x = InexactRegion::new(x, x, Interval::ENTIRE, Interval::ENTIRE)
-                    .transform(&self.real_to_im_x)
-                    .outer()
-                    .x();
+                let im_x =
+                    InexactRegion::new(x, x, const_interval!(0.0, 0.0), const_interval!(1.0, 1.0))
+                        .transform(&self.real_to_im_x)
+                        .outer()
+                        .x();
                 if im_x.is_singleton() || Self::outer_pixels(im_x).wid() == 1.0 {
                     Some(Self::outer_pixels(im_x))
                 } else {
@@ -379,14 +380,12 @@ impl Explicit {
     /// Returns the region that corresponds to a subpixel block `b`.
     fn block_to_region(&self, b: &Block) -> InexactRegion {
         let pw = b.widthf();
-        let ph = b.heightf();
         let px = b.x as f64 * pw;
-        let py = b.y as f64 * ph;
         InexactRegion::new(
             point_interval(px),
             point_interval(px + pw),
-            point_interval(py),
-            point_interval(py + ph),
+            const_interval!(0.0, 0.0),
+            const_interval!(1.0, 1.0),
         )
         .transform(&self.im_to_real_x)
     }
@@ -394,14 +393,12 @@ impl Explicit {
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
     fn block_to_region_clipped(&self, b: &Block) -> InexactRegion {
         let pw = b.widthf();
-        let ph = b.heightf();
         let px = b.x as f64 * pw;
-        let py = b.y as f64 * ph;
         InexactRegion::new(
             point_interval(px),
             point_interval((px + pw).min(self.im_width() as f64)),
-            point_interval(py),
-            point_interval((py + ph).min(self.im_height() as f64)),
+            const_interval!(0.0, 0.0),
+            const_interval!(1.0, 1.0),
         )
         .transform(&self.im_to_real_x)
     }
@@ -418,21 +415,13 @@ impl Explicit {
         rel.eval_explicit(point_interval(x), cache)
     }
 
-    fn im_height(&self) -> u32 {
-        if self.transpose {
-            self.im.width()
-        } else {
-            self.im.height()
-        }
-    }
-
     /// Returns enclosures of `y` in image coordinates.
     fn im_intervals(&self, ys: &TupperIntervalSet) -> Vec<Interval> {
         ys.iter()
             .map(|y| {
                 InexactRegion::new(
-                    Interval::ENTIRE,
-                    Interval::ENTIRE,
+                    const_interval!(0.0, 0.0),
+                    const_interval!(1.0, 1.0),
                     point_interval_possibly_infinite(y.x.inf()),
                     point_interval_possibly_infinite(y.x.sup()),
                 )
