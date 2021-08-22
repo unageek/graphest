@@ -189,6 +189,10 @@ impl Explicit {
         }
     }
 
+    /// Tries to prove or disprove the existence of a solution in the block
+    /// and if it is unsuccessful, returns pixels that possibly contains a solution.
+    ///
+    /// Precondition: the block is either a pixel or a superpixel.
     fn process_block(&mut self, b: &Block) -> Vec<PixelRegion> {
         let x = {
             let u_up = self.block_to_region_clipped(b).outer();
@@ -237,6 +241,10 @@ impl Explicit {
             .collect()
     }
 
+    /// Tries to prove or disprove the existence of a solution in the block
+    /// and if it is unsuccessful, returns pixels that possibly contains a solution.
+    ///
+    /// Precondition: the block is a subpixel.
     fn process_subpixel_block(&mut self, b: &Block) -> Vec<PixelRegion> {
         let x_up = {
             let u_up = self.block_to_region(b).subpixel_outer(b);
@@ -418,8 +426,9 @@ impl Explicit {
         }
     }
 
-    fn im_intervals(&self, y: &TupperIntervalSet) -> Vec<Interval> {
-        y.iter()
+    /// Returns enclosures of `y` in image coordinates.
+    fn im_intervals(&self, ys: &TupperIntervalSet) -> Vec<Interval> {
+        ys.iter()
             .map(|y| {
                 InexactRegion::new(
                     Interval::ENTIRE,
@@ -442,10 +451,11 @@ impl Explicit {
         }
     }
 
+    /// Returns the smallest pixel-aligned interval that contains `x` in its interior.
     fn outer_pixels(x: Interval) -> Interval {
         const TINY: Interval = const_interval!(-5e-324, 5e-324);
-        let x1 = x + TINY;
-        interval!(x1.inf().floor(), x1.sup().ceil()).unwrap()
+        let x = x + TINY;
+        interval!(x.inf().floor(), x.sup().ceil()).unwrap()
     }
 
     /// For the pixel-aligned region,
