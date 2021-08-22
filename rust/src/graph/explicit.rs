@@ -123,40 +123,27 @@ impl Explicit {
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         while let Some(b) = self.block_queue.pop_front() {
+            let bi = self.block_queue.begin_index() - 1;
+
             let incomplete_pixels = if !b.is_subpixel() {
                 self.process_block(&b)
             } else {
                 self.process_subpixel_block(&b)
             };
 
-            if !incomplete_pixels.is_empty() {
+            if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
                 if b.is_xy_subdivisible() {
                     self.subdivide_on_x(&mut sub_bs, &b);
-                    for sub_b in sub_bs.drain(..) {
-                        self.block_queue.push_back(sub_b);
-                    }
-                    let last_index = self.block_queue.end_index() - 1;
-                    for ps in incomplete_pixels {
-                        self.set_last_queued_block(&ps, last_index)?;
-                    }
+                    self.block_queue.extend(sub_bs.drain(..));
+                    let last_bi = self.block_queue.end_index() - 1;
+                    self.set_last_queued_block(&incomplete_pixels, last_bi, bi)?;
                 } else {
-                    for ps in incomplete_pixels {
-                        for p in &ps {
-                            if self.im[p] == PixelState::Uncertain {
-                                self.im[p] = PixelState::UncertainNeverFalse;
-                            }
-                        }
-                    }
+                    self.set_uncertain_never_false(&incomplete_pixels, bi);
                 }
             }
 
             let mut clear_cache_and_retry = true;
-            while self.im.size_in_heap()
-                + self.last_queued_blocks.size_in_heap()
-                + self.block_queue.size_in_heap()
-                + self.cache.size_in_heap()
-                > self.mem_limit
-            {
+            while self.size_in_heap() > self.mem_limit {
                 if clear_cache_and_retry {
                     self.cache.clear();
                     clear_cache_and_retry = false;
@@ -440,6 +427,15 @@ impl Explicit {
         }
     }
 
+    fn is_any_pixel_uncertain(&self, pixels: &[PixelRegion], parent_block_index: usize) -> bool {
+        pixels.iter().flatten().any(|p| {
+            let s = self.im[p];
+            let bi = self.last_queued_blocks[p];
+            !(s == PixelState::True
+                || s == PixelState::Uncertain && (bi as usize) < parent_block_index)
+        })
+    }
+
     /// Returns the smallest pixel-aligned interval that contains `x` in its interior.
     fn outer_pixels(x: Interval) -> Interval {
         const TINY: Interval = const_interval!(-5e-324, 5e-324);
@@ -447,8 +443,9 @@ impl Explicit {
         interval!(x.inf().floor(), x.sup().ceil()).unwrap()
     }
 
-    /// For the pixel-aligned region,
-    /// returns the pixels in the region that are contained in the image.
+    /// For the pixel-aligned region, returns the pixels in the region that are contained in the image.
+    ///
+    /// If [`self.transpose`] is `true`, the x and y components of the result are swapped.
     fn pixels_in_image(&self, r: &Region) -> PixelRegion {
         let r = r.intersection(&self.im_region);
         if r.is_empty() {
@@ -469,12 +466,18 @@ impl Explicit {
 
     fn set_last_queued_block(
         &mut self,
-        ps: &PixelRegion,
+        pixels: &[PixelRegion],
         block_index: usize,
+        parent_block_index: usize,
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-            for p in ps {
-                self.last_queued_blocks[p] = block_index;
+            for p in pixels.iter().flatten() {
+                // Check if the pixel is not already revealed to be false.
+                // This is required because some interval functions are not monotonic,
+                // i.e., then can return a wider interval for a narrower (refined) input.
+                if self.last_queued_blocks[p] as usize >= parent_block_index {
+                    self.last_queued_blocks[p] = block_index;
+                }
             }
             Ok(())
         } else {
@@ -482,6 +485,25 @@ impl Explicit {
                 kind: GraphingErrorKind::BlockIndexOverflow,
             })
         }
+    }
+
+    fn set_uncertain_never_false(&mut self, pixels: &[PixelRegion], parent_block_index: usize) {
+        for p in pixels.iter().flatten() {
+            if self.im[p] == PixelState::Uncertain
+                // Check if the pixel is not already revealed to be false.
+                && self.last_queued_blocks[p] as usize == parent_block_index
+            {
+                self.im[p] = PixelState::UncertainNeverFalse;
+            }
+        }
+    }
+
+    /// Returns the amount of memory allocated by `self` in bytes.
+    fn size_in_heap(&self) -> usize {
+        self.im.size_in_heap()
+            + self.last_queued_blocks.size_in_heap()
+            + self.block_queue.size_in_heap()
+            + self.cache.size_in_heap()
     }
 
     /// Subdivides the block and appends the sub-blocks to `sub_bs`.

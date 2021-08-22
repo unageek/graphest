@@ -460,6 +460,14 @@ impl BlockQueue {
     }
 }
 
+impl Extend<Block> for BlockQueue {
+    fn extend<T: IntoIterator<Item = Block>>(&mut self, iter: T) {
+        for b in iter {
+            self.push_back(b);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
