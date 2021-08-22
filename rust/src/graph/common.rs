@@ -1,21 +1,16 @@
 use inari::{const_interval, interval, Interval};
 
-/// The index of a [`Block`](crate::block::Block) in a [`BlockQueue`](crate::block::BlockQueue).
-///
-/// Indices returned by the methods of [`BlockQueue`](crate::block::BlockQueue) are [`usize`],
-/// but [`u32`] would be large enough.
-pub type QueuedBlockIndex = u32;
-
 /// The graphing status of a pixel.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PixelState {
-    /// There may be or may not be a solution in the pixel.
+    /// The pixel may or may not contain a solution.
     Uncertain,
-    /// Uncertain but we can't prove absence of solutions due to subdivision limit.
+    /// The same as [`PixelState::Uncertain`] but the pixel has reached the subdivision limit,
+    /// so we cannot prove absence of solutions.
     UncertainNeverFalse,
-    /// There are no solutions in the pixel.
+    /// The pixel does not contain a solution.
     False,
-    /// There is at least one solution in the pixel.
+    /// The pixel contains a solution.
     True,
 }
 
@@ -25,10 +20,26 @@ impl Default for PixelState {
     }
 }
 
+/// The index of a [`Block`](crate::block::Block) in a [`BlockQueue`](crate::block::BlockQueue).
+///
+/// While [`BlockQueue::begin_index`](crate::block::BlockQueue::begin_index)/[`BlockQueue::end_index`](crate::block::BlockQueue::begin_index) return [`usize`],
+/// [`u32`] would be large enough.
+pub type QueuedBlockIndex = u32;
+
+/// Returns the interval \[`x`, `x`\].
+///
+/// Panics if `x` is infinite or NaN.
 pub fn point_interval(x: f64) -> Interval {
     interval!(x, x).unwrap()
 }
 
+/// Returns the interval:
+///
+/// - \[`x`, `x`\] if `x` is finite,
+/// - \[−∞, [`f64::MIN`]\] if `x` is −∞, or
+/// - \[[`f64::MAX`], +∞\] if `x` is +∞.
+///
+/// Panics if `x` is NaN.
 pub fn point_interval_possibly_infinite(x: f64) -> Interval {
     if x == f64::NEG_INFINITY {
         const_interval!(f64::NEG_INFINITY, f64::MIN)

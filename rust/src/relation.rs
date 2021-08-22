@@ -24,7 +24,7 @@ pub enum EvalCacheLevel {
     Full,
 }
 
-/// A cache for evaluation results of an implicit relation.
+/// A cache for memoizing evaluation of an implicit relation.
 pub struct EvalCache {
     level: EvalCacheLevel,
     cx: HashMap<Interval, Vec<TupperIntervalSet>>,
@@ -113,6 +113,7 @@ impl EvalCache {
 
 type EvalExplicitResult = (TupperIntervalSet, EvalResult);
 
+/// A cache for memoizing evaluation of an explicit relation.
 #[derive(Default)]
 pub struct EvalExplicitCache {
     ct: HashMap<Interval, EvalExplicitResult>,
@@ -147,7 +148,7 @@ impl EvalExplicitCache {
 
 type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, EvalResult);
 
-/// A cache for evaluation results of a parametric relation.
+/// A cache for memoizing evaluation of a parametric relation.
 #[derive(Default)]
 pub struct EvalParametricCache {
     ct: HashMap<Interval, EvalParametricResult>,
@@ -180,7 +181,7 @@ impl EvalParametricCache {
     }
 }
 
-/// The type of a [`Relation`], which should be used when choosing the optimal graphing algorithm.
+/// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
     /// A relation of the form y = f(x) ∧ P(x), where P(x) is an optional constraint on x.
