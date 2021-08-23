@@ -94,7 +94,7 @@ fn expr_list(i: InputWithContext) -> ParseResult<Vec<Expr>> {
 
     fold_many0(
         preceded(delimited(space0, char(','), space0), expr),
-        vec![x],
+        move || vec![x.clone()],
         |mut xs, x| {
             xs.push(x);
             xs
@@ -224,7 +224,7 @@ fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
             // x y
             pair(value("*", space0), power_expr),
         )),
-        x,
+        move || x.clone(),
         move |xs, (op, y)| ctx.apply(op, vec![xs, y]).unwrap(),
     )(i)
 }
@@ -242,7 +242,7 @@ fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
             ),
             cut(multiplicative_expr),
         ),
-        x,
+        move || x.clone(),
         move |xs, (op, y)| ctx.apply(op, vec![xs, y]).unwrap(),
     )(i)
 }
@@ -268,7 +268,7 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
                 ),
                 cut(additive_expr),
             ),
-            (ops, xs),
+            move || (ops.clone(), xs.clone()),
             |(mut ops, mut xs), (op, y)| {
                 ops.push(op);
                 xs.push(y);
@@ -303,7 +303,7 @@ fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
 
     fold_many0(
         preceded(delimited(space0, tag("&&"), space0), cut(relational_expr)),
-        x,
+        move || x.clone(),
         move |xs, y| ctx.apply("&&", vec![xs, y]).unwrap(),
     )(i)
 }
@@ -314,7 +314,7 @@ fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
 
     fold_many0(
         preceded(delimited(space0, tag("||"), space0), cut(and_expr)),
-        x,
+        move || x.clone(),
         move |xs, y| ctx.apply("||", vec![xs, y]).unwrap(),
     )(i)
 }
