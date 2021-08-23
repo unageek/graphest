@@ -16,6 +16,8 @@ use crate::{
 };
 use image::{imageops, ImageBuffer, Pixel};
 use inari::{const_interval, interval, Decoration, Interval};
+use itertools::Itertools;
+use smallvec::SmallVec;
 use std::{
     convert::TryFrom,
     mem::swap,
@@ -33,7 +35,6 @@ pub struct Explicit {
     block_queue: BlockQueue,
     im_region: Region,
     im_to_real_x: Transform,
-    real_to_im_x: Transform,
     real_to_im_y: Transform,
     stats: GraphingStatistics,
     mem_limit: usize,
@@ -87,14 +88,6 @@ impl Explicit {
                 (ONE, ONE),
                 const_interval!(0.0, 0.0),
             ),
-            real_to_im_x: {
-                Transform::with_predivision_factors(
-                    (im_width_interval, region.width()),
-                    -im_width_interval * (region.left() / region.width()),
-                    (ONE, ONE),
-                    const_interval!(0.0, 0.0),
-                )
-            },
             real_to_im_y: {
                 Transform::with_predivision_factors(
                     (ONE, ONE),
@@ -224,7 +217,6 @@ impl Explicit {
 
         pys.into_iter()
             .map(|py| self.pixels_in_image(&Region::new(px, py)))
-            .filter(|ps| ps.iter().any(|p| self.im[p] != PixelState::True))
             .collect()
     }
 
@@ -237,7 +229,7 @@ impl Explicit {
             let u_up = self.block_to_region(b).subpixel_outer(b);
             u_up.x()
         };
-        let x_dn = {
+        let inter = {
             let p_dn = self.block_to_region(&b.pixel_block()).inner();
             x_up.intersection(p_dn.x())
         };
@@ -260,8 +252,8 @@ impl Explicit {
         let cond_is_false = !cond
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..]);
-
         let dec = ys.decoration();
+
         if dec >= Decoration::Def && cond_is_true {
             let py = pys
                 .iter()
@@ -273,85 +265,70 @@ impl Explicit {
                     self.im[p] = PixelState::True;
                 }
                 return vec![];
-            } else if dec >= Decoration::Dac && !x_dn.is_empty() {
-                assert_eq!(pys.len(), 1);
-                let mut y1 = {
-                    let (y, _) =
-                        Self::eval_on_point(&mut self.rel, x_dn.inf(), Some(&mut self.cache));
-                    assert_eq!(y.len(), 1);
-                    y.iter().next().unwrap().x
-                };
-                let mut y2 = {
-                    let (y, _) =
-                        Self::eval_on_point(&mut self.rel, x_dn.sup(), Some(&mut self.cache));
-                    assert_eq!(y.len(), 1);
-                    y.iter().next().unwrap().x
-                };
-
-                let mut py12 = Interval::EMPTY;
-                if y2.precedes(y1) {
-                    swap(&mut y1, &mut y2);
-                }
-                if y1.precedes(y2) {
-                    py12 = Self::outer_pixels(
-                        InexactRegion::new(
-                            const_interval!(0.0, 0.0),
-                            const_interval!(1.0, 1.0),
-                            y1,
-                            y2,
-                        )
-                        .transform(&self.real_to_im_y)
-                        .inner()
-                        .y(),
-                    );
-                }
-
-                for p in &self.pixels_in_image(&Region::new(px, py12)) {
-                    self.im[p] = PixelState::True;
-                }
-
-                if py12 == py {
-                    return vec![];
-                }
             }
         } else if cond_is_false {
             return vec![];
         }
 
-        // Try to locate true pixels.
-        if !x_dn.is_empty() {
-            let x = simple_fraction(x_dn);
-            let px = {
-                let x = point_interval(x);
-                let im_x =
-                    InexactRegion::new(x, x, const_interval!(0.0, 0.0), const_interval!(1.0, 1.0))
-                        .transform(&self.real_to_im_x)
-                        .outer()
-                        .x();
-                if im_x.is_singleton() || Self::outer_pixels(im_x).wid() == 1.0 {
-                    Some(Self::outer_pixels(im_x))
-                } else {
-                    None
-                }
-            };
+        if !inter.is_empty() {
+            // To dedup, points must be sorted.
+            let rs = [inter.inf(), simple_fraction(inter), inter.sup()]
+                .iter()
+                .dedup()
+                .map(|&x| Self::eval_on_point(&mut self.rel, x, Some(&mut self.cache)))
+                .collect::<SmallVec<[_; 3]>>();
 
-            if let Some(px) = px {
-                let (ys, cond) = Self::eval_on_point(&mut self.rel, x, Some(&mut self.cache));
-                let im_y = self
-                    .im_intervals(&ys)
+            if dec >= Decoration::Dac && cond_is_true {
+                let ys = rs
                     .into_iter()
-                    .fold(Interval::EMPTY, |acc, y| acc.convex_hull(y));
+                    .map(|(y, _)| {
+                        assert_eq!(y.len(), 1);
+                        y.iter().next().unwrap().x
+                    })
+                    .collect::<SmallVec<[_; 3]>>();
 
-                let cond_is_true = cond
-                    .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-                    .eval(&self.forms[..]);
-                let dec = ys.decoration();
+                let y0 = ys
+                    .iter()
+                    .map(|y| y.sup())
+                    .fold(f64::INFINITY, |acc, y| acc.min(y));
+                let y1 = ys
+                    .iter()
+                    .map(|y| y.inf())
+                    .fold(f64::NEG_INFINITY, |acc, y| acc.max(y));
 
-                if dec >= Decoration::Def && cond_is_true {
-                    let py = Self::outer_pixels(im_y);
-                    if im_y.is_singleton() || py.wid() == 1.0 {
-                        for p in &self.pixels_in_image(&Region::new(px, py)) {
-                            self.im[p] = PixelState::True;
+                if y0 <= y1 {
+                    let py = Self::outer_pixels(
+                        InexactRegion::new(
+                            const_interval!(0.0, 0.0),
+                            const_interval!(1.0, 1.0),
+                            point_interval_possibly_infinite(y0),
+                            point_interval_possibly_infinite(y1),
+                        )
+                        .transform(&self.real_to_im_y)
+                        .inner()
+                        .y(),
+                    );
+                    for p in &self.pixels_in_image(&Region::new(px, py)) {
+                        self.im[p] = PixelState::True;
+                    }
+                }
+            } else {
+                for (ys, cond) in rs {
+                    let cond_is_true = cond
+                        .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
+                        .eval(&self.forms[..]);
+                    let dec = ys.decoration();
+
+                    if dec >= Decoration::Def && cond_is_true {
+                        let im_y = self
+                            .im_intervals(&ys)
+                            .into_iter()
+                            .fold(Interval::EMPTY, |acc, y| acc.convex_hull(y));
+                        let py = Self::outer_pixels(im_y);
+                        if im_y.is_singleton() || py.wid() == 1.0 {
+                            for p in &self.pixels_in_image(&Region::new(px, py)) {
+                                self.im[p] = PixelState::True;
+                            }
                         }
                     }
                 }
@@ -360,7 +337,6 @@ impl Explicit {
 
         pys.into_iter()
             .map(|py| self.pixels_in_image(&Region::new(px, py)))
-            .filter(|ps| ps.iter().any(|p| self.im[p] != PixelState::True))
             .collect()
     }
 
