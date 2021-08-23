@@ -414,9 +414,13 @@ impl Explicit {
 
     /// Returns the smallest pixel-aligned interval that contains `x` in its interior.
     fn outer_pixels(x: Interval) -> Interval {
-        const TINY: Interval = const_interval!(-5e-324, 5e-324);
-        let x = x + TINY;
-        interval!(x.inf().floor(), x.sup().ceil()).unwrap()
+        if x.is_empty() {
+            x
+        } else {
+            const TINY: Interval = const_interval!(-5e-324, 5e-324);
+            let x = x + TINY;
+            interval!(x.inf().floor(), x.sup().ceil()).unwrap()
+        }
     }
 
     /// For the pixel-aligned region, returns the pixels in the region that are contained in the image.
@@ -467,7 +471,7 @@ impl Explicit {
         for p in pixels.iter().flatten() {
             if self.im[p] == PixelState::Uncertain
                 // Check if the pixel is not already revealed to be false.
-                && self.last_queued_blocks[p] as usize == parent_block_index
+                && self.last_queued_blocks[p] as usize >= parent_block_index
             {
                 self.im[p] = PixelState::UncertainNeverFalse;
             }
