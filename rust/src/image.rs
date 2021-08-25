@@ -84,7 +84,7 @@ impl PixelIndex {
 }
 
 /// A rectangular region of an [`Image`].
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PixelRange {
     begin: PixelIndex,
     end: PixelIndex,

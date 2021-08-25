@@ -12,7 +12,7 @@ use crate::{
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     region::Region,
-    relation::{EvalExplicitCache, Relation, RelationType},
+    relation::{EvalExplicitCache, ExplicitRelationOp, Relation, RelationType},
 };
 use image::{imageops, ImageBuffer, Pixel};
 use inari::{const_interval, interval, Decoration, Interval};
@@ -28,6 +28,7 @@ use std::{
 /// The graphing algorithm for explicit relations.
 pub struct Explicit {
     rel: Relation,
+    op: ExplicitRelationOp,
     transpose: bool,
     im: Image<PixelState>,
     block_queue: BlockQueue,
@@ -47,12 +48,17 @@ impl Explicit {
         im_height: u32,
         mem_limit: usize,
     ) -> Self {
+        let relation_type = rel.relation_type();
         assert!(matches!(
-            rel.relation_type(),
-            RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY
+            relation_type,
+            RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_)
         ));
 
-        let transpose = rel.relation_type() == RelationType::ExplicitFunctionOfY;
+        let op = match relation_type {
+            RelationType::ExplicitFunctionOfX(op) | RelationType::ExplicitFunctionOfY(op) => op,
+            _ => unreachable!(),
+        };
+        let transpose = matches!(relation_type, RelationType::ExplicitFunctionOfY(_));
         let im = Image::new(im_width, im_height);
 
         let (im_width, im_height) = if transpose {
@@ -64,6 +70,7 @@ impl Explicit {
         let im_height_interval = point_interval(im_height as f64);
         let mut g = Self {
             rel,
+            op,
             transpose,
             im,
             block_queue: BlockQueue::new(BlockQueueOptions {
@@ -170,11 +177,7 @@ impl Explicit {
             let end = (begin + b.width()).min(self.im_width());
             interval!(begin as f64, end as f64).unwrap()
         };
-        let pys = self
-            .im_intervals(&ys)
-            .into_iter()
-            .map(Self::outer_pixels)
-            .collect::<Vec<_>>();
+        let im_ys = self.im_intervals(&ys);
 
         let cond_is_true = cond
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
@@ -182,26 +185,28 @@ impl Explicit {
         let cond_is_false = !cond
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(self.rel.forms());
-
         let dec = ys.decoration();
+
         if dec >= Decoration::Def && cond_is_true {
-            let py = pys
+            let im_y = im_ys
                 .iter()
                 .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y));
 
-            if py.wid() == 1.0 {
-                // y is interior to a single row.
-                for p in &self.pixels_in_image(&Region::new(px, py)) {
-                    self.im[p] = PixelState::True;
-                }
+            let pixels = self.pixels_possibly_true(px, im_y);
+            let true_pixels = self.pixels_certainly_true(px, im_y);
+            for p in &true_pixels {
+                self.im[p] = PixelState::True;
+            }
+            if pixels == true_pixels {
                 return vec![];
             }
         } else if cond_is_false {
             return vec![];
         }
 
-        pys.into_iter()
-            .map(|py| self.pixels_in_image(&Region::new(px, py)))
+        im_ys
+            .into_iter()
+            .map(|im_y| self.pixels_possibly_true(px, im_y))
             .collect()
     }
 
@@ -222,11 +227,7 @@ impl Explicit {
             let end = begin + 1;
             interval!(begin as f64, end as f64).unwrap()
         };
-        let pys = self
-            .im_intervals(&ys)
-            .into_iter()
-            .map(Self::outer_pixels)
-            .collect::<Vec<_>>();
+        let im_ys = self.im_intervals(&ys);
 
         let cond_is_true = cond
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
@@ -237,15 +238,16 @@ impl Explicit {
         let dec = ys.decoration();
 
         if dec >= Decoration::Def && cond_is_true {
-            let py = pys
+            let im_y = im_ys
                 .iter()
                 .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y));
 
-            if py.wid() == 1.0 {
-                // y is interior to a single row.
-                for p in &self.pixels_in_image(&Region::new(px, py)) {
-                    self.im[p] = PixelState::True;
-                }
+            let pixels = self.pixels_possibly_true(px, im_y);
+            let true_pixels = self.pixels_certainly_true(px, im_y);
+            for p in &true_pixels {
+                self.im[p] = PixelState::True;
+            }
+            if pixels == true_pixels {
                 return vec![];
             }
         } else if cond_is_false {
@@ -279,7 +281,9 @@ impl Explicit {
                     .fold(f64::NEG_INFINITY, |acc, y| acc.max(y));
 
                 if y0 <= y1 {
-                    let py = Self::outer_pixels(
+                    // All "possibly-true" pixels are certainly true.
+                    let true_pixels = self.pixels_possibly_true(
+                        px,
                         Box1D::new(
                             point_interval_possibly_infinite(y0),
                             point_interval_possibly_infinite(y1),
@@ -287,7 +291,7 @@ impl Explicit {
                         .transform(&self.real_to_im_y)
                         .inner(),
                     );
-                    for p in &self.pixels_in_image(&Region::new(px, py)) {
+                    for p in &true_pixels {
                         self.im[p] = PixelState::True;
                     }
                 }
@@ -303,19 +307,19 @@ impl Explicit {
                             .im_intervals(&ys)
                             .into_iter()
                             .fold(Interval::EMPTY, |acc, y| acc.convex_hull(y));
-                        let py = Self::outer_pixels(im_y);
-                        if im_y.is_singleton() || py.wid() == 1.0 {
-                            for p in &self.pixels_in_image(&Region::new(px, py)) {
-                                self.im[p] = PixelState::True;
-                            }
+
+                        let true_pixels = self.pixels_certainly_true(px, im_y);
+                        for p in &true_pixels {
+                            self.im[p] = PixelState::True;
                         }
                     }
                 }
             }
         }
 
-        pys.into_iter()
-            .map(|py| self.pixels_in_image(&Region::new(px, py)))
+        im_ys
+            .into_iter()
+            .map(|im_y| self.pixels_possibly_true(px, im_y))
             .collect()
     }
 
@@ -389,6 +393,46 @@ impl Explicit {
         }
     }
 
+    /// Returns the smallest pixel-aligned interval that contains `x`.
+    fn pixels(x: Interval) -> Interval {
+        if x.is_empty() {
+            x
+        } else {
+            interval!(x.inf().floor(), x.sup().ceil()).unwrap()
+        }
+    }
+
+    /// Given an interval that certainly contains a solution,
+    /// returns the set of all pixels that certainly contain solutions.
+    ///
+    /// Panics if `im_y` is empty.
+    fn pixels_certainly_true(&self, px: Interval, im_y: Interval) -> PixelRange {
+        use ExplicitRelationOp::*;
+
+        assert!(!im_y.is_empty());
+
+        let im_y = match self.op {
+            Eq => im_y,
+            Ge | Gt => interval!(im_y.sup(), f64::INFINITY).unwrap_or(Interval::EMPTY),
+            Le | Lt => interval!(f64::NEG_INFINITY, im_y.inf()).unwrap_or(Interval::EMPTY),
+        };
+
+        let py = match self.op {
+            Eq => {
+                let py = Self::outer_pixels(im_y);
+                if im_y.is_singleton() || py.wid() == 1.0 {
+                    py
+                } else {
+                    Interval::EMPTY
+                }
+            }
+            Ge | Le => Self::outer_pixels(im_y),
+            Gt | Lt => Self::pixels(im_y),
+        };
+
+        self.pixels_in_image(&Region::new(px, py))
+    }
+
     /// For the pixel-aligned region, returns the pixels in the region that are contained in the image.
     ///
     /// If [`self.transpose`] is `true`, the x and y components of the result are swapped.
@@ -408,6 +452,31 @@ impl Explicit {
                 PixelIndex::new(x.sup() as u32, y.sup() as u32),
             )
         }
+    }
+
+    /// Given an interval that possibly contains a solution,
+    /// returns the set of pixels that possibly contain solutions.
+    ///
+    /// If every member of `im_y` is a solution, the returned intervals certainly contain solutions.
+    fn pixels_possibly_true(&self, px: Interval, im_y: Interval) -> PixelRange {
+        use ExplicitRelationOp::*;
+
+        if im_y.is_empty() {
+            return PixelRange::EMPTY;
+        }
+
+        let im_y = match self.op {
+            Eq => im_y,
+            Ge | Gt => interval!(im_y.inf(), f64::INFINITY).unwrap(),
+            Le | Lt => interval!(f64::NEG_INFINITY, im_y.sup()).unwrap(),
+        };
+
+        let py = match self.op {
+            Eq | Ge | Le => Self::outer_pixels(im_y),
+            Gt | Lt => Self::pixels(im_y),
+        };
+
+        self.pixels_in_image(&Region::new(px, py))
     }
 
     fn set_last_queued_block(
