@@ -1,3 +1,5 @@
+#![cfg(all(not(debug_assertions), feature = "arb"))]
+
 use std::{
     fs::{create_dir, read},
     path::PathBuf,
@@ -13,8 +15,8 @@ fn execute(cmd: &mut Command) -> bool {
 
 pub fn test(id: &str, args: &[String]) {
     let graph = "./target/release/graph";
-    let ref_dir = PathBuf::from("./tests/reference");
-    let actual_dir = PathBuf::from("./tests/actual");
+    let ref_dir = PathBuf::from("./tests/graph_tests/reference");
+    let actual_dir = PathBuf::from("./tests/graph_tests/actual");
     let ref_img = ref_dir.join([id, ".png"].concat());
     let actual_img = actual_dir.join([id, ".png"].concat());
     if ref_img.exists() {
@@ -39,16 +41,15 @@ pub fn test(id: &str, args: &[String]) {
 #[macro_export]
 macro_rules! t {
     ($id:ident, $($arg:expr),+) => {
-        #[cfg(all(not(debug_assertions), feature = "arb"))]
         #[test]
         fn $id() {
             let id = stringify!($id);
             let args = vec![$($arg.into()),+];
-            crate::test(id, &args);
+            $crate::test(id, &args);
         }
     };
 }
 
-mod graph {
+mod graph_tests {
     mod explicit;
 }

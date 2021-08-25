@@ -10,4 +10,4 @@
 **/*.rs.bk
 
 /graph.png
-/tests/actual/
+/tests/graph_tests/actual/
