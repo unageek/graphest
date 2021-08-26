@@ -1,11 +1,11 @@
-use clap::{App, AppSettings, Arg, ArgSettings};
+use clap::{App, Arg, ArgSettings};
 use graphest::{
     Explicit, Graph, GraphingStatistics, Implicit, InexactRegion, Parametric, Relation,
     RelationType,
 };
 use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
-use std::{ffi::OsStr, time::Duration};
+use std::{ffi::OsString, time::Duration};
 
 fn print_statistics_header() {
     println!(
@@ -43,7 +43,6 @@ fn to_interval(s: &str) -> Interval {
 
 fn main() {
     let matches = App::new("graph")
-        .setting(AppSettings::AllowLeadingHyphen)
         .about("Plots the graph of a mathematical relation to an image.")
         .arg(Arg::new("relation").index(1).about("Relation to plot."))
         .arg(
@@ -51,6 +50,7 @@ fn main() {
                 .short('b')
                 .long("bounds")
                 .number_of_values(4)
+                .allow_hyphen_values(true)
                 .default_values(&["-10", "10", "-10", "10"])
                 .value_names(&["xmin", "xmax", "ymin", "ymax"])
                 .about("Bounds of the region to plot over."),
@@ -71,6 +71,8 @@ fn main() {
                 .short('o')
                 .long("output")
                 .default_value("graph.png")
+                .forbid_empty_values(true)
+                .value_name("file")
                 .about("Path to the output image. It must end with '.png'."),
         )
         .arg(
@@ -87,6 +89,13 @@ fn main() {
                 .value_names(&["width", "height"])
                 .about("Pixel dimensions of the output image."),
         )
+        .arg(
+            Arg::new("timeout")
+                .long("timeout")
+                .takes_value(true)
+                .forbid_empty_values(true)
+                .about("Maximum limit of evaluation time in milliseconds."),
+        )
         .get_matches();
 
     let rel = matches.value_of_t_or_exit::<Relation>("relation");
@@ -102,40 +111,54 @@ fn main() {
         .collect::<Vec<_>>();
     let gray_alpha = matches.is_present("gray-alpha");
     let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
-    let output = matches.value_of_os("output");
+    let output = matches.value_of_os("output").unwrap().to_owned();
     let size = matches.values_of_t_or_exit::<u32>("size");
+    let timeout = match matches.value_of_t::<u64>("timeout") {
+        Ok(t) => Some(Duration::from_millis(t)),
+        Err(e) if e.kind == clap::ErrorKind::ArgumentNotFound => None,
+        Err(e) => e.exit(),
+    };
 
+    let opts = PlotOptions {
+        gray_alpha,
+        output,
+        im_width: size[0],
+        im_height: size[1],
+        timeout,
+    };
     let region = InexactRegion::new(bounds[0], bounds[1], bounds[2], bounds[3]);
 
     match rel.relation_type() {
         RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY => plot(
             Explicit::new(rel, region, size[0], size[1], mem_limit),
-            gray_alpha,
-            size,
-            output,
+            opts,
         ),
         RelationType::Parametric => plot(
             Parametric::new(rel, region, size[0], size[1], mem_limit),
-            gray_alpha,
-            size,
-            output,
+            opts,
         ),
         _ => plot(
             Implicit::new(rel, region, size[0], size[1], mem_limit),
-            gray_alpha,
-            size,
-            output,
+            opts,
         ),
     };
 }
 
-fn plot<G: Graph>(mut g: G, gray_alpha: bool, size: Vec<u32>, output: Option<&OsStr>) {
+struct PlotOptions {
+    gray_alpha: bool,
+    output: OsString,
+    im_width: u32,
+    im_height: u32,
+    timeout: Option<Duration>,
+}
+
+fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
     let mut gray_alpha_im: Option<GrayAlphaImage> = None;
     let mut rgb_im: Option<RgbImage> = None;
-    if gray_alpha {
-        gray_alpha_im = Some(GrayAlphaImage::new(size[0], size[1]));
+    if opts.gray_alpha {
+        gray_alpha_im = Some(GrayAlphaImage::new(opts.im_width, opts.im_height));
     } else {
-        rgb_im = Some(RgbImage::new(size[0], size[1]));
+        rgb_im = Some(RgbImage::new(opts.im_width, opts.im_height));
     }
 
     let mut prev_stat = g.get_statistics();
@@ -143,25 +166,33 @@ fn plot<G: Graph>(mut g: G, gray_alpha: bool, size: Vec<u32>, output: Option<&Os
     print_statistics(&prev_stat, &prev_stat);
 
     loop {
-        let result = g.refine(Duration::from_millis(1500));
+        let duration = match opts.timeout {
+            Some(t) => t
+                .saturating_sub(prev_stat.time_elapsed)
+                .min(Duration::from_millis(1500)),
+            _ => Duration::from_millis(1500),
+        };
+        if duration.is_zero() {
+            eprintln!("Warning: reached the timeout");
+            break;
+        }
+        let result = g.refine(duration);
 
         let stat = g.get_statistics();
         print_statistics(&stat, &prev_stat);
         prev_stat = stat;
 
-        if let Some(output) = output {
-            if let Some(im) = &mut gray_alpha_im {
-                g.get_image(im, LumaA([0, 255]), LumaA([0, 128]), LumaA([0, 0]));
-                im.save(output).expect("saving image failed");
-            } else if let Some(im) = &mut rgb_im {
-                g.get_image(
-                    im,
-                    Rgb([0, 0, 0]),
-                    Rgb([64, 128, 192]),
-                    Rgb([255, 255, 255]),
-                );
-                im.save(output).expect("saving image failed");
-            }
+        if let Some(im) = &mut gray_alpha_im {
+            g.get_image(im, LumaA([0, 255]), LumaA([0, 128]), LumaA([0, 0]));
+            im.save(&opts.output).expect("saving image failed");
+        } else if let Some(im) = &mut rgb_im {
+            g.get_image(
+                im,
+                Rgb([0, 0, 0]),
+                Rgb([64, 128, 192]),
+                Rgb([255, 255, 255]),
+            );
+            im.save(&opts.output).expect("saving image failed");
         }
 
         match result {
