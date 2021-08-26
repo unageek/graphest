@@ -21,7 +21,9 @@ t!(
 // bifoliate (a = 5)
 t!(
     t_98966651db534aa79c7e026b6d2171dd,
-    "x = 40 sin(t)^2 cos(t)^2 / (cos(4 t) + 3) && y = 40 sin(t)^3 cos(t) / (cos(4 t) + 3)"
+    "x = 40 sin(t)^2 cos(t)^2 / (cos(4 t) + 3) && y = 40 sin(t)^3 cos(t) / (cos(4 t) + 3)",
+    "--timeout",
+    "2000"
 );
 
 // bifolium (a = 5)
@@ -31,7 +33,7 @@ t!(
 );
 
 // second butterfly curve
-t!(t_1fc142fa2f4b49bc993234a1384220b0, "x = sin(t) (sin(t / 12)^5 + exp(cos(t)) - 2 cos(4 t)) && y = cos(t) (sin(t / 12)^5 + exp(cos(t)) - 2 cos(4 t))");
+t!(t_1fc142fa2f4b49bc993234a1384220b0, "x = sin(t) (sin(t / 12)^5 + exp(cos(t)) - 2 cos(4 t)) && y = cos(t) (sin(t / 12)^5 + exp(cos(t)) - 2 cos(4 t))", "--timeout", "2000");
 
 // cardioid (a = 2)
 t!(
@@ -84,7 +86,9 @@ t!(
 // eight curve (a = 5)
 t!(
     t_7c7632d36c2c49499bbb8ac454a0063a,
-    "x = 5 sin(t) && y = 5 sin(t) cos(t)"
+    "x = 5 sin(t) && y = 5 sin(t) cos(t)",
+    "--timeout",
+    "2000"
 );
 
 // Doppler spiral (a = 1/10, k = 2)
@@ -144,7 +148,9 @@ t!(
 // tractrix spiral (a = 10)
 t!(
     t_ec7bc6583a004fca8a4dfefe5d24ca8b,
-    "x = 10 cos(t) cos(t - tan(t)) && y = 10 cos(t) sin(t - tan(t)) && 0 ≤ t < π/2"
+    "x = 10 cos(t) cos(t - tan(t)) && y = 10 cos(t) sin(t - tan(t)) && 0 ≤ t < π/2",
+    "--timeout",
+    "2000"
 );
 
 // Tschirnhausen cubic (a = 1/10)
