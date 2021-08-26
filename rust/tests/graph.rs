@@ -24,8 +24,10 @@ pub fn test(id: &str, args: &[String]) {
         assert!(execute(
             Command::new(graph)
                 .args(args)
-                .arg("-o")
-                .arg(actual_img.clone()),
+                .arg("--output")
+                .arg(actual_img.clone())
+                .arg("--timeout")
+                .arg("3000"),
         ));
         let ref_bytes = read(ref_img).unwrap();
         let actual_bytes = read(actual_img).unwrap();
@@ -33,7 +35,12 @@ pub fn test(id: &str, args: &[String]) {
         assert!(ref_bytes == actual_bytes);
     } else {
         assert!(execute(
-            Command::new(graph).args(args).arg("-o").arg(ref_img),
+            Command::new(graph)
+                .args(args)
+                .arg("--output")
+                .arg(ref_img)
+                .arg("--timeout")
+                .arg("3000"),
         ));
     }
 }
@@ -52,4 +59,5 @@ macro_rules! t {
 
 mod graph_tests {
     mod explicit;
+    mod parametric;
 }
