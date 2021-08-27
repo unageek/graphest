@@ -1,7 +1,7 @@
 #![allow(clippy::float_cmp)]
 #![feature(box_patterns, box_syntax, once_cell)]
 
-pub use graph::{Explicit, Graph, GraphingStatistics, Implicit, InexactRegion, Parametric};
+pub use graph::{Box2D, Explicit, Graph, GraphingStatistics, Implicit, Parametric};
 pub use relation::{Relation, RelationType};
 
 #[cfg(feature = "arb")]
@@ -14,6 +14,7 @@ mod ast;
 mod block;
 mod context;
 mod eval_result;
+mod geom;
 mod graph;
 mod image;
 mod interval_set;

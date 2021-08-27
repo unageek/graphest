@@ -1,17 +1,18 @@
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
     eval_result::EvalResult,
+    geom::{Box1D, Box2D, Transform1D},
     graph::{
         common::{
-            point_interval, point_interval_possibly_infinite, simple_fraction, PixelState,
-            QueuedBlockIndex,
+            point_interval, point_interval_possibly_infinite, simple_fraction, subpixel_outer_x,
+            PixelState, QueuedBlockIndex,
         },
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     ops::StaticForm,
-    region::{InexactRegion, Region, Transform},
+    region::Region,
     relation::{EvalExplicitCache, Relation, RelationType},
 };
 use image::{imageops, ImageBuffer, Pixel};
@@ -34,8 +35,8 @@ pub struct Explicit {
     last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
     im_region: Region,
-    im_to_real_x: Transform,
-    real_to_im_y: Transform,
+    im_to_real_x: Transform1D,
+    real_to_im_y: Transform1D,
     stats: GraphingStatistics,
     mem_limit: usize,
     cache: EvalExplicitCache,
@@ -44,13 +45,11 @@ pub struct Explicit {
 impl Explicit {
     pub fn new(
         rel: Relation,
-        region: InexactRegion,
+        region: Box2D,
         im_width: u32,
         im_height: u32,
         mem_limit: usize,
     ) -> Self {
-        const ONE: Interval = const_interval!(1.0, 1.0);
-
         assert!(matches!(
             rel.relation_type(),
             RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY
@@ -82,16 +81,12 @@ impl Explicit {
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
             ),
-            im_to_real_x: Transform::with_predivision_factors(
+            im_to_real_x: Transform1D::with_predivision_factors(
                 (region.width(), im_width_interval),
                 region.left(),
-                (ONE, ONE),
-                const_interval!(0.0, 0.0),
             ),
             real_to_im_y: {
-                Transform::with_predivision_factors(
-                    (ONE, ONE),
-                    const_interval!(0.0, 0.0),
+                Transform1D::with_predivision_factors(
                     (im_height_interval, region.height()),
                     -im_height_interval * (region.bottom() / region.height()),
                 )
@@ -174,11 +169,8 @@ impl Explicit {
     ///
     /// Precondition: the block is either a pixel or a superpixel.
     fn process_block(&mut self, b: &Block) -> Vec<PixelRange> {
-        let x = {
-            let u_up = self.block_to_region_clipped(b).outer();
-            u_up.x()
-        };
-        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x);
+        let x_up = self.block_to_region_clipped(b).outer();
+        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x_up);
 
         let px = {
             let begin = b.pixel_index().x;
@@ -225,13 +217,10 @@ impl Explicit {
     ///
     /// Precondition: the block is a subpixel.
     fn process_subpixel_block(&mut self, b: &Block) -> Vec<PixelRange> {
-        let x_up = {
-            let u_up = self.block_to_region(b).subpixel_outer(b);
-            u_up.x()
-        };
+        let x_up = subpixel_outer_x(&self.block_to_region(b), b);
         let inter = {
             let p_dn = self.block_to_region(&b.pixel_block()).inner();
-            x_up.intersection(p_dn.x())
+            x_up.intersection(p_dn)
         };
         let (ys, cond) = Self::eval_on_interval(&mut self.rel, x_up);
 
@@ -298,15 +287,12 @@ impl Explicit {
 
                 if y0 <= y1 {
                     let py = Self::outer_pixels(
-                        InexactRegion::new(
-                            const_interval!(0.0, 0.0),
-                            const_interval!(1.0, 1.0),
+                        Box1D::new(
                             point_interval_possibly_infinite(y0),
                             point_interval_possibly_infinite(y1),
                         )
                         .transform(&self.real_to_im_y)
-                        .inner()
-                        .y(),
+                        .inner(),
                     );
                     for p in &self.pixels_in_image(&Region::new(px, py)) {
                         self.im[p] = PixelState::True;
@@ -341,27 +327,19 @@ impl Explicit {
     }
 
     /// Returns the region that corresponds to a subpixel block `b`.
-    fn block_to_region(&self, b: &Block) -> InexactRegion {
+    fn block_to_region(&self, b: &Block) -> Box1D {
         let pw = b.widthf();
         let px = b.x as f64 * pw;
-        InexactRegion::new(
-            point_interval(px),
-            point_interval(px + pw),
-            const_interval!(0.0, 0.0),
-            const_interval!(1.0, 1.0),
-        )
-        .transform(&self.im_to_real_x)
+        Box1D::new(point_interval(px), point_interval(px + pw)).transform(&self.im_to_real_x)
     }
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
-    fn block_to_region_clipped(&self, b: &Block) -> InexactRegion {
+    fn block_to_region_clipped(&self, b: &Block) -> Box1D {
         let pw = b.widthf();
         let px = b.x as f64 * pw;
-        InexactRegion::new(
+        Box1D::new(
             point_interval(px),
             point_interval((px + pw).min(self.im_width() as f64)),
-            const_interval!(0.0, 0.0),
-            const_interval!(1.0, 1.0),
         )
         .transform(&self.im_to_real_x)
     }
@@ -382,15 +360,12 @@ impl Explicit {
     fn im_intervals(&self, ys: &TupperIntervalSet) -> Vec<Interval> {
         ys.iter()
             .map(|y| {
-                InexactRegion::new(
-                    const_interval!(0.0, 0.0),
-                    const_interval!(1.0, 1.0),
+                Box1D::new(
                     point_interval_possibly_infinite(y.x.inf()),
                     point_interval_possibly_infinite(y.x.sup()),
                 )
                 .transform(&self.real_to_im_y)
                 .outer()
-                .y()
             })
             .collect::<Vec<_>>()
     }

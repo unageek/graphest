@@ -1,7 +1,6 @@
 use clap::{App, Arg, ArgSettings};
 use graphest::{
-    Explicit, Graph, GraphingStatistics, Implicit, InexactRegion, Parametric, Relation,
-    RelationType,
+    Box2D, Explicit, Graph, GraphingStatistics, Implicit, Parametric, Relation, RelationType,
 };
 use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
@@ -126,7 +125,7 @@ fn main() {
         im_height: size[1],
         timeout,
     };
-    let region = InexactRegion::new(bounds[0], bounds[1], bounds[2], bounds[3]);
+    let region = Box2D::new(bounds[0], bounds[1], bounds[2], bounds[3]);
 
     match rel.relation_type() {
         RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY => plot(
