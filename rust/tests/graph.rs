@@ -46,7 +46,15 @@ pub fn test(id: &str, args: &[String]) {
 
 #[macro_export]
 macro_rules! t {
-    ($id:ident, $($arg:expr),+) => {
+    ($id:ident, $($arg:expr),+, @bounds($xmin:expr, $xmax:expr, $ymin:expr, $ymax:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
+        t!($id, $($arg),+, "--bounds", stringify!($xmin), stringify!($xmax), stringify!($ymin), stringify!($ymax), $(@$opt($($opt_arg),+)),*);
+    };
+
+    ($id:ident, $($arg:expr),+, @timeout($timeout:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
+        t!($id, $($arg),+, "--timeout", stringify!($timeout), $(@$opt($($opt_arg),+)),*);
+    };
+
+    ($id:ident, $($arg:expr),+ $(,)?) => {
         #[test]
         fn $id() {
             let id = stringify!($id);
