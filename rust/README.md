@@ -10,7 +10,7 @@
 `graph` is the only binary of this crate.
 
 ```bash
-cargo r --release --features "arb" -- "y = sin(x)"
+cargo r --release -- "y = sin(x)"
 ```
 
 By default:
@@ -25,7 +25,7 @@ Use the option `-h` to show usage.
 
 ## Conditional Features
 
-- `arb` - Use [Arb](https://arblib.org), in addition to MPFR, as the underlying implementation of interval functions to speed up evaluation and enable additional functions. With this feature enabled, the unit tests of FLINT and Arb are run during building the crate, which can take quote a long time (~45 minutes). So you might want to skip them by commenting out the statements that contains `.arg("check")` in [build.rs](build.rs).
+- `arb` (enabled by default) - Use [Arb](https://arblib.org), in addition to MPFR, as the underlying implementation of interval functions to speed up evaluation and enable additional functions. With this feature enabled, the unit tests of FLINT and Arb are run during building the crate, which can take quote a long time (~45 minutes). So you might want to skip them by commenting out the statements that contains `.arg("check")` in [build.rs](build.rs).
 
 ## Documentation
 

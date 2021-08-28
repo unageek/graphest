@@ -7,11 +7,11 @@
 - Run tests with:
 
   ```bash
-  cargo t --release --features "arb" --test graph
+  cargo t --release --test graph
   ```
 
 - You can time each test with:
 
   ```bash
-  cargo t --release --features "arb" --test graph -- -Zunstable-options --report-time
+  cargo t --release --test graph -- -Zunstable-options --report-time
   ```
