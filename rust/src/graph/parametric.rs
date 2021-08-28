@@ -4,7 +4,7 @@ use crate::{
         common::{point_interval, point_interval_possibly_infinite, PixelState, QueuedBlockIndex},
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
     },
-    image::{Image, PixelIndex, PixelRegion},
+    image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     ops::StaticForm,
     region::{InexactRegion, Region, Transform},
@@ -150,11 +150,11 @@ impl Parametric {
 
     fn set_last_queued_block(
         &mut self,
-        r: &PixelRegion,
+        pixels: &PixelRange,
         block_index: usize,
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-            for p in r.iter() {
+            for p in pixels.iter() {
                 self.last_queued_blocks[p] = block_index;
             }
             Ok(())
@@ -166,8 +166,8 @@ impl Parametric {
     }
 
     /// Tries to prove or disprove the existence of a solution in the block
-    /// and if it is unsuccessful, returns pixels that the block is interior to the union of them.
-    fn process_block(&mut self, block: &Block) -> Vec<PixelRegion> {
+    /// and if it is unsuccessful, returns pixels that possibly contain solutions.
+    fn process_block(&mut self, block: &Block) -> Vec<PixelRange> {
         let (xs, ys, cond) = self.rel.eval_parametric(block.t, None);
         let rs = self
             .im_regions(&xs, &ys)
@@ -295,15 +295,15 @@ impl Parametric {
 
     /// For the pixel-aligned region,
     /// returns the pixels in the region that are contained in the image.
-    fn pixels_in_image(&self, r: &Region) -> PixelRegion {
+    fn pixels_in_image(&self, r: &Region) -> PixelRange {
         let r = r.intersection(&self.im_region);
         if r.is_empty() {
-            PixelRegion::EMPTY
+            PixelRange::EMPTY
         } else {
-            // If `r` is degenerate, the result is `PixelRegion::EMPTY`.
+            // If `r` is degenerate, the result is `PixelRange::EMPTY`.
             let x = r.x();
             let y = r.y();
-            PixelRegion::new(
+            PixelRange::new(
                 PixelIndex::new(x.inf() as u32, y.inf() as u32),
                 PixelIndex::new(x.sup() as u32, y.sup() as u32),
             )

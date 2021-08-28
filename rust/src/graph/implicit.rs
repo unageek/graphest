@@ -5,7 +5,7 @@ use crate::{
         common::{point_interval, simple_fraction, PixelState, QueuedBlockIndex},
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
     },
-    image::{Image, PixelIndex, PixelRegion},
+    image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
     region::{InexactRegion, Region, Transform},
@@ -267,7 +267,7 @@ impl Implicit {
                         (begin.x + b.width()).min(self.im.width()),
                         (begin.y + b.height()).min(self.im.height()),
                     );
-                    PixelRegion::new(begin, end)
+                    PixelRange::new(begin, end)
                 };
 
                 for p in pixels.iter() {
@@ -301,7 +301,7 @@ impl Implicit {
                 (begin.x + b.width()).min(self.im.width()),
                 (begin.y + b.height()).min(self.im.height()),
             );
-            PixelRegion::new(begin, end)
+            PixelRange::new(begin, end)
         };
 
         if pixels.iter().all(|p| self.im[p] == PixelState::True) {

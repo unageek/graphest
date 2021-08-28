@@ -8,7 +8,7 @@ use crate::{
         },
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
     },
-    image::{Image, PixelIndex, PixelRegion},
+    image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     ops::StaticForm,
     region::{InexactRegion, Region, Transform},
@@ -170,10 +170,10 @@ impl Explicit {
     }
 
     /// Tries to prove or disprove the existence of a solution in the block
-    /// and if it is unsuccessful, returns pixels that possibly contains a solution.
+    /// and if it is unsuccessful, returns pixels that possibly contain solutions.
     ///
     /// Precondition: the block is either a pixel or a superpixel.
-    fn process_block(&mut self, b: &Block) -> Vec<PixelRegion> {
+    fn process_block(&mut self, b: &Block) -> Vec<PixelRange> {
         let x = {
             let u_up = self.block_to_region_clipped(b).outer();
             u_up.x()
@@ -221,10 +221,10 @@ impl Explicit {
     }
 
     /// Tries to prove or disprove the existence of a solution in the block
-    /// and if it is unsuccessful, returns pixels that possibly contains a solution.
+    /// and if it is unsuccessful, returns pixels that possibly contain solutions.
     ///
     /// Precondition: the block is a subpixel.
-    fn process_subpixel_block(&mut self, b: &Block) -> Vec<PixelRegion> {
+    fn process_subpixel_block(&mut self, b: &Block) -> Vec<PixelRange> {
         let x_up = {
             let u_up = self.block_to_region(b).subpixel_outer(b);
             u_up.x()
@@ -403,7 +403,7 @@ impl Explicit {
         }
     }
 
-    fn is_any_pixel_uncertain(&self, pixels: &[PixelRegion], parent_block_index: usize) -> bool {
+    fn is_any_pixel_uncertain(&self, pixels: &[PixelRange], parent_block_index: usize) -> bool {
         pixels.iter().flatten().any(|p| {
             let s = self.im[p];
             let bi = self.last_queued_blocks[p];
@@ -426,18 +426,18 @@ impl Explicit {
     /// For the pixel-aligned region, returns the pixels in the region that are contained in the image.
     ///
     /// If [`self.transpose`] is `true`, the x and y components of the result are swapped.
-    fn pixels_in_image(&self, r: &Region) -> PixelRegion {
+    fn pixels_in_image(&self, r: &Region) -> PixelRange {
         let r = r.intersection(&self.im_region);
         if r.is_empty() {
-            PixelRegion::EMPTY
+            PixelRange::EMPTY
         } else {
-            // If `r` is degenerate, the result is `PixelRegion::EMPTY`.
+            // If `r` is degenerate, the result is `PixelRange::EMPTY`.
             let mut x = r.x();
             let mut y = r.y();
             if self.transpose {
                 swap(&mut x, &mut y);
             }
-            PixelRegion::new(
+            PixelRange::new(
                 PixelIndex::new(x.inf() as u32, y.inf() as u32),
                 PixelIndex::new(x.sup() as u32, y.sup() as u32),
             )
@@ -446,7 +446,7 @@ impl Explicit {
 
     fn set_last_queued_block(
         &mut self,
-        pixels: &[PixelRegion],
+        pixels: &[PixelRange],
         block_index: usize,
         parent_block_index: usize,
     ) -> Result<(), GraphingError> {
@@ -467,7 +467,7 @@ impl Explicit {
         }
     }
 
-    fn set_uncertain_never_false(&mut self, pixels: &[PixelRegion], parent_block_index: usize) {
+    fn set_uncertain_never_false(&mut self, pixels: &[PixelRange], parent_block_index: usize) {
         for p in pixels.iter().flatten() {
             if self.im[p] == PixelState::Uncertain
                 // Check if the pixel is not already revealed to be false.

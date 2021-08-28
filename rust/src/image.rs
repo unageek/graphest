@@ -85,18 +85,18 @@ impl PixelIndex {
 
 /// A rectangular region of an [`Image`].
 #[derive(Clone, Debug)]
-pub struct PixelRegion {
+pub struct PixelRange {
     begin: PixelIndex,
     end: PixelIndex,
 }
 
-impl PixelRegion {
+impl PixelRange {
     pub const EMPTY: Self = Self {
         begin: PixelIndex { x: 0, y: 0 },
         end: PixelIndex { x: 0, y: 0 },
     };
 
-    /// Creates a new [`PixelRegion`] that spans pixels within
+    /// Creates a new [`PixelRange`] that spans pixels within
     /// `begin.x ≤ x < end.x` and `begin.y ≤ y < end.y`.
     pub fn new(begin: PixelIndex, end: PixelIndex) -> Self {
         assert!(begin.x <= end.x && begin.y <= end.y);
@@ -113,7 +113,7 @@ impl PixelRegion {
     }
 }
 
-impl<'a> IntoIterator for &'a PixelRegion {
+impl<'a> IntoIterator for &'a PixelRange {
     type Item = PixelIndex;
     type IntoIter = PixelIter<'a>;
 
@@ -127,7 +127,7 @@ impl<'a> IntoIterator for &'a PixelRegion {
 
 /// An iterator that iterates over the pixels of an [`Image`].
 pub struct PixelIter<'a> {
-    region: &'a PixelRegion,
+    region: &'a PixelRange,
     p: PixelIndex,
 }
 
@@ -174,20 +174,20 @@ mod tests {
     }
 
     #[test]
-    fn pixel_region() {
-        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(1, 2));
+    fn pixel_range() {
+        let r = PixelRange::new(PixelIndex::new(1, 2), PixelIndex::new(1, 2));
         let mut iter = r.iter();
         assert_eq!(iter.next(), None);
 
-        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(4, 2));
+        let r = PixelRange::new(PixelIndex::new(1, 2), PixelIndex::new(4, 2));
         let mut iter = r.iter();
         assert_eq!(iter.next(), None);
 
-        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(1, 8));
+        let r = PixelRange::new(PixelIndex::new(1, 2), PixelIndex::new(1, 8));
         let mut iter = r.iter();
         assert_eq!(iter.next(), None);
 
-        let r = PixelRegion::new(PixelIndex::new(1, 2), PixelIndex::new(4, 8));
+        let r = PixelRange::new(PixelIndex::new(1, 2), PixelIndex::new(4, 8));
         let mut iter = r.iter();
         for y in 2..8 {
             for x in 1..4 {
