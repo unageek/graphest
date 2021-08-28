@@ -61,22 +61,14 @@ fn build_flint(env: &Environment) {
         ]));
     }
     execute(
-        Command::new("sh")
+        Command::new(build_dir.join("configure"))
             .current_dir(&build_dir)
-            .arg("-c")
-            .arg(
-                [
-                    "./configure",
-                    " --prefix=",
-                    env.out_dir.to_str().unwrap(),
-                    " --with-gmp=",
-                    env.gmp_dir.to_str().unwrap(),
-                    " --with-mpfr=",
-                    env.gmp_dir.to_str().unwrap(),
-                    " --disable-shared",
-                ]
-                .concat(),
-            )
+            .args([
+                "--disable-shared",
+                &format!("--prefix={}", env.out_dir.to_str().unwrap()),
+                &format!("--with-gmp={}", env.gmp_dir.to_str().unwrap()),
+                &format!("--with-mpfr={}", env.gmp_dir.to_str().unwrap()),
+            ])
             .env("CFLAGS", "-Wno-error"),
     );
     execute(
@@ -111,24 +103,15 @@ fn build_arb(env: &Environment) {
         ]));
     }
     execute(
-        Command::new("sh")
+        Command::new(build_dir.join("configure"))
             .current_dir(&build_dir)
-            .arg("-c")
-            .arg(
-                [
-                    "./configure",
-                    " --prefix=",
-                    env.out_dir.to_str().unwrap(),
-                    " --with-gmp=",
-                    env.gmp_dir.to_str().unwrap(),
-                    " --with-mpfr=",
-                    env.gmp_dir.to_str().unwrap(),
-                    " --with-flint=",
-                    env.out_dir.to_str().unwrap(),
-                    " --disable-shared",
-                ]
-                .concat(),
-            )
+            .args([
+                "--disable-shared",
+                &format!("--prefix={}", env.out_dir.to_str().unwrap()),
+                &format!("--with-flint={}", env.out_dir.to_str().unwrap()),
+                &format!("--with-gmp={}", env.gmp_dir.to_str().unwrap()),
+                &format!("--with-mpfr={}", env.gmp_dir.to_str().unwrap()),
+            ])
             .env("CFLAGS", "-Wno-error"),
     );
     execute(
