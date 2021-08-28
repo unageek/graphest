@@ -5,25 +5,32 @@
   The graph of sin(<i>x</i> ± sin <i>y</i>) (sin <i>x</i> ± <i>y</i>) = cos(sin((sin <i>x</i> ± cos <i>y</i>) (sin <i>y</i> ± cos <i>x</i>))) over [4, 6.5] × [2, 4.5].
 </p>
 
-## Binaries
+## `graph`
 
-### `graph`
+`graph` is the only binary of this crate.
 
 ```bash
-cargo r --bin graph --release --features "arb" -- "y = sin(x)"
+cargo r --release --features "arb" -- "y = sin(x)"
 ```
 
 By default:
 
-- The plot will be saved to `graph.png` in the current directory.
-
+- The plot will be saved to the file `graph.png` in the current directory.
 - The following colors are used:
-  - ![Black](images/black.png) There is at least one solution in the pixel. (Solution is any point that satisfies the relation.)
-  - ![Blue](images/blue.png) There may or may not be solutions in the pixel.
-  - ![White](images/white.png) There are no solutions in the pixel.
+  - ![Black](images/black.png) The pixel contains a solution; a solution is a point that satisfies the relation.
+  - ![Blue](images/blue.png) The pixel may or may not contain a solution.
+  - ![White](images/white.png) The pixel does not contain a solution
 
-Use `-h` option to view usage.
+Use the option `-h` to show usage.
 
 ## Conditional Features
 
-- `arb` - Use [Arb](https://arblib.org) to boost plotting performance and enable additional functions. With this feature enabled, it can take quote a long time (~45 minutes) to build the binaries. You might want to comment out the statements that contains `.arg("check")` in [build.rs](build.rs) to bypass unit tests.
+- `arb` - Use [Arb](https://arblib.org), in addition to MPFR, as the underlying implementation of interval functions to speed up evaluation and enable additional functions. With this feature enabled, the unit tests of FLINT and Arb are run during building the crate, which can take quote a long time (~45 minutes). So you might want to skip them by commenting out the statements that contains `.arg("check")` in [build.rs](build.rs).
+
+## Documentation
+
+To build the documentation and open it in the browser, run:
+
+```bash
+RUSTDOCFLAGS="-Arustdoc::private_intra_doc_links" cargo doc --lib --open --document-private-items
+```
