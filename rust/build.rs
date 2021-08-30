@@ -32,11 +32,10 @@ fn main() {
         return;
     }
 
-    let cache_dir = user_cache_dir().map(|c| c.join("graphest-arb-sys").join(VERSION));
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let env = Environment {
         build_dir: out_dir.join("build"),
-        cache_dir: cache_dir,
+        cache_dir: user_cache_dir().map(|c| c.join("graphest-arb-sys").join(VERSION)),
         gmp_dir: PathBuf::from(env::var_os("DEP_GMP_OUT_DIR").unwrap()),
         include_dir: out_dir.join("include"),
         lib_dir: out_dir.join("lib"),
