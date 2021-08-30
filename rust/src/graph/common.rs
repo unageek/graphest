@@ -1,10 +1,9 @@
-use inari::{const_interval, interval, Interval};
-
 use crate::{
     block::Block,
     geom::{Box1D, Box2D},
     region::Region,
 };
+use inari::{const_interval, interval, Interval};
 
 /// The graphing status of a pixel.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
