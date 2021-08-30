@@ -25,8 +25,13 @@ jobs:
 
       - uses: actions/cache@v2
         with:
-          path: rust/target
-          key: ubuntu-${{ hashFiles('rust/Cargo.lock', 'rust/build.rs') }}-${{ secrets.CACHE_VERSION }}
+          path: |
+            rust/target
+            ~/.cache/gmp-mpfr-sys
+            ~/.cache/graphest-arb-sys
+          key: ${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ secrets.CACHE_VERSION }}-
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
