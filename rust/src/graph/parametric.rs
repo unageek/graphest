@@ -1,5 +1,6 @@
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
+    geom::{Box2D, Transform2D},
     graph::{
         common::{point_interval, point_interval_possibly_infinite, PixelState, QueuedBlockIndex},
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
@@ -7,7 +8,7 @@ use crate::{
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     ops::StaticForm,
-    region::{InexactRegion, Region, Transform},
+    region::Region,
     relation::{EvalParametricCache, Relation, RelationType},
 };
 use image::{imageops, ImageBuffer, Pixel};
@@ -32,7 +33,7 @@ pub struct Parametric {
     /// The pixel-aligned region that matches the entire image.
     im_region: Region,
     /// The affine transformation from real coordinates to image coordinates.
-    real_to_im: Transform,
+    real_to_im: Transform2D,
     stats: GraphingStatistics,
     mem_limit: usize,
     cache: EvalParametricCache,
@@ -41,7 +42,7 @@ pub struct Parametric {
 impl Parametric {
     pub fn new(
         rel: Relation,
-        region: InexactRegion,
+        region: Box2D,
         im_width: u32,
         im_height: u32,
         mem_limit: usize,
@@ -65,7 +66,7 @@ impl Parametric {
                 interval!(0.0, im_height as f64).unwrap(),
             ),
             real_to_im: {
-                Transform::new(
+                Transform2D::new(
                     im_width_interval / region.width(),
                     -im_width_interval * (region.left() / region.width()),
                     im_height_interval / region.height(),
@@ -263,7 +264,7 @@ impl Parametric {
             .cartesian_product(ys.iter())
             .filter(|(x, y)| x.g.union(y.g).is_some())
             .map(|(x, y)| {
-                InexactRegion::new(
+                Box2D::new(
                     point_interval_possibly_infinite(x.x.inf()),
                     point_interval_possibly_infinite(x.x.sup()),
                     point_interval_possibly_infinite(y.x.inf()),

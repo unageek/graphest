@@ -74,7 +74,7 @@ mod explicit;
 mod implicit;
 mod parametric;
 
-pub use crate::region::InexactRegion;
+pub use crate::geom::Box2D;
 pub use explicit::Explicit;
 pub use implicit::Implicit;
 pub use parametric::Parametric;

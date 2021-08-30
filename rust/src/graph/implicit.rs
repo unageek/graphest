@@ -1,14 +1,15 @@
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions, SubdivisionDir},
     eval_result::EvalResult,
+    geom::{Box2D, Transform2D},
     graph::{
-        common::{point_interval, simple_fraction, PixelState, QueuedBlockIndex},
+        common::{point_interval, simple_fraction, subpixel_outer, PixelState, QueuedBlockIndex},
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet},
     ops::StaticForm,
-    region::{InexactRegion, Region, Transform},
+    region::Region,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
 };
 use image::{imageops, ImageBuffer, Pixel};
@@ -33,7 +34,7 @@ pub struct Implicit {
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
     // Affine transformation from image coordinates to real coordinates.
-    im_to_real: Transform,
+    im_to_real: Transform2D,
     stats: GraphingStatistics,
     mem_limit: usize,
     cache_eval_on_region: EvalCache,
@@ -43,7 +44,7 @@ pub struct Implicit {
 impl Implicit {
     pub fn new(
         rel: Relation,
-        region: InexactRegion,
+        region: Box2D,
         im_width: u32,
         im_height: u32,
         mem_limit: usize,
@@ -69,7 +70,7 @@ impl Implicit {
                 store_t: has_t,
                 store_next_dir: has_n_theta || has_t,
             }),
-            im_to_real: Transform::new(
+            im_to_real: Transform2D::new(
                 region.width() / point_interval(im_width as f64),
                 region.left(),
                 region.height() / point_interval(im_height as f64),
@@ -367,7 +368,7 @@ impl Implicit {
             return true;
         }
 
-        let u_up = self.block_to_region(b).subpixel_outer(b);
+        let u_up = subpixel_outer(&self.block_to_region(b), b);
         let r_u_up = Self::eval_on_region(
             &mut self.rel,
             &u_up,
@@ -502,12 +503,12 @@ impl Implicit {
     }
 
     /// Returns the region that corresponds to a subpixel block `b`.
-    fn block_to_region(&self, b: &Block) -> InexactRegion {
+    fn block_to_region(&self, b: &Block) -> Box2D {
         let pw = b.widthf();
         let ph = b.heightf();
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
-        InexactRegion::new(
+        Box2D::new(
             point_interval(px),
             point_interval(px + pw),
             point_interval(py),
@@ -517,12 +518,12 @@ impl Implicit {
     }
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
-    fn block_to_region_clipped(&self, b: &Block) -> InexactRegion {
+    fn block_to_region_clipped(&self, b: &Block) -> Box2D {
         let pw = b.widthf();
         let ph = b.heightf();
         let px = b.x as f64 * pw;
         let py = b.y as f64 * ph;
-        InexactRegion::new(
+        Box2D::new(
             point_interval(px),
             point_interval((px + pw).min(self.im.width() as f64)),
             point_interval(py),
