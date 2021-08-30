@@ -40,11 +40,14 @@ jobs:
           components: clippy, rustfmt
           profile: minimal
 
+      - name: Run tests (--no-default-features)
+        run: cargo test --release --no-default-features
+
       - name: Run tests
         run: cargo test --release
 
-      - name: Run tests with Arb
-        run: cargo test --release --features "arb"
+      - name: Clippy (--no-default-features)
+        run: cargo clippy --all-targets --no-default-features -- -Dwarnings
 
       - name: Clippy
         run: cargo clippy --all-targets -- -Dwarnings
