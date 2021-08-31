@@ -6,14 +6,26 @@ use std::{
     process::{Command, Stdio},
 };
 
+use uuid::Uuid;
+
 fn execute(cmd: &mut Command) -> bool {
     cmd.stdout(Stdio::null())
         .status()
-        .unwrap_or_else(|_| panic!("failed to run the command: {:?}", cmd))
+        .unwrap_or_else(|_| panic!("failed to execute the command: {:?}", cmd))
         .success()
 }
 
+fn is_valid_id(id: &str) -> bool {
+    &id[0..2] == "t_"
+        && Uuid::parse_str(&id[2..]).map_or(false, |u| {
+            u.get_variant() == Some(uuid::Variant::RFC4122)
+                && u.get_version() == Some(uuid::Version::Random)
+        })
+}
+
 pub fn test(id: &str, args: &[String]) {
+    assert!(is_valid_id(id));
+
     let graph = "./target/release/graph";
     let ref_dir = PathBuf::from("./tests/graph_tests/reference");
     let actual_dir = PathBuf::from("./tests/graph_tests/actual");
@@ -65,6 +77,7 @@ macro_rules! t {
 }
 
 mod graph_tests {
+    mod examples;
     mod explicit;
     mod parametric;
 }
