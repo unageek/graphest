@@ -40,7 +40,7 @@ t!(
     t_1fc142fa2f4b49bc993234a1384220b0,
     "x = sin(t) (sin(t / 12)^5 + exp(cos(t)) - 2 cos(4 t)) && y = cos(t) (sin(t / 12)^5 + exp(cos(t)) - 2 cos(4 t))",
     @bounds(-5, 5, -5, 5),
-    @timeout(3000),
+    @timeout(4000),
 );
 
 // cardioid (a = 1)
@@ -171,7 +171,7 @@ t!(
     t_ec7bc6583a004fca8a4dfefe5d24ca8b,
     "x = cos(t) cos(t - tan(t)) && y = cos(t) sin(t - tan(t)) && 0 ≤ t < π/2",
     @bounds(-1, 1, -1, 1),
-    @timeout(2000),
+    @timeout(3000),
 );
 
 // Tschirnhausen cubic (a = 1)

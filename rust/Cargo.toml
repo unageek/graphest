@@ -43,5 +43,9 @@ version = "1.13"
 default-features = false
 features = ["float", "integer", "rational"]
 
+[dev-dependencies.uuid]
+version = "0.8"
+default-features = false
+
 [build-dependencies]
 bindgen = "*"
