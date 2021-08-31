@@ -12,7 +12,7 @@ t!(t_99d818f7f192402a9c7579b1e3bda62b, "y = Bi'(x)");
 t!(
     t_a5daa83f3ba6452694b8dc31989e49a5,
     "y = C(x)",
-    @timeout(3000),
+    @timeout(4000),
 );
 t!(t_e2432ca1dca74defb99c089a7d232eeb, "y = ceil(x)");
 t!(t_3c8809b76d304630b6bb047ed44c3c84, "y = Chi(x)");

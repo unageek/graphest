@@ -148,7 +148,7 @@ t!(
     t_564aaa5e88a54895b1851a1f1e5ffa3c,
     "|x cos(x) - y sin(y)| = |x cos(y) - y sin(x)|",
     @bounds(-10.1, 9.9, -9.8, 10.2),
-    @timeout(8000),
+    @timeout(9000),
 );
 
 // Trapezoidal Fortress

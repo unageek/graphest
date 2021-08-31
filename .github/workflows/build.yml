@@ -41,10 +41,10 @@ jobs:
           profile: minimal
 
       - name: Run tests (--no-default-features)
-        run: cargo test --release --no-default-features
+        run: cargo test --release --no-default-features -- -Zunstable-options --report-time
 
       - name: Run tests
-        run: cargo test --release
+        run: cargo test --release -- -Zunstable-options --report-time
 
       - name: Clippy (--no-default-features)
         run: cargo clippy --all-targets --no-default-features -- -Dwarnings
