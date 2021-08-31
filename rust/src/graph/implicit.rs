@@ -255,37 +255,6 @@ impl Implicit {
         }
     }
 
-    fn set_last_queued_block(
-        &mut self,
-        b: &Block,
-        block_index: usize,
-    ) -> Result<(), GraphingError> {
-        if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-            if b.is_superpixel() {
-                let pixels = {
-                    let begin = b.pixel_index();
-                    let end = PixelIndex::new(
-                        (begin.x + b.width()).min(self.im.width()),
-                        (begin.y + b.height()).min(self.im.height()),
-                    );
-                    PixelRange::new(begin, end)
-                };
-
-                for p in pixels.iter() {
-                    self.last_queued_blocks[p] = block_index;
-                }
-            } else {
-                let p = b.pixel_index();
-                self.last_queued_blocks[p] = block_index;
-            }
-            Ok(())
-        } else {
-            Err(GraphingError {
-                kind: GraphingErrorKind::BlockIndexOverflow,
-            })
-        }
-    }
-
     /// Tries to prove or disprove the existence of a solution in the block
     /// and returns `true` if it is successful.
     ///
@@ -465,6 +434,36 @@ impl Implicit {
         false
     }
 
+    /// Returns the region that corresponds to a subpixel block `b`.
+    fn block_to_region(&self, b: &Block) -> Box2D {
+        let pw = b.widthf();
+        let ph = b.heightf();
+        let px = b.x as f64 * pw;
+        let py = b.y as f64 * ph;
+        Box2D::new(
+            point_interval(px),
+            point_interval(px + pw),
+            point_interval(py),
+            point_interval(py + ph),
+        )
+        .transform(&self.im_to_real)
+    }
+
+    /// Returns the region that corresponds to a pixel or superpixel block `b`.
+    fn block_to_region_clipped(&self, b: &Block) -> Box2D {
+        let pw = b.widthf();
+        let ph = b.heightf();
+        let px = b.x as f64 * pw;
+        let py = b.y as f64 * ph;
+        Box2D::new(
+            point_interval(px),
+            point_interval((px + pw).min(self.im.width() as f64)),
+            point_interval(py),
+            point_interval((py + ph).min(self.im.height() as f64)),
+        )
+        .transform(&self.im_to_real)
+    }
+
     fn eval_on_point(
         rel: &mut Relation,
         x: f64,
@@ -502,96 +501,34 @@ impl Implicit {
         )
     }
 
-    /// Returns the region that corresponds to a subpixel block `b`.
-    fn block_to_region(&self, b: &Block) -> Box2D {
-        let pw = b.widthf();
-        let ph = b.heightf();
-        let px = b.x as f64 * pw;
-        let py = b.y as f64 * ph;
-        Box2D::new(
-            point_interval(px),
-            point_interval(px + pw),
-            point_interval(py),
-            point_interval(py + ph),
-        )
-        .transform(&self.im_to_real)
-    }
+    fn set_last_queued_block(
+        &mut self,
+        b: &Block,
+        block_index: usize,
+    ) -> Result<(), GraphingError> {
+        if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
+            if b.is_superpixel() {
+                let pixels = {
+                    let begin = b.pixel_index();
+                    let end = PixelIndex::new(
+                        (begin.x + b.width()).min(self.im.width()),
+                        (begin.y + b.height()).min(self.im.height()),
+                    );
+                    PixelRange::new(begin, end)
+                };
 
-    /// Returns the region that corresponds to a pixel or superpixel block `b`.
-    fn block_to_region_clipped(&self, b: &Block) -> Box2D {
-        let pw = b.widthf();
-        let ph = b.heightf();
-        let px = b.x as f64 * pw;
-        let py = b.y as f64 * ph;
-        Box2D::new(
-            point_interval(px),
-            point_interval((px + pw).min(self.im.width() as f64)),
-            point_interval(py),
-            point_interval((py + ph).min(self.im.height() as f64)),
-        )
-        .transform(&self.im_to_real)
-    }
-
-    /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
-    /// Four sub-blocks are created at most.
-    ///
-    /// Precondition: `b.is_xy_subdivisible()` is `true`.
-    fn subdivide_xy(&self, sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
-        if b.is_superpixel() {
-            let x0 = 2 * b.x;
-            let y0 = 2 * b.y;
-            let x1 = x0 + 1;
-            let y1 = y0 + 1;
-            let kx = b.kx - 1;
-            let ky = b.ky - 1;
-            let b00 = Block::new(x0, y0, kx, ky, b.n_theta, b.t);
-            let b00_width = b00.width();
-            let b00_height = b00.height();
-            sub_bs.push((b00, true));
-            if y1 * b00_height < self.im.height() {
-                sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta, b.t), true));
+                for p in pixels.iter() {
+                    self.last_queued_blocks[p] = block_index;
+                }
+            } else {
+                let p = b.pixel_index();
+                self.last_queued_blocks[p] = block_index;
             }
-            if x1 * b00_width < self.im.width() {
-                sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta, b.t), true));
-            }
-            if x1 * b00_width < self.im.width() && y1 * b00_height < self.im.height() {
-                sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta, b.t), true));
-            }
+            Ok(())
         } else {
-            match self.relation_type {
-                RelationType::FunctionOfX => {
-                    // Subdivide only horizontally.
-                    let x0 = 2 * b.x;
-                    let x1 = x0 + 1;
-                    let y = b.y;
-                    let kx = b.kx - 1;
-                    let ky = b.ky;
-                    sub_bs.push((Block::new(x0, y, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x1, y, kx, ky, b.n_theta, b.t), true));
-                }
-                RelationType::FunctionOfY => {
-                    // Subdivide only vertically.
-                    let x = b.x;
-                    let y0 = 2 * b.y;
-                    let y1 = y0 + 1;
-                    let kx = b.kx;
-                    let ky = b.ky - 1;
-                    sub_bs.push((Block::new(x, y0, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x, y1, kx, ky, b.n_theta, b.t), true));
-                }
-                _ => {
-                    let x0 = 2 * b.x;
-                    let y0 = 2 * b.y;
-                    let x1 = x0 + 1;
-                    let y1 = y0 + 1;
-                    let kx = b.kx - 1;
-                    let ky = b.ky - 1;
-                    sub_bs.push((Block::new(x0, y0, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta, b.t), true));
-                }
-            }
+            Err(GraphingError {
+                kind: GraphingErrorKind::BlockIndexOverflow,
+            })
         }
     }
 
@@ -671,6 +608,69 @@ impl Implicit {
         );
         if let Some(last) = sub_bs.last_mut() {
             last.1 = true;
+        }
+    }
+
+    /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
+    /// Four sub-blocks are created at most.
+    ///
+    /// Precondition: `b.is_xy_subdivisible()` is `true`.
+    fn subdivide_xy(&self, sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
+        if b.is_superpixel() {
+            let x0 = 2 * b.x;
+            let y0 = 2 * b.y;
+            let x1 = x0 + 1;
+            let y1 = y0 + 1;
+            let kx = b.kx - 1;
+            let ky = b.ky - 1;
+            let b00 = Block::new(x0, y0, kx, ky, b.n_theta, b.t);
+            let b00_width = b00.width();
+            let b00_height = b00.height();
+            sub_bs.push((b00, true));
+            if y1 * b00_height < self.im.height() {
+                sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta, b.t), true));
+            }
+            if x1 * b00_width < self.im.width() {
+                sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta, b.t), true));
+            }
+            if x1 * b00_width < self.im.width() && y1 * b00_height < self.im.height() {
+                sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta, b.t), true));
+            }
+        } else {
+            match self.relation_type {
+                RelationType::FunctionOfX => {
+                    // Subdivide only horizontally.
+                    let x0 = 2 * b.x;
+                    let x1 = x0 + 1;
+                    let y = b.y;
+                    let kx = b.kx - 1;
+                    let ky = b.ky;
+                    sub_bs.push((Block::new(x0, y, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x1, y, kx, ky, b.n_theta, b.t), true));
+                }
+                RelationType::FunctionOfY => {
+                    // Subdivide only vertically.
+                    let x = b.x;
+                    let y0 = 2 * b.y;
+                    let y1 = y0 + 1;
+                    let kx = b.kx;
+                    let ky = b.ky - 1;
+                    sub_bs.push((Block::new(x, y0, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x, y1, kx, ky, b.n_theta, b.t), true));
+                }
+                _ => {
+                    let x0 = 2 * b.x;
+                    let y0 = 2 * b.y;
+                    let x1 = x0 + 1;
+                    let y1 = y0 + 1;
+                    let kx = b.kx - 1;
+                    let ky = b.ky - 1;
+                    sub_bs.push((Block::new(x0, y0, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta, b.t), false));
+                    sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta, b.t), true));
+                }
+            }
         }
     }
 }
