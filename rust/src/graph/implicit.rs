@@ -147,9 +147,9 @@ impl Implicit {
                 } else {
                     if self.rel.has_n_theta() && !sub_b.n_theta.is_singleton() {
                         // Try finding a solution earlier.
-                        let n = point_interval(simple_fraction(sub_b.n_theta));
+                        let n_theta = point_interval(simple_fraction(sub_b.n_theta));
                         self.process_subpixel_block(&Block::new(
-                            sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n, sub_b.t,
+                            sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n_theta, sub_b.t,
                         ));
                     }
                     self.process_subpixel_block(&sub_b)
