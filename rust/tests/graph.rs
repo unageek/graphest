@@ -80,4 +80,5 @@ mod graph_tests {
     mod examples;
     mod explicit;
     mod parametric;
+    mod polar;
 }
