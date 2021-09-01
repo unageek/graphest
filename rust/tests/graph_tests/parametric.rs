@@ -57,6 +57,13 @@ t!(
     @bounds(-2, 2, -2, 2),
 );
 
+// cycloid of Ceva (a = 1)
+t!(
+    t_b4bf85744ce444fb83f38ca9c6c56b30,
+    "x = cos(t) (2 cos(2 t) + 1) && y = sin(t) (2 cos(2 t) + 1)",
+    @bounds(-5, 5, -5, 5),
+);
+
 // circle (a = 1)
 t!(
     t_6acfe3a561814938a3a3b01d5514e2ca,
@@ -97,6 +104,13 @@ t!(
     @bounds(-5, 5, -5, 5),
 );
 
+// Doppler spiral (a = 1, k = 2)
+t!(
+    t_55ac60d148b44bbe9aad186ee255c61c,
+    "x = 2 t + t cos(t) && y = t sin(t) && 0 ≤ t ≤ 40",
+    @bounds(-50, 150, -100, 100),
+);
+
 // eight curve (a = 1)
 t!(
     t_7c7632d36c2c49499bbb8ac454a0063a,
@@ -105,11 +119,10 @@ t!(
     @timeout(2000),
 );
 
-// Doppler spiral (a = 1, k = 2)
+// kampyle of Eudoxus (a = 1)
 t!(
-    t_55ac60d148b44bbe9aad186ee255c61c,
-    "x = 2 t + t cos(t) && y = t sin(t) && 0 ≤ t ≤ 40",
-    @bounds(-50, 150, -100, 100),
+    t_83353dd50cd441c2b99967cd1333a601,
+    "x = 1 / cos(t) && y = tan(t) / cos(t)",
 );
 
 // Freeth nephroid (a = 1)
@@ -137,6 +150,20 @@ t!(
     t_0e2ef4e21ed34beeb4279b4c5c36a228,
     "x = 16 sin(t)^3 && y = 13 cos(t) - 5 cos(2 t) - 2 cos(3 t) - cos(4 t)",
     @bounds(-20, 20, -20, 20),
+);
+
+// lituus (a = 1)
+t!(
+    t_c6f55e36d9ce4673bad541e0b1ad5f24,
+    "x = cos(t) / sqrt(t) && y = sin(t) / sqrt(t)",
+    @bounds(-1, 1, -1, 1),
+    @timeout(4000),
+);
+
+// Maltese cross curve (a = 1)
+t!(
+    t_e80f0dbadfeb49248226ec4cc859385f,
+    "x = 2 cos(t) / sqrt(sin(4 t)) && y = 2 sin(t) / sqrt(sin(4 t))",
 );
 
 // parabola involute (a = 1)
@@ -172,6 +199,13 @@ t!(
     "x = cos(t) cos(t - tan(t)) && y = cos(t) sin(t - tan(t)) && 0 ≤ t < π/2",
     @bounds(-1, 1, -1, 1),
     @timeout(3000),
+);
+
+// trifolium (a = 1)
+t!(
+    t_2ce09882cb1a4de9a007f124c2dc36af,
+    "x = -cos(t) cos(3 t) && y = -sin(t) cos(3 t)",
+    @bounds(-2, 2, -2, 2),
 );
 
 // Tschirnhausen cubic (a = 1)
