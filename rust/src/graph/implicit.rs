@@ -30,7 +30,6 @@ pub struct Implicit {
     forms: Vec<StaticForm>,
     relation_type: RelationType,
     im: Image<PixelState>,
-    last_queued_blocks: Image<QueuedBlockIndex>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
     // Affine transformation from image coordinates to real coordinates.
@@ -63,7 +62,6 @@ impl Implicit {
             forms,
             relation_type,
             im: Image::new(im_width, im_height),
-            last_queued_blocks: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(BlockQueueOptions {
                 store_xy: true,
                 store_n_theta: has_n_theta,
@@ -122,7 +120,7 @@ impl Implicit {
         }
 
         let last_block = bs.len() - 1;
-        g.set_last_queued_block(&bs[last_block], last_block)
+        g.set_last_queued_block(&bs[last_block], last_block, None)
             .unwrap();
         for b in bs {
             g.bs_to_subdivide.push_back(b);
@@ -143,35 +141,20 @@ impl Implicit {
             }
 
             let n_sub_bs = sub_bs.len();
-            for (sub_b, is_last_sibling) in sub_bs.drain(..) {
+            for sub_b in sub_bs.drain(..) {
                 let complete = if !sub_b.is_subpixel() {
-                    self.process_block(
-                        &sub_b,
-                        is_last_sibling,
-                        QueuedBlockIndex::try_from(bi).unwrap(),
-                    )
+                    self.process_block(&sub_b)
                 } else {
                     if self.rel.has_n_theta() && !sub_b.n_theta.is_singleton() {
                         // Try finding a solution earlier.
-                        let n = point_interval(simple_fraction(sub_b.n_theta));
-                        self.process_subpixel_block(
-                            &Block::new(sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n, sub_b.t),
-                            false,
-                            0,
-                        );
+                        let n_theta = point_interval(simple_fraction(sub_b.n_theta));
+                        self.process_subpixel_block(&Block::new(
+                            sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n_theta, sub_b.t,
+                        ));
                     }
-                    self.process_subpixel_block(
-                        &sub_b,
-                        is_last_sibling,
-                        QueuedBlockIndex::try_from(bi).unwrap(),
-                    )
+                    self.process_subpixel_block(&sub_b)
                 };
                 if !complete {
-                    // We are not ready to push the block `sub_b` to the queue yet
-                    // because we first need to collect all incomplete blocks
-                    // and then modify the field `next_dir` of them.
-                    let last_index = self.bs_to_subdivide.end_index() + incomplete_sub_bs.len();
-                    self.set_last_queued_block(&sub_b, last_index)?;
                     incomplete_sub_bs.push(sub_b);
                 }
             }
@@ -214,10 +197,13 @@ impl Implicit {
                     // Cannot subdivide in any direction.
                     assert!(sub_b.is_subpixel());
                     let pixel = b.pixel_index();
-                    self.im[pixel] = PixelState::UncertainNeverFalse;
+                    self.im[pixel] = PixelState::Uncertain(None);
                     continue;
                 };
-                self.bs_to_subdivide.push_back(sub_b);
+
+                self.bs_to_subdivide.push_back(sub_b.clone());
+                let last_bi = self.bs_to_subdivide.end_index() - 1;
+                self.set_last_queued_block(&sub_b, last_bi, Some(bi))?;
             }
 
             let mut clear_cache_and_retry = true;
@@ -242,7 +228,7 @@ impl Implicit {
             if self
                 .im
                 .pixels()
-                .any(|&s| s == PixelState::UncertainNeverFalse)
+                .any(|&s| s.is_uncertain_and_undisprovable())
             {
                 Err(GraphingError {
                     kind: GraphingErrorKind::ReachedSubdivisionLimit,
@@ -259,12 +245,7 @@ impl Implicit {
     /// and returns `true` if it is successful.
     ///
     /// Precondition: the block is either a pixel or a superpixel.
-    fn process_block(
-        &mut self,
-        b: &Block,
-        b_is_last_sibling: bool,
-        parent_block_index: QueuedBlockIndex,
-    ) -> bool {
+    fn process_block(&mut self, b: &Block) -> bool {
         let pixels = {
             let begin = b.pixel_index();
             let end = PixelIndex::new(
@@ -294,45 +275,23 @@ impl Implicit {
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
             .eval(&self.forms[..]);
 
-        if !(is_true || is_false) {
-            return false;
-        }
-
-        for p in pixels.iter() {
-            let state = self.im[p];
-            assert_ne!(state, PixelState::False);
-            if state == PixelState::True {
-                // This pixel has already been proven to be true.
-                continue;
-            }
-
-            if is_true {
+        if is_true {
+            for p in pixels.iter() {
                 self.im[p] = PixelState::True;
-            } else if is_false
-                && b_is_last_sibling
-                && self.last_queued_blocks[p] == parent_block_index
-                && state != PixelState::UncertainNeverFalse
-            {
-                self.im[p] = PixelState::False;
             }
+            return true;
         }
-        true
+
+        is_false
     }
 
     /// Tries to prove or disprove the existence of a solution in the block
     /// and returns `true` if it is successful.
     ///
     /// Precondition: the block is a subpixel.
-    fn process_subpixel_block(
-        &mut self,
-        b: &Block,
-        b_is_last_sibling: bool,
-        parent_block_index: QueuedBlockIndex,
-    ) -> bool {
-        let pixel = b.pixel_index();
-        let state = self.im[pixel];
-        assert_ne!(state, PixelState::False);
-        if state == PixelState::True {
+    fn process_subpixel_block(&mut self, b: &Block) -> bool {
+        let p = b.pixel_index();
+        if self.im[p] == PixelState::True {
             // This pixel has already been proven to be true.
             return true;
         }
@@ -355,7 +314,7 @@ impl Implicit {
         if locally_zero_mask.eval(&self.forms[..]) && !inter.is_empty() {
             // The relation is true everywhere in the subpixel, and the subpixel certainly overlaps
             // with the pixel. Therefore, the pixel contains a solution.
-            self.im[pixel] = PixelState::True;
+            self.im[p] = PixelState::True;
             return true;
         }
         if !r_u_up
@@ -363,12 +322,6 @@ impl Implicit {
             .eval(&self.forms[..])
         {
             // The relation is false everywhere in the subpixel.
-            if b_is_last_sibling
-                && self.last_queued_blocks[pixel] == parent_block_index
-                && state != PixelState::UncertainNeverFalse
-            {
-                self.im[pixel] = PixelState::False;
-            }
             return true;
         }
 
@@ -393,15 +346,17 @@ impl Implicit {
         //    "|y - sin(x)| + |x ≥ 0 ? 0 : 1| = 0".
         let dac_mask = r_u_up.map(|DecSignSet(_, d)| d >= Decoration::Dac);
 
-        let x = inter.x();
-        let y = inter.y();
-        let points = [
-            (simple_fraction(x), simple_fraction(y)),
-            (x.inf(), y.inf()), // bottom left
-            (x.sup(), y.inf()), // bottom right
-            (x.inf(), y.sup()), // top left
-            (x.sup(), y.sup()), // top right
-        ];
+        let points = {
+            let x = inter.x();
+            let y = inter.y();
+            [
+                (simple_fraction(x), simple_fraction(y)),
+                (x.inf(), y.inf()), // bottom left
+                (x.sup(), y.inf()), // bottom right
+                (x.inf(), y.sup()), // top left
+                (x.sup(), y.sup()), // top right
+            ]
+        };
 
         let mut neg_mask = r_u_up.map(|_| false);
         let mut pos_mask = neg_mask.clone();
@@ -426,7 +381,7 @@ impl Implicit {
                     .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
             {
                 // Found a solution.
-                self.im[pixel] = PixelState::True;
+                self.im[p] = PixelState::True;
                 return true;
             }
         }
@@ -505,6 +460,7 @@ impl Implicit {
         &mut self,
         b: &Block,
         block_index: usize,
+        parent_block_index: Option<usize>,
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
             if b.is_superpixel() {
@@ -518,11 +474,19 @@ impl Implicit {
                 };
 
                 for p in pixels.iter() {
-                    self.last_queued_blocks[p] = block_index;
+                    if parent_block_index.is_none()
+                        || self.im[p].is_uncertain_and_disprovable(parent_block_index.unwrap())
+                    {
+                        self.im[p] = PixelState::Uncertain(Some(block_index));
+                    }
                 }
             } else {
                 let p = b.pixel_index();
-                self.last_queued_blocks[p] = block_index;
+                if parent_block_index.is_none()
+                    || self.im[p].is_uncertain_and_disprovable(parent_block_index.unwrap())
+                {
+                    self.im[p] = PixelState::Uncertain(Some(block_index));
+                }
             }
             Ok(())
         } else {
@@ -539,7 +503,7 @@ impl Implicit {
     ///
     /// - `b.is_n_theta_subdivisible()` is `true`.
     /// - `b.n_theta` is a subset of either \[-∞, 0\] or \[0, +∞\].
-    fn subdivide_n_theta(sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
+    fn subdivide_n_theta(sub_bs: &mut Vec<Block>, b: &Block) {
         const MULT: f64 = 2.0; // The optimal value may depend on the relation.
         let n = b.n_theta;
         let na = n.inf();
@@ -561,18 +525,15 @@ impl Implicit {
         sub_bs.extend(
             ns.iter()
                 .filter(|n| n.wid() != 1.0)
-                .map(|&n| (Block::new(b.x, b.y, b.kx, b.ky, n, b.t), false)),
+                .map(|&n| Block::new(b.x, b.y, b.kx, b.ky, n, b.t)),
         );
-        if let Some(last) = sub_bs.last_mut() {
-            last.1 = true;
-        }
     }
 
     /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
     /// Four sub-blocks are created at most.
     ///
     /// Precondition: `b.is_t_subdivisible()` is `true`.
-    fn subdivide_t(sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
+    fn subdivide_t(sub_bs: &mut Vec<Block>, b: &Block) {
         fn bisect(x: Interval) -> (Interval, Interval) {
             let a = x.inf();
             let b = x.sup();
@@ -604,18 +565,15 @@ impl Implicit {
             [t1, t2, t3, t4]
                 .iter()
                 .filter(|t| !t.is_singleton())
-                .map(|&t| (Block::new(b.x, b.y, b.kx, b.ky, b.n_theta, t), false)),
+                .map(|&t| Block::new(b.x, b.y, b.kx, b.ky, b.n_theta, t)),
         );
-        if let Some(last) = sub_bs.last_mut() {
-            last.1 = true;
-        }
     }
 
     /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
     /// Four sub-blocks are created at most.
     ///
     /// Precondition: `b.is_xy_subdivisible()` is `true`.
-    fn subdivide_xy(&self, sub_bs: &mut Vec<(Block, bool)>, b: &Block) {
+    fn subdivide_xy(&self, sub_bs: &mut Vec<Block>, b: &Block) {
         if b.is_superpixel() {
             let x0 = 2 * b.x;
             let y0 = 2 * b.y;
@@ -626,15 +584,15 @@ impl Implicit {
             let b00 = Block::new(x0, y0, kx, ky, b.n_theta, b.t);
             let b00_width = b00.width();
             let b00_height = b00.height();
-            sub_bs.push((b00, true));
+            sub_bs.push(b00);
             if y1 * b00_height < self.im.height() {
-                sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta, b.t), true));
+                sub_bs.push(Block::new(x0, y1, kx, ky, b.n_theta, b.t));
             }
             if x1 * b00_width < self.im.width() {
-                sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta, b.t), true));
+                sub_bs.push(Block::new(x1, y0, kx, ky, b.n_theta, b.t));
             }
             if x1 * b00_width < self.im.width() && y1 * b00_height < self.im.height() {
-                sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta, b.t), true));
+                sub_bs.push(Block::new(x1, y1, kx, ky, b.n_theta, b.t));
             }
         } else {
             match self.relation_type {
@@ -645,8 +603,8 @@ impl Implicit {
                     let y = b.y;
                     let kx = b.kx - 1;
                     let ky = b.ky;
-                    sub_bs.push((Block::new(x0, y, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x1, y, kx, ky, b.n_theta, b.t), true));
+                    sub_bs.push(Block::new(x0, y, kx, ky, b.n_theta, b.t));
+                    sub_bs.push(Block::new(x1, y, kx, ky, b.n_theta, b.t));
                 }
                 RelationType::FunctionOfY => {
                     // Subdivide only vertically.
@@ -655,8 +613,8 @@ impl Implicit {
                     let y1 = y0 + 1;
                     let kx = b.kx;
                     let ky = b.ky - 1;
-                    sub_bs.push((Block::new(x, y0, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x, y1, kx, ky, b.n_theta, b.t), true));
+                    sub_bs.push(Block::new(x, y0, kx, ky, b.n_theta, b.t));
+                    sub_bs.push(Block::new(x, y1, kx, ky, b.n_theta, b.t));
                 }
                 _ => {
                     let x0 = 2 * b.x;
@@ -665,10 +623,10 @@ impl Implicit {
                     let y1 = y0 + 1;
                     let kx = b.kx - 1;
                     let ky = b.ky - 1;
-                    sub_bs.push((Block::new(x0, y0, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x1, y0, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x0, y1, kx, ky, b.n_theta, b.t), false));
-                    sub_bs.push((Block::new(x1, y1, kx, ky, b.n_theta, b.t), true));
+                    sub_bs.push(Block::new(x0, y0, kx, ky, b.n_theta, b.t));
+                    sub_bs.push(Block::new(x1, y0, kx, ky, b.n_theta, b.t));
+                    sub_bs.push(Block::new(x0, y1, kx, ky, b.n_theta, b.t));
+                    sub_bs.push(Block::new(x1, y1, kx, ky, b.n_theta, b.t));
                 }
             }
         }
@@ -690,8 +648,8 @@ impl Graph for Implicit {
         for (s, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
             *dst = match s {
                 PixelState::True => true_color,
-                PixelState::False => false_color,
-                _ => uncertain_color,
+                _ if s.is_uncertain(self.bs_to_subdivide.begin_index()) => uncertain_color,
+                _ => false_color,
             }
         }
         imageops::flip_vertical_in_place(im);
@@ -703,7 +661,7 @@ impl Graph for Implicit {
                 .im
                 .pixels()
                 .copied()
-                .filter(|&s| s == PixelState::False || s == PixelState::True)
+                .filter(|&s| !s.is_uncertain(self.bs_to_subdivide.begin_index()))
                 .count(),
             eval_count: self.rel.eval_count(),
             ..self.stats
@@ -719,7 +677,6 @@ impl Graph for Implicit {
 
     fn size_in_heap(&self) -> usize {
         self.im.size_in_heap()
-            + self.last_queued_blocks.size_in_heap()
             + self.bs_to_subdivide.size_in_heap()
             + self.cache_eval_on_region.size_in_heap()
             + self.cache_eval_on_point.size_in_heap()

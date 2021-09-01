@@ -28,7 +28,6 @@ pub struct Parametric {
     rel: Relation,
     forms: Vec<StaticForm>,
     im: Image<PixelState>,
-    last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
     /// The pixel-aligned region that matches the entire image.
     im_region: Region,
@@ -56,7 +55,6 @@ impl Parametric {
             rel,
             forms,
             im: Image::new(im_width, im_height),
-            last_queued_blocks: Image::new(im_width, im_height),
             block_queue: BlockQueue::new(BlockQueueOptions {
                 store_t: true,
                 ..Default::default()
@@ -93,25 +91,18 @@ impl Parametric {
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         while let Some(b) = self.block_queue.pop_front() {
+            let bi = self.block_queue.begin_index() - 1;
+
             let incomplete_pixels = self.process_block(&b);
-            if !incomplete_pixels.is_empty() {
+
+            if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
                 if b.is_t_subdivisible() {
                     Self::subdivide_t(&mut sub_bs, &b);
-                    for sub_b in sub_bs.drain(..) {
-                        self.block_queue.push_back(sub_b);
-                    }
-                    let last_index = self.block_queue.end_index() - 1;
-                    for ps in incomplete_pixels {
-                        self.set_last_queued_block(&ps, last_index)?;
-                    }
+                    self.block_queue.extend(sub_bs.drain(..));
+                    let last_bi = self.block_queue.end_index() - 1;
+                    self.set_last_queued_block(&incomplete_pixels, last_bi, bi)?;
                 } else {
-                    for ps in incomplete_pixels {
-                        for p in &ps {
-                            if self.im[p] == PixelState::Uncertain {
-                                self.im[p] = PixelState::UncertainNeverFalse;
-                            }
-                        }
-                    }
+                    self.set_undisprovable(&incomplete_pixels, bi);
                 }
             }
 
@@ -136,7 +127,7 @@ impl Parametric {
             if self
                 .im
                 .pixels()
-                .any(|&s| s == PixelState::UncertainNeverFalse)
+                .any(|&s| s.is_uncertain_and_undisprovable())
             {
                 Err(GraphingError {
                     kind: GraphingErrorKind::ReachedSubdivisionLimit,
@@ -146,23 +137,6 @@ impl Parametric {
             }
         } else {
             Ok(false)
-        }
-    }
-
-    fn set_last_queued_block(
-        &mut self,
-        pixels: &PixelRange,
-        block_index: usize,
-    ) -> Result<(), GraphingError> {
-        if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-            for p in pixels.iter() {
-                self.last_queued_blocks[p] = block_index;
-            }
-            Ok(())
-        } else {
-            Err(GraphingError {
-                kind: GraphingErrorKind::BlockIndexOverflow,
-            })
         }
     }
 
@@ -252,10 +226,7 @@ impl Parametric {
             return vec![];
         }
 
-        rs.into_iter()
-            .map(|r| self.pixels_in_image(&r))
-            .filter(|ps| ps.iter().any(|p| self.im[p] != PixelState::True))
-            .collect()
+        rs.into_iter().map(|r| self.pixels_in_image(&r)).collect()
     }
 
     /// Returns enclosures of possible combinations of `x × y` in image coordinates.
@@ -274,6 +245,13 @@ impl Parametric {
                 .outer()
             })
             .collect::<Vec<_>>()
+    }
+
+    fn is_any_pixel_uncertain(&self, pixels: &[PixelRange], front_block_index: usize) -> bool {
+        pixels
+            .iter()
+            .flatten()
+            .any(|p| self.im[p].is_uncertain(front_block_index))
     }
 
     /// For the pixel-aligned region,
@@ -308,6 +286,34 @@ impl Parametric {
                 PixelIndex::new(x.inf() as u32, y.inf() as u32),
                 PixelIndex::new(x.sup() as u32, y.sup() as u32),
             )
+        }
+    }
+
+    fn set_last_queued_block(
+        &mut self,
+        pixels: &[PixelRange],
+        block_index: usize,
+        parent_block_index: usize,
+    ) -> Result<(), GraphingError> {
+        if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
+            for p in pixels.iter().flatten() {
+                if self.im[p].is_uncertain_and_disprovable(parent_block_index) {
+                    self.im[p] = PixelState::Uncertain(Some(block_index));
+                }
+            }
+            Ok(())
+        } else {
+            Err(GraphingError {
+                kind: GraphingErrorKind::BlockIndexOverflow,
+            })
+        }
+    }
+
+    fn set_undisprovable(&mut self, pixels: &[PixelRange], parent_block_index: usize) {
+        for p in pixels.iter().flatten() {
+            if self.im[p].is_uncertain_and_disprovable(parent_block_index) {
+                self.im[p] = PixelState::Uncertain(None);
+            }
         }
     }
 
@@ -362,19 +368,11 @@ impl Graph for Parametric {
         Container: Deref<Target = [P::Subpixel]> + DerefMut,
     {
         assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for ((s, bi), dst) in self
-            .im
-            .pixels()
-            .copied()
-            .zip(self.last_queued_blocks.pixels().copied())
-            .zip(im.pixels_mut())
-        {
+        for (s, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
             *dst = match s {
                 PixelState::True => true_color,
-                PixelState::Uncertain if (bi as usize) < self.block_queue.begin_index() => {
-                    false_color
-                }
-                _ => uncertain_color,
+                _ if s.is_uncertain(self.block_queue.begin_index()) => uncertain_color,
+                _ => false_color,
             }
         }
         imageops::flip_vertical_in_place(im);
@@ -386,12 +384,7 @@ impl Graph for Parametric {
                 .im
                 .pixels()
                 .copied()
-                .zip(self.last_queued_blocks.pixels().copied())
-                .filter(|&(s, bi)| {
-                    s == PixelState::True
-                        || s == PixelState::Uncertain
-                            && (bi as usize) < self.block_queue.begin_index()
-                })
+                .filter(|&s| !s.is_uncertain(self.block_queue.begin_index()))
                 .count(),
             eval_count: self.rel.eval_count(),
             ..self.stats
@@ -406,9 +399,6 @@ impl Graph for Parametric {
     }
 
     fn size_in_heap(&self) -> usize {
-        self.im.size_in_heap()
-            + self.last_queued_blocks.size_in_heap()
-            + self.block_queue.size_in_heap()
-            + self.cache.size_in_heap()
+        self.im.size_in_heap() + self.block_queue.size_in_heap() + self.cache.size_in_heap()
     }
 }

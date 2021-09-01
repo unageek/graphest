@@ -32,7 +32,6 @@ pub struct Explicit {
     forms: Vec<StaticForm>,
     transpose: bool,
     im: Image<PixelState>,
-    last_queued_blocks: Image<QueuedBlockIndex>,
     block_queue: BlockQueue,
     im_region: Region,
     im_to_real_x: Transform1D,
@@ -58,7 +57,6 @@ impl Explicit {
         let forms = rel.forms().clone();
         let transpose = rel.relation_type() == RelationType::ExplicitFunctionOfY;
         let im = Image::new(im_width, im_height);
-        let last_queued_blocks = Image::new(im_width, im_height);
 
         let (im_width, im_height) = if transpose {
             (im_height, im_width)
@@ -72,7 +70,6 @@ impl Explicit {
             forms,
             transpose,
             im,
-            last_queued_blocks,
             block_queue: BlockQueue::new(BlockQueueOptions {
                 store_xy: true,
                 ..Default::default()
@@ -126,7 +123,7 @@ impl Explicit {
                     let last_bi = self.block_queue.end_index() - 1;
                     self.set_last_queued_block(&incomplete_pixels, last_bi, bi)?;
                 } else {
-                    self.set_uncertain_never_false(&incomplete_pixels, bi);
+                    self.set_undisprovable(&incomplete_pixels, bi);
                 }
             }
 
@@ -151,7 +148,7 @@ impl Explicit {
             if self
                 .im
                 .pixels()
-                .any(|&s| s == PixelState::UncertainNeverFalse)
+                .any(|&s| s.is_uncertain_and_undisprovable())
             {
                 Err(GraphingError {
                     kind: GraphingErrorKind::ReachedSubdivisionLimit,
@@ -378,13 +375,11 @@ impl Explicit {
         }
     }
 
-    fn is_any_pixel_uncertain(&self, pixels: &[PixelRange], parent_block_index: usize) -> bool {
-        pixels.iter().flatten().any(|p| {
-            let s = self.im[p];
-            let bi = self.last_queued_blocks[p];
-            !(s == PixelState::True
-                || s == PixelState::Uncertain && (bi as usize) < parent_block_index)
-        })
+    fn is_any_pixel_uncertain(&self, pixels: &[PixelRange], front_block_index: usize) -> bool {
+        pixels
+            .iter()
+            .flatten()
+            .any(|p| self.im[p].is_uncertain(front_block_index))
     }
 
     /// Returns the smallest pixel-aligned interval that contains `x` in its interior.
@@ -427,11 +422,8 @@ impl Explicit {
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
             for p in pixels.iter().flatten() {
-                // Check if the pixel is not already revealed to be false.
-                // This is required because some interval functions are not monotonic,
-                // i.e., then can return a wider interval for a narrower (refined) input.
-                if self.last_queued_blocks[p] as usize >= parent_block_index {
-                    self.last_queued_blocks[p] = block_index;
+                if self.im[p].is_uncertain_and_disprovable(parent_block_index) {
+                    self.im[p] = PixelState::Uncertain(Some(block_index));
                 }
             }
             Ok(())
@@ -442,13 +434,10 @@ impl Explicit {
         }
     }
 
-    fn set_uncertain_never_false(&mut self, pixels: &[PixelRange], parent_block_index: usize) {
+    fn set_undisprovable(&mut self, pixels: &[PixelRange], parent_block_index: usize) {
         for p in pixels.iter().flatten() {
-            if self.im[p] == PixelState::Uncertain
-                // Check if the pixel is not already revealed to be false.
-                && self.last_queued_blocks[p] as usize >= parent_block_index
-            {
-                self.im[p] = PixelState::UncertainNeverFalse;
+            if self.im[p].is_uncertain_and_disprovable(parent_block_index) {
+                self.im[p] = PixelState::Uncertain(None);
             }
         }
     }
@@ -487,19 +476,11 @@ impl Graph for Explicit {
         Container: Deref<Target = [P::Subpixel]> + DerefMut,
     {
         assert!(im.width() == self.im.width() && im.height() == self.im.height());
-        for ((s, bi), dst) in self
-            .im
-            .pixels()
-            .copied()
-            .zip(self.last_queued_blocks.pixels().copied())
-            .zip(im.pixels_mut())
-        {
+        for (s, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
             *dst = match s {
                 PixelState::True => true_color,
-                PixelState::Uncertain if (bi as usize) < self.block_queue.begin_index() => {
-                    false_color
-                }
-                _ => uncertain_color,
+                _ if s.is_uncertain(self.block_queue.begin_index()) => uncertain_color,
+                _ => false_color,
             }
         }
         imageops::flip_vertical_in_place(im);
@@ -511,12 +492,7 @@ impl Graph for Explicit {
                 .im
                 .pixels()
                 .copied()
-                .zip(self.last_queued_blocks.pixels().copied())
-                .filter(|&(s, bi)| {
-                    s == PixelState::True
-                        || s == PixelState::Uncertain
-                            && (bi as usize) < self.block_queue.begin_index()
-                })
+                .filter(|&s| !s.is_uncertain(self.block_queue.begin_index()))
                 .count(),
             eval_count: self.rel.eval_count(),
             ..self.stats
@@ -531,9 +507,6 @@ impl Graph for Explicit {
     }
 
     fn size_in_heap(&self) -> usize {
-        self.im.size_in_heap()
-            + self.last_queued_blocks.size_in_heap()
-            + self.block_queue.size_in_heap()
-            + self.cache.size_in_heap()
+        self.im.size_in_heap() + self.block_queue.size_in_heap() + self.cache.size_in_heap()
     }
 }

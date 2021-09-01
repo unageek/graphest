@@ -5,31 +5,81 @@ use crate::{
 };
 use inari::{const_interval, interval, Interval};
 
+/// The index of a [`Block`] in a [`BlockQueue`].
+///
+/// While [`BlockQueue::begin_index`]/[`BlockQueue::end_index`] return [`usize`],
+/// [`u32`] would be large enough.
+///
+/// [`Block`]: crate::block::Block
+/// [`BlockQueue`]: crate::block::BlockQueue
+/// [`BlockQueue::begin_index`]: crate::block::BlockQueue::begin_index
+/// [`BlockQueue::end_index`]: crate::block::BlockQueue::end_index
+pub type QueuedBlockIndex = u32;
+
 /// The graphing status of a pixel.
+///
+/// # Overview of Pixel States
+///
+/// ```text
+///                                     Found
+///                                   a solution     +---------------+
+///                              +------------------>|     True      |
+///                              |                   +---------------+
+///                              |                           Λ    Found
+///                              |  No subdivisible          |  a solution
+///        +---------------+     |  blocks are left  +-------+-------+
+/// ●----->|   Uncertain   +-----+------------------>|   Uncertain   |
+///        |  disprovable  |     |                   | undisprovable |
+///        +---------------+     |                   +---------------+
+///                              |    No solution
+///                              |   in all blocks   +---------------+
+///                              +------------------>|     False     |
+///                                                  +---------------+
+/// ```
+///
+/// The false state is represented as a special case of the variant [`PixelState::Uncertain`],
+/// as explained in its description.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PixelState {
-    /// The pixel may or may not contain a solution.
-    Uncertain,
-    /// The same as [`PixelState::Uncertain`] but the pixel has reached the subdivision limit,
-    /// so we cannot prove absence of solutions.
-    UncertainNeverFalse,
-    /// The pixel does not contain a solution.
-    False,
     /// The pixel contains a solution.
     True,
+    /// The pixel may or may not contain a solution.
+    ///
+    /// It holds the index of the last block in the queue that intersects with the pixel.
+    /// If it is [`None`], no subdivisible block is left for the pixel,
+    /// thus we cannot prove absence of solutions.
+    ///
+    /// If the index is less than that of the front element of the queue,
+    /// that implies the pixel does not contain a solution.
+    Uncertain(Option<QueuedBlockIndex>),
+}
+
+impl PixelState {
+    pub fn is_uncertain(self, front_block_index: usize) -> bool {
+        match self {
+            PixelState::Uncertain(Some(bi)) => bi as usize >= front_block_index,
+            PixelState::Uncertain(None) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_uncertain_and_disprovable(self, front_block_index: usize) -> bool {
+        match self {
+            PixelState::Uncertain(Some(bi)) => bi as usize >= front_block_index,
+            _ => false,
+        }
+    }
+
+    pub fn is_uncertain_and_undisprovable(self) -> bool {
+        self == PixelState::Uncertain(None)
+    }
 }
 
 impl Default for PixelState {
     fn default() -> Self {
-        PixelState::Uncertain
+        PixelState::Uncertain(Some(0))
     }
 }
-
-/// The index of a [`Block`](crate::block::Block) in a [`BlockQueue`](crate::block::BlockQueue).
-///
-/// While [`BlockQueue::begin_index`](crate::block::BlockQueue::begin_index)/[`BlockQueue::end_index`](crate::block::BlockQueue::begin_index) return [`usize`],
-/// [`u32`] would be large enough.
-pub type QueuedBlockIndex = u32;
 
 /// Returns the interval \[`x`, `x`\].
 ///
