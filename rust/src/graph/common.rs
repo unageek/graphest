@@ -17,6 +17,25 @@ use inari::{const_interval, interval, Interval};
 pub type QueuedBlockIndex = u32;
 
 /// The graphing status of a pixel.
+///
+/// # Overview of Pixel States
+///
+/// ```text
+///                                     Found
+///                                   a solution     +---------------+
+///                              +------------------>|     True      |
+///                              |                   +---------------+
+///                              |                           Λ    Found
+///                              |  No subdivisible          |  a solution
+///        +---------------+     |  blocks are left  +-------+-------+
+/// ●----->|   Uncertain   +-----+------------------>|   Uncertain   |
+///        |  disprovable  |     |                   | undisprovable |
+///        +---------------+     |                   +---------------+
+///                              |    No solution
+///                              |   in all blocks   +---------------+
+///                              +------------------>|     False     |
+///                                                  +---------------+
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PixelState {
     /// The pixel contains a solution.
