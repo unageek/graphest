@@ -36,6 +36,9 @@ pub type QueuedBlockIndex = u32;
 ///                              +------------------>|     False     |
 ///                                                  +---------------+
 /// ```
+///
+/// The false state is represented as a special case of the variant [`PixelState::Uncertain`],
+/// as explained in its description.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PixelState {
     /// The pixel contains a solution.
@@ -43,7 +46,7 @@ pub enum PixelState {
     /// The pixel may or may not contain a solution.
     ///
     /// It holds the index of the last block in the queue that intersects with the pixel.
-    /// If it is [`None`], there are no subdivisible block is left for the pixel,
+    /// If it is [`None`], no subdivisible block is left for the pixel,
     /// thus we cannot prove absence of solutions.
     ///
     /// If the index is less than that of the front element of the queue,
