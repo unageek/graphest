@@ -157,7 +157,7 @@ t!(
     t_c6f55e36d9ce4673bad541e0b1ad5f24,
     "x = cos(t) / sqrt(t) && y = sin(t) / sqrt(t)",
     @bounds(-1, 1, -1, 1),
-    @timeout(4000),
+    @timeout(5000),
 );
 
 // Maltese cross curve (a = 1)
