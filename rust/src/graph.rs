@@ -34,12 +34,12 @@ impl error::Error for GraphingError {}
 /// Statistical information of graphing.
 #[derive(Clone, Debug)]
 pub struct GraphingStatistics {
+    /// The number of times the relation has been evaluated.
+    pub eval_count: usize,
     /// The total numer of pixels.
     pub pixels: usize,
     /// The number of pixels that are proven to be either true or false.
     pub pixels_proven: usize,
-    /// The number of times the relation has been evaluated.
-    pub eval_count: usize,
     /// The total amount of time spent on evaluation.
     pub time_elapsed: Duration,
 }

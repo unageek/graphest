@@ -75,9 +75,9 @@ impl Implicit {
                 region.bottom(),
             ),
             stats: GraphingStatistics {
+                eval_count: 0,
                 pixels: im_width as usize * im_height as usize,
                 pixels_proven: 0,
-                eval_count: 0,
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
@@ -657,13 +657,13 @@ impl Graph for Implicit {
 
     fn get_statistics(&self) -> GraphingStatistics {
         GraphingStatistics {
+            eval_count: self.rel.eval_count(),
             pixels_proven: self
                 .im
                 .pixels()
                 .copied()
                 .filter(|&s| !s.is_uncertain(self.bs_to_subdivide.begin_index()))
                 .count(),
-            eval_count: self.rel.eval_count(),
             ..self.stats
         }
     }
