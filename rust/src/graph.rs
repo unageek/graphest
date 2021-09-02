@@ -69,12 +69,9 @@ pub trait Graph {
     fn size_in_heap(&self) -> usize;
 }
 
-mod common;
-mod explicit;
-mod implicit;
-mod parametric;
+pub mod constant;
+pub mod explicit;
+pub mod implicit;
+pub mod parametric;
 
-pub use crate::geom::Box2D;
-pub use explicit::Explicit;
-pub use implicit::Implicit;
-pub use parametric::Parametric;
+mod common;

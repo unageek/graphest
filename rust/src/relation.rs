@@ -184,9 +184,11 @@ impl EvalParametricCache {
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
-    /// A relation of the form y = f(x) ∧ P(x), where P(x) is an optional constraint on x.
+    /// The relation contains no variables.
+    Constant,
+    /// The relation is of the form y = f(x) ∧ P(x), where P(x) is an optional constraint on x.
     ExplicitFunctionOfX,
-    /// A relation of the form x = f(y) ∧ P(y), where P(y) is an optional constraint on y.
+    /// The relation is of the form x = f(y) ∧ P(y), where P(y) is an optional constraint on y.
     ExplicitFunctionOfY,
     /// y is a function of x.
     /// More generally, the relation is of the form y R_1 f_1(x) ∨ … ∨ y R_n f_n(x).
@@ -194,9 +196,9 @@ pub enum RelationType {
     /// x is a function of y.
     /// More generally, the relation is of the form x R_1 f_1(y) ∨ … ∨ x R_n f_n(y).
     FunctionOfY,
-    /// An implicit relation.
+    /// The relation is of a general form.
     Implicit,
-    /// A relation of the form x = f(t) ∧ y = g(t) ∧ P(t),
+    /// The relation is of the form x = f(t) ∧ y = g(t) ∧ P(t),
     /// where P(t) is an optional constraint on t.
     Parametric,
 }
@@ -912,6 +914,10 @@ macro_rules! rel_op {
 fn relation_type(e: &mut Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
 
+    if e.vars.is_empty() {
+        return Constant;
+    }
+
     if normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
         return ExplicitFunctionOfX;
     }
@@ -1047,6 +1053,7 @@ mod tests {
             rel.parse::<Relation>().unwrap().relation_type()
         }
 
+        assert_eq!(f("1 < 2"), Constant);
         assert_eq!(f("y = 1"), ExplicitFunctionOfX);
         assert_eq!(f("y = sin(x)"), ExplicitFunctionOfX);
         assert_eq!(f("y = sin(x) && 0 < x < 1 < 2"), ExplicitFunctionOfX);
@@ -1061,7 +1068,6 @@ mod tests {
             f("x = 1 && y = 1"),
             ExplicitFunctionOfX | ExplicitFunctionOfY
         ));
-        assert_eq!(f("1 < 2"), Implicit);
         assert_eq!(f("x y = 0"), Implicit);
         assert_eq!(f("y = sin(x y)"), Implicit);
         assert_eq!(f("sin(x) = 0"), Implicit);
