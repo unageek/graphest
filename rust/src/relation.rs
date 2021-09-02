@@ -944,27 +944,6 @@ fn relation_type(e: &mut Expr) -> RelationType {
             FunctionOfY
         }
         binary!(rel_op!(), _, _) => Implicit,
-        binary!(
-            And,
-            (binary!(Eq, x @ var!(_), f_t) | binary!(Eq, f_t, x @ var!(_))),
-            (binary!(Eq, y @ var!(_), g_t) | binary!(Eq, g_t, y @ var!(_)))
-        ) if x.vars | y.vars == VarSet::X | VarSet::Y && f_t.vars | g_t.vars == VarSet::T => {
-            *e = if x.vars == VarSet::X {
-                Expr::binary(
-                    And,
-                    box Expr::binary(ExplicitEq, box take(x), box take(f_t)),
-                    box Expr::binary(ExplicitEq, box take(y), box take(g_t)),
-                )
-            } else {
-                Expr::binary(
-                    And,
-                    box Expr::binary(ExplicitEq, box take(y), box take(g_t)),
-                    box Expr::binary(ExplicitEq, box take(x), box take(f_t)),
-                )
-            };
-            // x = f(t) ∧ y = g(t)
-            Parametric
-        }
         binary!(And, _, _) => {
             // This should not be `FunctionOfX` nor `FunctionOfY`.
             // Example: "y = x && y = x + 0.0001"
