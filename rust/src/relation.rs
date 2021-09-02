@@ -1053,6 +1053,7 @@ mod tests {
             rel.parse::<Relation>().unwrap().relation_type()
         }
 
+        assert_eq!(f("1 < 2"), Constant);
         assert_eq!(f("y = 1"), ExplicitFunctionOfX);
         assert_eq!(f("y = sin(x)"), ExplicitFunctionOfX);
         assert_eq!(f("y = sin(x) && 0 < x < 1 < 2"), ExplicitFunctionOfX);
@@ -1067,7 +1068,6 @@ mod tests {
             f("x = 1 && y = 1"),
             ExplicitFunctionOfX | ExplicitFunctionOfY
         ));
-        assert_eq!(f("1 < 2"), Implicit);
         assert_eq!(f("x y = 0"), Implicit);
         assert_eq!(f("y = sin(x y)"), Implicit);
         assert_eq!(f("sin(x) = 0"), Implicit);
