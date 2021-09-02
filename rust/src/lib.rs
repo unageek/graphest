@@ -1,7 +1,11 @@
 #![allow(clippy::float_cmp)]
 #![feature(box_patterns, box_syntax, once_cell)]
 
-pub use graph::{Box2D, Explicit, Graph, GraphingStatistics, Implicit, Parametric};
+pub use geom::Box2D;
+pub use graph::{
+    constant::Constant, explicit::Explicit, implicit::Implicit, parametric::Parametric, Graph,
+    GraphingStatistics,
+};
 pub use relation::{Relation, RelationType};
 
 #[cfg(feature = "arb")]

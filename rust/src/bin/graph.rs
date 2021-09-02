@@ -1,6 +1,7 @@
 use clap::{App, Arg, ArgSettings};
 use graphest::{
-    Box2D, Explicit, Graph, GraphingStatistics, Implicit, Parametric, Relation, RelationType,
+    Box2D, Constant, Explicit, Graph, GraphingStatistics, Implicit, Parametric, Relation,
+    RelationType,
 };
 use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
@@ -128,6 +129,7 @@ fn main() {
     let region = Box2D::new(bounds[0], bounds[1], bounds[2], bounds[3]);
 
     match rel.relation_type() {
+        RelationType::Constant => plot(Constant::new(rel, size[0], size[1]), opts),
         RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY => plot(
             Explicit::new(rel, region, size[0], size[1], mem_limit),
             opts,

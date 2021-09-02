@@ -184,9 +184,11 @@ impl EvalParametricCache {
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
-    /// A relation of the form y = f(x) ∧ P(x), where P(x) is an optional constraint on x.
+    /// The relation contains no variables.
+    Constant,
+    /// The relation is of the form y = f(x) ∧ P(x), where P(x) is an optional constraint on x.
     ExplicitFunctionOfX,
-    /// A relation of the form x = f(y) ∧ P(y), where P(y) is an optional constraint on y.
+    /// The relation is of the form x = f(y) ∧ P(y), where P(y) is an optional constraint on y.
     ExplicitFunctionOfY,
     /// y is a function of x.
     /// More generally, the relation is of the form y R_1 f_1(x) ∨ … ∨ y R_n f_n(x).
@@ -194,9 +196,9 @@ pub enum RelationType {
     /// x is a function of y.
     /// More generally, the relation is of the form x R_1 f_1(y) ∨ … ∨ x R_n f_n(y).
     FunctionOfY,
-    /// An implicit relation.
+    /// The relation is of a general form.
     Implicit,
-    /// A relation of the form x = f(t) ∧ y = g(t) ∧ P(t),
+    /// The relation is of the form x = f(t) ∧ y = g(t) ∧ P(t),
     /// where P(t) is an optional constraint on t.
     Parametric,
 }
@@ -911,6 +913,10 @@ macro_rules! rel_op {
 /// Precondition: [`EliminateNot`] has been applied.
 fn relation_type(e: &mut Expr) -> RelationType {
     use {BinaryOp::*, RelationType::*};
+
+    if e.vars.is_empty() {
+        return Constant;
+    }
 
     if normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
         return ExplicitFunctionOfX;
