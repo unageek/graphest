@@ -582,16 +582,17 @@ impl Implicit {
             let kx = b.kx - 1;
             let ky = b.ky - 1;
             let b00 = Block::new(x0, y0, kx, ky, b.n_theta, b.t);
-            let b00_width = b00.width();
-            let b00_height = b00.height();
+            let b00_width = b00.width() as u64;
+            let b00_height = b00.height() as u64;
             sub_bs.push(b00);
-            if y1 * b00_height < self.im.height() {
+            if y1 * b00_height < self.im.height() as u64 {
                 sub_bs.push(Block::new(x0, y1, kx, ky, b.n_theta, b.t));
             }
-            if x1 * b00_width < self.im.width() {
+            if x1 * b00_width < self.im.width() as u64 {
                 sub_bs.push(Block::new(x1, y0, kx, ky, b.n_theta, b.t));
             }
-            if x1 * b00_width < self.im.width() && y1 * b00_height < self.im.height() {
+            if x1 * b00_width < self.im.width() as u64 && y1 * b00_height < self.im.height() as u64
+            {
                 sub_bs.push(Block::new(x1, y1, kx, ky, b.n_theta, b.t));
             }
         } else {
