@@ -4,8 +4,14 @@ use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping};
 
 /// The smallest level of horizontal/vertical subdivision.
 ///
-/// The value is currently fixed, but it could be determined based on the size of the image.
-const MIN_K: i8 = -15;
+/// A smaller value can be used, as long as the following condition is met:
+///
+/// - `(`[`MAX_IMAGE_WIDTH`]` / 2^`[`MIN_K`]`) - 1 < 2^56`,
+///
+/// where the limit is due to the current implementation of [`BlockQueue`].
+///
+/// [`MAX_IMAGE_WIDTH`]: crate::image::MAX_IMAGE_WIDTH
+const MIN_K: i8 = -32;
 
 /// The direction of subdivision.
 #[repr(u8)]
@@ -19,7 +25,7 @@ pub enum SubdivisionDir {
 /// A subset of the domain of a relation.
 ///
 /// The fields `x`, `y`, `kx` and `ky` determines a rectangular region of an [`Image`](crate::image::Image):
-/// `[x 2^kx, (x + 1) 2^kx] × [y 2^ky, (y + 1) 1^ky]`, where coordinates are in pixels.
+/// `[x 2^kx, (x + 1) 2^kx] × [y 2^ky, (y + 1) 2^ky]`, where coordinates are in pixels.
 ///
 /// A block is said to be:
 ///
@@ -31,9 +37,9 @@ pub enum SubdivisionDir {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Block {
     /// The horizontal index of the block in multiples of the block width.
-    pub x: u32,
+    pub x: u64,
     /// The vertical index of the block in multiples of the block height.
-    pub y: u32,
+    pub y: u64,
     /// The horizontal subdivision level.
     pub kx: i8,
     /// The vertical subdivision level.
@@ -49,7 +55,7 @@ pub struct Block {
 
 impl Block {
     /// Creates a new block.
-    pub fn new(x: u32, y: u32, kx: i8, ky: i8, n_theta: Interval, t: Interval) -> Self {
+    pub fn new(x: u64, y: u64, kx: i8, ky: i8, n_theta: Interval, t: Interval) -> Self {
         assert!(
             (kx >= 0 && ky >= 0 || kx <= 0 && ky <= 0)
                 && !n_theta.is_empty()
@@ -112,17 +118,17 @@ impl Block {
     /// Returns the width of a pixel divided by the block's width.
     ///
     /// Panics if `self.kx > 0`.
-    pub fn pixel_align_x(&self) -> u32 {
+    pub fn pixel_align_x(&self) -> u64 {
         assert!(self.kx <= 0);
-        1u32 << -self.kx
+        1u64 << -self.kx
     }
 
     /// Returns the height of a pixel divided by the block's height.
     ///
     /// Panics if `self.ky > 0`.
-    pub fn pixel_align_y(&self) -> u32 {
+    pub fn pixel_align_y(&self) -> u64 {
         assert!(self.ky <= 0);
-        1u32 << -self.ky
+        1u64 << -self.ky
     }
 
     /// Returns the pixel-level block that contains the given block.
@@ -132,8 +138,8 @@ impl Block {
         assert!(!self.is_superpixel());
         let pixel = self.pixel_index();
         Self {
-            x: pixel.x,
-            y: pixel.y,
+            x: pixel.x as u64,
+            y: pixel.y as u64,
             kx: 0,
             ky: 0,
             ..*self
@@ -145,14 +151,14 @@ impl Block {
     pub fn pixel_index(&self) -> PixelIndex {
         PixelIndex::new(
             if self.kx >= 0 {
-                self.x << self.kx
+                (self.x << self.kx) as u32
             } else {
-                self.x >> -self.kx
+                (self.x >> -self.kx) as u32
             },
             if self.ky >= 0 {
-                self.y << self.ky
+                (self.y << self.ky) as u32
             } else {
-                self.y >> -self.ky
+                (self.y >> -self.ky) as u32
             },
         )
     }
@@ -194,10 +200,10 @@ pub struct BlockQueue {
     seq: VecDeque<u8>,
     begin_index: usize,
     end_index: usize,
-    x_front: u32,
-    x_back: u32,
-    y_front: u32,
-    y_back: u32,
+    x_front: u64,
+    x_back: u64,
+    y_front: u64,
+    y_back: u64,
     n_theta_front: Interval,
     n_theta_back: Interval,
     t_front: Interval,
@@ -228,7 +234,7 @@ impl BlockQueue {
     /// Initially, the index is zero, and is incremented by and only by calling to [`Self::pop_front`].
     /// Therefore, the index is tied to a block in the queue and never reused for another block.
     ///
-    /// You can obtain the index of the block right **after** it is returned by [`Self::pop_front`]
+    /// You can obtain the index of the block right **after** it is returned by [`Self::pop_front`],
     /// by `queue.begin_index() - 1`. Beware the off-by-one error.
     pub fn begin_index(&self) -> usize {
         self.begin_index
@@ -238,7 +244,7 @@ impl BlockQueue {
     ///
     /// Initially, the index is zero, and is incremented by and only by calling to [`Self::push_back`].
     ///
-    /// You can obtain the index of the block right **after** it is passed to [`Self::push_back`]
+    /// You can obtain the index of the block right **after** it is passed to [`Self::push_back`],
     /// by `queue.end_index() - 1`. Beware the off-by-one error.
     ///
     /// See also [`Self::begin_index`].
@@ -255,10 +261,10 @@ impl BlockQueue {
     /// [`None`] is returned if the queue is empty.
     pub fn pop_front(&mut self) -> Option<Block> {
         let (x, y, kx, ky) = if self.opts.store_xy {
-            let x = self.x_front ^ self.pop_small_u32()?;
+            let x = self.x_front ^ self.pop_small_u64()?;
             self.x_front = x;
 
-            let y = self.y_front ^ self.pop_small_u32()?;
+            let y = self.y_front ^ self.pop_small_u64()?;
             self.y_front = y;
 
             let kx = self.pop_i8()?;
@@ -309,10 +315,10 @@ impl BlockQueue {
     /// Appends the block to the back of the queue.
     pub fn push_back(&mut self, b: Block) {
         if self.opts.store_xy {
-            self.push_small_u32(b.x ^ self.x_back);
+            self.push_small_u64(b.x ^ self.x_back);
             self.x_back = b.x;
 
-            self.push_small_u32(b.y ^ self.y_back);
+            self.push_small_u64(b.y ^ self.y_back);
             self.y_back = b.y;
 
             self.push_i8(b.kx);
@@ -372,7 +378,7 @@ impl BlockQueue {
         }
     }
 
-    // `u32` values are encoded with PrefixVarint[1,2] so that smaller numbers take less space:
+    // `u64` values up to 2^56 - 1 are encoded with PrefixVarint[1,2] so that smaller numbers take less space:
     //
     //    Range  `zeros`  Encoded bytes in `seq`
     //   ------  -------  ------------------------------------------------------------
@@ -384,16 +390,22 @@ impl BlockQueue {
     //   < 2^21        2  [0bxxxxx100, 0byyyyyyyy, 0byyyyyyyy]
     //                       3  0       11      4   19     12   27     20
     //   < 2^28        3  [0bxxxx1000, 0byyyyyyyy, 0byyyyyyyy, 0byyyyyyyy]
-    //                       2 0        10      3   18     11   26     19      31  27
-    //   < 2^32        4  [0bxxx10000, 0byyyyyyyy, 0byyyyyyyy, 0byyyyyyyy, 0b000yyyyy]
+    //                       2 0        10      3   18     11   26     19   34     27
+    //   < 2^35        4  [0bxxx10000, 0byyyyyyyy, 0byyyyyyyy, 0byyyyyyyy, 0byyyyyyyy]
+    //                      1┐┌0         9      2   17     10               41     34
+    //   < 2^42        5  [0bxx100000, 0byyyyyyyy, 0byyyyyyyy,  «2 bytes», 0byyyyyyyy]
+    //                       0           8      1   16      9               48     41
+    //   < 2^49        6  [0bx1000000, 0byyyyyyyy, 0byyyyyyyy,  «3 bytes», 0byyyyyyyy]
+    //                                   7      0   15      8               55     48
+    //   < 2^56        7  [0b10000000, 0byyyyyyyy, 0byyyyyyyy,  «4 bytes», 0byyyyyyyy]
     //                 |               -----------------------v----------------------
     //                 |               Padded zeros to the right, these bytes can be
-    //                 |               interpreted as a `u32` value in little endian.
+    //                 |               interpreted as a `u64` value in little endian.
     //                 The number of trailing zeros in the first byte.
     //
     // [1]: https://github.com/stoklund/varint#prefixvarint
     // [2]: https://news.ycombinator.com/item?id=11263667
-    fn pop_small_u32(&mut self) -> Option<u32> {
+    fn pop_small_u64(&mut self) -> Option<u64> {
         let head = self.seq.pop_front()?;
         let zeros = head.trailing_zeros();
         let tail_len = zeros as usize;
@@ -403,15 +415,15 @@ impl BlockQueue {
             t2 = &t2[..(tail_len - t1.len())];
             (t1, t2)
         };
-        let x = (head >> (zeros + 1)) as u32;
+        let x = (head >> (zeros + 1)) as u64;
         let y = {
-            let mut y = 0u32;
-            let y_ptr = &mut y as *mut u32 as *mut u8;
+            let mut y = 0u64;
+            let y_ptr = &mut y as *mut u64 as *mut u8;
             unsafe {
                 copy_nonoverlapping(tail1.as_ptr(), y_ptr, tail1.len());
                 copy_nonoverlapping(tail2.as_ptr(), y_ptr.add(tail1.len()), tail2.len());
             }
-            y = u32::from_le(y);
+            y = u64::from_le(y);
             y << (7 - zeros)
         };
         self.seq.drain(..tail_len);
@@ -441,13 +453,18 @@ impl BlockQueue {
         }
     }
 
-    fn push_small_u32(&mut self, x: u32) {
+    fn push_small_u64(&mut self, x: u64) {
+        assert!(x <= 0xffffffffffffff);
         let zeros = match x {
             0..=0x7f => 0,
             0x80..=0x3fff => 1,
             0x4000..=0x1fffff => 2,
             0x200000..=0xfffffff => 3,
-            0x10000000..=0xffffffff => 4,
+            0x10000000..=0x7ffffffff => 4,
+            0x800000000..=0x3ffffffffff => 5,
+            0x40000000000..=0x1ffffffffffff => 6,
+            0x2000000000000..=0xffffffffffffff => 7,
+            _ => unreachable!(),
         };
         self.seq.push_back((((x << 1) | 0x1) << zeros) as u8);
         let y = x >> (7 - zeros);
@@ -517,23 +534,134 @@ mod tests {
             ..Default::default()
         });
         let blocks = [
-            Block::new(0, 0xffffffff, -128, -64, Interval::ENTIRE, Interval::ENTIRE),
-            Block::new(0x7f, 0x10000000, -32, 0, Interval::ENTIRE, Interval::ENTIRE),
-            Block::new(0x80, 0xfffffff, 0, 32, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(
+                0,
+                0xffffffffffffff,
+                -128,
+                -64,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x7f,
+                0x2000000000000,
+                -32,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x80,
+                0x1ffffffffffff,
+                0,
+                32,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
             Block::new(
                 0x3fff,
-                0x200000,
+                0x40000000000,
                 64,
                 127,
                 Interval::ENTIRE,
                 Interval::ENTIRE,
             ),
-            Block::new(0x4000, 0x1fffff, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
-            Block::new(0x1fffff, 0x4000, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
-            Block::new(0x200000, 0x3fff, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
-            Block::new(0xfffffff, 0x80, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
-            Block::new(0x10000000, 0x7f, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
-            Block::new(0xffffffff, 0, 0, 0, Interval::ENTIRE, Interval::ENTIRE),
+            Block::new(
+                0x4000,
+                0x3ffffffffff,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x1fffff,
+                0x800000000,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x200000,
+                0x7ffffffff,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0xfffffff,
+                0x10000000,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x10000000,
+                0xfffffff,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x7ffffffff,
+                0x200000,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x800000000,
+                0x1fffff,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x3ffffffffff,
+                0x4000,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x40000000000,
+                0x3fff,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x1ffffffffffff,
+                0x80,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0x2000000000000,
+                0x7f,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
+            Block::new(
+                0xffffffffffffff,
+                0,
+                0,
+                0,
+                Interval::ENTIRE,
+                Interval::ENTIRE,
+            ),
         ];
         assert_eq!(queue.begin_index(), 0);
         assert_eq!(queue.end_index(), 0);

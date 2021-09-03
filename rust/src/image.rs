@@ -5,7 +5,7 @@ use std::{
 };
 
 /// The maximum limit of the width/height of an [`Image`] in pixels.
-const MAX_IMAGE_WIDTH: u32 = 32768;
+pub const MAX_IMAGE_WIDTH: u32 = 32768;
 
 /// A two-dimensional image with a generic pixel type.
 #[derive(Debug)]

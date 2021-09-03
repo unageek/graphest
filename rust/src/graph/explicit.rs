@@ -452,9 +452,9 @@ impl Explicit {
         let kx = b.kx - 1;
         if b.is_superpixel() {
             let b0 = Block::new(x0, 0, kx, 0, b.n_theta, b.t);
-            let b0_width = b0.width();
+            let b0_width = b0.width() as u64;
             sub_bs.push(b0);
-            if x1 * b0_width < self.im_width() {
+            if x1 * b0_width < self.im_width() as u64 {
                 sub_bs.push(Block::new(x1, 0, kx, 0, b.n_theta, b.t));
             }
         } else {
