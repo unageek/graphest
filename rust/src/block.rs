@@ -6,9 +6,9 @@ use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping};
 ///
 /// A smaller value can be used, as long as the following condition is met:
 ///
-/// - `(`[`MAX_IMAGE_WIDTH`]` / 2^`[`MIN_K`]`) - 1 < 2^56`,
+/// - [`MAX_IMAGE_WIDTH`]` / 2^`[`MIN_K`]` ≤ 2^53`,
 ///
-/// where the limit is due to the current implementation of [`BlockQueue`].
+/// which is required for keeping `block_to_region` operations exact.
 ///
 /// [`MAX_IMAGE_WIDTH`]: crate::image::MAX_IMAGE_WIDTH
 const MIN_K: i8 = -32;
