@@ -415,7 +415,8 @@ impl BlockQueue {
             t2 = &t2[..(tail_len - t1.len())];
             (t1, t2)
         };
-        let x = (head >> (zeros + 1)) as u64;
+        // Shift twice to avoid overflow by `head >> 8`.
+        let x = ((head >> zeros) >> 1) as u64;
         let y = {
             let mut y = 0u64;
             let y_ptr = &mut y as *mut u64 as *mut u8;
