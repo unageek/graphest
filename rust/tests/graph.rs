@@ -79,7 +79,7 @@ macro_rules! t {
 mod graph_tests {
     mod constant;
     mod examples;
-    mod explicit;
+    mod functions;
     mod parametric;
     mod polar;
 }
