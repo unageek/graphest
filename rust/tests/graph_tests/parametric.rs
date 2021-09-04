@@ -1,3 +1,15 @@
+// Non-square
+t!(
+    t_90e85ab048f04560bfc9eef9e32c4b9c,
+    "x = 8 cos(t) && y = 8 sin(t) && 1 < t < 5",
+    @size(456, 789)
+);
+t!(
+    t_a039ce4efca04d99b6a6bdd08b5b2bf4,
+    "x = 8 cos(t) && y = 8 sin(t) && 1 < t < 5",
+    @size(789, 456)
+);
+
 // From https://www.wolframalpha.com/input/?i=parametric+planar+curves
 
 // Archimedes' spiral (a = 1)

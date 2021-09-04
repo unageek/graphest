@@ -62,6 +62,10 @@ macro_rules! t {
         t!($id, $($arg),+, "--bounds", stringify!($xmin), stringify!($xmax), stringify!($ymin), stringify!($ymax), $(@$opt($($opt_arg),+)),*);
     };
 
+    ($id:ident, $($arg:expr),+, @size($width:expr, $height:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
+        t!($id, $($arg),+, "--size", stringify!($width), stringify!($height), $(@$opt($($opt_arg),+)),*);
+    };
+
     ($id:ident, $($arg:expr),+, @timeout($timeout:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
         t!($id, $($arg),+, "--timeout", stringify!($timeout), $(@$opt($($opt_arg),+)),*);
     };
@@ -79,7 +83,9 @@ macro_rules! t {
 mod graph_tests {
     mod constant;
     mod examples;
+    mod explicit;
     mod functions;
+    mod implicit;
     mod parametric;
     mod polar;
 }
