@@ -32,5 +32,5 @@ Use the option `-h` to show usage.
 To build the documentation and open it in the browser, run:
 
 ```bash
-RUSTDOCFLAGS="-Arustdoc::private_intra_doc_links" cargo doc --lib --open --document-private-items
+RUSTDOCFLAGS="-Arustdoc::private_intra_doc_links" cargo doc --open --document-private-items
 ```

@@ -56,7 +56,7 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Check docs
-        run: cargo rustdoc --lib -- --document-private-items -Arustdoc::private_intra_doc_links -Dwarnings
+        run: cargo rustdoc -- --document-private-items -Arustdoc::private_intra_doc_links -Dwarnings
 
   app:
     runs-on: ubuntu-latest

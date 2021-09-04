@@ -49,3 +49,8 @@ default-features = false
 
 [build-dependencies]
 bindgen = "*"
+
+[[bin]]
+name = "graph"
+doc = false
+test = false
