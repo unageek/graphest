@@ -30,7 +30,7 @@ pub struct Constant {
 
 impl Constant {
     pub fn new(rel: Relation, im_width: u32, im_height: u32) -> Self {
-        assert!(matches!(rel.relation_type(), RelationType::Constant));
+        assert_eq!(rel.relation_type(), RelationType::Constant);
 
         let forms = rel.forms().clone();
         Self {

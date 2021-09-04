@@ -22,13 +22,9 @@ use std::{
 };
 
 /// The graphing algorithm for implicit relations.
-///
-/// An implicit relation is a relation of type [`RelationType::FunctionOfX`],
-/// [`RelationType::FunctionOfY`] or [`RelationType::Implicit`].
 pub struct Implicit {
     rel: Relation,
     forms: Vec<StaticForm>,
-    relation_type: RelationType,
     im: Image<PixelState>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
@@ -48,19 +44,14 @@ impl Implicit {
         im_height: u32,
         mem_limit: usize,
     ) -> Self {
-        assert!(matches!(
-            rel.relation_type(),
-            RelationType::FunctionOfX | RelationType::FunctionOfY | RelationType::Implicit
-        ));
+        assert_eq!(rel.relation_type(), RelationType::Implicit);
 
         let forms = rel.forms().clone();
-        let relation_type = rel.relation_type();
         let has_n_theta = rel.has_n_theta();
         let has_t = rel.has_t();
         let mut g = Self {
             rel,
             forms,
-            relation_type,
             im: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(BlockQueueOptions {
                 store_xy: true,
@@ -574,13 +565,13 @@ impl Implicit {
     ///
     /// Precondition: `b.is_xy_subdivisible()` is `true`.
     fn subdivide_xy(&self, sub_bs: &mut Vec<Block>, b: &Block) {
+        let x0 = 2 * b.x;
+        let y0 = 2 * b.y;
+        let x1 = x0 + 1;
+        let y1 = y0 + 1;
+        let kx = b.kx - 1;
+        let ky = b.ky - 1;
         if b.is_superpixel() {
-            let x0 = 2 * b.x;
-            let y0 = 2 * b.y;
-            let x1 = x0 + 1;
-            let y1 = y0 + 1;
-            let kx = b.kx - 1;
-            let ky = b.ky - 1;
             let b00 = Block::new(x0, y0, kx, ky, b.n_theta, b.t);
             let b00_width = b00.width() as u64;
             let b00_height = b00.height() as u64;
@@ -596,40 +587,10 @@ impl Implicit {
                 sub_bs.push(Block::new(x1, y1, kx, ky, b.n_theta, b.t));
             }
         } else {
-            match self.relation_type {
-                RelationType::FunctionOfX => {
-                    // Subdivide only horizontally.
-                    let x0 = 2 * b.x;
-                    let x1 = x0 + 1;
-                    let y = b.y;
-                    let kx = b.kx - 1;
-                    let ky = b.ky;
-                    sub_bs.push(Block::new(x0, y, kx, ky, b.n_theta, b.t));
-                    sub_bs.push(Block::new(x1, y, kx, ky, b.n_theta, b.t));
-                }
-                RelationType::FunctionOfY => {
-                    // Subdivide only vertically.
-                    let x = b.x;
-                    let y0 = 2 * b.y;
-                    let y1 = y0 + 1;
-                    let kx = b.kx;
-                    let ky = b.ky - 1;
-                    sub_bs.push(Block::new(x, y0, kx, ky, b.n_theta, b.t));
-                    sub_bs.push(Block::new(x, y1, kx, ky, b.n_theta, b.t));
-                }
-                _ => {
-                    let x0 = 2 * b.x;
-                    let y0 = 2 * b.y;
-                    let x1 = x0 + 1;
-                    let y1 = y0 + 1;
-                    let kx = b.kx - 1;
-                    let ky = b.ky - 1;
-                    sub_bs.push(Block::new(x0, y0, kx, ky, b.n_theta, b.t));
-                    sub_bs.push(Block::new(x1, y0, kx, ky, b.n_theta, b.t));
-                    sub_bs.push(Block::new(x0, y1, kx, ky, b.n_theta, b.t));
-                    sub_bs.push(Block::new(x1, y1, kx, ky, b.n_theta, b.t));
-                }
-            }
+            sub_bs.push(Block::new(x0, y0, kx, ky, b.n_theta, b.t));
+            sub_bs.push(Block::new(x1, y0, kx, ky, b.n_theta, b.t));
+            sub_bs.push(Block::new(x0, y1, kx, ky, b.n_theta, b.t));
+            sub_bs.push(Block::new(x1, y1, kx, ky, b.n_theta, b.t));
         }
     }
 }
