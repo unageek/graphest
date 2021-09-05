@@ -979,12 +979,10 @@ mod tests {
         assert_eq!(f("y = sin(x)"), ExplicitFunctionOfX);
         assert_eq!(f("y = sin(x) && 0 < x < 1 < 2"), ExplicitFunctionOfX);
         assert_eq!(f("0 < x < 1 < 2 && sin(x) = y"), ExplicitFunctionOfX);
-        assert_eq!(f("!(y = sin(x))"), Implicit);
         assert_eq!(f("x = 1"), ExplicitFunctionOfY);
         assert_eq!(f("x = sin(y)"), ExplicitFunctionOfY);
         assert_eq!(f("x = sin(y) && 0 < y < 1 < 2"), ExplicitFunctionOfY);
         assert_eq!(f("0 < y < 1 < 2 && sin(y) = x"), ExplicitFunctionOfY);
-        assert_eq!(f("!(x = sin(y))"), Implicit);
         assert!(matches!(
             f("x = 1 && y = 1"),
             ExplicitFunctionOfX | ExplicitFunctionOfY
@@ -993,10 +991,10 @@ mod tests {
         assert_eq!(f("y = sin(x y)"), Implicit);
         assert_eq!(f("sin(x) = 0"), Implicit);
         assert_eq!(f("sin(y) = 0"), Implicit);
+        assert_eq!(f("!(y = sin(x))"), Implicit);
+        assert_eq!(f("!(x = sin(y))"), Implicit);
         assert_eq!(f("y = sin(x) && y = cos(x)"), Implicit);
         assert_eq!(f("y = sin(x) || y = cos(x)"), Implicit);
-        assert_eq!(f("!(y = sin(x) && y = cos(x))"), Implicit);
-        assert_eq!(f("!(y = sin(x) || y = cos(x))"), Implicit);
         assert_eq!(f("r = 1"), Implicit);
         assert_eq!(f("x = θ"), Implicit);
         assert_eq!(f("x = theta"), Implicit);
@@ -1004,8 +1002,8 @@ mod tests {
         assert_eq!(f("x = cos(t) && y = 1"), Parametric);
         assert_eq!(f("x = cos(t) && y = sin(t)"), Parametric);
         assert_eq!(f("sin(t) = y && cos(t) = x"), Parametric);
-        assert_eq!(f("x = cos(t) && y = sin(t) && 0 < t < 1"), Parametric);
-        assert_eq!(f("0 < t < 1 && sin(t) = y && cos(t) = x"), Parametric);
+        assert_eq!(f("x = cos(t) && y = sin(t) && 0 < t < 1 < 2"), Parametric);
+        assert_eq!(f("0 < t < 1 < 2 && sin(t) = y && cos(t) = x"), Parametric);
         assert_eq!(f("x = t && y = t && x = 2t"), Implicit);
     }
 
