@@ -190,12 +190,6 @@ pub enum RelationType {
     ExplicitFunctionOfX,
     /// The relation is of the form x = f(y) ∧ P(y), where P(y) is an optional constraint on y.
     ExplicitFunctionOfY,
-    /// y is a function of x.
-    /// More generally, the relation is of the form y R_1 f_1(x) ∨ … ∨ y R_n f_n(x).
-    FunctionOfX,
-    /// x is a function of y.
-    /// More generally, the relation is of the form x R_1 f_1(y) ∨ … ∨ x R_n f_n(y).
-    FunctionOfY,
     /// The relation is of a general form.
     Implicit,
     /// The relation is of the form x = f(t) ∧ y = g(t) ∧ P(t),
@@ -901,75 +895,23 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
     }
 }
 
-macro_rules! rel_op {
-    () => {
-        Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt
-    };
-}
-
 /// Determines the type of the relation. If it is [`RelationType::Parametric`],
 /// normalizes explicit parts of the relation to the form `(ExplicitEq x e)`.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
 fn relation_type(e: &mut Expr) -> RelationType {
-    use {BinaryOp::*, RelationType::*};
+    use RelationType::*;
 
     if e.vars.is_empty() {
-        return Constant;
-    }
-
-    if normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
-        return ExplicitFunctionOfX;
-    }
-
-    if normalize_explicit_relation(e, VarSet::X, VarSet::Y) {
-        return ExplicitFunctionOfY;
-    }
-
-    if normalize_parametric_relation(e) {
-        return Parametric;
-    }
-
-    match e {
-        binary!(rel_op!(), y @ var!(_), f_x) | binary!(rel_op!(), f_x, y @ var!(_))
-            if y.vars == VarSet::Y && VarSet::X.contains(f_x.vars) =>
-        {
-            // y = f(x) or f(x) = y
-            FunctionOfX
-        }
-        binary!(rel_op!(), x @ var!(_), f_y) | binary!(rel_op!(), f_y, x @ var!(_))
-            if x.vars == VarSet::X && VarSet::Y.contains(f_y.vars) =>
-        {
-            // x = f(y) or f(y) = x
-            FunctionOfY
-        }
-        binary!(rel_op!(), _, _) => Implicit,
-        binary!(And, _, _) => {
-            // This should not be `FunctionOfX` nor `FunctionOfY`.
-            // Example: "y = x && y = x + 0.0001"
-            //                              /
-            //                 +--+       +/-+
-            //                 |  |       /  |
-            //   FunctionOfX:  |  |/  ∧  /|  |   =   ?
-            //                 |  / T     |  | T
-            //                 +-/+       +--+
-            //                  /
-            //                              /
-            //                 +--+       +/-+       +--+
-            //                 |  | F     /  | T     |  | F
-            //      Implicit:  +--+/  ∧  /+--+   =   +--+
-            //                 |  / T     |  | F     |  | F
-            //                 +-/+       +--+       +--+
-            //                  /
-            // See `EvalResultMask::solution_certainly_exists` for how conjunctions are evaluated.
-            Implicit
-        }
-        binary!(Or, e1, e2) => match (relation_type(e1), relation_type(e2)) {
-            (FunctionOfX, FunctionOfX) => FunctionOfX,
-            (FunctionOfY, FunctionOfY) => FunctionOfY,
-            _ => Implicit,
-        },
-        _ => panic!(),
+        Constant
+    } else if normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
+        ExplicitFunctionOfX
+    } else if normalize_explicit_relation(e, VarSet::X, VarSet::Y) {
+        ExplicitFunctionOfY
+    } else if normalize_parametric_relation(e) {
+        Parametric
+    } else {
+        Implicit
     }
 }
 
@@ -1037,12 +979,10 @@ mod tests {
         assert_eq!(f("y = sin(x)"), ExplicitFunctionOfX);
         assert_eq!(f("y = sin(x) && 0 < x < 1 < 2"), ExplicitFunctionOfX);
         assert_eq!(f("0 < x < 1 < 2 && sin(x) = y"), ExplicitFunctionOfX);
-        assert_eq!(f("!(y = sin(x))"), FunctionOfX);
         assert_eq!(f("x = 1"), ExplicitFunctionOfY);
         assert_eq!(f("x = sin(y)"), ExplicitFunctionOfY);
         assert_eq!(f("x = sin(y) && 0 < y < 1 < 2"), ExplicitFunctionOfY);
         assert_eq!(f("0 < y < 1 < 2 && sin(y) = x"), ExplicitFunctionOfY);
-        assert_eq!(f("!(x = sin(y))"), FunctionOfY);
         assert!(matches!(
             f("x = 1 && y = 1"),
             ExplicitFunctionOfX | ExplicitFunctionOfY
@@ -1051,10 +991,10 @@ mod tests {
         assert_eq!(f("y = sin(x y)"), Implicit);
         assert_eq!(f("sin(x) = 0"), Implicit);
         assert_eq!(f("sin(y) = 0"), Implicit);
+        assert_eq!(f("!(y = sin(x))"), Implicit);
+        assert_eq!(f("!(x = sin(y))"), Implicit);
         assert_eq!(f("y = sin(x) && y = cos(x)"), Implicit);
         assert_eq!(f("y = sin(x) || y = cos(x)"), Implicit);
-        assert_eq!(f("!(y = sin(x) && y = cos(x))"), FunctionOfX);
-        assert_eq!(f("!(y = sin(x) || y = cos(x))"), Implicit);
         assert_eq!(f("r = 1"), Implicit);
         assert_eq!(f("x = θ"), Implicit);
         assert_eq!(f("x = theta"), Implicit);
@@ -1062,8 +1002,8 @@ mod tests {
         assert_eq!(f("x = cos(t) && y = 1"), Parametric);
         assert_eq!(f("x = cos(t) && y = sin(t)"), Parametric);
         assert_eq!(f("sin(t) = y && cos(t) = x"), Parametric);
-        assert_eq!(f("x = cos(t) && y = sin(t) && 0 < t < 1"), Parametric);
-        assert_eq!(f("0 < t < 1 && sin(t) = y && cos(t) = x"), Parametric);
+        assert_eq!(f("x = cos(t) && y = sin(t) && 0 < t < 1 < 2"), Parametric);
+        assert_eq!(f("0 < t < 1 < 2 && sin(t) = y && cos(t) = x"), Parametric);
         assert_eq!(f("x = t && y = t && x = 2t"), Implicit);
     }
 
