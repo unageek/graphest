@@ -3,7 +3,7 @@ use crate::{
     geom::{Box1D, Box2D},
     region::Region,
 };
-use inari::{const_interval, interval, Interval};
+use inari::{interval, Interval};
 
 /// The index of a [`Block`] in a [`BlockQueue`].
 ///
@@ -96,13 +96,7 @@ pub fn point_interval(x: f64) -> Interval {
 ///
 /// Panics if `x` is NaN.
 pub fn point_interval_possibly_infinite(x: f64) -> Interval {
-    if x == f64::NEG_INFINITY {
-        const_interval!(f64::NEG_INFINITY, f64::MIN)
-    } else if x == f64::INFINITY {
-        const_interval!(f64::MAX, f64::INFINITY)
-    } else {
-        point_interval(x)
-    }
+    interval!(x.min(f64::MAX), x.max(f64::MIN)).unwrap()
 }
 
 /// Returns a number within the interval whose significand is as short as possible in the binary
