@@ -7,7 +7,6 @@ use crate::{
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
-    ops::StaticForm,
     region::Region,
     relation::{EvalParametricCache, Relation, RelationType},
 };
@@ -26,7 +25,6 @@ use std::{
 /// A parametric relation is a relation of type [`RelationType::Parametric`].
 pub struct Parametric {
     rel: Relation,
-    forms: Vec<StaticForm>,
     im: Image<PixelState>,
     block_queue: BlockQueue,
     /// The pixel-aligned region that matches the entire image.
@@ -48,12 +46,10 @@ impl Parametric {
     ) -> Self {
         assert_eq!(rel.relation_type(), RelationType::Parametric);
 
-        let forms = rel.forms().clone();
         let im_width_interval = point_interval(im_width as f64);
         let im_height_interval = point_interval(im_height as f64);
         let mut g = Self {
             rel,
-            forms,
             im: Image::new(im_width, im_height),
             block_queue: BlockQueue::new(BlockQueueOptions {
                 store_t: true,
@@ -152,10 +148,10 @@ impl Parametric {
 
         let cond_is_true = cond
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-            .eval(&self.forms[..]);
+            .eval(self.rel.forms());
         let cond_is_false = !cond
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(&self.forms[..]);
+            .eval(self.rel.forms());
 
         let dec = xs.decoration().min(ys.decoration());
         if dec >= Decoration::Def && cond_is_true {

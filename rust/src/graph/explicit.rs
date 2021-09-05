@@ -11,7 +11,6 @@ use crate::{
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
-    ops::StaticForm,
     region::Region,
     relation::{EvalExplicitCache, Relation, RelationType},
 };
@@ -29,7 +28,6 @@ use std::{
 /// The graphing algorithm for explicit relations.
 pub struct Explicit {
     rel: Relation,
-    forms: Vec<StaticForm>,
     transpose: bool,
     im: Image<PixelState>,
     block_queue: BlockQueue,
@@ -54,7 +52,6 @@ impl Explicit {
             RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY
         ));
 
-        let forms = rel.forms().clone();
         let transpose = rel.relation_type() == RelationType::ExplicitFunctionOfY;
         let im = Image::new(im_width, im_height);
 
@@ -67,7 +64,6 @@ impl Explicit {
         let im_height_interval = point_interval(im_height as f64);
         let mut g = Self {
             rel,
-            forms,
             transpose,
             im,
             block_queue: BlockQueue::new(BlockQueueOptions {
@@ -182,10 +178,10 @@ impl Explicit {
 
         let cond_is_true = cond
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-            .eval(&self.forms[..]);
+            .eval(self.rel.forms());
         let cond_is_false = !cond
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(&self.forms[..]);
+            .eval(self.rel.forms());
 
         let dec = ys.decoration();
         if dec >= Decoration::Def && cond_is_true {
@@ -234,10 +230,10 @@ impl Explicit {
 
         let cond_is_true = cond
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-            .eval(&self.forms[..]);
+            .eval(self.rel.forms());
         let cond_is_false = !cond
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(&self.forms[..]);
+            .eval(self.rel.forms());
         let dec = ys.decoration();
 
         if dec >= Decoration::Def && cond_is_true {
@@ -299,7 +295,7 @@ impl Explicit {
                 for (ys, cond) in rs {
                     let cond_is_true = cond
                         .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-                        .eval(&self.forms[..]);
+                        .eval(self.rel.forms());
                     let dec = ys.decoration();
 
                     if dec >= Decoration::Def && cond_is_true {

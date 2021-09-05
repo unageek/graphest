@@ -8,7 +8,6 @@ use crate::{
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet},
-    ops::StaticForm,
     region::Region,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
 };
@@ -24,7 +23,6 @@ use std::{
 /// The graphing algorithm for implicit relations.
 pub struct Implicit {
     rel: Relation,
-    forms: Vec<StaticForm>,
     im: Image<PixelState>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
@@ -46,12 +44,10 @@ impl Implicit {
     ) -> Self {
         assert_eq!(rel.relation_type(), RelationType::Implicit);
 
-        let forms = rel.forms().clone();
         let has_n_theta = rel.has_n_theta();
         let has_t = rel.has_t();
         let mut g = Self {
             rel,
-            forms,
             im: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(BlockQueueOptions {
                 store_xy: true,
@@ -79,8 +75,8 @@ impl Implicit {
                 EvalCache::new(EvalCacheLevel::Full)
             },
         };
-        let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
 
+        let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
         let t_range = g.rel.t_range();
         let mut bs = vec![Block::new(0, 0, k, k, Interval::ENTIRE, t_range)];
 
@@ -261,10 +257,10 @@ impl Implicit {
         );
         let is_true = r_u_up
             .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-            .eval(&self.forms[..]);
+            .eval(self.rel.forms());
         let is_false = !r_u_up
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(&self.forms[..]);
+            .eval(self.rel.forms());
 
         if is_true {
             for p in pixels.iter() {
@@ -302,7 +298,7 @@ impl Implicit {
         // Save `locally_zero_mask` for later use (see the comment below).
         let locally_zero_mask =
             r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def);
-        if locally_zero_mask.eval(&self.forms[..]) && !inter.is_empty() {
+        if locally_zero_mask.eval(self.rel.forms()) && !inter.is_empty() {
             // The relation is true everywhere in the subpixel, and the subpixel certainly overlaps
             // with the pixel. Therefore, the pixel contains a solution.
             self.im[p] = PixelState::True;
@@ -310,7 +306,7 @@ impl Implicit {
         }
         if !r_u_up
             .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(&self.forms[..])
+            .eval(self.rel.forms())
         {
             // The relation is false everywhere in the subpixel.
             return true;
@@ -367,9 +363,9 @@ impl Implicit {
             pos_mask |= r.map(|DecSignSet(ss, _)| (SignSet::POS | SignSet::ZERO).contains(ss));
 
             if r.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-                .eval(&self.forms[..])
+                .eval(self.rel.forms())
                 || (&(&neg_mask & &pos_mask) & &dac_mask)
-                    .solution_certainly_exists(&self.forms[..], &locally_zero_mask)
+                    .solution_certainly_exists(self.rel.forms(), &locally_zero_mask)
             {
                 // Found a solution.
                 self.im[p] = PixelState::True;

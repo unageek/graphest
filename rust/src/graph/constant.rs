@@ -1,7 +1,6 @@
 use crate::{
     graph::{Graph, GraphingError, GraphingErrorKind, GraphingStatistics},
     interval_set::{DecSignSet, SignSet},
-    ops::StaticForm,
     relation::{Relation, RelationArgs, RelationType},
 };
 use image::{ImageBuffer, Pixel};
@@ -21,7 +20,6 @@ enum Ternary {
 /// Plots a constant relation with a single evaluation.
 pub struct Constant {
     rel: Relation,
-    forms: Vec<StaticForm>,
     im_width: u32,
     im_height: u32,
     result: Option<Ternary>,
@@ -32,10 +30,8 @@ impl Constant {
     pub fn new(rel: Relation, im_width: u32, im_height: u32) -> Self {
         assert_eq!(rel.relation_type(), RelationType::Constant);
 
-        let forms = rel.forms().clone();
         Self {
             rel,
-            forms,
             im_width,
             im_height,
             result: None,
@@ -53,10 +49,10 @@ impl Constant {
             let r = self.rel.eval(&RelationArgs::default(), None);
             let is_true = r
                 .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-                .eval(&self.forms[..]);
+                .eval(self.rel.forms());
             let is_false = !r
                 .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-                .eval(&self.forms[..]);
+                .eval(self.rel.forms());
 
             self.result = Some(if is_true {
                 Ternary::True
