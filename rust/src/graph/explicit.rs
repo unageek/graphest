@@ -402,7 +402,7 @@ impl Explicit {
         }
     }
 
-    /// Given an interval that certainly contains a solution,
+    /// Given an interval in pixel coordinates that certainly contains a solution,
     /// returns the set of all pixels that certainly contain solutions.
     ///
     /// Panics if `im_y` is empty.
@@ -454,10 +454,10 @@ impl Explicit {
         }
     }
 
-    /// Given an interval that possibly contains a solution,
+    /// Given an interval in image coordinates that possibly contains a solution,
     /// returns the set of pixels that possibly contain solutions.
     ///
-    /// If every member of `im_y` is a solution, the returned intervals certainly contain solutions.
+    /// If every member of `im_y` is a solution, the all pixels certainly contain solutions.
     fn pixels_possibly_true(&self, px: Interval, im_y: Interval) -> PixelRange {
         use ExplicitRelationOp::*;
 
