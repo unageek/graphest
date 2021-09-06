@@ -74,7 +74,7 @@ pub enum BinaryOp {
     Div,
     Eq,
     /// Equality in explicit relations.
-    ExplicitEq,
+    ExplicitRel,
     GammaInc,
     Gcd,
     Ge,
@@ -440,7 +440,7 @@ impl Expr {
             }
             unary!(Not, _) => None,
             binary!(
-                And | Eq | ExplicitEq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt | Or,
+                And | Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt | Or,
                 _,
                 _
             ) => None,
@@ -562,7 +562,7 @@ impl Expr {
             unary!(Not, x) if x.ty == Boolean => Boolean,
             binary!(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
             binary!(
-                Eq | ExplicitEq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
+                Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
                 x,
                 y
             ) if x.ty == Scalar && y.ty == Scalar => Boolean,

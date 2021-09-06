@@ -181,15 +181,24 @@ impl EvalParametricCache {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExplicitRelationOp {
+    Eq,
+    Ge,
+    Gt,
+    Le,
+    Lt,
+}
+
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
     /// The relation contains no variables.
     Constant,
-    /// The relation is of the form y = f(x) ∧ P(x), where P(x) is an optional constraint on x.
-    ExplicitFunctionOfX,
-    /// The relation is of the form x = f(y) ∧ P(y), where P(y) is an optional constraint on y.
-    ExplicitFunctionOfY,
+    /// The relation is of the form y op f(x) ∧ P(x), where P(x) is an optional constraint on x.
+    ExplicitFunctionOfX(ExplicitRelationOp),
+    /// The relation is of the form x op f(y) ∧ P(y), where P(y) is an optional constraint on y.
+    ExplicitFunctionOfY(ExplicitRelationOp),
     /// The relation is of a general form.
     Implicit,
     /// The relation is of the form x = f(t) ∧ y = g(t) ∧ P(t),
@@ -266,7 +275,7 @@ impl Relation {
     ) -> EvalExplicitResult {
         assert!(matches!(
             self.relation_type,
-            RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY
+            RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_)
         ));
 
         match cache {
@@ -427,7 +436,7 @@ impl Relation {
 
     fn eval_explicit_without_cache(&mut self, x: Interval) -> EvalExplicitResult {
         match self.relation_type {
-            RelationType::ExplicitFunctionOfX => {
+            RelationType::ExplicitFunctionOfX(_) => {
                 let p = self.eval(
                     &RelationArgs {
                         x,
@@ -438,7 +447,7 @@ impl Relation {
 
                 (self.ts[self.y_explicit.unwrap()].clone(), p)
             }
-            RelationType::ExplicitFunctionOfY => {
+            RelationType::ExplicitFunctionOfY(_) => {
                 let p = self.eval(
                     &RelationArgs {
                         y: x,
@@ -771,34 +780,46 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
 }
 
 struct ExplicitRelationParts {
-    y: Option<Expr>, // y = f(x)
+    op: ExplicitRelationOp,
+    y: Option<Expr>, // y op f(x)
     px: Vec<Expr>,   // P(x)
 }
 
 /// Tries to identify `e` as an explicit relation.
-fn normalize_explicit_relation(e: &mut Expr, y_var: VarSet, x_var: VarSet) -> bool {
+fn normalize_explicit_relation(
+    e: &mut Expr,
+    y_var: VarSet,
+    x_var: VarSet,
+) -> Option<ExplicitRelationOp> {
     use BinaryOp::*;
 
     let mut parts = ExplicitRelationParts {
+        op: ExplicitRelationOp::Eq,
         y: None,
         px: vec![],
     };
 
     if !normalize_explicit_relation_impl(&mut e.clone(), &mut parts, y_var, x_var) {
-        return false;
+        return None;
     }
 
-    if let (Some(y), px) = (parts.y, parts.px) {
+    if let Some(y) = parts.y {
         let mut conjuncts = vec![box y];
-        conjuncts.extend(px.into_iter().map(|e| box e));
+        conjuncts.extend(parts.px.into_iter().map(|e| box e));
         let mut it = conjuncts.into_iter();
         let first = it.next().unwrap();
         *e = *it.fold(first, |acc, e| box Expr::binary(And, acc, e));
         UpdateMetadata.visit_expr_mut(e);
-        true
+        Some(parts.op)
     } else {
-        false
+        None
     }
+}
+
+macro_rules! explicit_rel_op {
+    () => {
+        Eq | Ge | Gt | Le | Lt
+    };
 }
 
 fn normalize_explicit_relation_impl(
@@ -813,11 +834,20 @@ fn normalize_explicit_relation_impl(
             normalize_explicit_relation_impl(e1, parts, y_var, x_var)
                 && normalize_explicit_relation_impl(e2, parts, y_var, x_var)
         }
-        binary!(Eq, y @ var!(_), e) | binary!(Eq, e, y @ var!(_))
+        binary!(op @ explicit_rel_op!(), y @ var!(_), e)
+        | binary!(op @ explicit_rel_op!(), e, y @ var!(_))
             if y.vars == y_var && x_var.contains(e.vars) =>
         {
             parts.y.is_none() && {
-                parts.y = Some(Expr::binary(ExplicitEq, box take(y), box take(e)));
+                parts.op = match op {
+                    Eq => ExplicitRelationOp::Eq,
+                    Ge => ExplicitRelationOp::Ge,
+                    Gt => ExplicitRelationOp::Gt,
+                    Le => ExplicitRelationOp::Le,
+                    Lt => ExplicitRelationOp::Lt,
+                    _ => unreachable!(),
+                };
+                parts.y = Some(Expr::binary(ExplicitRel, box take(y), box take(e)));
                 true
             }
         }
@@ -851,9 +881,9 @@ fn normalize_parametric_relation(e: &mut Expr) -> bool {
         return false;
     }
 
-    if let (Some(xt), Some(yt), pt) = (parts.xt, parts.yt, parts.pt) {
+    if let (Some(xt), Some(yt)) = (parts.xt, parts.yt) {
         let mut conjuncts = vec![box xt, box yt];
-        conjuncts.extend(pt.into_iter().map(|e| box e));
+        conjuncts.extend(parts.pt.into_iter().map(|e| box e));
         let mut it = conjuncts.into_iter();
         let first = it.next().unwrap();
         *e = *it.fold(first, |acc, e| box Expr::binary(And, acc, e));
@@ -875,7 +905,7 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
             if x.vars == VarSet::X && VarSet::T.contains(e.vars) =>
         {
             parts.xt.is_none() && {
-                parts.xt = Some(Expr::binary(ExplicitEq, box take(x), box take(e)));
+                parts.xt = Some(Expr::binary(ExplicitRel, box take(x), box take(e)));
                 true
             }
         }
@@ -883,7 +913,7 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
             if y.vars == VarSet::Y && VarSet::T.contains(e.vars) =>
         {
             parts.yt.is_none() && {
-                parts.yt = Some(Expr::binary(ExplicitEq, box take(y), box take(e)));
+                parts.yt = Some(Expr::binary(ExplicitRel, box take(y), box take(e)));
                 true
             }
         }
@@ -896,7 +926,7 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
 }
 
 /// Determines the type of the relation. If it is [`RelationType::Parametric`],
-/// normalizes explicit parts of the relation to the form `(ExplicitEq x e)`.
+/// normalizes explicit parts of the relation to the form `(ExplicitRel x e)`.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
 fn relation_type(e: &mut Expr) -> RelationType {
@@ -904,10 +934,10 @@ fn relation_type(e: &mut Expr) -> RelationType {
 
     if e.vars.is_empty() {
         Constant
-    } else if normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
-        ExplicitFunctionOfX
-    } else if normalize_explicit_relation(e, VarSet::X, VarSet::Y) {
-        ExplicitFunctionOfY
+    } else if let Some(op) = normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
+        ExplicitFunctionOfX(op)
+    } else if let Some(op) = normalize_explicit_relation(e, VarSet::X, VarSet::Y) {
+        ExplicitFunctionOfY(op)
     } else if normalize_parametric_relation(e) {
         Parametric
     } else {
@@ -968,24 +998,32 @@ mod tests {
 
     #[test]
     fn relation_type() {
-        use RelationType::*;
+        use {ExplicitRelationOp::*, RelationType::*};
 
         fn f(rel: &str) -> RelationType {
             rel.parse::<Relation>().unwrap().relation_type()
         }
 
         assert_eq!(f("1 < 2"), Constant);
-        assert_eq!(f("y = 1"), ExplicitFunctionOfX);
-        assert_eq!(f("y = sin(x)"), ExplicitFunctionOfX);
-        assert_eq!(f("y = sin(x) && 0 < x < 1 < 2"), ExplicitFunctionOfX);
-        assert_eq!(f("0 < x < 1 < 2 && sin(x) = y"), ExplicitFunctionOfX);
-        assert_eq!(f("x = 1"), ExplicitFunctionOfY);
-        assert_eq!(f("x = sin(y)"), ExplicitFunctionOfY);
-        assert_eq!(f("x = sin(y) && 0 < y < 1 < 2"), ExplicitFunctionOfY);
-        assert_eq!(f("0 < y < 1 < 2 && sin(y) = x"), ExplicitFunctionOfY);
+        assert_eq!(f("y = 1"), ExplicitFunctionOfX(Eq));
+        assert_eq!(f("y ≥ 1"), ExplicitFunctionOfX(Ge));
+        assert_eq!(f("y > 1"), ExplicitFunctionOfX(Gt));
+        assert_eq!(f("y ≤ 1"), ExplicitFunctionOfX(Le));
+        assert_eq!(f("y < 1"), ExplicitFunctionOfX(Lt));
+        assert_eq!(f("y = sin(x)"), ExplicitFunctionOfX(Eq));
+        assert_eq!(f("y = sin(x) && 0 < x < 1 < 2"), ExplicitFunctionOfX(Eq));
+        assert_eq!(f("0 < x < 1 < 2 && sin(x) = y"), ExplicitFunctionOfX(Eq));
+        assert_eq!(f("x = 1"), ExplicitFunctionOfY(Eq));
+        assert_eq!(f("x ≥ 1"), ExplicitFunctionOfY(Ge));
+        assert_eq!(f("x > 1"), ExplicitFunctionOfY(Gt));
+        assert_eq!(f("x ≤ 1"), ExplicitFunctionOfY(Le));
+        assert_eq!(f("x < 1"), ExplicitFunctionOfY(Lt));
+        assert_eq!(f("x = sin(y)"), ExplicitFunctionOfY(Eq));
+        assert_eq!(f("x = sin(y) && 0 < y < 1 < 2"), ExplicitFunctionOfY(Eq));
+        assert_eq!(f("0 < y < 1 < 2 && sin(y) = x"), ExplicitFunctionOfY(Eq));
         assert!(matches!(
             f("x = 1 && y = 1"),
-            ExplicitFunctionOfX | ExplicitFunctionOfY
+            ExplicitFunctionOfX(Eq) | ExplicitFunctionOfY(Eq)
         ));
         assert_eq!(f("x y = 0"), Implicit);
         assert_eq!(f("y = sin(x y)"), Implicit);

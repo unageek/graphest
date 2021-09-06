@@ -130,7 +130,7 @@ fn main() {
 
     match rel.relation_type() {
         RelationType::Constant => plot(Constant::new(rel, size[0], size[1]), opts),
-        RelationType::ExplicitFunctionOfX | RelationType::ExplicitFunctionOfY => plot(
+        RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_) => plot(
             Explicit::new(rel, region, size[0], size[1], mem_limit),
             opts,
         ),

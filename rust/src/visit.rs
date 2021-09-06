@@ -1107,7 +1107,7 @@ impl CollectStatic {
         use BinaryOp::*;
         for t in self.exprs.iter().copied() {
             let k = match &*t {
-                binary!(ExplicitEq, _, _) => Some(StaticFormKind::Constant(true)),
+                binary!(ExplicitRel, _, _) => Some(StaticFormKind::Constant(true)),
                 binary!(And, x, y) => {
                     Some(StaticFormKind::And(self.form_index(x), self.form_index(y)))
                 }
@@ -1132,7 +1132,7 @@ impl CollectStatic {
     }
 }
 
-/// Finds the store index of the term `e` in `(ExplicitEq x e)`
+/// Finds the store index of the term `e` in `(ExplicitRel x e)`
 /// which can be nested in top-level [`BinaryOp::And`] operations,
 /// where `x` is the variable specified in the constructor.
 pub struct FindExplicitRelation<'a> {
@@ -1160,7 +1160,7 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
         use BinaryOp::*;
         match e {
             binary!(And, _, _) => traverse_expr(self, e),
-            binary!(ExplicitEq, x @ var!(_), e) if x.vars == self.variable => {
+            binary!(ExplicitRel, x @ var!(_), e) if x.vars == self.variable => {
                 self.store_index =
                     Some(self.collector.terms[self.collector.term_index[&e.id]].store_index);
             }
