@@ -40,6 +40,8 @@ jobs:
           profile: minimal
 
       - uses: Swatinem/rust-cache@v1
+        with:
+          working-directory: rust
 
       - name: Run tests (--no-default-features)
         run: cargo test --release --no-default-features -- -Zunstable-options --report-time
