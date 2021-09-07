@@ -50,6 +50,9 @@ default-features = false
 [build-dependencies]
 bindgen = "*"
 
+[lib]
+doctest = false
+
 [[bin]]
 name = "graph"
 doc = false
