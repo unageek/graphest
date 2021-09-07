@@ -26,7 +26,6 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: |
-            rust/target
             ~/.cache/gmp-mpfr-sys
             ~/.cache/graphest-arb-sys
           key: ${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('rust/Cargo.lock', 'rust/build.rs') }}
@@ -39,6 +38,8 @@ jobs:
           toolchain: nightly
           components: clippy, rustfmt
           profile: minimal
+
+      - uses: Swatinem/rust-cache@v1
 
       - name: Run tests (--no-default-features)
         run: cargo test --release --no-default-features -- -Zunstable-options --report-time
