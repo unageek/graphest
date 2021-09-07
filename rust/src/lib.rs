@@ -12,8 +12,6 @@ pub use relation::{Relation, RelationType};
 mod arb;
 #[cfg(feature = "arb")]
 mod arb_interval_set_ops;
-#[cfg(feature = "arb")]
-mod arb_sys;
 mod ast;
 mod block;
 mod context;

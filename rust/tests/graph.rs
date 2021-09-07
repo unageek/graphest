@@ -26,7 +26,7 @@ fn is_valid_id(id: &str) -> bool {
 pub fn test(id: &str, args: &[String]) {
     assert!(is_valid_id(id));
 
-    let graph = "./target/release/graph";
+    let graph = PathBuf::from("../target/release/graph");
     let ref_dir = PathBuf::from("./tests/graph_tests/reference");
     let actual_dir = PathBuf::from("./tests/graph_tests/actual");
     let ref_img = ref_dir.join([id, ".png"].concat());

@@ -1,0 +1,7 @@
+[workspace]
+members = ["rust", "rust/graphest-arb-sys"]
+default-members = ["rust"]
+
+[profile.release]
+codegen-units = 1
+lto = true

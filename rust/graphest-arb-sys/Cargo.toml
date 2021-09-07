@@ -1,0 +1,20 @@
+[package]
+name = "graphest-arb-sys"
+version = "0.1.0"
+authors = ["Masashi Mizuno"]
+edition = "2018"
+repository = "https://github.com/unageek/graphest"
+license = "MIT"
+publish = false
+
+[dependencies.gmp-mpfr-sys]
+version = "1.4"
+default-features = false
+features = ["mpfr"]
+
+[build-dependencies]
+bindgen = "*"
+
+[lib]
+doctest = false
+test = false

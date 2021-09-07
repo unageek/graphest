@@ -6,8 +6,10 @@
   "scripts": {
     "build": "npm-run-all build:*",
     "build:app": "webpack",
-    "build:rust": "cd rust && cargo build --release && mkdir -p ../dist && rm -f ../dist/graph && cp target/release/graph ../dist/",
-    "clean": "rm -rf dist && rm -rf release",
+    "build:rust": "cargo build --release && mkdir -p dist && rm -f dist/graph && cp target/release/graph dist/",
+    "clean": "npm-run-all clean:*",
+    "clean:app": "rm -rf dist release",
+    "clean:rust": "rm -rf target",
     "lint": "prettier --check .",
     "release:mac": "npm run lint && npm run clean && NODE_ENV=production npm run build && electron-builder --mac --publish always",
     "start": "NODE_ENV=development npm run build && electron ."
