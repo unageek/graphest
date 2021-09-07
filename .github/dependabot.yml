@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: cargo
-    directory: "/rust"
+    directory: "/"
     schedule:
       interval: weekly
       time: "05:00"

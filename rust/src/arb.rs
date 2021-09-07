@@ -1,4 +1,4 @@
-use crate::arb_sys::*;
+use graphest_arb_sys::*;
 use inari::{interval, Interval};
 use std::{mem::MaybeUninit, ops::Drop};
 

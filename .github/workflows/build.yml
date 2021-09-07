@@ -16,10 +16,6 @@ jobs:
       RUSTDOCFLAGS: -Ctarget-cpu=haswell
       RUSTFLAGS: -Ctarget-cpu=haswell
 
-    defaults:
-      run:
-        working-directory: rust
-
     steps:
       - uses: actions/checkout@v2
 
@@ -40,8 +36,6 @@ jobs:
           profile: minimal
 
       - uses: Swatinem/rust-cache@v1
-        with:
-          working-directory: rust
 
       - name: Run tests (--no-default-features)
         run: cargo test --release --no-default-features -- -Zunstable-options --report-time
@@ -59,7 +53,9 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Check docs
-        run: cargo rustdoc -- --document-private-items -Arustdoc::private_intra_doc_links -Dwarnings
+        run: cargo doc --document-private-items
+        env:
+          RUSTDOCFLAGS: ${{ env.RUSTDOCFLAGS }} -Arustdoc::private_intra_doc_links -Dwarnings
 
   app:
     runs-on: ubuntu-latest

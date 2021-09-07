@@ -946,7 +946,7 @@ macro_rules! arb_fn {
                 use std::ptr::null_mut as null;
                 let $x = $x.as_mut_ptr();
                 $(let $y = $y.as_mut_ptr();)*
-                crate::arb_sys::$arb_f($($args),*);
+                graphest_arb_sys::$arb_f($($args),*);
             }
             $x.to_interval().intersection($range)
         }
@@ -964,7 +964,7 @@ macro_rules! acb_fn_reals {
                 use std::ptr::null_mut as null;
                 let $x = $x.as_mut_ptr();
                 $(let $y = $y.as_mut_ptr();)*
-                crate::arb_sys::$acb_f($($args),*);
+                graphest_arb_sys::$acb_f($($args),*);
             }
             $x.real().to_interval().intersection($range)
         }

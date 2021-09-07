@@ -8,9 +8,6 @@ use std::{
 
 // https://gitlab.com/tspiteri/gmp-mpfr-sys/-/blob/master/build.rs
 
-// Should be bumped whenever any change is made to this file.
-const VERSION: &str = "0.1.0";
-
 const ARB_GIT_TAG: &str = "2.20.0";
 const ARB_GIT_URL: &str = "https://github.com/fredrik-johansson/arb.git";
 
@@ -28,14 +25,12 @@ struct Environment {
 }
 
 fn main() {
-    if env::var_os("CARGO_FEATURE_ARB").is_none() {
-        return;
-    }
-
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let pkg_name = env::var("CARGO_PKG_NAME").unwrap();
+    let pkg_version = env::var("CARGO_PKG_VERSION").unwrap();
     let env = Environment {
         build_dir: out_dir.join("build"),
-        cache_dir: user_cache_dir().map(|c| c.join("graphest-arb-sys").join(VERSION)),
+        cache_dir: user_cache_dir().map(|c| c.join(pkg_name).join(pkg_version)),
         gmp_dir: PathBuf::from(env::var_os("DEP_GMP_OUT_DIR").unwrap()),
         include_dir: out_dir.join("include"),
         lib_dir: out_dir.join("lib"),
@@ -147,7 +142,7 @@ fn build_arb(env: &Environment) {
 }
 
 fn run_bindgen(env: &Environment) {
-    let binding_file = env.out_dir.join("arb_sys.rs");
+    let binding_file = env.out_dir.join("arb.rs");
     if binding_file.exists() {
         return;
     }

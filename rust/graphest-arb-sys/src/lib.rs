@@ -7,4 +7,4 @@
     clippy::upper_case_acronyms
 )]
 
-include!(concat!(env!("OUT_DIR"), "/arb_sys.rs"));
+include!(concat!(env!("OUT_DIR"), "/arb.rs"));
