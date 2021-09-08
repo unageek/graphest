@@ -3,13 +3,25 @@ body,
 #app {
   height: 100%;
 }
+
 body {
   font-family: "Noto Sans";
   margin: 0;
 }
+
 :not(input):not(textarea) {
   user-select: none;
 }
+
 a:not([draggable]) {
   -webkit-user-drag: none;
+}
+
+.leaflet-layer {
+  image-rendering: pixelated;
+}
+
+/* Blur scaled tiles */
+.leaflet-tile-container:not([style$="scale(1);"]) {
+  filter: blur(2px);
 }
