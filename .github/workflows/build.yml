@@ -7,14 +7,15 @@ on:
     branches: [master]
   workflow_dispatch:
 
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  RUSTDOCFLAGS: -Ctarget-cpu=haswell -Dwarnings
+  RUSTFLAGS: -Ctarget-cpu=haswell -Dwarnings
+
 jobs:
   rust:
     runs-on: ubuntu-latest
-
-    env:
-      CARGO_TERM_COLOR: always
-      RUSTDOCFLAGS: -Ctarget-cpu=haswell
-      RUSTFLAGS: -Ctarget-cpu=haswell
 
     steps:
       - uses: actions/checkout@v2
@@ -28,26 +29,26 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ secrets.CACHE_VERSION }}-
 
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           components: clippy, rustfmt
+          override: true
           profile: minimal
 
       - uses: Swatinem/rust-cache@v1
 
-      - name: Run tests (--no-default-features)
+      - name: Test (--no-default-features)
         run: cargo test --release --no-default-features -- -Zunstable-options --report-time
 
-      - name: Run tests
+      - name: Test
         run: cargo test --release -- -Zunstable-options --report-time
 
       - name: Clippy (--no-default-features)
-        run: cargo clippy --all-targets --no-default-features -- -Dwarnings
+        run: cargo clippy --all-targets --no-default-features
 
       - name: Clippy
-        run: cargo clippy --all-targets -- -Dwarnings
+        run: cargo clippy --all-targets
 
       - name: Check format
         run: cargo fmt -- --check
@@ -55,7 +56,7 @@ jobs:
       - name: Check docs
         run: cargo doc --document-private-items
         env:
-          RUSTDOCFLAGS: ${{ env.RUSTDOCFLAGS }} -Arustdoc::private_intra_doc_links -Dwarnings
+          RUSTDOCFLAGS: ${{ env.RUSTDOCFLAGS }} -Arustdoc::private_intra_doc_links
 
   app:
     runs-on: ubuntu-latest
@@ -63,17 +64,20 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
+      - uses: actions/setup-node@v2
         with:
-          node-version: 10.x
+          node-version: "16"
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm run build:app
+      - name: Build
+        run: npm run build:app
         env:
           NODE_ENV: production
 
-      #- run: npm test
+      # - name: Test
+      #   run: npm test
 
-      - run: npm run lint
+      - name: Lint
+        run: npm run lint
