@@ -28,7 +28,7 @@ const fsPromises = fs.promises;
 /** The maximum number of active and suspended jobs. */
 const MAX_JOBS = 32;
 /** The maximum number of active jobs. */
-const MAX_ACTIVE_JOBS = 6;
+const MAX_ACTIVE_JOBS = 4;
 /** The maximum amount of RAM in MiB that each job can use. */
 const MAX_RAM_PER_JOB = 64;
 
