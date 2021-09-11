@@ -21,7 +21,8 @@ a:not([draggable]) {
   image-rendering: pixelated;
 }
 
-/* Blur scaled tiles */
+/* Scaled tiles */
 .leaflet-tile-container:not([style$="scale(1);"]) {
-  filter: blur(2px);
+  filter: blur(0.5px);
+  opacity: 0.5;
 }
