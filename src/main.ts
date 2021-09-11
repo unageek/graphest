@@ -14,23 +14,26 @@ const fsPromises = fs.promises;
 
 // Lifecycle of a job
 //
-//        +-----------+        +-----------+        +-----------+
-//   ●--->|  Queued   +------->|  Active   +------->|   Done    |
-//        +-----------+        +--+-----+--+        +-----------+
-//                                |  Λ  |
-//                                |  |  +--------------+
-//                        SIGSTOP |  | SIGCONT         | SIGKILL
-//                                V  |                 V
-//                             +-----+-----+        +-----------+
-//                             | Suspended |        |  Aborted  |
-//                             +-----------+        +-----------+
+//        +----------+        +----------+        +----------+
+//   ●--->|  Queued  +------->|  Active  +------->|  Exited  |
+//        +----------+        +--+----+--+        +----------+
+//                               | Λ  |
+//                               | |  +--------------+
+//                       SIGSTOP | | SIGCONT         | SIGKILL
+//                               V |                 V
+//                            +----+-----+        +----------+
+//                            | Sleeping +------->| Aborted  |
+//                            +----------+  SIG-  +----------+
+//                                          KILL
 
-/** The maximum number of active and suspended jobs. */
+/** The maximum number of running (both active and sleeping) jobs. */
 const MAX_JOBS = 32;
+
 /** The maximum number of active jobs. */
 const MAX_ACTIVE_JOBS = 4;
-/** The maximum amount of RAM in MiB that each job can use. */
-const MAX_RAM_PER_JOB = 64;
+
+/** The maximum amount of memory in MiB that each running job can use. */
+const JOB_MEM_LIMIT = 64;
 
 interface Job {
   aborted: boolean;
@@ -57,9 +60,9 @@ interface Relation {
   tiles: Map<string, Tile>;
 }
 
-let activeJobs: Job[] = [];
-let suspendedJobs: Job[] = [];
 let queuedJobs: Job[] = [];
+let activeJobs: Job[] = [];
+let sleepingJobs: Job[] = [];
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const graphExec: string = path.join(__dirname, "graph");
@@ -116,7 +119,8 @@ ipcMain.handle<ipc.AbortGraphingAll>(ipc.abortGraphingAll, async () => {
 });
 
 ipcMain.handle<ipc.NewRelation>(ipc.newRelation, async (_, rel) => {
-  const relId = (nextRelId++).toString();
+  const relId = nextRelId.toString();
+  nextRelId++;
   const outDir = path.join(baseOutDir, relId);
   await fsPromises.mkdir(outDir);
   relations.set(relId, {
@@ -177,7 +181,7 @@ ipcMain.handle<ipc.RequestTile>(
           "--output",
           outFile,
           "--mem-limit",
-          MAX_RAM_PER_JOB.toString(),
+          JOB_MEM_LIMIT.toString(),
         ],
         outFile,
         relId,
@@ -199,8 +203,8 @@ ipcMain.handle<ipc.ValidateRelation>(ipc.validateRelation, async (_, rel) => {
 });
 
 function abortJobs(filter: JobFilter = () => true) {
-  const jobsToAbort = activeJobs
-    .concat(suspendedJobs, queuedJobs)
+  const jobsToAbort = queuedJobs
+    .concat(activeJobs, sleepingJobs)
     .filter(filter);
   for (const job of jobsToAbort) {
     const proc = job.proc;
@@ -219,7 +223,7 @@ function bignum(x: number) {
 }
 
 function checkAndNotifyGraphingStatusChanged(relId: string) {
-  const nJobs = countJobs((j) => j.relId === relId && j.proc !== undefined);
+  const nJobs = countJobs((j) => j.relId === relId);
   if (nJobs === 1) {
     notifyGraphingStatusChanged(relId, true);
   } else if (nJobs === 0) {
@@ -229,22 +233,22 @@ function checkAndNotifyGraphingStatusChanged(relId: string) {
 
 function countJobs(filter: JobFilter = () => true): number {
   return (
+    queuedJobs.filter(filter).length +
     activeJobs.filter(filter).length +
-    suspendedJobs.filter(filter).length +
-    queuedJobs.filter(filter).length
+    sleepingJobs.filter(filter).length
   );
 }
 
 function deprioritize(job: Job) {
-  if (activeJobs.length <= MAX_ACTIVE_JOBS && suspendedJobs.length === 0) {
+  if (activeJobs.length <= MAX_ACTIVE_JOBS && sleepingJobs.length === 0) {
     return;
   }
 
   const nBefore = countJobs();
   activeJobs = activeJobs.filter((j) => j !== job);
-  suspendedJobs = suspendedJobs.filter((j) => j !== job);
+  sleepingJobs = sleepingJobs.filter((j) => j !== job);
   job.proc?.kill("SIGSTOP");
-  suspendedJobs.push(job);
+  sleepingJobs.push(job);
   const nAfter = countJobs();
   assert(nBefore == nAfter);
 
@@ -296,9 +300,9 @@ function notifyTileReady(
 
 function popJob(job: Job) {
   const nBefore = countJobs();
-  activeJobs = activeJobs.filter((j) => j !== job);
-  suspendedJobs = suspendedJobs.filter((j) => j !== job);
   queuedJobs = queuedJobs.filter((j) => j !== job);
+  activeJobs = activeJobs.filter((j) => j !== job);
+  sleepingJobs = sleepingJobs.filter((j) => j !== job);
   const nAfter = countJobs();
   assert(nBefore == nAfter + 1);
 }
@@ -308,8 +312,8 @@ function pushJob(job: Job) {
 }
 
 function updateQueue() {
-  while (activeJobs.length < MAX_ACTIVE_JOBS && suspendedJobs.length > 0) {
-    const job = suspendedJobs.shift();
+  while (activeJobs.length < MAX_ACTIVE_JOBS && sleepingJobs.length > 0) {
+    const job = sleepingJobs.shift();
     if (job !== undefined) {
       job.proc?.kill("SIGCONT");
       activeJobs.push(job);
@@ -317,7 +321,7 @@ function updateQueue() {
   }
 
   while (
-    activeJobs.length + suspendedJobs.length < MAX_JOBS &&
+    activeJobs.length + sleepingJobs.length < MAX_JOBS &&
     queuedJobs.length > 0
   ) {
     const job = queuedJobs.shift();
@@ -361,7 +365,7 @@ function updateQueue() {
         activeJobs.push(job);
       } else {
         job.proc?.kill("SIGSTOP");
-        suspendedJobs.unshift(job);
+        sleepingJobs.unshift(job);
       }
       const nAfter = countJobs();
       assert(nAfter == nBefore + 1);
