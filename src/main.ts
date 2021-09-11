@@ -12,23 +12,18 @@ import * as ipc from "./ipc";
 
 const fsPromises = fs.promises;
 
-// The lifecycle of jobs:
+// Lifecycle of a job
 //
-//   +-------------+
-//   |   Queued    |
-//   +------O------+
-//          |
-//          V
-//   +-------------+   SIGSTOP   +-------------+
-//   |   Active    O------------>|  Suspended  |
-//   |             |<------------O             |
-//   +-----O-O-----+   SIGCONT   +------O------+
-//         | |                          |
-//         | +--------------------------O  SIGKILL
-//         V                            V
-//   +-------------+             +-------------+
-//   |     Done    |             |   Aborted   |
-//   +-------------+             +-------------+
+//        +-----------+        +-----------+        +-----------+
+//   ●--->|  Queued   +------->|  Active   +------->|   Done    |
+//        +-----------+        +--+-----+--+        +-----------+
+//                                |  Λ  |
+//                                |  |  +--------------+
+//                        SIGSTOP |  | SIGCONT         | SIGKILL
+//                                V  |                 V
+//                             +-----+-----+        +-----------+
+//                             | Suspended |        |  Aborted  |
+//                             +-----------+        +-----------+
 
 /** The maximum number of active and suspended jobs. */
 const MAX_JOBS = 32;
