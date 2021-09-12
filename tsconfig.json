@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "checkJs": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
