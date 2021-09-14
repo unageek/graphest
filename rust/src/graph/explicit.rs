@@ -61,10 +61,10 @@ impl Explicit {
         let transpose = matches!(relation_type, RelationType::ExplicitFunctionOfY(_));
         let im = Image::new(im_width, im_height);
 
-        let (im_width, im_height) = if transpose {
-            (im_height, im_width)
+        let (region, im_width, im_height) = if transpose {
+            (region.transpose(), im_height, im_width)
         } else {
-            (im_width, im_height)
+            (region, im_width, im_height)
         };
         let im_width_interval = point_interval(im_width as f64);
         let im_height_interval = point_interval(im_height as f64);

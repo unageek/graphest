@@ -44,7 +44,7 @@ impl Box1D {
         self.r
     }
 
-    /// Returns the region transformed by `t`.
+    /// Transforms the region by `t`.
     pub fn transform(&self, t: &Transform1D) -> Self {
         Self::new(
             match t.sxd {
@@ -114,9 +114,14 @@ impl Box2D {
         self.1.right()
     }
 
-    /// Returns the region transformed by `t`.
+    /// Transforms the region by `t`.
     pub fn transform(&self, t: &Transform2D) -> Self {
         Self(self.0.transform(&t.0), self.1.transform(&t.1))
+    }
+
+    /// Swaps the axes of the region.
+    pub fn transpose(&self) -> Self {
+        Self(self.1.clone(), self.0.clone())
     }
 
     /// Returns the width of the region.
@@ -126,6 +131,7 @@ impl Box2D {
 }
 
 /// A one-dimensional affine geometric transformation that consists of only scaling and translation.
+#[derive(Clone, Debug)]
 pub struct Transform1D {
     sx: Interval,
     sxd: Option<Interval>,
@@ -151,6 +157,7 @@ impl Transform1D {
 }
 
 /// A two-dimensional affine geometric transformation that consists of only scaling and translation.
+#[derive(Clone, Debug)]
 pub struct Transform2D(Transform1D, Transform1D);
 
 impl Transform2D {
