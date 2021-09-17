@@ -1,7 +1,7 @@
 use std::{
     mem::size_of,
     ops::{Index, IndexMut},
-    slice::Iter,
+    slice::{Iter, IterMut},
 };
 
 /// The maximum limit of the width/height of an [`Image`] in pixels.
@@ -31,9 +31,16 @@ impl<T: Clone + Copy + Default> Image<T> {
         self.height
     }
 
-    /// Returns an iterator over the pixels of the image in the lexicographical order of `(y, x)`.
+    /// Returns an iterator over the references to the pixels of the image
+    /// in the lexicographical order of `(y, x)`.
     pub fn pixels(&self) -> Iter<'_, T> {
         self.data.iter()
+    }
+
+    /// Returns an iterator over the mutable references to the pixels of the image
+    /// in the lexicographical order of `(y, x)`.
+    pub fn pixels_mut(&mut self) -> IterMut<'_, T> {
+        self.data.iter_mut()
     }
 
     /// Returns the size allocated by the [`Image`] in bytes.

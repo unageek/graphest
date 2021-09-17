@@ -1,9 +1,5 @@
-use image::{ImageBuffer, Pixel};
-use std::{
-    error, fmt,
-    ops::{Deref, DerefMut},
-    time::Duration,
-};
+use crate::image::Image;
+use std::{error, fmt, time::Duration};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GraphingErrorKind {
@@ -31,7 +27,7 @@ impl fmt::Display for GraphingError {
 
 impl error::Error for GraphingError {}
 
-/// Statistical information of graphing.
+/// Statistical information about graphing.
 #[derive(Clone, Debug)]
 pub struct GraphingStatistics {
     /// The number of times the relation has been evaluated.
@@ -46,16 +42,10 @@ pub struct GraphingStatistics {
 
 /// An implementation of a faithful graphing algorithm.
 pub trait Graph {
-    /// Puts the image of the graph to `im` with the specified colors.
-    fn get_image<P, Container>(
-        &self,
-        im: &mut ImageBuffer<P, Container>,
-        true_color: P,
-        uncertain_color: P,
-        false_color: P,
-    ) where
-        P: Pixel + 'static,
-        Container: Deref<Target = [P::Subpixel]> + DerefMut;
+    /// Puts the image of the graph to `im`.
+    ///
+    /// The image is vertically flipped, i.e., the pixel (0, 0) is the bottom-left corner of the graph.
+    fn get_image(&self, im: &mut Image<Ternary>);
 
     /// Returns the current statistics of graphing.
     fn get_statistics(&self) -> GraphingStatistics;
@@ -67,6 +57,28 @@ pub trait Graph {
 
     /// Returns the amount of memory allocated by `self` in bytes.
     fn size_in_heap(&self) -> usize;
+}
+
+/// A ternary value which could be either [`False`], [`Uncertain`] or [`True`].
+///
+/// The values are ordered as: [`False`] < [`Uncertain`] < [`True`].
+///
+/// The default value is [`Uncertain`].
+///
+/// [`False`]: Ternary::False
+/// [`True`]: Ternary::True
+/// [`Uncertain`]: Ternary::Uncertain
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum Ternary {
+    False,
+    Uncertain,
+    True,
+}
+
+impl Default for Ternary {
+    fn default() -> Self {
+        Ternary::Uncertain
+    }
 }
 
 pub mod constant;

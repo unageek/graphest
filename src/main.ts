@@ -147,9 +147,14 @@ ipcMain.handle<ipc.RequestTile>(
     }
 
     const tile = rel.tiles.get(tileId);
+    const retina_scale = 2;
     if (tile === undefined) {
-      const purturb_x = bignum(0.50123456789012345 / GRAPH_TILE_SIZE);
-      const purturb_y = bignum(0.50234567890123456 / GRAPH_TILE_SIZE);
+      const purturb_x = bignum(
+        0.50123456789012345 / (retina_scale * GRAPH_TILE_SIZE)
+      );
+      const purturb_y = bignum(
+        0.50234567890123456 / (retina_scale * GRAPH_TILE_SIZE)
+      );
       const widthPerTile = bignum(2 ** (BASE_ZOOM_LEVEL - coords.z));
       const x0 = widthPerTile.times(bignum(coords.x).minus(purturb_x));
       const x1 = widthPerTile.times(bignum(coords.x + 1).minus(purturb_x));
@@ -175,8 +180,10 @@ ipcMain.handle<ipc.RequestTile>(
           y0.toString(),
           y1.toString(),
           "--size",
-          GRAPH_TILE_SIZE.toString(),
-          GRAPH_TILE_SIZE.toString(),
+          (retina_scale * GRAPH_TILE_SIZE).toString(),
+          (retina_scale * GRAPH_TILE_SIZE).toString(),
+          "--dilate",
+          (retina_scale - 1).toString(),
           "--gray-alpha",
           "--output",
           outFile,

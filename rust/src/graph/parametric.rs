@@ -3,20 +3,18 @@ use crate::{
     geom::{Box2D, Transform2D},
     graph::{
         common::{point_interval, point_interval_possibly_infinite, PixelState, QueuedBlockIndex},
-        Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
+        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Ternary,
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     region::Region,
     relation::{EvalParametricCache, Relation, RelationType},
 };
-use image::{ImageBuffer, Pixel};
 use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
     convert::TryFrom,
     mem::swap,
-    ops::{Deref, DerefMut},
     time::{Duration, Instant},
 };
 
@@ -360,22 +358,13 @@ impl Parametric {
 }
 
 impl Graph for Parametric {
-    fn get_image<P, Container>(
-        &self,
-        im: &mut ImageBuffer<P, Container>,
-        true_color: P,
-        uncertain_color: P,
-        false_color: P,
-    ) where
-        P: Pixel + 'static,
-        Container: Deref<Target = [P::Subpixel]> + DerefMut,
-    {
+    fn get_image(&self, im: &mut Image<Ternary>) {
         assert!(im.width() == self.im.width() && im.height() == self.im.height());
         for (s, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
             *dst = match s {
-                PixelState::True => true_color,
-                _ if s.is_uncertain(self.block_queue.begin_index()) => uncertain_color,
-                _ => false_color,
+                PixelState::True => Ternary::True,
+                _ if s.is_uncertain(self.block_queue.begin_index()) => Ternary::Uncertain,
+                _ => Ternary::False,
             }
         }
     }

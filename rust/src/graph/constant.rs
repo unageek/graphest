@@ -1,21 +1,11 @@
 use crate::{
-    graph::{Graph, GraphingError, GraphingErrorKind, GraphingStatistics},
+    graph::{Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Ternary},
+    image::Image,
     interval_set::{DecSignSet, SignSet},
     relation::{Relation, RelationArgs, RelationType},
 };
-use image::{ImageBuffer, Pixel};
 use inari::Decoration;
-use std::{
-    ops::{Deref, DerefMut},
-    time::{Duration, Instant},
-};
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Ternary {
-    False,
-    Uncertain,
-    True,
-}
+use std::time::{Duration, Instant};
 
 /// Plots a constant relation with a single evaluation.
 pub struct Constant {
@@ -74,22 +64,12 @@ impl Constant {
 }
 
 impl Graph for Constant {
-    fn get_image<P, Container>(
-        &self,
-        im: &mut ImageBuffer<P, Container>,
-        true_color: P,
-        uncertain_color: P,
-        false_color: P,
-    ) where
-        P: Pixel + 'static,
-        Container: Deref<Target = [P::Subpixel]> + DerefMut,
-    {
+    fn get_image(&self, im: &mut Image<Ternary>) {
         assert!(im.width() == self.im_width && im.height() == self.im_height);
         for dst in im.pixels_mut() {
             *dst = match self.result {
-                Some(Ternary::True) => true_color,
-                Some(Ternary::Uncertain) | None => uncertain_color,
-                Some(Ternary::False) => false_color,
+                Some(x) => x,
+                _ => Ternary::Uncertain,
             }
         }
     }
@@ -99,7 +79,7 @@ impl Graph for Constant {
             eval_count: self.rel.eval_count(),
             pixels_proven: match self.result {
                 Some(Ternary::False | Ternary::True) => self.stats.pixels,
-                Some(Ternary::Uncertain) | None => 0,
+                _ => 0,
             },
             ..self.stats
         }

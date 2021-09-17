@@ -1,12 +1,15 @@
 #![allow(clippy::float_cmp)]
 #![feature(box_patterns, box_syntax, once_cell)]
 
-pub use geom::Box2D;
-pub use graph::{
-    constant::Constant, explicit::Explicit, implicit::Implicit, parametric::Parametric, Graph,
-    GraphingStatistics,
+pub use crate::{
+    geom::Box2D,
+    graph::{
+        constant::Constant, explicit::Explicit, implicit::Implicit, parametric::Parametric, Graph,
+        GraphingStatistics, Ternary,
+    },
+    image::{Image, PixelIndex, PixelRange},
+    relation::{Relation, RelationType},
 };
-pub use relation::{Relation, RelationType};
 
 #[cfg(feature = "arb")]
 mod arb;
