@@ -1,5 +1,5 @@
-import { BigNumber } from "bignumber.js";
 import * as L from "leaflet";
+import { bignum, BigNumber } from "./BigNumber";
 import { BASE_ZOOM_LEVEL } from "./constants";
 
 BigNumber.config({
@@ -9,40 +9,22 @@ BigNumber.config({
   DECIMAL_PLACES: 2,
 });
 
-function bignum(x: number): BigNumber {
-  return new BigNumber(x);
-}
-
-declare module "bignumber.js" {
-  interface BigNumber {
-    ceil(): BigNumber;
-    floor(): BigNumber;
-  }
-}
-
-BigNumber.prototype.ceil = function (): BigNumber {
-  return this.integerValue(BigNumber.ROUND_CEIL);
-};
-
-BigNumber.prototype.floor = function (): BigNumber {
-  return this.integerValue(BigNumber.ROUND_FLOOR);
-};
-
 const ZERO: BigNumber = bignum(0);
 const ONE: BigNumber = bignum(1);
-const TILE_SIZE = 256;
+
+const FONT = "14px 'Noto Sans'";
 const RETINA_SCALE = window.devicePixelRatio;
-const LABEL_FONT = "14px 'Noto Sans'";
+const TILE_SIZE = 256;
 
 interface Transform {
   (x: BigNumber): number;
 }
 
 class GridInterval {
-  x?: BigNumber;
-  xInv?: BigNumber;
+  private x?: BigNumber;
+  private xInv?: BigNumber;
 
-  constructor(readonly mant: BigNumber, readonly exp: number) {}
+  constructor(private readonly mant: BigNumber, private readonly exp: number) {}
 
   get(): BigNumber {
     return (this.x ??= this.mant.times(ONE.shiftedBy(this.exp)));
@@ -54,16 +36,17 @@ class GridInterval {
 }
 
 /**
- * Returns the 1D affine transformation that maps points xs to ys.
- * @param srcPoints A pair of source points.
- * @param dstPoints A pair of destination points.
+ * Returns the 1-D affine transformation that maps each source point
+ * to the corresponding destination point.
+ * @param fromPoints The source points.
+ * @param toPoints The destination points.
  */
 function getTransform(
-  srcPoints: [BigNumber, BigNumber],
-  dstPoints: [BigNumber, BigNumber]
+  fromPoints: [BigNumber, BigNumber],
+  toPoints: [BigNumber, BigNumber]
 ): Transform {
-  const [x0, x1] = srcPoints;
-  const [y0, y1] = dstPoints;
+  const [x0, x1] = fromPoints;
+  const [y0, y1] = toPoints;
   const d = x1.minus(x0);
   const a = y1.minus(y0);
   const b = x1.times(y0).minus(x0.times(y1));
@@ -74,9 +57,8 @@ function getTransform(
 
 const mantissas = [1, 2, 5].map(bignum);
 /**
- * Returns grid interval.
- * @param widthPerPixel The width of a pixel in the real coordinates.
- * @returns The pair of the major and minor grid intervals.
+ * Returns the major and minor grid intervals.
+ * @param widthPerPixel The width of pixels in real coordinates.
  */
 function gridIntervals(widthPerPixel: number): [GridInterval, GridInterval] {
   function interval(level: number): GridInterval {
@@ -97,8 +79,45 @@ function gridIntervals(widthPerPixel: number): [GridInterval, GridInterval] {
   }
 }
 
-const dstX: [BigNumber, BigNumber] = [bignum(0.5), bignum(TILE_SIZE + 0.5)];
-const dstY: [BigNumber, BigNumber] = [bignum(TILE_SIZE + 0.5), bignum(0.5)];
+class Point {
+  constructor(readonly x: BigNumber, readonly y: BigNumber) {}
+}
+
+//                      .5px
+//                       ┌─┐
+//
+//               |       | x (x1, y1)
+//            ---+-------+---
+//               |       |
+//               |       |
+//   .5px ┌      | x (x0, y0)
+//        └   ---+-------+---
+//               |       |
+
+/**
+ * Returns the destination points of the transformation from real coordinates
+ * to pixel coordinates relative to the tile.
+ */
+const dst0 = new Point(bignum(0.5), bignum(TILE_SIZE - 0.5));
+const dst1 = new Point(bignum(TILE_SIZE + 0.5), bignum(-0.5));
+function destinationPoints(): [Point, Point] {
+  return [dst0, dst1];
+}
+
+/**
+ * Returns the source points of the transformation from real coordinates
+ * to pixel coordinates relative to the tile.
+ * @param coords The coordinates of the tile.
+ * @param widthPerTile The width of tiles at the level in real coordinates.
+ */
+function sourcePoints(coords: L.Coords, widthPerTile: number): [Point, Point] {
+  const w = bignum(widthPerTile);
+  return [
+    new Point(w.times(bignum(coords.x)), w.times(bignum(-coords.y - 1))),
+    new Point(w.times(bignum(coords.x + 1)), w.times(bignum(-coords.y))),
+  ];
+}
+
 class StaticGridLayer extends L.GridLayer {
   protected createTile(coords: L.Coords, done: L.DoneCallback): HTMLElement {
     const tile = L.DomUtil.create(
@@ -112,13 +131,10 @@ class StaticGridLayer extends L.GridLayer {
 
     setTimeout(() => {
       const widthPerTilef = 2 ** (BASE_ZOOM_LEVEL - coords.z);
-      const widthPerTile = bignum(widthPerTilef);
-      const x0 = widthPerTile.times(bignum(coords.x));
-      const x1 = widthPerTile.times(bignum(coords.x + 1));
-      const y0 = widthPerTile.times(bignum(-coords.y - 1));
-      const y1 = widthPerTile.times(bignum(-coords.y));
-      const tx = getTransform([x0, x1], dstX);
-      const ty = getTransform([y0, y1], dstY);
+      const [s0, s1] = sourcePoints(coords, widthPerTilef);
+      const [d0, d1] = destinationPoints();
+      const tx = getTransform([s0.x, s1.x], [d0.x, d1.x]);
+      const ty = getTransform([s0.y, s1.y], [d0.y, d1.y]);
 
       const widthPerPixel = widthPerTilef / TILE_SIZE;
       const [majInterval, minInterval] = gridIntervals(widthPerPixel);
@@ -130,10 +146,10 @@ class StaticGridLayer extends L.GridLayer {
       ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
 
       ctx.strokeStyle = "#e0e0e0";
-      this.drawGrid(ctx, x0, y0, x1, y1, minInterval, tx, ty);
+      this.drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, minInterval, tx, ty);
 
       ctx.strokeStyle = "#c0c0c0";
-      this.drawGrid(ctx, x0, y0, x1, y1, majInterval, tx, ty);
+      this.drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, majInterval, tx, ty);
 
       ctx.strokeStyle = "black";
       this.drawAxes(ctx, tx, ty);
@@ -224,7 +240,7 @@ class GridLabelsLayer extends L.GridLayer {
     tile.style.width = TILE_SIZE + "px";
     tile.style.height = TILE_SIZE + "px";
 
-    document.fonts.load(LABEL_FONT).then(() => {
+    document.fonts.load(FONT).then(() => {
       const tileRange = this.getVisibleTileRange();
       this.drawTile(tile, coords, tileRange);
       done(undefined, tile);
@@ -348,13 +364,10 @@ class GridLabelsLayer extends L.GridLayer {
     tileRange: L.Bounds
   ) {
     const widthPerTilef = 2 ** (BASE_ZOOM_LEVEL - coords.z);
-    const widthPerTile = bignum(widthPerTilef);
-    const x0 = widthPerTile.times(bignum(coords.x));
-    const x1 = widthPerTile.times(bignum(coords.x + 1));
-    const y0 = widthPerTile.times(bignum(-coords.y - 1));
-    const y1 = widthPerTile.times(bignum(-coords.y));
-    const tx = getTransform([x0, x1], dstX);
-    const ty = getTransform([y0, y1], dstY);
+    const [s0, s1] = sourcePoints(coords, widthPerTilef);
+    const [d0, d1] = destinationPoints();
+    const tx = getTransform([s0.x, s1.x], [d0.x, d1.x]);
+    const ty = getTransform([s0.y, s1.y], [d0.y, d1.y]);
 
     const widthPerPixel = widthPerTilef / TILE_SIZE;
     const [interval] = gridIntervals(widthPerPixel);
@@ -364,7 +377,7 @@ class GridLabelsLayer extends L.GridLayer {
     const mapViewport = this._map.getContainer().getBoundingClientRect();
     const tileViewport = ctx.canvas.getBoundingClientRect();
     ctx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
-    ctx.font = LABEL_FONT;
+    ctx.font = FONT;
     ctx.lineJoin = "round";
     ctx.lineWidth = 3;
     ctx.strokeStyle = "white";
@@ -380,8 +393,8 @@ class GridLabelsLayer extends L.GridLayer {
     ) {
       this.drawXTickLabels(
         ctx,
-        x0,
-        x1,
+        s0.x,
+        s1.x,
         interval,
         tx,
         ty,
@@ -398,8 +411,8 @@ class GridLabelsLayer extends L.GridLayer {
     ) {
       this.drawYTickLabels(
         ctx,
-        y0,
-        y1,
+        s0.y,
+        s1.y,
         interval,
         tx,
         ty,
