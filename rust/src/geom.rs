@@ -1,5 +1,5 @@
 use crate::region::Region;
-use inari::{const_interval, interval, Interval};
+use inari::{interval, Interval};
 
 /// A one-dimensional geometric region that represents a line segment.
 ///
@@ -47,22 +47,9 @@ impl Box1D {
     /// Transforms the region by `t`.
     pub fn transform(&self, t: &Transform1D) -> Self {
         Self::new(
-            match t.sxd {
-                Some(sxd) => self.l / sxd,
-                _ => self.l,
-            }
-            .mul_add(t.sx, t.tx),
-            match t.sxd {
-                Some(sxd) => self.r / sxd,
-                _ => self.r,
-            }
-            .mul_add(t.sx, t.tx),
+            (self.l / t.sd).mul_add(t.sn, t.t),
+            (self.r / t.sd).mul_add(t.sn, t.t),
         )
-    }
-
-    /// Returns the width of the region.
-    pub fn width(&self) -> Interval {
-        self.r - self.l
     }
 }
 
@@ -82,11 +69,6 @@ impl Box2D {
     /// Returns the bottom bound of the region.
     pub fn bottom(&self) -> Interval {
         self.1.left()
-    }
-
-    /// Returns the height of the region.
-    pub fn height(&self) -> Interval {
-        self.1.width()
     }
 
     /// Returns the inner region.
@@ -123,35 +105,25 @@ impl Box2D {
     pub fn transpose(&self) -> Self {
         Self(self.1.clone(), self.0.clone())
     }
-
-    /// Returns the width of the region.
-    pub fn width(&self) -> Interval {
-        self.0.width()
-    }
 }
 
 /// A one-dimensional affine geometric transformation that consists of only scaling and translation.
 #[derive(Clone, Debug)]
 pub struct Transform1D {
-    sx: Interval,
-    sxd: Option<Interval>,
-    tx: Interval,
+    sn: Interval,
+    sd: Interval,
+    t: Interval,
 }
 
 impl Transform1D {
-    /// Creates a transformation that maps `x` to `sx x + tx`.
-    pub fn new(sx: Interval, tx: Interval) -> Self {
-        Self { sx, sxd: None, tx }
-    }
-
-    /// Creates a transformation that maps `x` to `sx (x / sxd) + tx`,
-    /// where the division is carried out first.
-    pub fn with_predivision_factors((sx, sxd): (Interval, Interval), tx: Interval) -> Self {
-        const ONE: Interval = const_interval!(1.0, 1.0);
+    /// Creates a transformation that maps each source point to the corresponding destination point.
+    pub fn new(from_points: [Interval; 2], to_points: [Interval; 2]) -> Self {
+        let [a0, a1] = from_points;
+        let [x0, x1] = to_points;
         Self {
-            sx,
-            sxd: if sxd == ONE { None } else { Some(sxd) },
-            tx,
+            sn: x1 - x0,
+            sd: a1 - a0,
+            t: (-a0 / (a1 - a0)).mul_add(x1 - x0, x0),
         }
     }
 }
@@ -161,22 +133,17 @@ impl Transform1D {
 pub struct Transform2D(Transform1D, Transform1D);
 
 impl Transform2D {
-    /// Creates a transformation that maps `(x, y)` to `(sx x + tx, sy y + ty)`.
-    pub fn new(sx: Interval, tx: Interval, sy: Interval, ty: Interval) -> Self {
-        Self(Transform1D::new(sx, tx), Transform1D::new(sy, ty))
-    }
-
-    /// Creates a transformation that maps `(x, y)` to `(sx (x / sxd) + tx, sy (y / syd) + ty)`,
-    /// where the divisions are carried out first.
-    pub fn with_predivision_factors(
-        (sx, sxd): (Interval, Interval),
-        tx: Interval,
-        (sy, syd): (Interval, Interval),
-        ty: Interval,
-    ) -> Self {
+    /// Creates a transformation that maps each source point to the corresponding destination point.
+    pub fn new(from_points: [Region; 2], to_points: [Region; 2]) -> Self {
         Self(
-            Transform1D::with_predivision_factors((sx, sxd), tx),
-            Transform1D::with_predivision_factors((sy, syd), ty),
+            Transform1D::new(
+                [from_points[0].x(), from_points[1].x()],
+                [to_points[0].x(), to_points[1].x()],
+            ),
+            Transform1D::new(
+                [from_points[0].y(), from_points[1].y()],
+                [to_points[0].y(), to_points[1].y()],
+            ),
         )
     }
 }

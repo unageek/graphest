@@ -156,7 +156,7 @@ t!(
     t_b0175d3b58ed46158ba72bbd85670fc9,
     "|x cos(x) + y sin(y)| = x cos(y) - y sin(x)",
     @bounds(-10.1, 9.9, -9.8, 10.2),
-    @timeout(7000),
+    @timeout(8000),
 );
 
 // Sharp Threesome

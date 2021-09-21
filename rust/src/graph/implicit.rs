@@ -56,10 +56,17 @@ impl Implicit {
                 store_next_dir: has_n_theta || has_t,
             }),
             im_to_real: Transform2D::new(
-                region.width() / point_interval(im_width as f64),
-                region.left(),
-                region.height() / point_interval(im_height as f64),
-                region.bottom(),
+                [
+                    Region::new(point_interval(0.0), point_interval(0.0)),
+                    Region::new(
+                        point_interval(im_width as f64),
+                        point_interval(im_height as f64),
+                    ),
+                ],
+                [
+                    Region::new(region.left(), region.bottom()),
+                    Region::new(region.right(), region.top()),
+                ],
             ),
             stats: GraphingStatistics {
                 eval_count: 0,

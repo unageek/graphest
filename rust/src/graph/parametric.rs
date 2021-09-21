@@ -46,8 +46,6 @@ impl Parametric {
     ) -> Self {
         assert_eq!(rel.relation_type(), RelationType::Parametric);
 
-        let im_width_interval = point_interval(im_width as f64);
-        let im_height_interval = point_interval(im_height as f64);
         let mut g = Self {
             rel,
             im: Image::new(im_width, im_height),
@@ -59,14 +57,19 @@ impl Parametric {
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
             ),
-            real_to_im: {
-                Transform2D::new(
-                    im_width_interval / region.width(),
-                    -im_width_interval * (region.left() / region.width()),
-                    im_height_interval / region.height(),
-                    -im_height_interval * (region.bottom() / region.height()),
-                )
-            },
+            real_to_im: Transform2D::new(
+                [
+                    Region::new(region.left(), region.bottom()),
+                    Region::new(region.right(), region.top()),
+                ],
+                [
+                    Region::new(point_interval(0.0), point_interval(0.0)),
+                    Region::new(
+                        point_interval(im_width as f64),
+                        point_interval(im_height as f64),
+                    ),
+                ],
+            ),
             stats: GraphingStatistics {
                 eval_count: 0,
                 pixels: im_width as usize * im_height as usize,

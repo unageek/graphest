@@ -66,8 +66,6 @@ impl Explicit {
         } else {
             (region, im_width, im_height)
         };
-        let im_width_interval = point_interval(im_width as f64);
-        let im_height_interval = point_interval(im_height as f64);
         let mut g = Self {
             rel,
             op,
@@ -81,16 +79,14 @@ impl Explicit {
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
             ),
-            im_to_real_x: Transform1D::with_predivision_factors(
-                (region.width(), im_width_interval),
-                region.left(),
+            im_to_real_x: Transform1D::new(
+                [point_interval(0.0), point_interval(im_width as f64)],
+                [region.left(), region.right()],
             ),
-            real_to_im_y: {
-                Transform1D::with_predivision_factors(
-                    (im_height_interval, region.height()),
-                    -im_height_interval * (region.bottom() / region.height()),
-                )
-            },
+            real_to_im_y: Transform1D::new(
+                [region.bottom(), region.top()],
+                [point_interval(0.0), point_interval(im_height as f64)],
+            ),
             stats: GraphingStatistics {
                 eval_count: 0,
                 pixels: im_width as usize * im_height as usize,
