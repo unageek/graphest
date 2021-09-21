@@ -40,6 +40,7 @@ impl Implicit {
         region: Box2D,
         im_width: u32,
         im_height: u32,
+        padding: u32,
         mem_limit: usize,
     ) -> Self {
         assert_eq!(rel.relation_type(), RelationType::Implicit);
@@ -57,10 +58,13 @@ impl Implicit {
             }),
             im_to_real: Transform2D::new(
                 [
-                    Region::new(point_interval(0.0), point_interval(0.0)),
                     Region::new(
-                        point_interval(im_width as f64),
-                        point_interval(im_height as f64),
+                        point_interval(padding as f64),
+                        point_interval(padding as f64),
+                    ),
+                    Region::new(
+                        point_interval((im_width - padding) as f64),
+                        point_interval((im_height - padding) as f64),
                     ),
                 ],
                 [

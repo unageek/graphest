@@ -131,15 +131,15 @@ fn main() {
     match rel.relation_type() {
         RelationType::Constant => plot(Constant::new(rel, size[0], size[1]), opts),
         RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_) => plot(
-            Explicit::new(rel, region, size[0], size[1], mem_limit),
+            Explicit::new(rel, region, size[0], size[1], 0, mem_limit),
             opts,
         ),
         RelationType::Parametric => plot(
-            Parametric::new(rel, region, size[0], size[1], mem_limit),
+            Parametric::new(rel, region, size[0], size[1], 0, mem_limit),
             opts,
         ),
         _ => plot(
-            Implicit::new(rel, region, size[0], size[1], mem_limit),
+            Implicit::new(rel, region, size[0], size[1], 0, mem_limit),
             opts,
         ),
     };

@@ -46,6 +46,7 @@ impl Explicit {
         region: Box2D,
         im_width: u32,
         im_height: u32,
+        padding: u32,
         mem_limit: usize,
     ) -> Self {
         let relation_type = rel.relation_type();
@@ -80,12 +81,18 @@ impl Explicit {
                 interval!(0.0, im_height as f64).unwrap(),
             ),
             im_to_real_x: Transform1D::new(
-                [point_interval(0.0), point_interval(im_width as f64)],
+                [
+                    point_interval(padding as f64),
+                    point_interval((im_width - padding) as f64),
+                ],
                 [region.left(), region.right()],
             ),
             real_to_im_y: Transform1D::new(
                 [region.bottom(), region.top()],
-                [point_interval(0.0), point_interval(im_height as f64)],
+                [
+                    point_interval(padding as f64),
+                    point_interval((im_height - padding) as f64),
+                ],
             ),
             stats: GraphingStatistics {
                 eval_count: 0,
