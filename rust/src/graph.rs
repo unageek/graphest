@@ -87,3 +87,16 @@ pub mod implicit;
 pub mod parametric;
 
 mod common;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ternary() {
+        assert_eq!(Ternary::default(), Ternary::Uncertain);
+
+        assert!(Ternary::False < Ternary::Uncertain);
+        assert!(Ternary::Uncertain < Ternary::True);
+    }
+}
