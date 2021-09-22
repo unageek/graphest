@@ -83,23 +83,15 @@ class Point {
   constructor(readonly x: BigNumber, readonly y: BigNumber) {}
 }
 
-//                      .5px
-//                       ┌─┐
-//
-//               |       | x (x1, y1)
-//            ---+-------+---
-//               |       |
-//               |       |
-//   .5px ┌      | x (x0, y0)
-//        └   ---+-------+---
-//               |       |
+const dst0 = new Point(bignum(0.5), bignum(TILE_SIZE - 0.5));
+const dst1 = new Point(bignum(TILE_SIZE + 0.5), bignum(-0.5));
 
 /**
  * Returns the destination points of the transformation from real coordinates
  * to pixel coordinates relative to the tile.
+ *
+ * @see {@link sourcePoints}
  */
-const dst0 = new Point(bignum(0.5), bignum(TILE_SIZE - 0.5));
-const dst1 = new Point(bignum(TILE_SIZE + 0.5), bignum(-0.5));
 function destinationPoints(): [Point, Point] {
   return [dst0, dst1];
 }
@@ -109,6 +101,24 @@ function destinationPoints(): [Point, Point] {
  * to pixel coordinates relative to the tile.
  * @param coords The coordinates of the tile.
  * @param widthPerTile The width of tiles at the level in real coordinates.
+ *
+ * The current configuration is shown below.
+ *
+ * @example
+ * ```text
+ *                     .5px
+ *                     ┌─┐
+ *
+ *             |       | X (x1, y1)
+ *          ---+-------+---
+ *             |       |
+ *             |       |
+ * .5px ┌      | X (x0, y0)
+ *      └   ---+-------+---
+ *             |       |
+ * ```
+ *
+ * @see {@link destinationPoints}
  */
 function sourcePoints(coords: L.Coords, widthPerTile: number): [Point, Point] {
   const w = bignum(widthPerTile);
