@@ -147,7 +147,7 @@ ipcMain.handle<ipc.RequestTile>(
     }
 
     const tile = rel.tiles.get(tileId);
-    const retinaScale = 2;
+    const retinaScale = 1;
     if (tile === undefined) {
       // We offset the graph by 0.5px to place the origin at the center of a pixel.
       // The direction of offsetting must be coherent with the configuration of `GridLayer`.

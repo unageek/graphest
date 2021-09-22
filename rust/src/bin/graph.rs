@@ -137,7 +137,8 @@ fn main() {
         ker
     };
 
-    let padded_size = [size[0] + 2 * dilation, size[1] + 2 * dilation];
+    let padding = dilation;
+    let padded_size = [size[0] + 2 * padding, size[1] + 2 * padding];
 
     let opts = PlotOptions {
         dilation_kernel,
@@ -157,7 +158,7 @@ fn main() {
                 region,
                 padded_size[0],
                 padded_size[1],
-                dilation,
+                padding,
                 mem_limit,
             ),
             opts,
@@ -168,7 +169,7 @@ fn main() {
                 region,
                 padded_size[0],
                 padded_size[1],
-                dilation,
+                padding,
                 mem_limit,
             ),
             opts,
@@ -179,7 +180,7 @@ fn main() {
                 region,
                 padded_size[0],
                 padded_size[1],
-                dilation,
+                padding,
                 mem_limit,
             ),
             opts,
