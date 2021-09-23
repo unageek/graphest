@@ -8,6 +8,7 @@
   "plugins": ["@typescript-eslint", "react-hooks"],
   "rules": {
     "@typescript-eslint/no-non-null-assertion": "off",
+    "eqeqeq": "error",
     "react-hooks/rules-of-hooks": "error"
   }
 }

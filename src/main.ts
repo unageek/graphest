@@ -250,7 +250,7 @@ function deprioritize(job: Job) {
   job.proc?.kill("SIGSTOP");
   sleepingJobs.push(job);
   const nAfter = countJobs();
-  assert(nBefore == nAfter);
+  assert(nBefore === nAfter);
 
   updateQueue();
 }
@@ -304,7 +304,7 @@ function popJob(job: Job) {
   activeJobs = activeJobs.filter((j) => j !== job);
   sleepingJobs = sleepingJobs.filter((j) => j !== job);
   const nAfter = countJobs();
-  assert(nBefore == nAfter + 1);
+  assert(nBefore === nAfter + 1);
 }
 
 function pushJob(job: Job) {
@@ -368,7 +368,7 @@ function updateQueue() {
         sleepingJobs.unshift(job);
       }
       const nAfter = countJobs();
-      assert(nAfter == nBefore + 1);
+      assert(nAfter === nBefore + 1);
 
       checkAndNotifyGraphingStatusChanged(job.relId);
     }

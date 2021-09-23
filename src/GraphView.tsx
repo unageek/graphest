@@ -126,7 +126,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         const newYTemp = (y * 2 ** z + TEMP_SHIFT) * 2 ** -z;
         const newX = Math.round(x * 2 ** z) * 2 ** -z;
         const newY = Math.round(y * 2 ** z) * 2 ** -z;
-        if (newX != x || newY != y) {
+        if (newX !== x || newY !== y) {
           map.setView([newXTemp, newYTemp], z);
           map.setView([newX, newY], z, { animate: false });
         }
