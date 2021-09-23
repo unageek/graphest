@@ -7,21 +7,19 @@ use crate::{
             point_interval, point_interval_possibly_infinite, simple_fraction, subpixel_outer_x,
             PixelState, QueuedBlockIndex,
         },
-        Graph, GraphingError, GraphingErrorKind, GraphingStatistics,
+        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Ternary,
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     region::Region,
     relation::{EvalExplicitCache, ExplicitRelationOp, Relation, RelationType},
 };
-use image::{ImageBuffer, Pixel};
 use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
 use smallvec::SmallVec;
 use std::{
     convert::TryFrom,
     mem::swap,
-    ops::{Deref, DerefMut},
     time::{Duration, Instant},
 };
 
@@ -533,22 +531,13 @@ impl Explicit {
 }
 
 impl Graph for Explicit {
-    fn get_image<P, Container>(
-        &self,
-        im: &mut ImageBuffer<P, Container>,
-        true_color: P,
-        uncertain_color: P,
-        false_color: P,
-    ) where
-        P: Pixel + 'static,
-        Container: Deref<Target = [P::Subpixel]> + DerefMut,
-    {
+    fn get_image(&self, im: &mut Image<Ternary>) {
         assert!(im.width() == self.im.width() && im.height() == self.im.height());
         for (s, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
             *dst = match s {
-                PixelState::True => true_color,
-                _ if s.is_uncertain(self.block_queue.begin_index()) => uncertain_color,
-                _ => false_color,
+                PixelState::True => Ternary::True,
+                _ if s.is_uncertain(self.block_queue.begin_index()) => Ternary::Uncertain,
+                _ => Ternary::False,
             }
         }
     }

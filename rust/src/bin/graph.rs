@@ -1,11 +1,12 @@
 use clap::{App, Arg, ArgSettings};
 use graphest::{
-    Box2D, Constant, Explicit, Graph, GraphingStatistics, Implicit, Parametric, Relation,
-    RelationType,
+    Box2D, Constant, Explicit, Graph, GraphingStatistics, Image, Implicit, Parametric, PixelIndex,
+    PixelRange, Relation, RelationType, Ternary,
 };
 use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
-use std::{ffi::OsString, time::Duration};
+use itertools::Itertools;
+use std::{convert::TryFrom, ffi::OsString, time::Duration};
 
 fn print_statistics_header() {
     println!(
@@ -54,6 +55,13 @@ fn main() {
                 .default_values(&["-10", "10", "-10", "10"])
                 .value_names(&["xmin", "xmax", "ymin", "ymax"])
                 .about("Bounds of the region to plot over."),
+        )
+        .arg(
+            Arg::new("dilate")
+                .long("dilate")
+                .setting(ArgSettings::Hidden)
+                .default_value("1")
+                .forbid_empty_values(true),
         )
         .arg(
             Arg::new("gray-alpha")
@@ -109,6 +117,20 @@ fn main() {
         .iter()
         .map(|s| to_interval(s))
         .collect::<Vec<_>>();
+    let dilation = matches
+        .value_of("dilate")
+        .unwrap()
+        .split(';')
+        .map(|row| {
+            row.split(',')
+                .map(|el| match el {
+                    "0" => false,
+                    "1" => true,
+                    _ => panic!("the structuring element must consist of only zeros and ones"),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
     let gray_alpha = matches.is_present("gray-alpha");
     let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
     let output = matches.value_of_os("output").unwrap().to_owned();
@@ -119,47 +141,87 @@ fn main() {
         Err(e) => e.exit(),
     };
 
+    let dilation_kernel = {
+        let size = dilation.len();
+        if size % 2 != 1 || dilation.iter().any(|row| row.len() != size) {
+            panic!("the structuring element must have odd dimensions");
+        }
+        let size = u32::try_from(size).expect("the structuring element is too large");
+        let mut ker = Image::<bool>::new(size, size);
+        for (p, el) in ker.pixels_mut().zip(dilation.into_iter().flatten()) {
+            *p = el;
+        }
+        ker
+    };
+
+    let padding = dilation_kernel.width() / 2;
+    let padded_size = [size[0] + 2 * padding, size[1] + 2 * padding];
+
     let opts = PlotOptions {
+        dilation_kernel,
         gray_alpha,
         output,
-        im_width: size[0],
-        im_height: size[1],
+        padded_size,
+        size: [size[0], size[1]],
         timeout,
     };
     let region = Box2D::new(bounds[0], bounds[1], bounds[2], bounds[3]);
 
     match rel.relation_type() {
-        RelationType::Constant => plot(Constant::new(rel, size[0], size[1]), opts),
+        RelationType::Constant => plot(Constant::new(rel, padded_size[0], padded_size[1]), opts),
         RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_) => plot(
-            Explicit::new(rel, region, size[0], size[1], 0, mem_limit),
+            Explicit::new(
+                rel,
+                region,
+                padded_size[0],
+                padded_size[1],
+                padding,
+                mem_limit,
+            ),
             opts,
         ),
         RelationType::Parametric => plot(
-            Parametric::new(rel, region, size[0], size[1], 0, mem_limit),
+            Parametric::new(
+                rel,
+                region,
+                padded_size[0],
+                padded_size[1],
+                padding,
+                mem_limit,
+            ),
             opts,
         ),
         _ => plot(
-            Implicit::new(rel, region, size[0], size[1], 0, mem_limit),
+            Implicit::new(
+                rel,
+                region,
+                padded_size[0],
+                padded_size[1],
+                padding,
+                mem_limit,
+            ),
             opts,
         ),
     };
 }
 
 struct PlotOptions {
+    dilation_kernel: Image<bool>,
     gray_alpha: bool,
     output: OsString,
-    im_width: u32,
-    im_height: u32,
+    padded_size: [u32; 2],
+    size: [u32; 2],
     timeout: Option<Duration>,
 }
 
 fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
     let mut gray_alpha_im: Option<GrayAlphaImage> = None;
     let mut rgb_im: Option<RgbImage> = None;
+    let mut raw_im = Image::<Ternary>::new(opts.padded_size[0], opts.padded_size[1]);
     if opts.gray_alpha {
-        gray_alpha_im = Some(GrayAlphaImage::new(opts.im_width, opts.im_height));
+        gray_alpha_im = Some(GrayAlphaImage::new(opts.size[0], opts.size[1]));
     } else {
-        rgb_im = Some(RgbImage::new(opts.im_width, opts.im_height));
+        rgb_im = Some(RgbImage::new(opts.size[0], opts.size[1]));
     }
 
     let mut prev_stat = g.get_statistics();
@@ -183,16 +245,45 @@ fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
         print_statistics(&stat, &prev_stat);
         prev_stat = stat;
 
+        g.get_image(&mut raw_im);
+        for (dy, dx) in (0..opts.size[1]).cartesian_product(0..opts.size[0]) {
+            raw_im[PixelIndex::new(dx, dy)] = (0..opts.dilation_kernel.height())
+                .cartesian_product(0..opts.dilation_kernel.width())
+                .filter(|&(ky, kx)| opts.dilation_kernel[PixelIndex::new(kx, ky)])
+                .map(|(ky, kx)| raw_im[PixelIndex::new(dx + kx, dy + ky)])
+                .max()
+                .unwrap_or(Ternary::False);
+        }
+
+        let src_pixels = PixelRange::new(
+            PixelIndex::new(0, 0),
+            PixelIndex::new(opts.size[0], opts.size[1]),
+        );
         if let Some(im) = &mut gray_alpha_im {
-            g.get_image(im, LumaA([0, 255]), LumaA([0, 128]), LumaA([0, 0]));
+            for (src, dst) in src_pixels
+                .into_iter()
+                .map(|p| raw_im[p])
+                .zip(im.pixels_mut())
+            {
+                *dst = match src {
+                    Ternary::True => LumaA([0, 255]),
+                    Ternary::Uncertain => LumaA([0, 128]),
+                    Ternary::False => LumaA([0, 0]),
+                };
+            }
             im.save(&opts.output).expect("saving image failed");
         } else if let Some(im) = &mut rgb_im {
-            g.get_image(
-                im,
-                Rgb([0, 0, 0]),
-                Rgb([64, 128, 192]),
-                Rgb([255, 255, 255]),
-            );
+            for (src, dst) in src_pixels
+                .into_iter()
+                .map(|p| raw_im[p])
+                .zip(im.pixels_mut())
+            {
+                *dst = match src {
+                    Ternary::True => Rgb([0, 0, 0]),
+                    Ternary::Uncertain => Rgb([64, 128, 192]),
+                    Ternary::False => Rgb([255, 255, 255]),
+                };
+            }
             im.save(&opts.output).expect("saving image failed");
         }
 

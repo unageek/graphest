@@ -1,5 +1,4 @@
 import * as assert from "assert";
-import { BigNumber } from "bignumber.js";
 import { ChildProcess, execFile } from "child_process";
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { autoUpdater } from "electron-updater";
@@ -7,6 +6,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { pathToFileURL } from "url";
+import { bignum } from "./BigNumber";
 import { BASE_ZOOM_LEVEL, GRAPH_TILE_SIZE } from "./constants";
 import * as ipc from "./ipc";
 
@@ -147,14 +147,24 @@ ipcMain.handle<ipc.RequestTile>(
     }
 
     const tile = rel.tiles.get(tileId);
+    const retinaScale = 1 as number;
     if (tile === undefined) {
-      const purturb_x = bignum(0.50123456789012345 / GRAPH_TILE_SIZE);
-      const purturb_y = bignum(0.50234567890123456 / GRAPH_TILE_SIZE);
+      // We offset the graph by 0.5px to place the origin at the center of a pixel.
+      // The direction of offsetting must be coherent with the configuration of `GridLayer`.
+      // We also add asymmetric perturbation to the offset so that
+      // points with simple coordinates may not be located on pixel boundaries,
+      // which could make lines such as `y = x` look thicker.
+      const pixelOffsetX = bignum(
+        (0.5 + 1.2345678901234567e-3) / (retinaScale * GRAPH_TILE_SIZE)
+      );
+      const pixelOffsetY = bignum(
+        (0.5 + 1.3456789012345678e-3) / (retinaScale * GRAPH_TILE_SIZE)
+      );
       const widthPerTile = bignum(2 ** (BASE_ZOOM_LEVEL - coords.z));
-      const x0 = widthPerTile.times(bignum(coords.x).minus(purturb_x));
-      const x1 = widthPerTile.times(bignum(coords.x + 1).minus(purturb_x));
-      const y0 = widthPerTile.times(bignum(-coords.y - 1).plus(purturb_y));
-      const y1 = widthPerTile.times(bignum(-coords.y).plus(purturb_y));
+      const x0 = widthPerTile.times(bignum(coords.x).minus(pixelOffsetX));
+      const x1 = widthPerTile.times(bignum(coords.x + 1).minus(pixelOffsetX));
+      const y0 = widthPerTile.times(bignum(-coords.y - 1).minus(pixelOffsetY));
+      const y1 = widthPerTile.times(bignum(-coords.y).minus(pixelOffsetY));
 
       const outFile = path.join(rel.outDir, rel.nextTileNumber + ".png");
       rel.nextTileNumber++;
@@ -175,8 +185,10 @@ ipcMain.handle<ipc.RequestTile>(
           y0.toString(),
           y1.toString(),
           "--size",
-          GRAPH_TILE_SIZE.toString(),
-          GRAPH_TILE_SIZE.toString(),
+          (retinaScale * GRAPH_TILE_SIZE).toString(),
+          (retinaScale * GRAPH_TILE_SIZE).toString(),
+          "--dilate",
+          retinaScale === 2 ? "0,0,0;1,1,0;1,1,0" : "1",
           "--gray-alpha",
           "--output",
           outFile,
@@ -216,10 +228,6 @@ function abortJobs(filter: JobFilter = () => true) {
     popJob(job);
   }
   updateQueue();
-}
-
-function bignum(x: number) {
-  return new BigNumber(x);
 }
 
 function checkAndNotifyGraphingStatusChanged(relId: string) {

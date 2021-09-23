@@ -81,6 +81,7 @@ export class GraphLayer extends L.GridLayer {
       inner.style.width = GRAPH_TILE_SIZE + "px";
       inner.style.height = GRAPH_TILE_SIZE + "px";
       inner.style.background = this.lastGraph.color;
+      inner.style.webkitMaskSize = "100%";
       outer.appendChild(inner);
     }
     const tileId = this._tileCoordsToKey(coords);
