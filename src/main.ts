@@ -147,7 +147,7 @@ ipcMain.handle<ipc.RequestTile>(
     }
 
     const tile = rel.tiles.get(tileId);
-    const retinaScale = 1;
+    const retinaScale = 1 as number;
     if (tile === undefined) {
       // We offset the graph by 0.5px to place the origin at the center of a pixel.
       // The direction of offsetting must be coherent with the configuration of `GridLayer`.
@@ -188,7 +188,7 @@ ipcMain.handle<ipc.RequestTile>(
           (retinaScale * GRAPH_TILE_SIZE).toString(),
           (retinaScale * GRAPH_TILE_SIZE).toString(),
           "--dilate",
-          (retinaScale - 1).toString(),
+          retinaScale === 2 ? "0,0,0;1,1,0;1,1,0" : "1",
           "--gray-alpha",
           "--output",
           outFile,

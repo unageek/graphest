@@ -6,7 +6,7 @@ use graphest::{
 use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
-use std::{ffi::OsString, time::Duration};
+use std::{convert::TryFrom, ffi::OsString, time::Duration};
 
 fn print_statistics_header() {
     println!(
@@ -60,7 +60,8 @@ fn main() {
             Arg::new("dilate")
                 .long("dilate")
                 .setting(ArgSettings::Hidden)
-                .default_value("0"),
+                .default_value("1")
+                .forbid_empty_values(true),
         )
         .arg(
             Arg::new("gray-alpha")
@@ -116,7 +117,20 @@ fn main() {
         .iter()
         .map(|s| to_interval(s))
         .collect::<Vec<_>>();
-    let dilation = matches.value_of_t_or_exit::<u32>("dilate");
+    let dilation = matches
+        .value_of("dilate")
+        .unwrap()
+        .split(';')
+        .map(|row| {
+            row.split(',')
+                .map(|el| match el {
+                    "0" => false,
+                    "1" => true,
+                    _ => panic!("the structuring element must consist of only zeros and ones"),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
     let gray_alpha = matches.is_present("gray-alpha");
     let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
     let output = matches.value_of_os("output").unwrap().to_owned();
@@ -128,16 +142,19 @@ fn main() {
     };
 
     let dilation_kernel = {
-        let diam = 2 * dilation + 1;
-        let rad = dilation + 1;
-        let mut ker = Image::<bool>::new(diam, diam);
-        for ((y, x), p) in (0..diam).cartesian_product(0..diam).zip(ker.pixels_mut()) {
-            *p = y < rad && x < rad;
+        let size = dilation.len();
+        if size % 2 != 1 || dilation.iter().any(|row| row.len() != size) {
+            panic!("the structuring element must have odd dimensions");
+        }
+        let size = u32::try_from(size).expect("the structuring element is too large");
+        let mut ker = Image::<bool>::new(size, size);
+        for (p, el) in ker.pixels_mut().zip(dilation.into_iter().flatten()) {
+            *p = el;
         }
         ker
     };
 
-    let padding = dilation;
+    let padding = dilation_kernel.width() / 2;
     let padded_size = [size[0] + 2 * padding, size[1] + 2 * padding];
 
     let opts = PlotOptions {
