@@ -10,7 +10,7 @@ use crate::{
     region::Region,
     relation::{EvalParametricCache, Relation, RelationType},
 };
-use image::{imageops, ImageBuffer, Pixel};
+use image::{ImageBuffer, Pixel};
 use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
@@ -286,8 +286,8 @@ impl Parametric {
             let x = r.x();
             let y = r.y();
             PixelRange::new(
-                PixelIndex::new(x.inf() as u32, y.inf() as u32),
-                PixelIndex::new(x.sup() as u32, y.sup() as u32),
+                PixelIndex::new(x.inf() as u32, self.im.height() - y.sup() as u32),
+                PixelIndex::new(x.sup() as u32, self.im.height() - y.inf() as u32),
             )
         }
     }
@@ -378,7 +378,6 @@ impl Graph for Parametric {
                 _ => false_color,
             }
         }
-        imageops::flip_vertical_in_place(im);
     }
 
     fn get_statistics(&self) -> GraphingStatistics {

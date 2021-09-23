@@ -11,7 +11,7 @@ use crate::{
     region::Region,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
 };
-use image::{imageops, ImageBuffer, Pixel};
+use image::{ImageBuffer, Pixel};
 use inari::{interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
@@ -194,8 +194,9 @@ impl Implicit {
                 } else {
                     // Cannot subdivide in any direction.
                     assert!(sub_b.is_subpixel());
-                    let pixel = b.pixel_index();
-                    self.im[pixel] = PixelState::Uncertain(None);
+                    for p in &self.pixels_in_image(&b) {
+                        self.im[p] = PixelState::Uncertain(None);
+                    }
                     continue;
                 };
 
@@ -244,15 +245,7 @@ impl Implicit {
     ///
     /// Precondition: the block is either a pixel or a superpixel.
     fn process_block(&mut self, b: &Block) -> bool {
-        let pixels = {
-            let begin = b.pixel_index();
-            let end = PixelIndex::new(
-                (begin.x + b.width()).min(self.im.width()),
-                (begin.y + b.height()).min(self.im.height()),
-            );
-            PixelRange::new(begin, end)
-        };
-
+        let pixels = self.pixels_in_image(b);
         if pixels.iter().all(|p| self.im[p] == PixelState::True) {
             // All pixels have already been proven to be true.
             return true;
@@ -288,8 +281,8 @@ impl Implicit {
     ///
     /// Precondition: the block is a subpixel.
     fn process_subpixel_block(&mut self, b: &Block) -> bool {
-        let p = b.pixel_index();
-        if self.im[p] == PixelState::True {
+        let pixels = self.pixels_in_image(b);
+        if pixels.iter().all(|p| self.im[p] == PixelState::True) {
             // This pixel has already been proven to be true.
             return true;
         }
@@ -312,7 +305,9 @@ impl Implicit {
         if locally_zero_mask.eval(self.rel.forms()) && !inter.is_empty() {
             // The relation is true everywhere in the subpixel, and the subpixel certainly overlaps
             // with the pixel. Therefore, the pixel contains a solution.
-            self.im[p] = PixelState::True;
+            for p in &pixels {
+                self.im[p] = PixelState::True;
+            }
             return true;
         }
         if !r_u_up
@@ -379,7 +374,9 @@ impl Implicit {
                     .solution_certainly_exists(self.rel.forms(), &locally_zero_mask)
             {
                 // Found a solution.
-                self.im[p] = PixelState::True;
+                for p in &pixels {
+                    self.im[p] = PixelState::True;
+                }
                 return true;
             }
         }
@@ -454,6 +451,26 @@ impl Implicit {
         )
     }
 
+    /// Returns the pixels that are contained in both the block and the image.
+    fn pixels_in_image(&self, b: &Block) -> PixelRange {
+        let begin = b.pixel_index();
+        let end = if b.is_superpixel() {
+            PixelIndex::new(
+                (begin.x + b.width()).min(self.im.width()),
+                (begin.y + b.height()).min(self.im.height()),
+            )
+        } else {
+            PixelIndex::new(
+                (begin.x + 1).min(self.im.width()),
+                (begin.y + 1).min(self.im.height()),
+            )
+        };
+        PixelRange::new(
+            PixelIndex::new(begin.x, self.im.height() - end.y),
+            PixelIndex::new(end.x, self.im.height() - begin.y),
+        )
+    }
+
     fn set_last_queued_block(
         &mut self,
         b: &Block,
@@ -461,25 +478,7 @@ impl Implicit {
         parent_block_index: Option<usize>,
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
-            if b.is_superpixel() {
-                let pixels = {
-                    let begin = b.pixel_index();
-                    let end = PixelIndex::new(
-                        (begin.x + b.width()).min(self.im.width()),
-                        (begin.y + b.height()).min(self.im.height()),
-                    );
-                    PixelRange::new(begin, end)
-                };
-
-                for p in pixels.iter() {
-                    if parent_block_index.is_none()
-                        || self.im[p].is_uncertain_and_disprovable(parent_block_index.unwrap())
-                    {
-                        self.im[p] = PixelState::Uncertain(Some(block_index));
-                    }
-                }
-            } else {
-                let p = b.pixel_index();
+            for p in self.pixels_in_image(b).iter() {
                 if parent_block_index.is_none()
                     || self.im[p].is_uncertain_and_disprovable(parent_block_index.unwrap())
                 {
@@ -621,7 +620,6 @@ impl Graph for Implicit {
                 _ => false_color,
             }
         }
-        imageops::flip_vertical_in_place(im);
     }
 
     fn get_statistics(&self) -> GraphingStatistics {
