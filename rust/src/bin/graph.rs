@@ -45,7 +45,12 @@ fn to_interval(s: &str) -> Interval {
 fn main() {
     let matches = App::new("graph")
         .about("Plots the graph of a mathematical relation to an image.")
-        .arg(Arg::new("relation").index(1).about("Relation to plot."))
+        .arg(
+            Arg::new("relation")
+                .index(1)
+                .forbid_empty_values(true)
+                .about("Relation to plot."),
+        )
         .arg(
             Arg::new("bounds")
                 .short('b')
@@ -53,6 +58,7 @@ fn main() {
                 .number_of_values(4)
                 .allow_hyphen_values(true)
                 .default_values(&["-10", "10", "-10", "10"])
+                .forbid_empty_values(true)
                 .value_names(&["xmin", "xmax", "ymin", "ymax"])
                 .about("Bounds of the region to plot over."),
         )
@@ -72,6 +78,8 @@ fn main() {
             Arg::new("mem-limit")
                 .long("mem-limit")
                 .default_value("1024")
+                .forbid_empty_values(true)
+                .value_name("mbytes")
                 .about("Approximate maximum amount of memory in MiB that the program can use."),
         )
         .arg(
@@ -94,14 +102,16 @@ fn main() {
                 .long("size")
                 .number_of_values(2)
                 .default_values(&["1024", "1024"])
+                .forbid_empty_values(true)
                 .value_names(&["width", "height"])
-                .about("Pixel dimensions of the output image."),
+                .about("Dimensions of the output image in pixels."),
         )
         .arg(
             Arg::new("timeout")
                 .long("timeout")
                 .takes_value(true)
                 .forbid_empty_values(true)
+                .value_name("msecs")
                 .about("Maximum limit of evaluation time in milliseconds."),
         )
         .get_matches();
