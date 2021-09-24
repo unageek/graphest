@@ -7,7 +7,7 @@ use crate::{
             point_interval, point_interval_possibly_infinite, simple_fraction, subpixel_outer_x,
             PixelState, QueuedBlockIndex,
         },
-        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Ternary,
+        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
@@ -44,7 +44,7 @@ impl Explicit {
         region: Box2D,
         im_width: u32,
         im_height: u32,
-        padding: u32,
+        padding: Padding,
         mem_limit: usize,
     ) -> Self {
         let relation_type = rel.relation_type();
@@ -60,10 +60,20 @@ impl Explicit {
         let transpose = matches!(relation_type, RelationType::ExplicitFunctionOfY(_));
         let im = Image::new(im_width, im_height);
 
-        let (region, im_width, im_height) = if transpose {
-            (region.transpose(), im_height, im_width)
+        let (region, im_width, im_height, padding) = if transpose {
+            (
+                region.transpose(),
+                im_height,
+                im_width,
+                Padding {
+                    bottom: padding.left,
+                    left: padding.bottom,
+                    right: padding.top,
+                    top: padding.right,
+                },
+            )
         } else {
-            (region, im_width, im_height)
+            (region, im_width, im_height, padding)
         };
         let mut g = Self {
             rel,
@@ -80,16 +90,16 @@ impl Explicit {
             ),
             im_to_real_x: Transform1D::new(
                 [
-                    point_interval(padding as f64),
-                    point_interval((im_width - padding) as f64),
+                    point_interval(padding.left as f64),
+                    point_interval((im_width - padding.right) as f64),
                 ],
                 [region.left(), region.right()],
             ),
             real_to_im_y: Transform1D::new(
                 [region.bottom(), region.top()],
                 [
-                    point_interval(padding as f64),
-                    point_interval((im_height - padding) as f64),
+                    point_interval(padding.bottom as f64),
+                    point_interval((im_height - padding.top) as f64),
                 ],
             ),
             stats: GraphingStatistics {

@@ -59,6 +59,14 @@ pub trait Graph {
     fn size_in_heap(&self) -> usize;
 }
 
+#[derive(Clone, Debug)]
+pub struct Padding {
+    pub bottom: u32,
+    pub left: u32,
+    pub right: u32,
+    pub top: u32,
+}
+
 /// A ternary value which could be either [`False`], [`Uncertain`] or [`True`].
 ///
 /// The values are ordered as: [`False`] < [`Uncertain`] < [`True`].

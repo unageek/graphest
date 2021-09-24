@@ -1,6 +1,6 @@
 import { Unsubscribe } from "@reduxjs/toolkit";
 import * as L from "leaflet";
-import { GRAPH_TILE_SIZE } from "./constants";
+import { EXTENDED_GRAPH_TILE_SIZE, GRAPH_TILE_SIZE } from "./constants";
 import * as ipc from "./ipc";
 import { Graph, setGraphIsProcessing } from "./models/graph";
 import { Store } from "./models/store";
@@ -81,7 +81,9 @@ export class GraphLayer extends L.GridLayer {
       inner.style.width = GRAPH_TILE_SIZE + "px";
       inner.style.height = GRAPH_TILE_SIZE + "px";
       inner.style.background = this.lastGraph.color;
-      inner.style.webkitMaskSize = "100%";
+      inner.style.webkitMaskPosition =
+        "top -0.4990234375px left -0.4990234375px";
+      inner.style.webkitMaskSize = EXTENDED_GRAPH_TILE_SIZE + "px";
       outer.appendChild(inner);
     }
     const tileId = this._tileCoordsToKey(coords);
