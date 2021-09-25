@@ -1,7 +1,7 @@
 use clap::{App, Arg, ArgSettings};
 use graphest::{
-    Box2D, Constant, Explicit, Graph, GraphingStatistics, Image, Implicit, Parametric, PixelIndex,
-    PixelRange, Relation, RelationType, Ternary,
+    Box2D, Constant, Explicit, Graph, GraphingStatistics, Image, Implicit, Padding, Parametric,
+    PixelIndex, PixelRange, Relation, RelationType, Ternary,
 };
 use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
@@ -92,6 +92,34 @@ fn main() {
                 .about("Path to the output image. It must end with '.png'."),
         )
         .arg(
+            Arg::new("padding-bottom")
+                .long("padding-bottom")
+                .setting(ArgSettings::Hidden)
+                .default_value("0")
+                .forbid_empty_values(true),
+        )
+        .arg(
+            Arg::new("padding-left")
+                .long("padding-left")
+                .setting(ArgSettings::Hidden)
+                .default_value("0")
+                .forbid_empty_values(true),
+        )
+        .arg(
+            Arg::new("padding-right")
+                .long("padding-right")
+                .setting(ArgSettings::Hidden)
+                .default_value("0")
+                .forbid_empty_values(true),
+        )
+        .arg(
+            Arg::new("padding-top")
+                .long("padding-top")
+                .setting(ArgSettings::Hidden)
+                .default_value("0")
+                .forbid_empty_values(true),
+        )
+        .arg(
             Arg::new("parse")
                 .long("parse")
                 .about("Only parse the relation and exit with 0 iff it is valid."),
@@ -143,7 +171,18 @@ fn main() {
     let gray_alpha = matches.is_present("gray-alpha");
     let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
     let output = matches.value_of_os("output").unwrap().to_owned();
-    let size = matches.values_of_t_or_exit::<u32>("size");
+    let padding = {
+        Padding {
+            bottom: matches.value_of_t_or_exit::<u32>("padding-bottom"),
+            left: matches.value_of_t_or_exit::<u32>("padding-left"),
+            right: matches.value_of_t_or_exit::<u32>("padding-right"),
+            top: matches.value_of_t_or_exit::<u32>("padding-top"),
+        }
+    };
+    let size = {
+        let size = matches.values_of_t_or_exit::<u32>("size");
+        [size[0], size[1]]
+    };
     let timeout = match matches.value_of_t::<u64>("timeout") {
         Ok(t) => Some(Duration::from_millis(t)),
         Err(e) if e.kind == clap::ErrorKind::ArgumentNotFound => None,
@@ -153,7 +192,7 @@ fn main() {
     let dilation_kernel = {
         let size = dilation.len();
         if size % 2 != 1 || dilation.iter().any(|row| row.len() != size) {
-            panic!("the structuring element must have odd dimensions");
+            panic!("the structuring element must be square and have odd dimensions");
         }
         let size = u32::try_from(size).expect("the structuring element is too large");
         let mut ker = Image::<bool>::new(size, size);
@@ -163,28 +202,36 @@ fn main() {
         ker
     };
 
-    let padding = dilation_kernel.width() / 2;
-    let padded_size = [size[0] + 2 * padding, size[1] + 2 * padding];
+    let raw_padding = Padding {
+        bottom: padding.bottom + dilation_kernel.height() / 2,
+        left: padding.left + dilation_kernel.width() / 2,
+        right: padding.right + dilation_kernel.width() / 2,
+        top: padding.top + dilation_kernel.height() / 2,
+    };
+    let raw_size = [
+        size[0] + (dilation_kernel.width() - 1),
+        size[1] + (dilation_kernel.height() - 1),
+    ];
 
     let opts = PlotOptions {
         dilation_kernel,
         gray_alpha,
         output,
-        padded_size,
-        size: [size[0], size[1]],
+        raw_size,
+        size,
         timeout,
     };
     let region = Box2D::new(bounds[0], bounds[1], bounds[2], bounds[3]);
 
     match rel.relation_type() {
-        RelationType::Constant => plot(Constant::new(rel, padded_size[0], padded_size[1]), opts),
+        RelationType::Constant => plot(Constant::new(rel, raw_size[0], raw_size[1]), opts),
         RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_) => plot(
             Explicit::new(
                 rel,
                 region,
-                padded_size[0],
-                padded_size[1],
-                padding,
+                raw_size[0],
+                raw_size[1],
+                raw_padding,
                 mem_limit,
             ),
             opts,
@@ -193,9 +240,9 @@ fn main() {
             Parametric::new(
                 rel,
                 region,
-                padded_size[0],
-                padded_size[1],
-                padding,
+                raw_size[0],
+                raw_size[1],
+                raw_padding,
                 mem_limit,
             ),
             opts,
@@ -204,9 +251,9 @@ fn main() {
             Implicit::new(
                 rel,
                 region,
-                padded_size[0],
-                padded_size[1],
-                padding,
+                raw_size[0],
+                raw_size[1],
+                raw_padding,
                 mem_limit,
             ),
             opts,
@@ -218,7 +265,7 @@ struct PlotOptions {
     dilation_kernel: Image<bool>,
     gray_alpha: bool,
     output: OsString,
-    padded_size: [u32; 2],
+    raw_size: [u32; 2],
     size: [u32; 2],
     timeout: Option<Duration>,
 }
@@ -226,7 +273,7 @@ struct PlotOptions {
 fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
     let mut gray_alpha_im: Option<GrayAlphaImage> = None;
     let mut rgb_im: Option<RgbImage> = None;
-    let mut raw_im = Image::<Ternary>::new(opts.padded_size[0], opts.padded_size[1]);
+    let mut raw_im = Image::<Ternary>::new(opts.raw_size[0], opts.raw_size[1]);
     if opts.gray_alpha {
         gray_alpha_im = Some(GrayAlphaImage::new(opts.size[0], opts.size[1]));
     } else {

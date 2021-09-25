@@ -15,6 +15,10 @@ const ONE: BigNumber = bignum(1);
 const FONT = "14px 'Noto Sans'";
 const RETINA_SCALE = window.devicePixelRatio;
 const TILE_SIZE = 256;
+const TILE_EXTENSION = 1;
+const EXTENDED_TILE_SIZE = TILE_SIZE + TILE_EXTENSION;
+// `image-rendering: pixelated` does not work well with translations close to -0.5px.
+const TRANSFORM = "translate(-0.4990234375px, -0.4990234375px)";
 
 interface Transform {
   (x: BigNumber): number;
@@ -83,8 +87,8 @@ class Point {
   constructor(readonly x: BigNumber, readonly y: BigNumber) {}
 }
 
-const dst0 = new Point(bignum(0.5), bignum(TILE_SIZE - 0.5));
-const dst1 = new Point(bignum(TILE_SIZE + 0.5), bignum(-0.5));
+const dst0 = new Point(bignum(0.5), bignum(TILE_SIZE + 0.5));
+const dst1 = new Point(bignum(TILE_SIZE + 0.5), bignum(0.5));
 
 /**
  * Returns the destination points of the transformation from real coordinates
@@ -102,22 +106,6 @@ function destinationPoints(): [Point, Point] {
  * @param coords The coordinates of the tile.
  * @param widthPerTile The width of tiles at the level in real coordinates.
  *
- * The current configuration is shown below.
- *
- * @example
- * ```text
- *                     .5px
- *                     ┌─┐
- *
- *             |       | X (x1, y1)
- *          ---+-------+---
- *             |       |
- *             |       |
- * .5px ┌      | X (x0, y0)
- *      └   ---+-------+---
- *             |       |
- * ```
- *
  * @see {@link destinationPoints}
  */
 function sourcePoints(coords: L.Coords, widthPerTile: number): [Point, Point] {
@@ -130,14 +118,15 @@ function sourcePoints(coords: L.Coords, widthPerTile: number): [Point, Point] {
 
 class StaticGridLayer extends L.GridLayer {
   protected createTile(coords: L.Coords, done: L.DoneCallback): HTMLElement {
-    const tile = L.DomUtil.create(
-      "canvas",
-      "leaflet-tile"
-    ) as HTMLCanvasElement;
-    tile.width = RETINA_SCALE * TILE_SIZE;
-    tile.height = RETINA_SCALE * TILE_SIZE;
-    tile.style.width = TILE_SIZE + "px";
-    tile.style.height = TILE_SIZE + "px";
+    const outer = L.DomUtil.create("div", "leaflet-tile") as HTMLDivElement;
+    outer.style.overflow = "clip";
+    const inner = document.createElement("canvas");
+    inner.width = RETINA_SCALE * EXTENDED_TILE_SIZE;
+    inner.height = RETINA_SCALE * EXTENDED_TILE_SIZE;
+    inner.style.width = EXTENDED_TILE_SIZE + "px";
+    inner.style.height = EXTENDED_TILE_SIZE + "px";
+    inner.style.transform = TRANSFORM;
+    outer.appendChild(inner);
 
     setTimeout(() => {
       const widthPerTilef = 2 ** (BASE_ZOOM_LEVEL - coords.z);
@@ -149,11 +138,11 @@ class StaticGridLayer extends L.GridLayer {
       const widthPerPixel = widthPerTilef / TILE_SIZE;
       const [majInterval, minInterval] = gridIntervals(widthPerPixel);
 
-      const ctx = tile.getContext("2d")!;
+      const ctx = inner.getContext("2d")!;
       ctx.setTransform(RETINA_SCALE, 0, 0, RETINA_SCALE, 0, 0);
 
       ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+      ctx.fillRect(0, 0, EXTENDED_TILE_SIZE, EXTENDED_TILE_SIZE);
 
       ctx.strokeStyle = "#e0e0e0";
       this.drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, minInterval, tx, ty);
@@ -164,10 +153,10 @@ class StaticGridLayer extends L.GridLayer {
       ctx.strokeStyle = "black";
       this.drawAxes(ctx, tx, ty);
 
-      done(undefined, tile);
+      done(undefined, outer);
     }, 0);
 
-    return tile;
+    return outer;
   }
 
   private drawAxes(
@@ -179,11 +168,11 @@ class StaticGridLayer extends L.GridLayer {
     const cy = ty(ZERO);
     ctx.beginPath();
     ctx.moveTo(cx, 0);
-    ctx.lineTo(cx, TILE_SIZE);
+    ctx.lineTo(cx, EXTENDED_TILE_SIZE);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(0, cy);
-    ctx.lineTo(TILE_SIZE, cy);
+    ctx.lineTo(EXTENDED_TILE_SIZE, cy);
     ctx.stroke();
   }
 
@@ -205,7 +194,7 @@ class StaticGridLayer extends L.GridLayer {
         const x = i.times(interval.get());
         const cx = tx(x);
         ctx.moveTo(cx, 0);
-        ctx.lineTo(cx, TILE_SIZE);
+        ctx.lineTo(cx, EXTENDED_TILE_SIZE);
       }
     }
     {
@@ -215,7 +204,7 @@ class StaticGridLayer extends L.GridLayer {
         const y = i.times(interval.get());
         const cy = ty(y);
         ctx.moveTo(0, cy);
-        ctx.lineTo(TILE_SIZE, cy);
+        ctx.lineTo(EXTENDED_TILE_SIZE, cy);
       }
     }
     ctx.stroke();
@@ -241,22 +230,23 @@ class GridLabelsLayer extends L.GridLayer {
   }
 
   protected createTile(coords: L.Coords, done: L.DoneCallback): HTMLElement {
-    const tile = L.DomUtil.create(
-      "canvas",
-      "leaflet-tile"
-    ) as HTMLCanvasElement;
-    tile.width = RETINA_SCALE * TILE_SIZE;
-    tile.height = RETINA_SCALE * TILE_SIZE;
-    tile.style.width = TILE_SIZE + "px";
-    tile.style.height = TILE_SIZE + "px";
+    const outer = L.DomUtil.create("div", "leaflet-tile") as HTMLDivElement;
+    outer.style.overflow = "clip";
+    const inner = document.createElement("canvas");
+    inner.width = RETINA_SCALE * EXTENDED_TILE_SIZE;
+    inner.height = RETINA_SCALE * EXTENDED_TILE_SIZE;
+    inner.style.width = EXTENDED_TILE_SIZE + "px";
+    inner.style.height = EXTENDED_TILE_SIZE + "px";
+    inner.style.transform = TRANSFORM;
+    outer.appendChild(inner);
 
     document.fonts.load(FONT).then(() => {
       const tileRange = this.getVisibleTileRange();
-      this.drawTile(tile, coords, tileRange);
-      done(undefined, tile);
+      this.drawTile(inner, coords, tileRange);
+      done(undefined, outer);
     });
 
-    return tile;
+    return outer;
   }
 
   private drawOriginLabel(
@@ -386,7 +376,7 @@ class GridLabelsLayer extends L.GridLayer {
     ctx.setTransform(RETINA_SCALE, 0, 0, RETINA_SCALE, 0, 0);
     const mapViewport = this._map.getContainer().getBoundingClientRect();
     const tileViewport = ctx.canvas.getBoundingClientRect();
-    ctx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
+    ctx.clearRect(0, 0, EXTENDED_TILE_SIZE, EXTENDED_TILE_SIZE);
     ctx.font = FONT;
     ctx.lineJoin = "round";
     ctx.lineWidth = 3;
@@ -475,7 +465,11 @@ class GridLabelsLayer extends L.GridLayer {
       if (!tile.current || !tile.loaded) {
         continue;
       }
-      this.drawTile(tile.el as HTMLCanvasElement, tile.coords, tileRange);
+      this.drawTile(
+        tile.el.children[0] as HTMLCanvasElement,
+        tile.coords,
+        tileRange
+      );
     }
   }
 }

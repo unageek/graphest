@@ -7,7 +7,12 @@ import * as os from "os";
 import * as path from "path";
 import { pathToFileURL } from "url";
 import { bignum } from "./BigNumber";
-import { BASE_ZOOM_LEVEL, GRAPH_TILE_SIZE } from "./constants";
+import {
+  BASE_ZOOM_LEVEL,
+  EXTENDED_GRAPH_TILE_SIZE,
+  GRAPH_TILE_EXTENSION,
+  GRAPH_TILE_SIZE,
+} from "./constants";
 import * as ipc from "./ipc";
 
 const fsPromises = fs.promises;
@@ -163,8 +168,8 @@ ipcMain.handle<ipc.RequestTile>(
       const widthPerTile = bignum(2 ** (BASE_ZOOM_LEVEL - coords.z));
       const x0 = widthPerTile.times(bignum(coords.x).minus(pixelOffsetX));
       const x1 = widthPerTile.times(bignum(coords.x + 1).minus(pixelOffsetX));
-      const y0 = widthPerTile.times(bignum(-coords.y - 1).minus(pixelOffsetY));
-      const y1 = widthPerTile.times(bignum(-coords.y).minus(pixelOffsetY));
+      const y0 = widthPerTile.times(bignum(-coords.y - 1).plus(pixelOffsetY));
+      const y1 = widthPerTile.times(bignum(-coords.y).plus(pixelOffsetY));
 
       const outFile = path.join(rel.outDir, rel.nextTileNumber + ".png");
       rel.nextTileNumber++;
@@ -184,10 +189,14 @@ ipcMain.handle<ipc.RequestTile>(
           y0.toString(),
           y1.toString(),
           "--size",
-          (retinaScale * GRAPH_TILE_SIZE).toString(),
-          (retinaScale * GRAPH_TILE_SIZE).toString(),
+          (retinaScale * EXTENDED_GRAPH_TILE_SIZE).toString(),
+          (retinaScale * EXTENDED_GRAPH_TILE_SIZE).toString(),
+          "--padding-right",
+          (retinaScale * GRAPH_TILE_EXTENSION).toString(),
+          "--padding-bottom",
+          (retinaScale * GRAPH_TILE_EXTENSION).toString(),
           "--dilate",
-          retinaScale === 2 ? "0,0,0;1,1,0;1,1,0" : "1",
+          retinaScale === 2 ? "1,1,0;1,1,0;0,0,0" : "1",
           "--gray-alpha",
           "--output",
           outFile,

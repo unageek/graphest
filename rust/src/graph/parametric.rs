@@ -3,7 +3,7 @@ use crate::{
     geom::{Box2D, Transform2D},
     graph::{
         common::{point_interval, point_interval_possibly_infinite, PixelState, QueuedBlockIndex},
-        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Ternary,
+        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet, TupperIntervalSet},
@@ -40,7 +40,7 @@ impl Parametric {
         region: Box2D,
         im_width: u32,
         im_height: u32,
-        padding: u32,
+        padding: Padding,
         mem_limit: usize,
     ) -> Self {
         assert_eq!(rel.relation_type(), RelationType::Parametric);
@@ -63,12 +63,12 @@ impl Parametric {
                 ],
                 [
                     Region::new(
-                        point_interval(padding as f64),
-                        point_interval(padding as f64),
+                        point_interval(padding.left as f64),
+                        point_interval(padding.bottom as f64),
                     ),
                     Region::new(
-                        point_interval((im_width - padding) as f64),
-                        point_interval((im_height - padding) as f64),
+                        point_interval((im_width - padding.right) as f64),
+                        point_interval((im_height - padding.top) as f64),
                     ),
                 ],
             ),
