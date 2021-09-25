@@ -122,9 +122,8 @@ fn main() {
     }
 
     let bounds = matches
-        .values_of_lossy("bounds")
+        .values_of("bounds")
         .unwrap()
-        .iter()
         .map(|s| to_interval(s))
         .collect::<Vec<_>>();
     let dilation = matches
