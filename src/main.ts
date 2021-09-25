@@ -178,7 +178,6 @@ ipcMain.handle<ipc.RequestTile>(
       const job: Job = {
         aborted: false,
         args: [
-          rel.rel,
           "--bounds",
           x0.toString(),
           x1.toString(),
@@ -194,6 +193,8 @@ ipcMain.handle<ipc.RequestTile>(
           outFile,
           "--mem-limit",
           JOB_MEM_LIMIT.toString(),
+          "--",
+          rel.rel,
         ],
         outFile,
         relId,
@@ -210,7 +211,7 @@ ipcMain.handle<ipc.RequestTile>(
 );
 
 ipcMain.handle<ipc.ValidateRelation>(ipc.validateRelation, async (_, rel) => {
-  const error = await makePromise(execFile(graphExec, [rel, "--parse"]));
+  const error = await makePromise(execFile(graphExec, ["--parse", "--", rel]));
   return { error };
 });
 
