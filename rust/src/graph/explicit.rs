@@ -1,7 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
     eval_result::EvalResult,
-    geom::{Box1D, Box2D, Transform1D},
+    geom::{Box1D, Box2D, Transform1D, TransformMode},
     graph::{
         common::{
             point_interval, point_interval_possibly_infinite, simple_fraction, subpixel_outer_x,
@@ -94,6 +94,7 @@ impl Explicit {
                     point_interval((im_width - padding.right) as f64),
                 ],
                 [region.left(), region.right()],
+                TransformMode::Fast,
             ),
             real_to_im_y: Transform1D::new(
                 [region.bottom(), region.top()],
@@ -101,6 +102,7 @@ impl Explicit {
                     point_interval(padding.bottom as f64),
                     point_interval((im_height - padding.top) as f64),
                 ],
+                TransformMode::Precise,
             ),
             stats: GraphingStatistics {
                 eval_count: 0,

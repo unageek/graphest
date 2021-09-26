@@ -1,6 +1,6 @@
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions},
-    geom::{Box2D, Transform2D},
+    geom::{Box2D, Transform2D, TransformMode},
     graph::{
         common::{point_interval, point_interval_possibly_infinite, PixelState, QueuedBlockIndex},
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -71,6 +71,7 @@ impl Parametric {
                         point_interval((im_height - padding.top) as f64),
                     ),
                 ],
+                TransformMode::Precise,
             ),
             stats: GraphingStatistics {
                 eval_count: 0,

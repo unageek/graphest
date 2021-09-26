@@ -1,7 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, BlockQueueOptions, SubdivisionDir},
     eval_result::EvalResult,
-    geom::{Box2D, Transform2D},
+    geom::{Box2D, Transform2D, TransformMode},
     graph::{
         common::{point_interval, simple_fraction, subpixel_outer, PixelState, QueuedBlockIndex},
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -69,6 +69,7 @@ impl Implicit {
                     Region::new(region.left(), region.bottom()),
                     Region::new(region.right(), region.top()),
                 ],
+                TransformMode::Fast,
             ),
             stats: GraphingStatistics {
                 eval_count: 0,

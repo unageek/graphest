@@ -46,10 +46,13 @@ impl Box1D {
 
     /// Transforms the region by `t`.
     pub fn transform(&self, t: &Transform1D) -> Self {
-        Self::new(
-            (self.l / t.sd).mul_add(t.sn, t.t),
-            (self.r / t.sd).mul_add(t.sn, t.t),
-        )
+        match *t {
+            Transform1D::Fast { s, t } => Self::new(self.l.mul_add(s, t), self.r.mul_add(s, t)),
+            Transform1D::Precise { a0, a01, x0, x01 } => Self::new(
+                ((self.l - a0) / a01).mul_add(x01, x0),
+                ((self.r - a0) / a01).mul_add(x01, x0),
+            ),
+        }
     }
 }
 
@@ -107,23 +110,48 @@ impl Box2D {
     }
 }
 
+/// The type of the formula that should be used for performing geometric transformations.
+#[derive(Clone, Copy, Debug)]
+pub enum TransformMode {
+    /// Suitable for transformation from image coordinates to real coordinates,
+    /// which usually involves exact divisions (division by image dimensions).
+    Fast,
+    /// Suitable for transformation from real coordinates to image coordinates,
+    /// which usually involves inexact divisions (division by lengths of the plot range).
+    Precise,
+}
+
 /// A one-dimensional affine geometric transformation that consists of only scaling and translation.
 #[derive(Clone, Debug)]
-pub struct Transform1D {
-    sn: Interval,
-    sd: Interval,
-    t: Interval,
+pub enum Transform1D {
+    Fast {
+        s: Interval,
+        t: Interval,
+    },
+    Precise {
+        a0: Interval,
+        a01: Interval,
+        x0: Interval,
+        x01: Interval,
+    },
 }
 
 impl Transform1D {
     /// Creates a transformation that maps each source point to the corresponding destination point.
-    pub fn new(from_points: [Interval; 2], to_points: [Interval; 2]) -> Self {
+    pub fn new(from_points: [Interval; 2], to_points: [Interval; 2], mode: TransformMode) -> Self {
         let [a0, a1] = from_points;
         let [x0, x1] = to_points;
-        Self {
-            sn: x1 - x0,
-            sd: a1 - a0,
-            t: (-a0 / (a1 - a0)).mul_add(x1 - x0, x0),
+        match mode {
+            TransformMode::Fast => Self::Fast {
+                s: (x1 - x0) / (a1 - a0),
+                t: (-a0).mul_add((x1 - x0) / (a1 - a0), x0),
+            },
+            TransformMode::Precise => Self::Precise {
+                a0,
+                a01: a1 - a0,
+                x0,
+                x01: x1 - x0,
+            },
         }
     }
 }
@@ -134,15 +162,17 @@ pub struct Transform2D(Transform1D, Transform1D);
 
 impl Transform2D {
     /// Creates a transformation that maps each source point to the corresponding destination point.
-    pub fn new(from_points: [Region; 2], to_points: [Region; 2]) -> Self {
+    pub fn new(from_points: [Region; 2], to_points: [Region; 2], mode: TransformMode) -> Self {
         Self(
             Transform1D::new(
                 [from_points[0].x(), from_points[1].x()],
                 [to_points[0].x(), to_points[1].x()],
+                mode,
             ),
             Transform1D::new(
                 [from_points[0].y(), from_points[1].y()],
                 [to_points[0].y(), to_points[1].y()],
+                mode,
             ),
         )
     }
