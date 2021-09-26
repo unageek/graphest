@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@fluentui/react": "^8.34.6",
-    "@fontsource/noto-sans": "^4.5.0",
+    "@fontsource/noto-sans": "^4.5.1",
     "@reduxjs/toolkit": "^1.6.1",
     "bignumber.js": "^9.0.1",
     "color": "^4.0.1",
