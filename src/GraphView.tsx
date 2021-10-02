@@ -11,7 +11,6 @@ import { useStore } from "react-redux";
 import { BASE_ZOOM_LEVEL } from "./constants";
 import { GraphLayer } from "./GraphLayer";
 import { GridLayer } from "./GridLayer";
-import * as ipc from "./ipc";
 import { useSelector } from "./models/app";
 
 export interface GraphViewProps {
@@ -73,13 +72,6 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       if (map === undefined) return;
 
       map
-        .on("keydown", ({ originalEvent: e }: L.LeafletKeyboardEvent) => {
-          switch (e.key) {
-            case "Escape":
-              abortGraphing();
-              break;
-          }
-        })
         .on("move", updateMaxZoom)
         .on("moveend", snapToPixels)
         .on("zoom", updateMaxBounds);
@@ -100,10 +92,6 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       );
 
       resetView();
-
-      function abortGraphing() {
-        window.ipcRenderer.invoke<ipc.AbortGraphingAll>(ipc.abortGraphingAll);
-      }
 
       function resetView() {
         const z = BASE_ZOOM_LEVEL - 2;

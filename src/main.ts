@@ -99,6 +99,18 @@ function createMainMenu(): Menu {
     },
     { role: "editMenu" },
     {
+      label: "Graph",
+      submenu: [
+        {
+          label: "Abort Graphing",
+          accelerator: "Escape",
+          click: () => {
+            abortJobs();
+          },
+        },
+      ],
+    },
+    {
       role: "windowMenu",
       submenu: [
         ...(isMac ? [{ role: "minimize" }, { role: "zoom" }] : []),
