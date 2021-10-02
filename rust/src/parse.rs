@@ -119,7 +119,7 @@ fn function_application(i: InputWithContext) -> ParseResult<Expr> {
 }
 
 fn variable(i: InputWithContext) -> ParseResult<Expr> {
-    map(identifier, |s| Expr::var(s))(i)
+    map(identifier, Expr::var)(i)
 }
 
 fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {

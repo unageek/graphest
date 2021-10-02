@@ -460,7 +460,7 @@ impl VisitMut for SortTerms {
                 .any(|xs| cmp_terms(&xs[0], &xs[1]) == Ordering::Greater)
             {
                 // (op x y) /; y ≺ x → (op y x)
-                xs.sort_by(|x, y| cmp_terms(x, y));
+                xs.sort_by(cmp_terms);
                 self.modified = true;
             }
         }

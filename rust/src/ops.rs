@@ -145,7 +145,7 @@ pub enum StaticTermKind {
     Rootn(StoreIndex, u32),
     // Box the `Vec` to keep the enum small.
     // Operations involving lists are relatively rare, so it would be worth the cost of the extra indirection.
-    #[allow(clippy::box_vec)]
+    #[allow(clippy::box_collection)]
     RankedMinMax(RankedMinMaxOp, Box<Vec<StoreIndex>>, StoreIndex),
 }
 

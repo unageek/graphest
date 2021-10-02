@@ -152,7 +152,7 @@ fn main() {
     let bounds = matches
         .values_of("bounds")
         .unwrap()
-        .map(|s| to_interval(s))
+        .map(to_interval)
         .collect::<Vec<_>>();
     let dilation = matches
         .value_of("dilate")
@@ -191,9 +191,10 @@ fn main() {
 
     let dilation_kernel = {
         let size = dilation.len();
-        if size % 2 != 1 || dilation.iter().any(|row| row.len() != size) {
-            panic!("the structuring element must be square and have odd dimensions");
-        }
+        assert!(
+            size % 2 == 1 && dilation.iter().all(|row| row.len() == size),
+            "the structuring element must be square and have odd dimensions"
+        );
         let size = u32::try_from(size).expect("the structuring element is too large");
         let mut ker = Image::<bool>::new(size, size);
         for (p, el) in ker.pixels_mut().zip(dilation.into_iter().flatten()) {

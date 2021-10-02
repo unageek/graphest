@@ -365,9 +365,10 @@ impl TupperIntervalSet {
             }
         },
         {
-            if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("`I(n, x)` only permits integers and half-integers for `n`");
-            }
+            assert!(
+                n.is_singleton() && n.inf() % 0.5 == 0.0,
+                "`I(n, x)` only permits integers and half-integers for `n`"
+            );
             if n.inf() % 1.0 == 0.0 {
                 BoolInterval::TRUE
             } else {
@@ -424,9 +425,10 @@ impl TupperIntervalSet {
             }
         },
         {
-            if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("`J(n, x)` only permits integers and half-integers for `n`");
-            }
+            assert!(
+                n.is_singleton() && n.inf() % 0.5 == 0.0,
+                "`J(n, x)` only permits integers and half-integers for `n`"
+            );
             if n.inf() % 1.0 == 0.0 {
                 BoolInterval::TRUE
             } else {
@@ -450,9 +452,10 @@ impl TupperIntervalSet {
             interval!(inf, sup).unwrap()
         },
         {
-            if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("`K(n, x)` only permits integers and half-integers for `n`");
-            }
+            assert!(
+                n.is_singleton() && n.inf() % 0.5 == 0.0,
+                "`K(n, x)` only permits integers and half-integers for `n`"
+            );
             gt!(x, 0.0)
         }
     );
@@ -504,9 +507,10 @@ impl TupperIntervalSet {
             y0.convex_hull(y1)
         },
         {
-            if !(n.is_singleton() && n.inf() % 0.5 == 0.0) {
-                panic!("`Y(n, x)` only permits integers and half-integers for `n`");
-            }
+            assert!(
+                n.is_singleton() && n.inf() % 0.5 == 0.0,
+                "`Y(n, x)` only permits integers and half-integers for `n`"
+            );
             gt!(x, 0.0)
         }
     );
@@ -779,9 +783,10 @@ impl TupperIntervalSet {
             y0.convex_hull(y1)
         },
         {
-            if !s.is_singleton() {
-                panic!("`Gamma(a, x)` only permits exact numbers for `a`");
-            }
+            assert!(
+                s.is_singleton(),
+                "`Gamma(a, x)` only permits exact numbers for `a`"
+            );
             let s = s.inf();
             if s > 0.0 && s % 1.0 == 0.0 {
                 BoolInterval::TRUE
