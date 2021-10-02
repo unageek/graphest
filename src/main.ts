@@ -108,6 +108,15 @@ function createMainMenu(): Menu {
       submenu: [
         ...(isMac ? [] : [{ role: "about" }]),
         { type: "separator" },
+        {
+          label: "Graphest Help",
+          click: async () => {
+            await shell.openExternal(
+              "https://github.com/unageek/graphest/blob/master/docs/guide/README.adoc"
+            );
+          },
+        },
+        { type: "separator" },
         { role: "toggleDevTools" },
       ],
     },
