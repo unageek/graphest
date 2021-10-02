@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { ChildProcess, execFile } from "child_process";
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import * as fs from "fs";
 import * as os from "os";
@@ -75,7 +75,31 @@ let mainWindow: BrowserWindow | undefined;
 let nextRelId = 0;
 const relations = new Map<string, Relation>();
 
-function createWindow() {
+function createMainMenu(): Menu {
+  // https://www.electronjs.org/docs/api/menu#examples
+  return Menu.buildFromTemplate([
+    { role: "appMenu" },
+    { role: "fileMenu" },
+    { role: "editMenu" },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    { role: "windowMenu" },
+    {
+      role: "help",
+      submenu: [],
+    },
+  ]);
+}
+
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -90,14 +114,28 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 }
 
+function resetBrowserZoom() {
+  // https://github.com/electron/electron/issues/10572
+  try {
+    const prefsFile = path.join(app.getPath("userData"), "Preferences");
+    const prefs = JSON.parse(fs.readFileSync(prefsFile, "utf8"));
+    delete prefs.partition;
+    fs.writeFileSync(prefsFile, JSON.stringify(prefs));
+  } catch {
+    // ignore
+  }
+}
+
 app.whenReady().then(() => {
-  createWindow();
+  resetBrowserZoom();
+  Menu.setApplicationMenu(createMainMenu());
+  createMainWindow();
   autoUpdater.checkForUpdatesAndNotify();
 });
 
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+    createMainWindow();
   }
 });
 
