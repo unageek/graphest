@@ -99,10 +99,14 @@ function createMainMenu(): Menu {
     },
     { role: "editMenu" },
     {
-      role: "viewMenu",
-      submenu: [{ role: "togglefullscreen" }],
+      role: "windowMenu",
+      submenu: [
+        ...(isMac ? [{ role: "minimize" }, { role: "zoom" }] : []),
+        { role: "togglefullscreen" },
+        { type: "separator" },
+        ...(isMac ? [{ role: "front" }] : []),
+      ],
     },
-    ...(isMac ? [{ role: "windowMenu" }] : []),
     {
       role: "help",
       submenu: [
