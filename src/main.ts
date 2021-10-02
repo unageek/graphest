@@ -1,6 +1,13 @@
 import * as assert from "assert";
 import { ChildProcess, execFile } from "child_process";
-import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  MenuItemConstructorOptions,
+  shell,
+} from "electron";
 import { autoUpdater } from "electron-updater";
 import * as fs from "fs";
 import * as os from "os";
@@ -77,26 +84,34 @@ const relations = new Map<string, Relation>();
 
 function createMainMenu(): Menu {
   // https://www.electronjs.org/docs/api/menu#examples
+  // https://github.com/electron/electron/blob/main/lib/browser/api/menu-item-roles.ts
+  const isMac = process.platform === "darwin";
   return Menu.buildFromTemplate([
-    { role: "appMenu" },
-    { role: "fileMenu" },
-    { role: "editMenu" },
+    ...(isMac ? [{ role: "appMenu" }] : []),
     {
-      label: "View",
+      role: "fileMenu",
       submenu: [
-        { role: "reload" },
-        { role: "forceReload" },
-        { role: "toggleDevTools" },
+        // The "Close" menu is required for closing the about panel.
+        { role: "close" },
         { type: "separator" },
-        { role: "togglefullscreen" },
+        ...(isMac ? [] : [{ role: "quit" }]),
       ],
     },
-    { role: "windowMenu" },
+    { role: "editMenu" },
+    {
+      role: "viewMenu",
+      submenu: [{ role: "togglefullscreen" }],
+    },
+    ...(isMac ? [{ role: "windowMenu" }] : []),
     {
       role: "help",
-      submenu: [],
+      submenu: [
+        ...(isMac ? [] : [{ role: "about" }]),
+        { type: "separator" },
+        { role: "toggleDevTools" },
+      ],
     },
-  ]);
+  ] as MenuItemConstructorOptions[]);
 }
 
 function createMainWindow() {
@@ -110,7 +125,6 @@ function createMainWindow() {
   }).on("closed", () => {
     mainWindow = undefined;
   });
-  mainWindow.setMenuBarVisibility(false);
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 }
 
