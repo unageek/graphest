@@ -76,8 +76,13 @@ let queuedJobs: Job[] = [];
 let activeJobs: Job[] = [];
 let sleepingJobs: Job[] = [];
 
+enum MenuItem {
+  AbortGraphing = "abort-graphing",
+}
+
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const graphExec: string = path.join(__dirname, "graph");
+let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
 let nextRelId = 0;
 const relations = new Map<string, Relation>();
@@ -102,6 +107,7 @@ function createMainMenu(): Menu {
       label: "Graph",
       submenu: [
         {
+          id: MenuItem.AbortGraphing,
           label: "Abort Graphing",
           accelerator: "Escape",
           click: () => {
@@ -167,7 +173,8 @@ function resetBrowserZoom() {
 
 app.whenReady().then(() => {
   resetBrowserZoom();
-  Menu.setApplicationMenu(createMainMenu());
+  mainMenu = createMainMenu();
+  Menu.setApplicationMenu(mainMenu);
   createMainWindow();
   autoUpdater.checkForUpdatesAndNotify();
 });
@@ -318,10 +325,16 @@ function abortJobs(filter: JobFilter = () => true) {
 }
 
 function checkAndNotifyGraphingStatusChanged(relId: string) {
-  const nJobs = countJobs((j) => j.relId === relId);
-  if (nJobs === 1) {
+  const nJobs = countJobs();
+  const abortGraphingMenu = mainMenu?.getMenuItemById(MenuItem.AbortGraphing);
+  if (abortGraphingMenu) {
+    abortGraphingMenu.enabled = nJobs > 0;
+  }
+
+  const nRelJobs = countJobs((j) => j.relId === relId);
+  if (nRelJobs === 1) {
     notifyGraphingStatusChanged(relId, true);
-  } else if (nJobs === 0) {
+  } else if (nRelJobs === 0) {
     notifyGraphingStatusChanged(relId, false);
   }
 }
