@@ -22,7 +22,7 @@
     "@types/color": "^3.0.2",
     "@types/css-font-loading-module": "0.0.6",
     "@types/leaflet": "^1.7.5",
-    "@types/react": "^17.0.24",
+    "@types/react": "^17.0.27",
     "@types/react-beautiful-dnd": "^13.1.2",
     "@types/react-dom": "^17.0.9",
     "@types/react-redux": "^7.1.18",
@@ -47,7 +47,7 @@
     "webpack-cli": "^4.8.0"
   },
   "dependencies": {
-    "@fluentui/react": "^8.34.6",
+    "@fluentui/react": "^8.36.0",
     "@fontsource/noto-sans": "^4.5.1",
     "@reduxjs/toolkit": "^1.6.1",
     "bignumber.js": "^9.0.1",
