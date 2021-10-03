@@ -120,7 +120,7 @@ export class GraphLayer extends L.GridLayer {
   }
 
   private onGraphingStatusChanged: ipc.GraphingStatusChanged["listener"] = (
-    _: Event,
+    _,
     relId,
     processing
   ) => {
@@ -129,12 +129,7 @@ export class GraphLayer extends L.GridLayer {
     }
   };
 
-  private onTileReady: ipc.TileReady["listener"] = (
-    _: Event,
-    relId,
-    tileId,
-    url
-  ) => {
+  private onTileReady: ipc.TileReady["listener"] = (_, relId, tileId, url) => {
     if (this.relId === relId) {
       this.updateTile(tileId, url);
     }
