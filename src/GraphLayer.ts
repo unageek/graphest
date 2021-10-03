@@ -13,7 +13,8 @@ declare module "leaflet" {
 }
 
 export class GraphLayer extends L.GridLayer {
-  private lastGraph?: Graph;
+  private graph?: Graph;
+  private highRes = false;
   private onGraphingStatusChangedBound: ipc.GraphingStatusChanged["listener"];
   private onTileReadyBound: ipc.TileReady["listener"];
   private relId?: string;
@@ -37,9 +38,9 @@ export class GraphLayer extends L.GridLayer {
     );
     window.ipcRenderer.on<ipc.TileReady>(ipc.tileReady, this.onTileReadyBound);
     this.unsubscribeFromStore = this.store.subscribe(
-      this.onGraphChanged.bind(this)
+      this.onAppStateChanged.bind(this)
     );
-    this.onGraphChanged();
+    this.onAppStateChanged();
     return this;
   }
 
@@ -66,7 +67,7 @@ export class GraphLayer extends L.GridLayer {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected createTile(coords: L.Coords, _: L.DoneCallback): HTMLElement {
     const outer = L.DomUtil.create("div", "leaflet-tile") as HTMLDivElement;
-    if (this.lastGraph === undefined || this.relId === undefined) {
+    if (this.graph === undefined || this.relId === undefined) {
       return outer;
     }
 
@@ -80,7 +81,7 @@ export class GraphLayer extends L.GridLayer {
       inner.style.left = "0";
       inner.style.width = GRAPH_TILE_SIZE + "px";
       inner.style.height = GRAPH_TILE_SIZE + "px";
-      inner.style.background = this.lastGraph.color;
+      inner.style.background = this.graph.color;
       inner.style.webkitMaskPosition =
         "top -0.4990234375px left -0.4990234375px";
       inner.style.webkitMaskSize = EXTENDED_GRAPH_TILE_SIZE + "px";
@@ -106,16 +107,23 @@ export class GraphLayer extends L.GridLayer {
     }
   }
 
-  private onGraphChanged() {
-    const graph = this.store.getState().graphs.byId[this.graphId];
-    if (graph !== undefined && graph !== this.lastGraph) {
-      if (graph.color !== this.lastGraph?.color) {
+  private onAppStateChanged() {
+    const state = this.store.getState();
+
+    const graph = state.graphs.byId[this.graphId];
+    const highRes = state.highRes;
+    if (
+      graph !== undefined &&
+      (graph !== this.graph || highRes !== this.highRes)
+    ) {
+      if (graph.color !== this.graph?.color) {
         this.setColor(graph.color);
       }
-      if (graph.relation !== this.lastGraph?.relation) {
-        this.setRelation(graph.relation);
+      if (graph.relation !== this.graph?.relation || highRes !== this.highRes) {
+        this.setRelation(graph.relation, highRes);
       }
-      this.lastGraph = graph;
+      this.graph = graph;
+      this.highRes = highRes;
     }
   }
 
@@ -146,10 +154,11 @@ export class GraphLayer extends L.GridLayer {
     }
   }
 
-  private async setRelation(rel: string) {
+  private async setRelation(rel: string, highRes: boolean) {
     const { relId } = await window.ipcRenderer.invoke<ipc.NewRelation>(
       ipc.newRelation,
-      rel
+      rel,
+      highRes
     );
     // NB: `abortGraphing` depends on `this.relId`.
     this.abortGraphing();

@@ -1,4 +1,5 @@
 import { IpcRendererEvent } from "electron";
+import { MenuItem } from "./MenuItem";
 
 export interface MessageToMain {
   channel: string;
@@ -16,7 +17,7 @@ export interface AbortGraphing extends MessageToMain {
 export const newRelation = "new-relation";
 export interface NewRelation extends MessageToMain {
   channel: typeof newRelation;
-  args: [rel: string];
+  args: [rel: string, highRes: boolean];
   result: { relId: string };
 }
 
@@ -56,6 +57,13 @@ export interface GraphingStatusChanged extends MessageToRenderer {
     event: IpcRendererEvent,
     ...args: GraphingStatusChanged["args"]
   ) => void;
+}
+
+export const menuItemInvoked = "menu-item-invoked";
+export interface MenuItemInvoked extends MessageToRenderer {
+  channel: typeof menuItemInvoked;
+  args: [item: MenuItem];
+  listener: (event: IpcRendererEvent, ...args: MenuItemInvoked["args"]) => void;
 }
 
 export const tileReady = "tile-ready";

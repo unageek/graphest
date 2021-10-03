@@ -11,6 +11,9 @@ import { GraphBars } from "./GraphBars";
 import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
 import { store } from "./models/store";
+import * as ipc from "./ipc";
+import { MenuItem } from "./MenuItem";
+import { setHighRes } from "./models/app";
 
 const App = () => {
   const graphViewRef = useRef<HTMLDivElement | null>(null);
@@ -50,3 +53,12 @@ ReactDOM.render(
   </React.StrictMode>,
   document.getElementById("app")
 );
+
+window.ipcRenderer.on<ipc.MenuItemInvoked>(ipc.menuItemInvoked, (_, item) => {
+  const state = store.getState();
+  switch (item) {
+    case MenuItem.HighResolution:
+      store.dispatch(setHighRes(!state.highRes));
+      break;
+  }
+});
