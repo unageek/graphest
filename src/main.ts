@@ -179,12 +179,6 @@ app.whenReady().then(() => {
   autoUpdater.checkForUpdatesAndNotify();
 });
 
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createMainWindow();
-  }
-});
-
 app.on("quit", () => {
   abortJobs();
   fs.rmdirSync(baseOutDir, { recursive: true });
