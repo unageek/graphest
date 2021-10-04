@@ -96,7 +96,7 @@ function createMainMenu(): Menu {
     {
       role: "fileMenu",
       submenu: [
-        // The "Close" menu is required for closing the about panel.
+        // The Close menu is required for closing the about panel.
         { role: "close" },
         { type: "separator" },
         ...(isMac ? [] : [{ role: "quit" }]),
@@ -120,6 +120,8 @@ function createMainMenu(): Menu {
       role: "windowMenu",
       submenu: [
         ...(isMac ? [{ role: "minimize" }, { role: "zoom" }] : []),
+        // On macOS, it seems common to place the Full Screen menu under the Window menu
+        // if there is nothing else to be placed under the View menu.
         { role: "togglefullscreen" },
         { type: "separator" },
         ...(isMac ? [{ role: "front" }] : []),
@@ -135,6 +137,15 @@ function createMainMenu(): Menu {
           click: async () => {
             await shell.openExternal(
               "https://github.com/unageek/graphest/blob/master/docs/guide/README.adoc"
+            );
+          },
+        },
+        { type: "separator" },
+        {
+          label: "What's New",
+          click: async () => {
+            await shell.openExternal(
+              "https://github.com/unageek/graphest/releases"
             );
           },
         },
