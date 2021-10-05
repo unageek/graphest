@@ -208,10 +208,6 @@ ipcMain.handle<ipc.AbortGraphing>(
   }
 );
 
-ipcMain.handle<ipc.AbortGraphingAll>(ipc.abortGraphingAll, async () => {
-  abortJobs();
-});
-
 ipcMain.handle<ipc.NewRelation>(ipc.newRelation, async (_, rel) => {
   const relId = nextRelId.toString();
   nextRelId++;

@@ -13,13 +13,6 @@ export interface AbortGraphing extends MessageToMain {
   result: void;
 }
 
-export const abortGraphingAll = "abort-graphing-all";
-export interface AbortGraphingAll extends MessageToMain {
-  channel: typeof abortGraphingAll;
-  args: [];
-  result: void;
-}
-
 export const newRelation = "new-relation";
 export interface NewRelation extends MessageToMain {
   channel: typeof newRelation;
