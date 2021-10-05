@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   MenuItemConstructorOptions,
+  screen,
   shell,
 } from "electron";
 import { autoUpdater } from "electron-updater";
@@ -21,6 +22,7 @@ import {
   GRAPH_TILE_SIZE,
 } from "./constants";
 import * as ipc from "./ipc";
+import { MenuItem } from "./MenuItem";
 
 const fsPromises = fs.promises;
 
@@ -65,6 +67,7 @@ interface Tile {
 }
 
 interface Relation {
+  highRes: boolean;
   id: string;
   nextTileNumber: number;
   outDir: string;
@@ -75,10 +78,6 @@ interface Relation {
 let queuedJobs: Job[] = [];
 let activeJobs: Job[] = [];
 let sleepingJobs: Job[] = [];
-
-enum MenuItem {
-  AbortGraphing = "abort-graphing",
-}
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const graphExec: string = path.join(__dirname, "graph");
@@ -91,6 +90,7 @@ function createMainMenu(): Menu {
   // https://www.electronjs.org/docs/api/menu#examples
   // https://github.com/electron/electron/blob/main/lib/browser/api/menu-item-roles.ts
   const isMac = process.platform === "darwin";
+  const isRetina = screen.getPrimaryDisplay().scaleFactor === 2;
   return Menu.buildFromTemplate([
     ...(isMac ? [{ role: "appMenu" }] : []),
     {
@@ -106,6 +106,21 @@ function createMainMenu(): Menu {
     {
       label: "Graph",
       submenu: [
+        {
+          id: MenuItem.HighResolution,
+          label: "High Resolution",
+          type: "checkbox",
+          visible: isRetina,
+          click: () => {
+            mainWindow?.webContents.send<ipc.MenuItemInvoked>(
+              ipc.menuItemInvoked,
+              MenuItem.HighResolution
+            );
+          },
+        },
+        {
+          type: "separator",
+        },
         {
           id: MenuItem.AbortGraphing,
           label: "Abort Graphing",
@@ -208,12 +223,13 @@ ipcMain.handle<ipc.AbortGraphing>(
   }
 );
 
-ipcMain.handle<ipc.NewRelation>(ipc.newRelation, async (_, rel) => {
+ipcMain.handle<ipc.NewRelation>(ipc.newRelation, async (_, rel, highRes) => {
   const relId = nextRelId.toString();
   nextRelId++;
   const outDir = path.join(baseOutDir, relId);
   await fsPromises.mkdir(outDir);
   relations.set(relId, {
+    highRes,
     id: relId,
     nextTileNumber: 0,
     outDir,
@@ -237,7 +253,7 @@ ipcMain.handle<ipc.RequestTile>(
     }
 
     const tile = rel.tiles.get(tileId);
-    const retinaScale = 1 as number;
+    const retinaScale = rel.highRes ? 2 : 1;
     if (tile === undefined) {
       // We offset the graph by 0.5px to place the origin at the center of a pixel.
       // The direction of offsetting must be coherent with the configuration of `GridLayer`.

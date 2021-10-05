@@ -10,12 +10,14 @@ import {
 
 export interface AppState {
   graphs: { byId: { [id: string]: Graph }; allIds: string[] };
+  highRes: boolean;
   nextGraphId: number;
   showGrid: boolean;
 }
 
 const initialState: AppState = {
   graphs: { byId: {}, allIds: [] },
+  highRes: false,
   nextGraphId: 0,
   showGrid: true,
 };
@@ -74,6 +76,13 @@ const slice = createSlice({
         },
       }),
     },
+    setHighRes: {
+      prepare: (highRes: boolean) => ({ payload: { highRes } }),
+      reducer: (s, a: PayloadAction<{ highRes: boolean }>) => ({
+        ...s,
+        highRes: a.payload.highRes,
+      }),
+    },
     setShowGrid: {
       prepare: (show: boolean) => ({ payload: { show } }),
       reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
@@ -110,7 +119,7 @@ function moveElement<T>(array: T[], fromIndex: number, toIndex: number): T[] {
   return result;
 }
 
-export const { newGraph, removeGraph, reorderGraph, setShowGrid } =
+export const { newGraph, removeGraph, reorderGraph, setHighRes, setShowGrid } =
   slice.actions;
 
 export const appReducer = slice.reducer;
