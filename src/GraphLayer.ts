@@ -110,20 +110,21 @@ export class GraphLayer extends L.GridLayer {
   private onAppStateChanged() {
     const state = this.store.getState();
 
-    const graph = state.graphs.byId[this.graphId];
-    const highRes = state.highRes;
+    const lastGraph = this.graph;
+    this.graph = state.graphs.byId[this.graphId];
+
+    const lastHighRes = this.highRes;
+    this.highRes = state.highRes;
+
+    if (this.graph.color !== lastGraph?.color) {
+      this.updateColor();
+    }
+
     if (
-      graph !== undefined &&
-      (graph !== this.graph || highRes !== this.highRes)
+      this.graph.relation !== lastGraph?.relation ||
+      this.highRes !== lastHighRes
     ) {
-      if (graph.color !== this.graph?.color) {
-        this.setColor(graph.color);
-      }
-      if (graph.relation !== this.graph?.relation || highRes !== this.highRes) {
-        this.setRelation(graph.relation, highRes);
-      }
-      this.graph = graph;
-      this.highRes = highRes;
+      this.updateRelation();
     }
   }
 
@@ -143,25 +144,30 @@ export class GraphLayer extends L.GridLayer {
     }
   };
 
-  private setColor(color: string) {
+  private updateColor() {
+    if (this.graph === undefined) return;
+
     for (const key in this._tiles) {
       const tile = this._tiles[key];
       for (const inner of tile.el.children) {
         if (inner instanceof HTMLElement) {
-          inner.style.background = color;
+          inner.style.background = this.graph.color;
         }
       }
     }
   }
 
-  private async setRelation(rel: string, highRes: boolean) {
-    const { relId } = await window.ipcRenderer.invoke<ipc.NewRelation>(
-      ipc.newRelation,
-      rel,
-      highRes
-    );
+  private async updateRelation() {
+    if (this.graph === undefined) return;
+
     // NB: `abortGraphing` depends on `this.relId`.
     this.abortGraphing();
+
+    const { relId } = await window.ipcRenderer.invoke<ipc.NewRelation>(
+      ipc.newRelation,
+      this.graph.relation,
+      this.highRes
+    );
     this.relId = relId;
     this.redraw();
   }
