@@ -13,7 +13,7 @@ import { GraphView } from "./GraphView";
 import { store } from "./models/store";
 import * as ipc from "./ipc";
 import { MenuItem } from "./MenuItem";
-import { setHighRes } from "./models/app";
+import { setHighRes, setShowAxes, setShowGrid } from "./models/app";
 
 const App = () => {
   const graphViewRef = useRef<HTMLDivElement | null>(null);
@@ -59,6 +59,12 @@ window.ipcRenderer.on<ipc.MenuItemInvoked>(ipc.menuItemInvoked, (_, item) => {
   switch (item) {
     case MenuItem.HighResolution:
       store.dispatch(setHighRes(!state.highRes));
+      break;
+    case MenuItem.ShowAxes:
+      store.dispatch(setShowAxes(!state.showAxes));
+      break;
+    case MenuItem.ShowGrid:
+      store.dispatch(setShowGrid(!state.showGrid));
       break;
   }
 });

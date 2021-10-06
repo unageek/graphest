@@ -107,6 +107,35 @@ function createMainMenu(): Menu {
       label: "Graph",
       submenu: [
         {
+          id: MenuItem.ShowAxes,
+          label: "Show Axes",
+          accelerator: "CommandOrControl+Alt+A",
+          type: "checkbox",
+          checked: true,
+          click: () => {
+            mainWindow?.webContents.send<ipc.MenuItemInvoked>(
+              ipc.menuItemInvoked,
+              MenuItem.ShowAxes
+            );
+          },
+        },
+        {
+          id: MenuItem.ShowGrid,
+          label: "Show Grid",
+          accelerator: "CommandOrControl+Alt+G",
+          type: "checkbox",
+          checked: true,
+          click: () => {
+            mainWindow?.webContents.send<ipc.MenuItemInvoked>(
+              ipc.menuItemInvoked,
+              MenuItem.ShowGrid
+            );
+          },
+        },
+        {
+          type: "separator",
+        },
+        {
           id: MenuItem.HighResolution,
           label: "High Resolution",
           type: "checkbox",

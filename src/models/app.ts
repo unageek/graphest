@@ -12,6 +12,7 @@ export interface AppState {
   graphs: { byId: { [id: string]: Graph }; allIds: string[] };
   highRes: boolean;
   nextGraphId: number;
+  showAxes: boolean;
   showGrid: boolean;
 }
 
@@ -19,6 +20,7 @@ const initialState: AppState = {
   graphs: { byId: {}, allIds: [] },
   highRes: false,
   nextGraphId: 0,
+  showAxes: true,
   showGrid: true,
 };
 
@@ -83,6 +85,13 @@ const slice = createSlice({
         highRes: a.payload.highRes,
       }),
     },
+    setShowAxes: {
+      prepare: (show: boolean) => ({ payload: { show } }),
+      reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
+        ...s,
+        showAxes: a.payload.show,
+      }),
+    },
     setShowGrid: {
       prepare: (show: boolean) => ({ payload: { show } }),
       reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
@@ -119,8 +128,14 @@ function moveElement<T>(array: T[], fromIndex: number, toIndex: number): T[] {
   return result;
 }
 
-export const { newGraph, removeGraph, reorderGraph, setHighRes, setShowGrid } =
-  slice.actions;
+export const {
+  newGraph,
+  removeGraph,
+  reorderGraph,
+  setHighRes,
+  setShowAxes,
+  setShowGrid,
+} = slice.actions;
 
 export const appReducer = slice.reducer;
 

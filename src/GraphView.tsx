@@ -10,7 +10,7 @@ import * as ReactDOM from "react-dom";
 import { useStore } from "react-redux";
 import { BASE_ZOOM_LEVEL } from "./constants";
 import { GraphLayer } from "./GraphLayer";
-import { GridLayer } from "./GridLayer";
+import { AxesLayer, GridLayer } from "./GridLayer";
 import { useSelector } from "./models/app";
 
 export interface GraphViewProps {
@@ -20,9 +20,11 @@ export interface GraphViewProps {
 export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
   (props, ref) => {
     const graphs = useSelector((s) => s.graphs);
+    const showAxes = useSelector((s) => s.showAxes);
     const showGrid = useSelector((s) => s.showGrid);
+    const [axesLayer] = useState(new AxesLayer().setZIndex(1));
     const [graphLayers] = useState<Map<string, GraphLayer>>(new Map());
-    const [gridLayer] = useState<GridLayer>(new GridLayer());
+    const [gridLayer] = useState(new GridLayer().setZIndex(0));
     const [map, setMap] = useState<L.Map | undefined>();
     const store = useStore();
 
@@ -45,6 +47,15 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         graphLayers.get(id)?.setZIndex(index + 10);
       });
     }, [map, graphs]);
+
+    useEffect(() => {
+      if (map === undefined) return;
+      if (showAxes) {
+        map.addLayer(axesLayer);
+      } else {
+        map.removeLayer(axesLayer);
+      }
+    }, [map, showAxes]);
 
     useEffect(() => {
       if (map === undefined) return;
