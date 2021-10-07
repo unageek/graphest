@@ -24,8 +24,7 @@ const BACKGROUND_COLOR = "white";
 const AXIS_COLOR = "black";
 const OFF_AXIS_COLOR = "gray";
 const TICK_LENGTH_PER_SIDE = 3;
-const MAJOR_GRID_COLOR = "#c0c0c0";
-const MINOR_GRID_COLOR = "#e0e0e0";
+const GRID_COLOR = "silver";
 
 interface Transform {
   (x: BigNumber): number;
@@ -619,10 +618,22 @@ export class GridLayer extends L.GridLayer {
       ctx.fillStyle = BACKGROUND_COLOR;
       ctx.fillRect(0, 0, EXTENDED_TILE_SIZE, EXTENDED_TILE_SIZE);
 
-      ctx.strokeStyle = MINOR_GRID_COLOR;
-      this.drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, minInterval, tx, ty);
+      ctx.strokeStyle = GRID_COLOR;
 
-      ctx.strokeStyle = MAJOR_GRID_COLOR;
+      ctx.setLineDash([1, 1]);
+      this.drawGrid(
+        ctx,
+        s0.x,
+        s0.y,
+        s1.x,
+        s1.y,
+        minInterval,
+        tx,
+        ty,
+        majInterval.get().idiv(minInterval.get())
+      );
+
+      ctx.setLineDash([]);
       this.drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, majInterval, tx, ty);
 
       done(undefined, outer);
@@ -639,13 +650,15 @@ export class GridLayer extends L.GridLayer {
     y1: BigNumber,
     interval: GridInterval,
     tx: Transform,
-    ty: Transform
+    ty: Transform,
+    skipEveryNthLine: BigNumber = ZERO
   ) {
     ctx.beginPath();
     {
       const min = x0.times(interval.getInv()).ceil().minus(ONE);
       const max = x1.times(interval.getInv()).floor().plus(ONE);
       for (let i = min; i.lte(max); i = i.plus(ONE)) {
+        if (i.mod(skipEveryNthLine).isZero()) continue;
         const x = i.times(interval.get());
         const cx = tx(x);
         ctx.moveTo(cx, 0);
@@ -656,6 +669,7 @@ export class GridLayer extends L.GridLayer {
       const min = y0.times(interval.getInv()).ceil().minus(ONE);
       const max = y1.times(interval.getInv()).floor().plus(ONE);
       for (let i = min; i.lte(max); i = i.plus(ONE)) {
+        if (i.mod(skipEveryNthLine).isZero()) continue;
         const y = i.times(interval.get());
         const cy = ty(y);
         ctx.moveTo(0, cy);
