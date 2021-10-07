@@ -109,7 +109,7 @@ function createMainMenu(): Menu {
         {
           id: MenuItem.ShowAxes,
           label: "Show Axes",
-          accelerator: "CommandOrControl+Alt+A",
+          accelerator: "Alt+CmdOrCtrl+A",
           type: "checkbox",
           checked: true,
           click: () => {
@@ -122,7 +122,7 @@ function createMainMenu(): Menu {
         {
           id: MenuItem.ShowGrid,
           label: "Show Grid",
-          accelerator: "CommandOrControl+Alt+G",
+          accelerator: "Alt+CmdOrCtrl+G",
           type: "checkbox",
           checked: true,
           click: () => {
@@ -153,7 +153,7 @@ function createMainMenu(): Menu {
         {
           id: MenuItem.AbortGraphing,
           label: "Abort Graphing",
-          accelerator: "Escape",
+          accelerator: "Esc",
           click: () => {
             abortJobs();
           },
