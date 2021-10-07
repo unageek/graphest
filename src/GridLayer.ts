@@ -199,10 +199,13 @@ export class AxesLayer extends L.GridLayer {
     const cx = tx(ZERO);
     const cy = ty(ZERO);
     ctx.strokeStyle = AXIS_COLOR;
-
+    // Do not merge these paths; otherwise, they may not be rendered
+    // when the view is too far from the origin.
     ctx.beginPath();
     ctx.moveTo(cx, 0);
     ctx.lineTo(cx, EXTENDED_TILE_SIZE);
+    ctx.stroke();
+    ctx.beginPath();
     ctx.moveTo(0, cy);
     ctx.lineTo(EXTENDED_TILE_SIZE, cy);
     ctx.stroke();
