@@ -170,7 +170,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
     ))(i)
 }
 
-// ^ is right-associative: x^y^z is the same as x^(y^z).
+// ^ is right-associative; x^y^z is the same as x^(y^z).
 fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 

@@ -5,11 +5,11 @@
 == General Rules
 
 * A valid relation must be a <<bool-expr,Boolean-valued expression>> such as `y = sin(x)` or `sin(x) < cos(y)`.
-* Enter multiplication of `x` and `y` as `x y`, instead of `xy`.
+* Enter the product of `x` and `y` as `x y`, instead of `xy`.
 ** You don't need a space after a leading number of a term, or around parentheses.
 * Enter the sine of _x_ as `sin(x)`, instead of `sinx` or `sin x`.
 * Use parentheses to group a part of the relation like `1 / (x + 3)`.
-* Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, (_x_, _y_) = (1, 0) is identical to (_r_, _θ_) = (1, 0), (1, 2π), (1, −2π), (1, 4π), …; (−1, π), (−1, −π), (−1, 3π), …
+* Each point in Cartesian coordinates has infinitely many representations in polar coordinates. For example, (_x_, _y_) = (1, 0) is identical to (_r_, _θ_) = (1, 0), (1, 2π), (1, −2π), (1, 4π), …; (−1, π), (−1, −π), (−1, 3π), …
 ** So you may want to restrict the range of `r` or `θ` when plotting a polar equation such as `r = θ && 0 ≤ θ ≤ 2π`.
 * `t` can be used as a parameter for making a parametric relation such as `x = cos(t) && y = sin(t)` or `x = t cos(t) && y = t sin(t) && 0 ≤ t ≤ 2π`.
 
@@ -82,6 +82,20 @@
 
 |===
 
+==== Parameter
+
+[cols=",,", options="header"]
+|===
+|Input
+|Interpreted as
+|Notes
+
+|`t`
+|_t_
+|
+
+|===
+
 === Arithmetic
 
 [cols=",,", options="header"]
@@ -146,7 +160,7 @@ Undefined for irrational numbers.
 
 |`x^y`
 |_x_^_y_^
-|`^` is right-associative: `x\^y^z` is equivalent to `x\^(y^z)`.
+|`^` is right-associative; `x\^y^z` is equivalent to `x\^(y^z)`.
 
 |`exp(x)`
 |e^_x_^
