@@ -23,7 +23,7 @@ const LABEL_FONT = "14px 'Noto Sans'";
 const BACKGROUND_COLOR = "white";
 const AXIS_COLOR = "black";
 const OFF_AXIS_COLOR = "gray";
-const TICK_LENGTH_PER_SIDE = 3;
+const TICK_LENGTH_PER_SIDE = 3.5;
 const GRID_COLOR = "silver";
 
 interface Transform {
