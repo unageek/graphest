@@ -135,18 +135,21 @@ function createMainMenu(): Menu {
         {
           type: "separator",
         },
-        {
-          id: MenuItem.HighResolution,
-          label: "High Resolution",
-          type: "checkbox",
-          visible: isRetina,
-          click: () => {
-            mainWindow?.webContents.send<ipc.MenuItemInvoked>(
-              ipc.menuItemInvoked,
-              MenuItem.HighResolution
-            );
-          },
-        },
+        ...(isRetina
+          ? [
+              {
+                id: MenuItem.HighResolution,
+                label: "High Resolution",
+                type: "checkbox",
+                click: () => {
+                  mainWindow?.webContents.send<ipc.MenuItemInvoked>(
+                    ipc.menuItemInvoked,
+                    MenuItem.HighResolution
+                  );
+                },
+              },
+            ]
+          : []),
         {
           type: "separator",
         },
