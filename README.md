@@ -2,9 +2,7 @@
 
 **Graphest** is a graphing calculator that can faithfully plot arbitrary mathematical relations.
 
-<p align="center">
-  <img width="608" alt="Cover image" src="docs/cover.png">
-</p>
+<img align="right" width="456" alt="Cover image" src="docs/cover.png">
 
 ## Features
 
