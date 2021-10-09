@@ -6,7 +6,7 @@
   "scripts": {
     "build": "npm-run-all build:*",
     "build:app": "webpack",
-    "build:rust": "cross-env-shell cargo build --release && mkdirp dist && rm -f dist/graph && cp target/release/graph dist/",
+    "build:rust": "cargo build --release && mkdirp dist && rm -f dist/graph && cp target/release/graph dist/",
     "clean": "npm-run-all clean:*",
     "clean:app": "rm -rf dist release",
     "clean:rust": "rm -rf target",
