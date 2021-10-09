@@ -45,7 +45,7 @@ You can try messing around with [example relations](Examples.md).
 
 1. [Install Chocolatey](https://chocolatey.org/install)
 
-1. Open PowerShell as Administrator, and install Node.js and MSYS2
+1. Open PowerShell as Administrator, and install Node.js and MSYS2:
 
    ```ps
    choco install msys2 nodejs
@@ -62,7 +62,7 @@ You can try messing around with [example relations](Examples.md).
 
    ```ps
    pacman -S pacman-mirrors
-   pacman -S cmake diffutils git m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
+   pacman -S diffutils git m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
    ```
 
 1. [Install Rust](https://rustup.rs)
