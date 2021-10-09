@@ -1135,7 +1135,7 @@ macro_rules! mpfr_fn_ui {
         let mut x = Float::with_val(f64::MANTISSA_DIGITS, $x);
         let rnd = mpfr::rnd_t::$rnd;
         unsafe {
-            mpfr::$mpfr_f(x.as_raw_mut(), x.as_raw(), $y as u64, rnd);
+            mpfr::$mpfr_f(x.as_raw_mut(), x.as_raw(), $y.into(), rnd);
             mpfr::get_d(x.as_raw(), rnd)
         }
     }};

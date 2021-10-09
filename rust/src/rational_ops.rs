@@ -92,8 +92,8 @@ pub fn to_interval(r: &Rational) -> Interval {
     unsafe {
         let orig_emin = mpfr::get_emin();
         let orig_emax = mpfr::get_emax();
-        mpfr::set_emin((f64::MIN_EXP - (f64::MANTISSA_DIGITS as i32) + 1) as i64);
-        mpfr::set_emax(f64::MAX_EXP as i64);
+        mpfr::set_emin((f64::MIN_EXP - (f64::MANTISSA_DIGITS as i32) + 1).into());
+        mpfr::set_emax(f64::MAX_EXP.into());
         let rnd = rnd_t::RNDD;
         let t = mpfr::set_q(f.as_raw_mut(), r.as_raw(), rnd);
         mpfr::subnormalize(f.as_raw_mut(), t, rnd);
