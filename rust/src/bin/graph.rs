@@ -6,7 +6,7 @@ use graphest::{
 use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
-use std::{convert::TryFrom, ffi::OsString, time::Duration};
+use std::{convert::TryFrom, ffi::OsString, io::stdin, time::Duration};
 
 fn print_statistics_header() {
     println!(
@@ -125,6 +125,11 @@ fn main() {
                 .about("Only parse the relation and exit with 0 iff it is valid."),
         )
         .arg(
+            Arg::new("pause-per-output")
+                .long("pause-per-output")
+                .setting(ArgSettings::Hidden),
+        )
+        .arg(
             Arg::new("size")
                 .short('s')
                 .long("size")
@@ -179,6 +184,7 @@ fn main() {
             top: matches.value_of_t_or_exit::<u32>("padding-top"),
         }
     };
+    let pause_per_output = matches.is_present("pause-per-output");
     let size = {
         let size = matches.values_of_t_or_exit::<u32>("size");
         [size[0], size[1]]
@@ -218,6 +224,7 @@ fn main() {
         dilation_kernel,
         gray_alpha,
         output,
+        pause_per_output,
         raw_size,
         size,
         timeout,
@@ -266,6 +273,7 @@ struct PlotOptions {
     dilation_kernel: Image<bool>,
     gray_alpha: bool,
     output: OsString,
+    pause_per_output: bool,
     raw_size: [u32; 2],
     size: [u32; 2],
     timeout: Option<Duration>,
@@ -286,6 +294,12 @@ fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
     print_statistics(&prev_stat, &prev_stat);
 
     loop {
+        if opts.pause_per_output {
+            // Await for a newline character.
+            let mut input = String::new();
+            stdin().read_line(&mut input).unwrap();
+        }
+
         let duration = match opts.timeout {
             Some(t) => t
                 .saturating_sub(prev_stat.time_elapsed)
