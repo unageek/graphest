@@ -8,5 +8,9 @@
   "mac": {
     "category": "public.app-category.utilities",
     "electronLanguages": ["en"]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
   }
 }

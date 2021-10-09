@@ -12,6 +12,7 @@
     "clean:rust": "rm -rf target",
     "lint": "prettier --check .",
     "release:mac": "npm run lint && npm run clean && NODE_ENV=production npm run build && electron-builder --mac --publish always",
+    "release:win": "npm run lint && npm run clean && cross-env-shell NODE_ENV=production npm run build && electron-builder --win --publish always",
     "start": "cross-env-shell NODE_ENV=development npm run build && electron ."
   },
   "author": "Masashi Mizuno",

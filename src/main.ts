@@ -80,7 +80,11 @@ let activeJobs: Job[] = [];
 let sleepingJobs: Job[] = [];
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
-const graphExec: string = path.join(__dirname, "graph");
+const graphExec: string = path.join(
+  __dirname,
+  // ".exe" is required for pointing to executables inside .asar archives.
+  process.platform === "win32" ? "graph.exe" : "graph"
+);
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
 let nextRelId = 0;
