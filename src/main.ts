@@ -335,6 +335,7 @@ ipcMain.handle<ipc.RequestTile>(
           outFile,
           "--mem-limit",
           JOB_MEM_LIMIT.toString(),
+          "--pause-per-output",
           "--",
           rel.rel,
         ],
@@ -398,13 +399,13 @@ function countJobs(filter: JobFilter = () => true): number {
 
 function deprioritize(job: Job) {
   if (activeJobs.length <= MAX_ACTIVE_JOBS && sleepingJobs.length === 0) {
+    job.proc?.stdin?.write("\n");
     return;
   }
 
   const nBefore = countJobs();
   activeJobs = activeJobs.filter((j) => j !== job);
   sleepingJobs = sleepingJobs.filter((j) => j !== job);
-  job.proc?.kill("SIGSTOP");
   sleepingJobs.push(job);
   const nAfter = countJobs();
   assert(nBefore === nAfter);
@@ -472,8 +473,8 @@ function updateQueue() {
   while (activeJobs.length < MAX_ACTIVE_JOBS && sleepingJobs.length > 0) {
     const job = sleepingJobs.shift();
     if (job !== undefined) {
-      job.proc?.kill("SIGCONT");
       activeJobs.push(job);
+      job.proc?.stdin?.write("\n");
     }
   }
 
@@ -516,12 +517,15 @@ function updateQueue() {
         }
         checkAndNotifyGraphingStatusChanged(job.relId);
       });
+      job.proc.stdin?.on("error", () => {
+        // ignore
+      });
 
       const nBefore = countJobs();
       if (activeJobs.length < MAX_ACTIVE_JOBS) {
         activeJobs.push(job);
+        job.proc.stdin?.write("\n");
       } else {
-        job.proc?.kill("SIGSTOP");
         sleepingJobs.unshift(job);
       }
       const nAfter = countJobs();
