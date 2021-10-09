@@ -1,7 +1,5 @@
 use std::{
-    env,
-    ffi::OsString,
-    fs, io,
+    env, fs, io,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -20,7 +18,7 @@ struct Environment {
     gmp_dir: PathBuf,
     include_dir: PathBuf,
     lib_dir: PathBuf,
-    makeflags: OsString,
+    makeflags: String,
     out_dir: PathBuf,
 }
 
@@ -34,7 +32,7 @@ fn main() {
         gmp_dir: PathBuf::from(env::var_os("DEP_GMP_OUT_DIR").unwrap()),
         include_dir: out_dir.join("include"),
         lib_dir: out_dir.join("lib"),
-        makeflags: env::var_os("CARGO_MAKEFLAGS").unwrap(),
+        makeflags: "-j".to_owned(),
         out_dir: out_dir.clone(),
     };
     fs::create_dir_all(&env.build_dir)
@@ -60,6 +58,11 @@ fn build_flint(env: &Environment) {
         return;
     }
 
+    let gmp_dir = env.build_dir.join("gmp");
+    if !gmp_dir.exists() {
+        symlink_dir_or_panic(&env.gmp_dir, &gmp_dir);
+    }
+
     let build_dir = env.build_dir.join("flint-build");
     if !build_dir.exists() {
         execute_or_panic(Command::new("git").current_dir(&env.build_dir).args(&[
@@ -72,15 +75,21 @@ fn build_flint(env: &Environment) {
             build_dir.to_str().unwrap(),
         ]));
     }
+
     execute_or_panic(
-        Command::new(build_dir.join("configure"))
+        Command::new("sh")
             .current_dir(&build_dir)
-            .args([
-                "--disable-shared",
-                &format!("--prefix={}", env.out_dir.to_str().unwrap()),
-                &format!("--with-gmp={}", env.gmp_dir.to_str().unwrap()),
-                &format!("--with-mpfr={}", env.gmp_dir.to_str().unwrap()),
-            ])
+            .arg("-c")
+            .arg(
+                [
+                    "./configure",
+                    "--disable-shared",
+                    "--prefix=../..",     // `env.out_dir`
+                    "--with-gmp=../gmp",  // `gmp_dir`
+                    "--with-mpfr=../gmp", // `gmp_dir`
+                ]
+                .join(" "),
+            )
             .env("CFLAGS", "-Wno-error"),
     );
     execute_or_panic(
@@ -102,6 +111,11 @@ fn build_arb(env: &Environment) {
         return;
     }
 
+    let gmp_dir = env.build_dir.join("gmp");
+    if !gmp_dir.exists() {
+        symlink_dir_or_panic(&env.gmp_dir, &gmp_dir);
+    }
+
     let build_dir = env.build_dir.join("arb-build");
     if !build_dir.exists() {
         execute_or_panic(Command::new("git").current_dir(&env.build_dir).args(&[
@@ -114,16 +128,22 @@ fn build_arb(env: &Environment) {
             build_dir.to_str().unwrap(),
         ]));
     }
+
     execute_or_panic(
-        Command::new(build_dir.join("configure"))
+        Command::new("sh")
             .current_dir(&build_dir)
-            .args([
-                "--disable-shared",
-                &format!("--prefix={}", env.out_dir.to_str().unwrap()),
-                &format!("--with-flint={}", env.out_dir.to_str().unwrap()),
-                &format!("--with-gmp={}", env.gmp_dir.to_str().unwrap()),
-                &format!("--with-mpfr={}", env.gmp_dir.to_str().unwrap()),
-            ])
+            .arg("-c")
+            .arg(
+                [
+                    "./configure",
+                    "--disable-shared",
+                    "--prefix=../..",     // `env.out_dir`
+                    "--with-flint=../..", // `env.out_dir`
+                    "--with-gmp=../gmp",  // `gmp_dir`
+                    "--with-mpfr=../gmp", // `gmp_dir`
+                ]
+                .join(" "),
+            )
             .env("CFLAGS", "-Wno-error"),
     );
     execute_or_panic(
@@ -154,7 +174,7 @@ fn run_bindgen(env: &Environment) {
         .header(env.include_dir.join("arb_hypgeom.h").to_str().unwrap())
         .header(env.include_dir.join("arf.h").to_str().unwrap())
         .header(env.include_dir.join("mag.h").to_str().unwrap())
-        .allowlist_function("(acb_|arb_|arf_|mag_).*")
+        .allowlist_function("(acb|arb|arf|mag)_.*")
         .clang_args(&[
             "-DACB_INLINES_C",
             "-DARB_INLINES_C",
@@ -231,6 +251,20 @@ fn execute_or_panic(cmd: &mut Command) {
     }
 }
 
+#[cfg(unix)]
+fn symlink_dir_or_panic(original: &Path, link: &Path) {
+    std::os::unix::fs::symlink(original, link).unwrap_or_else(|_| {
+        panic!("failed to create a symlink to {:?} at {:?}", original, link);
+    });
+}
+
+#[cfg(windows)]
+fn symlink_dir_or_panic(original: &Path, link: &Path) {
+    std::os::windows::fs::symlink_dir(original, link).unwrap_or_else(|_| {
+        panic!("failed to create a symlink to {:?} at {:?}", original, link);
+    });
+}
+
 fn user_cache_dir() -> Option<PathBuf> {
     let host = env::var("HOST").ok()?;
 
@@ -247,6 +281,10 @@ fn user_cache_dir() -> Option<PathBuf> {
                     .filter(|s| !s.is_empty())
                     .map(|s| PathBuf::from(s).join(".cache"))
             })
+    } else if host.contains("windows") {
+        env::var_os("LOCALAPPDATA")
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from)
     } else {
         None
     }

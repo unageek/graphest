@@ -19,72 +19,7 @@ The latest version of the app is available on the [releases page](https://github
 
 You can try messing around with [example relations](Examples.md).
 
-## Building from Source
-
-### Prerequisites
-
-#### macOS
-
-1. Command Line Tools for Xcode
-
-   ```bash
-   xcode-select --install
-   ```
-
-1. [Rust](https://rustup.rs)
-
-1. [Homebrew](https://brew.sh)
-
-1. Node.js and npm
-
-   ```bash
-   brew install node
-   ```
-
-#### Windows
-
-1. [Ubuntu on WSL](https://www.microsoft.com/store/productId/9NBLGGH4MSV6)
-
-1. Either:
-
-   - A X11 server such as [VcXsrv](https://sourceforge.net/projects/vcxsrv/) or [Xming](https://sourceforge.net/projects/xming/)
-   - [WSLg](https://github.com/microsoft/wslg#installing-wslg)
-
-1. Everything listed in [Ubuntu](#ubuntu) section, installed on WSL
-
-#### Ubuntu
-
-1. Command line tools and libraries
-
-   ```bash
-   sudo apt update
-   sudo apt upgrade -y
-   sudo apt install -y build-essential curl git libclang-dev m4 nodejs npm
-   ```
-
-   [libraries required to run Electron](https://github.com/electron/electron/issues/26673):
-
-   ```bash
-   sudo apt install -y libatk-bridge2.0-0 libatk1.0-0 libgbm1 libgconf-2-4 libgdk-pixbuf2.0-0 libgtk-3-0 libnss3
-   ```
-
-1. [Rust](https://rustup.rs)
-
-### Build
-
-1. Clone the repo and install Node.js dependencies
-
-   ```bash
-   git clone https://github.com/unageek/graphest.git
-   cd graphest
-   npm install
-   ```
-
-1. Run the app
-
-   ```bash
-   npm start
-   ```
+## [Building from Source](docs/build.md)
 
 ## Algorithm
 
