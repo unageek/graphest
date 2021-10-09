@@ -95,6 +95,7 @@ function createMainMenu(): Menu {
     ...(isMac ? [{ role: "appMenu" }] : []),
     {
       role: "fileMenu",
+      label: "&File",
       submenu: [
         // The Close menu is required for closing the about panel.
         { role: "close" },
@@ -102,13 +103,13 @@ function createMainMenu(): Menu {
         ...(isMac ? [] : [{ role: "quit" }]),
       ],
     },
-    { role: "editMenu" },
+    { role: "editMenu", label: "&Edit" },
     {
-      label: "Graph",
+      label: "&Graph",
       submenu: [
         {
           id: MenuItem.ShowAxes,
-          label: "Show Axes",
+          label: "Show &Axes",
           accelerator: "Alt+CmdOrCtrl+A",
           type: "checkbox",
           checked: true,
@@ -121,7 +122,7 @@ function createMainMenu(): Menu {
         },
         {
           id: MenuItem.ShowGrid,
-          label: "Show Grid",
+          label: "Show &Grid",
           accelerator: "Alt+CmdOrCtrl+G",
           type: "checkbox",
           checked: true,
@@ -139,7 +140,7 @@ function createMainMenu(): Menu {
           ? [
               {
                 id: MenuItem.HighResolution,
-                label: "High Resolution",
+                label: "&High Resolution",
                 type: "checkbox",
                 click: () => {
                   mainWindow?.webContents.send<ipc.MenuItemInvoked>(
@@ -155,7 +156,7 @@ function createMainMenu(): Menu {
         },
         {
           id: MenuItem.AbortGraphing,
-          label: "Abort Graphing",
+          label: "A&bort Graphing",
           accelerator: "Esc",
           click: () => {
             abortJobs();
@@ -165,22 +166,23 @@ function createMainMenu(): Menu {
     },
     {
       role: "windowMenu",
+      label: "&Window",
       submenu: [
         ...(isMac ? [{ role: "minimize" }, { role: "zoom" }] : []),
-        // On macOS, it seems common to place the Full Screen menu under the Window menu
+        // On macOS, it seems common to place the Toggle Full Screen menu under the Window menu
         // if there is nothing else to be placed under the View menu.
-        { role: "togglefullscreen" },
+        { role: "togglefullscreen", label: "Toggle &Full Screen" },
         { type: "separator" },
         ...(isMac ? [{ role: "front" }] : []),
       ],
     },
     {
       role: "help",
+      label: "&Help",
       submenu: [
-        ...(isMac ? [] : [{ role: "about" }]),
-        { type: "separator" },
         {
-          label: "Graphest Help",
+          label: "Graphest &Help",
+          accelerator: isMac ? "" : "F1",
           click: async () => {
             await shell.openExternal(
               "https://github.com/unageek/graphest/blob/master/docs/guide/README.adoc"
@@ -198,6 +200,8 @@ function createMainMenu(): Menu {
         },
         { type: "separator" },
         { role: "toggleDevTools" },
+        { type: "separator" },
+        ...(isMac ? [] : [{ role: "about" }]),
       ],
     },
   ] as MenuItemConstructorOptions[]);
