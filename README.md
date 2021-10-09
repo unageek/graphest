@@ -43,14 +43,41 @@ You can try messing around with [example relations](Examples.md).
 
 #### Windows
 
-1. [Ubuntu on WSL](https://www.microsoft.com/store/productId/9NBLGGH4MSV6)
+1. [Install Chocolatey](https://chocolatey.org/install)
 
-1. Either:
+1. Open PowerShell as Administrator, and install Node.js and MSYS2
 
-   - A X11 server such as [VcXsrv](https://sourceforge.net/projects/vcxsrv/) or [Xming](https://sourceforge.net/projects/xming/)
-   - [WSLg](https://github.com/microsoft/wslg#installing-wslg)
+   ```ps
+   choco install msys2 nodejs
+   ```
 
-1. Everything listed in [Ubuntu](#ubuntu) section, installed on WSL
+   Add the following directories to PATH:
+
+   ```
+   C:\tools\msys64\usr\bin
+   C:\tools\msys64\mingw64\bin
+   ```
+
+1. Install build tools
+
+   ```ps
+   pacman -S pacman-mirrors
+   pacman -S cmake diffutils git m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
+   ```
+
+1. [Install Rust](https://rustup.rs)
+
+   Set `x86_64-pc-windows-gnu` as the default host either on installation:
+
+   ```ps
+   .\rustup-init --default-host x86_64-pc-windows-gnu
+   ```
+
+   or after installation:
+
+   ```ps
+   rustup set default-host x86_64-pc-windows-gnu
+   ```
 
 #### Ubuntu
 
