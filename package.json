@@ -33,7 +33,7 @@
     "cross-env": "^7.0.3",
     "css-loader": "^6.4.0",
     "electron": "^14.1.0",
-    "electron-builder": "~22.10.5",
+    "electron-builder": "~22.13.1",
     "electron-notarize": "^1.1.1",
     "electron-updater": "^4.3.9",
     "eslint": "^7.32.0",
