@@ -52,7 +52,7 @@
   "dependencies": {
     "@fluentui/react": "^8.36.0",
     "@fontsource/noto-sans": "^4.5.1",
-    "@reduxjs/toolkit": "^1.6.1",
+    "@reduxjs/toolkit": "^1.6.2",
     "bignumber.js": "^9.0.1",
     "color": "^4.0.1",
     "leaflet": "^1.7.1",
