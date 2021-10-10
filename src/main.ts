@@ -33,12 +33,15 @@ const fsPromises = fs.promises;
 //        +----------+        +--+----+--+        +----------+
 //                               | Λ  |
 //                               | |  +--------------+
-//                       SIGSTOP | | SIGCONT         | SIGKILL
+//                      Pause *1 | | Resume *2       | SIGKILL
 //                               V |                 V
 //                            +----+-----+        +----------+
 //                            | Sleeping +------->| Aborted  |
 //                            +----------+  SIG-  +----------+
 //                                          KILL
+//
+// *1. `graph` pauses execution right after initialization and every time it finishes writing the output image.
+// *2. `graph` resumes execution when a newline character is written to its stdin.
 
 /** The maximum number of running (both active and sleeping) jobs. */
 const MAX_JOBS = 32;
