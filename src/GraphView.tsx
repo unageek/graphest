@@ -84,7 +84,6 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
 
       map
         .on("move", updateMaxZoom)
-        .on("moveend", snapToPixels)
         .on("zoom", updateMaxBounds);
 
       const resizeObserver = new window.ResizeObserver(() => {
@@ -109,27 +108,6 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         map?.setMaxZoom(z).setView([0, 0], z);
         updateMaxBounds();
         updateMaxZoom();
-      }
-
-      // Workaround for the issue that the map becomes blurry while/after panning.
-      // https://github.com/Leaflet/Leaflet/issues/6069
-      function snapToPixels() {
-        if (map === undefined) return;
-        map.off("moveend", snapToPixels);
-        const x = map.getCenter().lat;
-        const y = map.getCenter().lng;
-        const z = map.getZoom();
-        // We need to pan by more than a pixel; otherwise, `setView` does not actually pan the map.
-        const TEMP_SHIFT = 2;
-        const newXTemp = (x * 2 ** z + TEMP_SHIFT) * 2 ** -z;
-        const newYTemp = (y * 2 ** z + TEMP_SHIFT) * 2 ** -z;
-        const newX = Math.round(x * 2 ** z) * 2 ** -z;
-        const newY = Math.round(y * 2 ** z) * 2 ** -z;
-        if (newX !== x || newY !== y) {
-          map.setView([newXTemp, newYTemp], z);
-          map.setView([newX, newY], z, { animate: false });
-        }
-        map.on("moveend", snapToPixels);
       }
 
       function updateMaxBounds() {
