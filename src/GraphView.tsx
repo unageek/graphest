@@ -82,9 +82,13 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     useEffect(() => {
       if (map === undefined) return;
 
+      // We first need to set the view before calling `map.getCenter()`, `getZoom()`, etc.
+      resetView();
+
       map
         .on("move", updateMaxZoom)
-        .on("zoom", updateMaxBounds);
+        .on("zoom", updateMaxBounds)
+        .on("zoomstart", onZoomStart);
 
       const resizeObserver = new window.ResizeObserver(() => {
         map.invalidateSize();
@@ -101,7 +105,19 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         document.getElementById("reset-view-button")
       );
 
-      resetView();
+      function onZoomStart() {
+        if (map === undefined) return;
+        // Workaround for an issue that the zoom animation does not occur when the map is centered.
+        // This seems to happen when both of the levels from and to which the map is zoomed are ≥ 129.
+        // Leaflet apparently has nothing to do with this condition,
+        // so this could be due to a Chromium's behavior.
+        const center = map.getCenter();
+        if (center.lat === 0 && center.lng === 0) {
+          // Displace the map by a pixel. `map.panBy()` rounds the offset,
+          // so we cannot pan by less than a pixel.
+          map.panBy(new L.Point(1, 1), { animate: false });
+        }
+      }
 
       function resetView() {
         const z = BASE_ZOOM_LEVEL - 2;
