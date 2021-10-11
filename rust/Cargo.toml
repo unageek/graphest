@@ -1,6 +1,6 @@
 [package]
 name = "graphest"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Masashi Mizuno"]
 edition = "2018"
 repository = "https://github.com/unageek/graphest"
