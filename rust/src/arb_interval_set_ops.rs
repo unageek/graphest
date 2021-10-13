@@ -727,6 +727,25 @@ impl TupperIntervalSet {
         }
     });
 
+    pub fn gamma(&self, site: Option<Site>) -> Self {
+        if self.iter().all(|x| {
+            let a = x.x.inf();
+            let b = x.x.sup();
+            b < 0.0 && a.ceil() > b.floor() || a > 0.0 && b < f64::INFINITY
+        }) {
+            let mut rs = Self::new();
+            for x in self {
+                let dec = Decoration::Com.min(x.d);
+                let z = arb_gamma(x.x);
+                rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), x.g));
+            }
+            rs.normalize(false);
+            rs
+        } else {
+            self.gamma_impl(site)
+        }
+    }
+
     impl_arb_op!(
         gamma_inc(s, x),
         if s.inf() % 2.0 == 1.0 {
@@ -1137,6 +1156,11 @@ arb_fn!(
     arb_fresnel_s(x),
     arb_hypgeom_fresnel(x, null(), x, 1, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.7139722140219397, 0.7139722140219397) // [S(-√2), S(√2)]
+);
+arb_fn!(
+    arb_gamma(x),
+    arb_gamma(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
 );
 arb_fn!(
     arb_gamma_inc(a, x),

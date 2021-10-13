@@ -295,7 +295,12 @@ impl TupperIntervalSet {
     #[cfg(not(feature = "arb"))]
     impl_op!(exp2(x), x.exp2());
 
+    #[cfg(not(feature = "arb"))]
     pub fn gamma(&self, site: Option<Site>) -> Self {
+        self.gamma_impl(site)
+    }
+
+    pub fn gamma_impl(&self, site: Option<Site>) -> Self {
         // argmin_{x > 0} Γ(x), rounded down/up.
         const ARGMIN_RD: f64 = 1.4616321449683622;
         const ARGMIN_RU: f64 = 1.4616321449683625;
@@ -1596,6 +1601,7 @@ mod tests {
         test!(f, i!(1.0), (vec![i!(1.0)], Com));
         test!(f, i!(2.0), (vec![i!(1.0)], Com));
         test!(f, i!(3.0), (vec![i!(2.0)], Com));
+        #[cfg(not(feature = "arb"))]
         test!(
             f,
             i!(30.0),
