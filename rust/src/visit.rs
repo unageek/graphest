@@ -422,8 +422,14 @@ fn cmp_terms(x: &Expr, y: &Expr) -> Ordering {
     use {BinaryOp::*, NaryOp::*};
     match (x, y) {
         (constant!(x), constant!(y)) => {
-            let x = x.0.iter().fold(f64::INFINITY, |inf, x| inf.min(x.x.inf()));
-            let y = y.0.iter().fold(f64::INFINITY, |inf, x| inf.min(x.x.inf()));
+            let x = x
+                .interval()
+                .iter()
+                .fold(f64::INFINITY, |inf, x| inf.min(x.x.inf()));
+            let y = y
+                .interval()
+                .iter()
+                .fold(f64::INFINITY, |inf, x| inf.min(x.x.inf()));
             x.partial_cmp(&y).unwrap()
         }
         (constant!(_), _) => Ordering::Less,
@@ -494,20 +500,24 @@ fn test_rational<F>(x: &Expr, f: F) -> bool
 where
     F: Fn(&Rational) -> bool,
 {
-    match x {
-        constant!((_, Some(x))) => f(x),
-        _ => panic!("`x` is not a constant node"),
+    if let constant!(x) = x {
+        if let Some(x) = x.rational() {
+            return f(x);
+        }
     }
+    panic!("`x` is not a constant node or does not contain a rational number");
 }
 
 fn test_rationals<F>(x: &Expr, y: &Expr, f: F) -> bool
 where
     F: Fn(&Rational, &Rational) -> bool,
 {
-    match (x, y) {
-        (constant!((_, Some(x))), constant!((_, Some(y)))) => f(x, y),
-        _ => panic!("`x` or `y` is not a constant node"),
+    if let (constant!(x), constant!(y)) = (x, y) {
+        if let (Some(x), Some(y)) = (x.rational(), y.rational()) {
+            return f(x, y);
+        }
     }
+    panic!("`x` or `y` is not a constant node or does not contain a rational number");
 }
 
 /// Transforms expressions into simpler/normalized forms.
@@ -523,7 +533,7 @@ impl VisitMut for Transform {
 
         match e {
             binary!(Pow, x, constant!(a)) => {
-                match a.0.to_f64() {
+                match a.to_f64() {
                     Some(a) if a == 1.0 => {
                         // (Pow x 1) → x
                         *e = take(x);
@@ -536,7 +546,7 @@ impl VisitMut for Transform {
                 let len = xs.len();
 
                 // Drop zeros.
-                xs.retain(|x| !matches!(x, constant!(a) if a.0.to_f64() == Some(0.0)));
+                xs.retain(|x| !matches!(x, constant!(a) if a.to_f64() == Some(0.0)));
 
                 transform_vec(xs, |x, y| {
                     if x == y {
@@ -585,7 +595,7 @@ impl VisitMut for Transform {
                 let len = xs.len();
 
                 // Drop ones.
-                xs.retain(|x| !matches!(x, constant!(a) if a.0.to_f64() == Some(1.0)));
+                xs.retain(|x| !matches!(x, constant!(a) if a.to_f64() == Some(1.0)));
 
                 // TODO: Apply the law of exponents while preserving the domain of the expression
                 // by introducing a construct like `UnaryOp::UndefAt0` but more generalized.
@@ -656,8 +666,8 @@ impl VisitMut for FoldConstant {
                     self.modified = transform_vec(xs, |x, y| {
                         if let (x @ constant!(_), y @ constant!(_)) = (x, y) {
                             let e = Expr::binary(bin_op, box take(x), box take(y));
-                            let (a, ar) = e.eval().unwrap();
-                            Some(Expr::constant(a, ar))
+                            let a = e.eval().unwrap();
+                            Some(Expr::constant(a))
                         } else {
                             None
                         }
@@ -665,11 +675,11 @@ impl VisitMut for FoldConstant {
                 }
             }
             _ => {
-                if let Some((x, xr)) = e.eval() {
+                if let Some(x) = e.eval() {
                     // Only fold constants which evaluate to the empty or a single interval
                     // since the branch cut tracking is not possible with the AST.
-                    if x.len() <= 1 {
-                        *e = Expr::constant(x, xr);
+                    if x.interval().len() <= 1 {
+                        *e = Expr::constant(x);
                         self.modified = true;
                     }
                 }
@@ -694,7 +704,7 @@ impl VisitMut for SubDivTransform {
                         .fold((vec![], vec![]), |(mut lhs, mut rhs), mut e| {
                             match e {
                                 nary!(Times, ref mut xs) => match &xs[..] {
-                                    [constant!((a, _)), ..] if a.to_f64() == Some(-1.0) => {
+                                    [constant!(a), ..] if a.to_f64() == Some(-1.0) => {
                                         rhs.push(Expr::nary(Times, xs.drain(1..).collect()));
                                     }
                                     _ => lhs.push(e),
@@ -723,12 +733,8 @@ impl VisitMut for SubDivTransform {
                             binary!(Pow, x, y @ constant!(_))
                                 if test_rational(&y, |x| *x < 0.0) =>
                             {
-                                if let constant!((yi, Some(yr))) = y {
-                                    let factor = Expr::binary(
-                                        Pow,
-                                        box x,
-                                        box Expr::constant(-&yi, Some((-&yr).into())),
-                                    );
+                                if let constant!(y) = y {
+                                    let factor = Expr::binary(Pow, box x, box Expr::constant(-y));
                                     den.push(factor)
                                 } else {
                                     panic!()
@@ -765,7 +771,7 @@ impl VisitMut for PostTransform {
 
         match e {
             binary!(Pow, constant!(a), y) => {
-                match a.0.to_f64() {
+                match a.to_f64() {
                     Some(a) if a == 2.0 => {
                         // (Pow 2 x) → (Exp2 x)
                         *e = Expr::unary(Exp2, box take(y));
@@ -778,7 +784,7 @@ impl VisitMut for PostTransform {
                 }
             }
             binary!(Pow, x, constant!(a)) => {
-                if let Some(a) = &a.1 {
+                if let Some(a) = a.rational() {
                     if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
                         let root = match d {
                             1 => take(x),
@@ -809,7 +815,7 @@ impl VisitMut for PostTransform {
                 let first = it.next().unwrap();
                 let second = it.next().unwrap();
                 let init = match first {
-                    constant!(a) if a.0.to_f64() == Some(-1.0) => Expr::unary(Neg, box second),
+                    constant!(a) if a.to_f64() == Some(-1.0) => Expr::unary(Neg, box second),
                     _ => Expr::binary(BinaryOp::Mul, box first, box second),
                 };
                 *e = it.fold(init, |e, x| Expr::binary(BinaryOp::Mul, box e, box x))
@@ -946,7 +952,7 @@ impl CollectStatic {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
         for t in self.exprs.iter().copied() {
             let k = match &*t {
-                constant!(x) => Some(StaticTermKind::Constant(box x.0.clone())),
+                constant!(x) => Some(StaticTermKind::Constant(box x.interval().clone())),
                 var!(x) if x == "x" => Some(StaticTermKind::X),
                 var!(x) if x == "y" => Some(StaticTermKind::Y),
                 var!(x) if x == "<n-theta>" => Some(StaticTermKind::NTheta),
