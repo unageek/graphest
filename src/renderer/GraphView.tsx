@@ -7,7 +7,7 @@ import * as React from "react";
 import { forwardRef, useEffect, useState } from "react";
 import * as ReactDOM from "react-dom";
 import { useStore } from "react-redux";
-import { BASE_ZOOM_LEVEL } from "../common/constants";
+import { INITIAL_ZOOM_LEVEL } from "../common/constants";
 import { GraphLayer } from "./GraphLayer";
 import { AxesLayer, GridLayer } from "./GridLayer";
 import { useSelector } from "./models/app";
@@ -119,7 +119,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       }
 
       function resetView() {
-        const z = BASE_ZOOM_LEVEL - 2;
+        const z = INITIAL_ZOOM_LEVEL;
         map?.setMaxZoom(z).setView([0, 0], z);
         updateMaxBounds();
         updateMaxZoom();

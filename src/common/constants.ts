@@ -1,7 +1,12 @@
 /**
- * The level where the graph tile size corresponds to a unit coordinate.
+ * The zoom level where the width/height of graph tiles correspond to unit length in real coordinates.
  */
 export const BASE_ZOOM_LEVEL = 512;
+
+/**
+ * The zoom level in which the graph is initially shown.
+ */
+export const INITIAL_ZOOM_LEVEL = BASE_ZOOM_LEVEL - 2;
 
 /**
  * The width/height of graph tiles in pixels.
