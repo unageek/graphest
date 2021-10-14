@@ -1,19 +1,18 @@
-import "@fontsource/noto-sans/400.css";
-import "./App.css";
-
 import { initializeIcons } from "@fluentui/font-icons-mdl2";
 import { Stack, ThemeProvider, useTheme } from "@fluentui/react";
+import "@fontsource/noto-sans/400.css";
 import * as React from "react";
 import { useRef } from "react";
 import * as ReactDOM from "react-dom";
 import { Provider } from "react-redux";
+import * as ipc from "../common/ipc";
+import { MenuItem } from "../common/MenuItem";
+import "./App.css";
 import { GraphBars } from "./GraphBars";
 import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
-import { store } from "./models/store";
-import * as ipc from "./ipc";
-import { MenuItem } from "./MenuItem";
 import { setHighRes, setShowAxes, setShowGrid } from "./models/app";
+import { store } from "./models/store";
 
 const App = () => {
   const graphViewRef = useRef<HTMLDivElement | null>(null);

@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import * as ipc from "./ipc";
+import * as ipc from "../common/ipc";
 
 export interface RelationInputActions {
   insertSymbol: (symbol: string) => void;

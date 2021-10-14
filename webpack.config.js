@@ -4,21 +4,31 @@ const path = require("path");
 const process = require("process");
 
 function baseConfig() {
-  switch (process.env.NODE_ENV) {
-    case "development":
-      return {
-        devtool: "cheap-source-map",
-        mode: "development",
-        stats: "errors-warnings",
-      };
-    case "production":
-      return {
-        mode: "production",
-        stats: "errors-warnings",
-      };
-    default:
-      throw new Error("specify NODE_ENV={development|production}");
-  }
+  return {
+    ...(() => {
+      switch (process.env.NODE_ENV) {
+        case "development":
+          return {
+            devtool: "cheap-source-map",
+            mode: "development",
+            stats: "errors-warnings",
+          };
+        case "production":
+          return {
+            mode: "production",
+            stats: "errors-warnings",
+          };
+        default:
+          throw new Error(
+            "set either NODE_ENV=development or NODE_ENV=production"
+          );
+      }
+    })(),
+    output: {
+      path: path.resolve(__dirname, "dist"),
+      filename: "[name].js",
+    },
+  };
 }
 
 const tsLoaderRule = {
@@ -41,13 +51,9 @@ function mainConfig() {
   return {
     ...baseConfig(),
     target: "electron-main",
-    entry: "./src/main.ts",
+    entry: "./src/main/main.ts",
     module: {
       rules: [tsLoaderRule],
-    },
-    output: {
-      path: path.join(__dirname, "dist"),
-      filename: "main.js",
     },
     plugins,
   };
@@ -57,13 +63,9 @@ function preloadConfig() {
   return {
     ...baseConfig(),
     target: "electron-preload",
-    entry: "./src/preload.ts",
+    entry: { preload: "./src/renderer/preload.ts" },
     module: {
       rules: [tsLoaderRule],
-    },
-    output: {
-      path: path.join(__dirname, "dist"),
-      filename: "preload.js",
     },
     plugins,
   };
@@ -73,9 +75,7 @@ function rendererConfig() {
   return {
     ...baseConfig(),
     target: "electron-renderer",
-    entry: {
-      bundle: "./src/App.tsx",
-    },
+    entry: { bundle: "./src/renderer/App.tsx" },
     module: {
       rules: [
         {
@@ -95,14 +95,10 @@ function rendererConfig() {
         },
       ],
     },
-    output: {
-      path: path.join(__dirname, "dist"),
-      filename: "[name].js",
-    },
     plugins: [
       ...plugins,
       new HtmlWebpackPlugin({
-        template: "./src/index.html",
+        template: "./src/renderer/index.html",
       }),
     ],
   };

@@ -8,7 +8,7 @@
     "strict": true,
     // https://kangax.github.io/compat-table/es2016plus/
     // Run `console.log(process.versions)` in the main process to check the versions of Node.js and Chromium.
-    "target": "ES2020",
-    "typeRoots": ["node_modules/@types"]
-  }
+    "target": "ES2020"
+  },
+  "include": ["./src/**/*"]
 }

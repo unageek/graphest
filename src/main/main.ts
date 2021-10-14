@@ -14,15 +14,15 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { pathToFileURL } from "url";
-import { bignum } from "./BigNumber";
+import { bignum } from "../common/BigNumber";
 import {
   BASE_ZOOM_LEVEL,
   EXTENDED_GRAPH_TILE_SIZE,
   GRAPH_TILE_EXTENSION,
   GRAPH_TILE_SIZE,
-} from "./constants";
-import * as ipc from "./ipc";
-import { MenuItem } from "./MenuItem";
+} from "../common/constants";
+import * as ipc from "../common/ipc";
+import { MenuItem } from "../common/MenuItem";
 
 const fsPromises = fs.promises;
 

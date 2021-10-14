@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import * as ipc from "./ipc";
+import * as ipc from "../common/ipc";
 
 const safeIpcRenderer: ipc.IpcRenderer = {
   invoke<T extends ipc.MessageToMain>(

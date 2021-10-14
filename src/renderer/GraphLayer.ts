@@ -1,7 +1,7 @@
 import { Unsubscribe } from "@reduxjs/toolkit";
 import * as L from "leaflet";
-import { EXTENDED_GRAPH_TILE_SIZE, GRAPH_TILE_SIZE } from "./constants";
-import * as ipc from "./ipc";
+import { EXTENDED_GRAPH_TILE_SIZE, GRAPH_TILE_SIZE } from "../common/constants";
+import * as ipc from "../common/ipc";
 import { Graph, setGraphIsProcessing } from "./models/graph";
 import { Store } from "./models/store";
 

@@ -1,26 +1,18 @@
-import * as ipc from "../ipc";
-
 declare module "electron" {
   interface IpcMain {
-    handle<T extends ipc.MessageToMain>(
+    handle<T extends import("../common/ipc").MessageToMain>(
       channel: T["channel"],
       listener: (
-        event: IpcMainInvokeEvent,
+        event: import("electron").IpcMainInvokeEvent,
         ...args: T["args"]
       ) => Promise<T["result"]>
     ): void;
   }
 
   interface WebContents {
-    send<T extends ipc.MessageToRenderer>(
+    send<T extends import("../common/ipc").MessageToRenderer>(
       channel: T["channel"],
       ...args: T["args"]
     ): void;
-  }
-}
-
-declare global {
-  interface Window {
-    ipcRenderer: ipc.IpcRenderer;
   }
 }

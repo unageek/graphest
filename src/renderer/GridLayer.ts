@@ -1,6 +1,6 @@
 import * as L from "leaflet";
-import { bignum, BigNumber } from "./BigNumber";
-import { BASE_ZOOM_LEVEL } from "./constants";
+import { bignum, BigNumber } from "../common/BigNumber";
+import { BASE_ZOOM_LEVEL } from "../common/constants";
 
 BigNumber.config({
   EXPONENTIAL_AT: 5,
