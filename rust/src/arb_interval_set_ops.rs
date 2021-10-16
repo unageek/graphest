@@ -736,8 +736,8 @@ impl TupperIntervalSet {
             let mut rs = Self::new();
             for x in self {
                 let dec = Decoration::Com.min(x.d);
-                let z = arb_gamma(x.x);
-                rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), x.g));
+                let y = arb_gamma(x.x);
+                rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
             }
             rs.normalize(false);
             rs
@@ -939,8 +939,8 @@ impl TupperIntervalSet {
             let mut rs = Self::new();
             for x in self {
                 let dec = Decoration::Dac.min(x.d);
-                let z = arb_tan(x.x);
-                rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), x.g));
+                let y = arb_tan(x.x);
+                rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
             }
             rs.normalize(false);
             rs
@@ -1224,9 +1224,12 @@ arb_fn!(
 );
 
 // Envelope functions
+
 fn hypot(x: Interval, y: Interval) -> Interval {
     (x.sqr() + y.sqr()).sqrt()
 }
+
+/// Returns √[Ai(x)^2 + Bi(x)^2].
 fn airy_envelope(x: Interval) -> Interval {
     let b = x.sup();
     let env = if b == f64::INFINITY {
@@ -1237,12 +1240,18 @@ fn airy_envelope(x: Interval) -> Interval {
     };
     interval!(-env, env).unwrap()
 }
+
+/// Returns √[J_n(x)^2 + Y_n(x)^2].
 fn bessel_envelope(n: Interval, x: Interval) -> Interval {
     let a = x.abs().inf();
     let a = interval!(a, a).unwrap();
     let env = hypot(arb_bessel_j(n, a), arb_bessel_y(n, a)).sup();
     interval!(-env, env).unwrap()
 }
+
+/// Returns √[Ci(x)^2 + si(x)^2], where si(x) = Si(x) - π/2.
+///
+/// Panics if `x.inf() < 0.0`.
 fn ci_envelope(x: Interval) -> Interval {
     let a = x.inf();
     assert!(a >= 0.0);
@@ -1250,6 +1259,10 @@ fn ci_envelope(x: Interval) -> Interval {
     let env = hypot(arb_ci(a), arb_si(a) - Interval::FRAC_PI_2).sup();
     interval!(-env, env).unwrap()
 }
+
+/// Returns √[(C(x) - 1/2)^2 + (S(x) - 1/2)^2].
+///
+/// Panics if `x.inf() < 0.0`.
 fn fresnel_envelope_centered(x: Interval) -> Interval {
     let a = x.inf();
     assert!(a >= 0.0);
