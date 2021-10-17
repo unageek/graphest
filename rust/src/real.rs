@@ -29,6 +29,13 @@ impl Real {
     }
 }
 
+impl Real {
+    pub fn new(x: TupperIntervalSet, q: Option<Rational>) -> Self {
+        let q = q.or_else(|| x.to_f64().and_then(Rational::from_f64));
+        Self { x, q }
+    }
+}
+
 macro_rules! impl_op {
     ($op:ident($x:ident)) => {
         impl_op!($op($x), $x.$op());
@@ -40,8 +47,7 @@ macro_rules! impl_op {
                 let $x = self.x;
                 $y
             };
-            let y_q = y.to_f64().and_then(Rational::from_f64);
-            Self::new(y, y_q)
+            Self::new(y, None)
         }
     };
 
@@ -74,8 +80,7 @@ macro_rules! impl_op {
                 let $y = rhs.x;
                 $z
             };
-            let z_q = z.to_f64().and_then(Rational::from_f64);
-            Self::new(z, z_q)
+            Self::new(z, None)
         }
     };
 
@@ -98,10 +103,6 @@ macro_rules! impl_op {
 }
 
 impl Real {
-    pub fn new(x: TupperIntervalSet, q: Option<Rational>) -> Self {
-        Self { x, q }
-    }
-
     impl_op!(abs(x), x.abs(), Some(x.abs()));
     impl_op!(acos(x));
     impl_op!(acosh(x));
@@ -153,14 +154,12 @@ impl Real {
 
     pub fn ranked_max(xs: Vec<Real>, n: Real) -> Self {
         let y = TupperIntervalSet::ranked_max(xs.iter().map(|x| &x.x).collect(), &n.x, None);
-        let y_q = y.to_f64().and_then(Rational::from_f64);
-        Self::new(y, y_q)
+        Self::new(y, None)
     }
 
     pub fn ranked_min(xs: Vec<Real>, n: Real) -> Self {
         let y = TupperIntervalSet::ranked_min(xs.iter().map(|x| &x.x).collect(), &n.x, None);
-        let y_q = y.to_f64().and_then(Rational::from_f64);
-        Self::new(y, y_q)
+        Self::new(y, None)
     }
 
     impl_op!(
@@ -171,8 +170,7 @@ impl Real {
 
     pub fn rootn(self, n: u32) -> Self {
         let y = self.x.rootn(n);
-        let y_q = y.to_f64().and_then(Rational::from_f64);
-        Self::new(y, y_q)
+        Self::new(y, None)
     }
 
     impl_op!(shi(x));
@@ -225,5 +223,21 @@ impl Div for Real {
 
     fn div(self, rhs: Self) -> Self::Output {
         self.div(rhs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use inari::const_dec_interval;
+
+    use super::*;
+
+    #[test]
+    fn real() {
+        let x = Real::new(const_dec_interval!(1.5, 1.5).into(), None);
+        assert_eq!(*x.rational(), Some((3, 2).into()));
+
+        let x = Real::new(DecInterval::PI.into(), None);
+        assert_eq!(*x.rational(), None);
     }
 }
