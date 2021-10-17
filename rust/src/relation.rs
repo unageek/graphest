@@ -626,13 +626,7 @@ fn expand_polar_coords(e: &mut Expr) {
             Plus,
             vec![
                 Expr::binary(Atan2, box Expr::var("y"), box Expr::var("x")),
-                Expr::nary(
-                    Times,
-                    vec![
-                        Expr::constant(DecInterval::TAU.into(), None),
-                        Expr::var("<n-theta>"),
-                    ],
-                ),
+                Expr::nary(Times, vec![Expr::tau(), Expr::var("<n-theta>")]),
             ],
         )),
         _ => None,
@@ -670,7 +664,7 @@ fn expand_polar_coords(e: &mut Expr) {
                 Expr::nary(
                     Times,
                     vec![
-                        Expr::constant(DecInterval::TAU.into(), None),
+                        Expr::tau(),
                         Expr::nary(Plus, vec![Expr::one_half(), Expr::var("<n-theta>")]),
                     ],
                 ),
@@ -712,7 +706,7 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                         [constant!(_), nary!(Times, xs)] => match &xs[..] {
                             [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                                 // op(b + a θ)
-                                if let Some(a) = &a.1 {
+                                if let Some(a) = a.rational() {
                                     let p = a.denom().clone();
                                     if *op == Tan && p.is_divisible_u(2) {
                                         Some(p.div_exact_u(2))
@@ -730,7 +724,7 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                     nary!(Times, xs) => match &xs[..] {
                         [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                             // op(a θ)
-                            if let Some(a) = &a.1 {
+                            if let Some(a) = a.rational() {
                                 let p = a.denom().clone();
                                 if *op == Tan && p.is_divisible_u(2) {
                                     Some(p.div_exact_u(2))

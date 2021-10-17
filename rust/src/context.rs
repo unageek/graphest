@@ -1,6 +1,7 @@
 use crate::{
     ast::{BinaryOp, Expr, UnaryOp},
     parse::parse_expr,
+    real::Real,
     visit::{Parametrize, Substitute, VisitMut},
 };
 use inari::{const_dec_interval, DecInterval};
@@ -30,9 +31,9 @@ enum Def {
 
 impl Def {
     /// Creates a definition of a constant.
-    fn constant(x: DecInterval) -> Self {
+    fn constant(x: Real) -> Self {
         Self::Constant {
-            body: Expr::constant(x.into(), None),
+            body: Expr::constant(x),
         }
     }
 
@@ -116,11 +117,11 @@ impl Context {
 static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
     const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
     let ctx = Context::new()
-        .def("e", Def::constant(DecInterval::E))
-        .def("gamma", Def::constant(EULER_GAMMA))
-        .def("γ", Def::constant(EULER_GAMMA))
-        .def("pi", Def::constant(DecInterval::PI))
-        .def("π", Def::constant(DecInterval::PI))
+        .def("e", Def::constant(DecInterval::E.into()))
+        .def("gamma", Def::constant(EULER_GAMMA.into()))
+        .def("γ", Def::constant(EULER_GAMMA.into()))
+        .def("pi", Def::constant(DecInterval::PI.into()))
+        .def("π", Def::constant(DecInterval::PI.into()))
         .def("abs", Def::unary(UnaryOp::Abs))
         .def("acos", Def::unary(UnaryOp::Acos))
         .def("acosh", Def::unary(UnaryOp::Acosh))
