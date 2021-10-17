@@ -276,7 +276,7 @@ impl Expr {
 
     /// Creates a constant node with value -1.
     pub fn minus_one() -> Self {
-        Self::constant(Real::from(const_dec_interval!(-1.0, -1.0)))
+        Self::constant(const_dec_interval!(-1.0, -1.0).into())
     }
 
     /// Creates a new expression of kind [`ExprKind::Nary`].
@@ -286,12 +286,12 @@ impl Expr {
 
     /// Creates a constant node with value 1.
     pub fn one() -> Self {
-        Self::constant(Real::from(const_dec_interval!(1.0, 1.0)))
+        Self::constant(const_dec_interval!(1.0, 1.0).into())
     }
 
     /// Creates a constant node with value 1/2.
     pub fn one_half() -> Self {
-        Self::constant(Real::from(const_dec_interval!(0.5, 0.5)))
+        Self::constant(const_dec_interval!(0.5, 0.5).into())
     }
 
     /// Creates a new expression of kind [`ExprKind::Pown`].
@@ -306,7 +306,7 @@ impl Expr {
 
     /// Creates a constant node with value 2π.
     pub fn tau() -> Self {
-        Self::constant(Real::from(DecInterval::TAU))
+        Self::constant(DecInterval::TAU.into())
     }
 
     /// Creates a new expression of kind [`ExprKind::Ternary`].
@@ -316,7 +316,7 @@ impl Expr {
 
     /// Creates a constant node with value 2.
     pub fn two() -> Self {
-        Self::constant(Real::from(const_dec_interval!(2.0, 2.0)))
+        Self::constant(const_dec_interval!(2.0, 2.0).into())
     }
 
     /// Creates a new expression of kind [`ExprKind::Unary`].
@@ -331,7 +331,7 @@ impl Expr {
 
     /// Creates a constant node with value 0.
     pub fn zero() -> Self {
-        Self::constant(Real::from(const_dec_interval!(0.0, 0.0)))
+        Self::constant(const_dec_interval!(0.0, 0.0).into())
     }
 
     pub fn dump_structure(&self) -> impl fmt::Display + '_ {
