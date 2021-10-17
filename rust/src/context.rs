@@ -117,11 +117,11 @@ impl Context {
 static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
     const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
     let ctx = Context::new()
-        .def("e", Def::constant(Real::new(DecInterval::E.into(), None)))
-        .def("gamma", Def::constant(Real::new(EULER_GAMMA.into(), None)))
-        .def("γ", Def::constant(Real::new(EULER_GAMMA.into(), None)))
-        .def("pi", Def::constant(Real::new(DecInterval::PI.into(), None)))
-        .def("π", Def::constant(Real::new(DecInterval::PI.into(), None)))
+        .def("e", Def::constant(Real::from(DecInterval::E)))
+        .def("gamma", Def::constant(Real::from(EULER_GAMMA)))
+        .def("γ", Def::constant(Real::from(EULER_GAMMA)))
+        .def("pi", Def::constant(Real::from(DecInterval::PI)))
+        .def("π", Def::constant(Real::from(DecInterval::PI)))
         .def("abs", Def::unary(UnaryOp::Abs))
         .def("acos", Def::unary(UnaryOp::Acos))
         .def("acosh", Def::unary(UnaryOp::Acosh))

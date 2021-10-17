@@ -1,7 +1,6 @@
 use crate::{
     ast::{Expr, NaryOp},
     context::{Context, InputWithContext},
-    interval_set::TupperIntervalSet,
     real::Real,
 };
 use inari::dec_interval;
@@ -78,9 +77,12 @@ fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
 fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
     map(decimal_literal, |s| {
         let interval_lit = ["[", s, "]"].concat();
-        let x = TupperIntervalSet::from(dec_interval!(&interval_lit).unwrap());
-        let x_q = parse_decimal(s);
-        Expr::constant(Real::new(x, x_q))
+        let x = if let Some(x_q) = parse_decimal(s) {
+            Real::from(x_q)
+        } else {
+            Real::from(dec_interval!(&interval_lit).unwrap())
+        };
+        Expr::constant(x)
     })(i)
 }
 

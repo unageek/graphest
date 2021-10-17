@@ -19,8 +19,8 @@ impl Real {
     }
 
     /// Returns the value as [`Rational`] if the representation is exact.
-    pub fn rational(&self) -> &Option<Rational> {
-        &self.q
+    pub fn rational(&self) -> Option<&Rational> {
+        self.q.as_ref()
     }
 
     /// Returns the value as [`f64`] if the representation is exact.
@@ -29,9 +29,28 @@ impl Real {
     }
 }
 
-impl Real {
-    pub fn new(x: TupperIntervalSet, q: Option<Rational>) -> Self {
-        let q = q.or_else(|| x.to_f64().and_then(Rational::from_f64));
+impl From<DecInterval> for Real {
+    fn from(x: DecInterval) -> Self {
+        let x = TupperIntervalSet::from(x);
+        Self::from(x)
+    }
+}
+
+impl From<Rational> for Real {
+    fn from(q: Rational) -> Self {
+        // Always use `Decoration::Dac` to avoid the value of `floor([0]_com)`
+        // becoming `[0]_com` instead of `[0]_dac`, for example.
+        let x = TupperIntervalSet::from(DecInterval::set_dec(
+            rational_ops::to_interval(&q),
+            Decoration::Dac,
+        ));
+        Self { x, q: Some(q) }
+    }
+}
+
+impl From<TupperIntervalSet> for Real {
+    fn from(x: TupperIntervalSet) -> Self {
+        let q = x.to_f64().and_then(Rational::from_f64);
         Self { x, q }
     }
 }
@@ -43,29 +62,20 @@ macro_rules! impl_op {
 
     ($op:ident($x:ident), $y:expr) => {
         pub fn $op(self) -> Self {
-            let y = {
-                let $x = self.x;
-                $y
-            };
-            Self::new(y, None)
+            let $x = self.x;
+            $y.into()
         }
     };
 
     ($op:ident($x:ident), $y:expr, $y_q:expr) => {
         pub fn $op(self) -> Self {
             let y_q = self.q.and_then(|$x| $y_q);
-            let y = if let Some(y_q) = &y_q {
-                // Always use `Decoration::Dac` to avoid `floor([0]_com)`
-                // being evaluated to `[0]_com` instead of `[0]_dac`, for example.
-                TupperIntervalSet::from(DecInterval::set_dec(
-                    rational_ops::to_interval(y_q),
-                    Decoration::Dac,
-                ))
+            if let Some(y_q) = y_q {
+                y_q.into()
             } else {
                 let $x = self.x;
-                $y
-            };
-            Self::new(y, y_q)
+                $y.into()
+            }
         }
     };
 
@@ -75,29 +85,22 @@ macro_rules! impl_op {
 
     ($op:ident($x:ident, $y:ident), $z:expr) => {
         pub fn $op(self, rhs: Self) -> Self {
-            let z = {
-                let $x = self.x;
-                let $y = rhs.x;
-                $z
-            };
-            Self::new(z, None)
+            let $x = self.x;
+            let $y = rhs.x;
+            $z.into()
         }
     };
 
     ($op:ident($x:ident, $y:ident), $z:expr, $z_q:expr) => {
         pub fn $op(self, rhs: Self) -> Self {
             let z_q = self.q.zip(rhs.q).and_then(|($x, $y)| $z_q);
-            let z = if let Some(z_q) = &z_q {
-                TupperIntervalSet::from(DecInterval::set_dec(
-                    rational_ops::to_interval(z_q),
-                    Decoration::Dac,
-                ))
+            if let Some(z_q) = z_q {
+                z_q.into()
             } else {
                 let $x = self.x;
                 let $y = rhs.x;
-                $z
-            };
-            Self::new(z, z_q)
+                $z.into()
+            }
         }
     };
 }
@@ -153,13 +156,11 @@ impl Real {
     impl_op!(pow(x, y), x.pow(&y, None), rational_ops::pow(x, y));
 
     pub fn ranked_max(xs: Vec<Real>, n: Real) -> Self {
-        let y = TupperIntervalSet::ranked_max(xs.iter().map(|x| &x.x).collect(), &n.x, None);
-        Self::new(y, None)
+        TupperIntervalSet::ranked_max(xs.iter().map(|x| &x.x).collect(), &n.x, None).into()
     }
 
     pub fn ranked_min(xs: Vec<Real>, n: Real) -> Self {
-        let y = TupperIntervalSet::ranked_min(xs.iter().map(|x| &x.x).collect(), &n.x, None);
-        Self::new(y, None)
+        TupperIntervalSet::ranked_min(xs.iter().map(|x| &x.x).collect(), &n.x, None).into()
     }
 
     impl_op!(
@@ -169,8 +170,7 @@ impl Real {
     );
 
     pub fn rootn(self, n: u32) -> Self {
-        let y = self.x.rootn(n);
-        Self::new(y, None)
+        self.x.rootn(n).into()
     }
 
     impl_op!(shi(x));
@@ -228,16 +228,30 @@ impl Div for Real {
 
 #[cfg(test)]
 mod tests {
-    use inari::const_dec_interval;
-
     use super::*;
+    use inari::{const_dec_interval, const_interval};
 
     #[test]
-    fn real() {
-        let x = Real::new(const_dec_interval!(1.5, 1.5).into(), None);
-        assert_eq!(*x.rational(), Some((3, 2).into()));
+    fn from_dec_interval() {
+        let x = Real::from(const_dec_interval!(1.5, 1.5));
+        assert_eq!(x.rational(), Some(&(3, 2).into()));
+        assert_eq!(x.to_f64(), Some(1.5));
 
-        let x = Real::new(DecInterval::PI.into(), None);
-        assert_eq!(*x.rational(), None);
+        let x = Real::from(DecInterval::PI);
+        assert_eq!(x.rational(), None);
+        assert_eq!(x.to_f64(), None);
+    }
+
+    #[test]
+    fn from_rational() {
+        let x = Real::from(Rational::from((3, 2)));
+        assert_eq!(
+            *x.interval(),
+            TupperIntervalSet::from(DecInterval::set_dec(
+                const_interval!(1.5, 1.5),
+                Decoration::Dac
+            ))
+        );
+        assert_eq!(x.to_f64(), Some(1.5));
     }
 }
