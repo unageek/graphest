@@ -468,6 +468,14 @@ impl Expr {
     pub fn value_type(&self) -> ValueType {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*, ValueType::*};
         match self {
+            // Boolean
+            unary!(Not, x) if x.ty == Boolean => Boolean,
+            binary!(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
+            binary!(
+                Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
+                x,
+                y
+            ) if x.ty == Real && y.ty == Real => Boolean,
             // Real
             constant!(_) => Real,
             var!(x) if x == "t" || x == "x" || x == "y" || x == "<n-theta>" => Real,
@@ -544,14 +552,6 @@ impl Expr {
             pown!(x, _) | rootn!(x, _) if x.ty == Real => Real,
             // RealVector
             nary!(List, xs) if xs.iter().all(|x| x.ty == Real) => RealVector,
-            // Boolean
-            unary!(Not, x) if x.ty == Boolean => Boolean,
-            binary!(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
-            binary!(
-                Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
-                x,
-                y
-            ) if x.ty == Real && y.ty == Real => Boolean,
             // Others
             uninit!() => panic!(),
             _ => Unknown,
