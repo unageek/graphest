@@ -390,120 +390,120 @@ fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> 
 
 #[cfg(test)]
 mod tests {
-    use crate::context::Context;
+    use super::*;
 
     #[test]
     fn parse_expr() {
-        test_parse_expr("e", "@");
-        test_parse_expr("gamma", "@");
-        test_parse_expr("γ", "@");
-        test_parse_expr("pi", "@");
-        test_parse_expr("π", "@");
-        test_parse_expr("[x, y, z]", "(List x y z)");
-        test_parse_expr("|x|", "(Abs x)");
-        test_parse_expr("|(|x| + y)|", "(Abs (Add (Abs x) y))");
-        test_parse_expr("⌈x⌉", "(Ceil x)");
-        test_parse_expr("⌊x⌋", "(Floor x)");
-        test_parse_expr("abs(x)", "(Abs x)");
-        test_parse_expr("acos(x)", "(Acos x)");
-        test_parse_expr("acosh(x)", "(Acosh x)");
-        test_parse_expr("Ai(x)", "(AiryAi x)");
-        test_parse_expr("Ai'(x)", "(AiryAiPrime x)");
-        test_parse_expr("Bi(x)", "(AiryBi x)");
-        test_parse_expr("Bi'(x)", "(AiryBiPrime x)");
-        test_parse_expr("asin(x)", "(Asin x)");
-        test_parse_expr("asinh(x)", "(Asinh x)");
-        test_parse_expr("atan(x)", "(Atan x)");
-        test_parse_expr("atanh(x)", "(Atanh x)");
-        test_parse_expr("ceil(x)", "(Ceil x)");
-        test_parse_expr("Chi(x)", "(Chi x)");
-        test_parse_expr("Ci(x)", "(Ci x)");
-        test_parse_expr("cos(x)", "(Cos x)");
-        test_parse_expr("cosh(x)", "(Cosh x)");
-        test_parse_expr("psi(x)", "(Digamma x)");
-        test_parse_expr("ψ(x)", "(Digamma x)");
-        test_parse_expr("Ei(x)", "(Ei x)");
-        test_parse_expr("E(x)", "(EllipticE x)");
-        test_parse_expr("K(x)", "(EllipticK x)");
-        test_parse_expr("erf(x)", "(Erf x)");
-        test_parse_expr("erfc(x)", "(Erfc x)");
-        test_parse_expr("erfi(x)", "(Erfi x)");
-        test_parse_expr("exp(x)", "(Exp x)");
-        test_parse_expr("floor(x)", "(Floor x)");
-        test_parse_expr("C(x)", "(FresnelC x)");
-        test_parse_expr("S(x)", "(FresnelS x)");
-        test_parse_expr("Gamma(x)", "(Gamma x)");
-        test_parse_expr("Γ(x)", "(Gamma x)");
-        test_parse_expr("li(x)", "(Li x)");
-        test_parse_expr("ln(x)", "(Ln x)");
-        test_parse_expr("log(x)", "(Log10 x)");
-        test_parse_expr("Shi(x)", "(Shi x)");
-        test_parse_expr("Si(x)", "(Si x)");
-        test_parse_expr("sin(x)", "(Sin x)");
-        test_parse_expr("sinh(x)", "(Sinh x)");
-        test_parse_expr("sqrt(x)", "(Sqrt x)");
-        test_parse_expr("tan(x)", "(Tan x)");
-        test_parse_expr("tanh(x)", "(Tanh x)");
-        test_parse_expr("atan2(y, x)", "(Atan2 y x)");
-        test_parse_expr("I(n, x)", "(BesselI n x)");
-        test_parse_expr("J(n, x)", "(BesselJ n x)");
-        test_parse_expr("K(n, x)", "(BesselK n x)");
-        test_parse_expr("Y(n, x)", "(BesselY n x)");
-        test_parse_expr("Gamma(a, x)", "(GammaInc a x)");
-        test_parse_expr("Γ(a, x)", "(GammaInc a x)");
-        test_parse_expr("log(b, x)", "(Log b x)");
-        test_parse_expr("mod(x, y)", "(Mod x y)");
-        test_parse_expr("gcd(x, y, z)", "(Gcd (Gcd x y) z)");
-        test_parse_expr("lcm(x, y, z)", "(Lcm (Lcm x y) z)");
-        test_parse_expr("max(x, y, z)", "(Max (Max x y) z)");
-        test_parse_expr("min(x, y, z)", "(Min (Min x y) z)");
-        test_parse_expr("ranked_max([x, y, z], k)", "(RankedMax (List x y z) k)");
-        test_parse_expr("ranked_min([x, y, z], k)", "(RankedMin (List x y z) k)");
-        test_parse_expr("x ^ y ^ z", "(Pow x (Pow y z))");
-        test_parse_expr("-x ^ -y", "(Neg (Pow x (Neg y)))");
-        test_parse_expr("+x", "x");
-        test_parse_expr("-x", "(Neg x)");
-        test_parse_expr("2x", "(Mul 2 x)");
-        test_parse_expr("x y z", "(Mul (Mul x y) z)");
-        test_parse_expr("x * y * z", "(Mul (Mul x y) z)");
-        test_parse_expr("x / y / z", "(Div (Div x y) z)");
-        test_parse_expr("x + y + z", "(Add (Add x y) z)");
-        test_parse_expr("x - y - z", "(Sub (Sub x y) z)");
-        test_parse_expr("x + y z", "(Add x (Mul y z))");
-        test_parse_expr("(x + y) z", "(Mul (Add x y) z)");
-        test_parse_expr("x = y", "(Eq x y)");
-        test_parse_expr("x >= y", "(Ge x y)");
-        test_parse_expr("x ≥ y", "(Ge x y)");
-        test_parse_expr("x > y", "(Gt x y)");
-        test_parse_expr("x <= y", "(Le x y)");
-        test_parse_expr("x ≤ y", "(Le x y)");
-        test_parse_expr("x < y", "(Lt x y)");
-        test_parse_expr("x = y = z", "(And (Eq x y) (Eq y z))");
-        test_parse_expr("!(x = y)", "(Not (Eq x y))");
-        test_parse_expr("x = y && y = z", "(And (Eq x y) (Eq y z))");
-        test_parse_expr("x = y || y = z", "(Or (Eq x y) (Eq y z))");
-        test_parse_expr(
+        fn test(input: &str, expected: &str) {
+            let f = super::parse_expr(input, Context::builtin_context()).unwrap();
+            assert_eq!(format!("{}", f.dump_structure()), expected);
+        }
+
+        test("e", "@");
+        test("gamma", "@");
+        test("γ", "@");
+        test("pi", "@");
+        test("π", "@");
+        test("[x, y, z]", "(List x y z)");
+        test("|x|", "(Abs x)");
+        test("|(|x| + y)|", "(Abs (Add (Abs x) y))");
+        test("⌈x⌉", "(Ceil x)");
+        test("⌊x⌋", "(Floor x)");
+        test("abs(x)", "(Abs x)");
+        test("acos(x)", "(Acos x)");
+        test("acosh(x)", "(Acosh x)");
+        test("Ai(x)", "(AiryAi x)");
+        test("Ai'(x)", "(AiryAiPrime x)");
+        test("Bi(x)", "(AiryBi x)");
+        test("Bi'(x)", "(AiryBiPrime x)");
+        test("asin(x)", "(Asin x)");
+        test("asinh(x)", "(Asinh x)");
+        test("atan(x)", "(Atan x)");
+        test("atanh(x)", "(Atanh x)");
+        test("ceil(x)", "(Ceil x)");
+        test("Chi(x)", "(Chi x)");
+        test("Ci(x)", "(Ci x)");
+        test("cos(x)", "(Cos x)");
+        test("cosh(x)", "(Cosh x)");
+        test("psi(x)", "(Digamma x)");
+        test("ψ(x)", "(Digamma x)");
+        test("Ei(x)", "(Ei x)");
+        test("E(x)", "(EllipticE x)");
+        test("K(x)", "(EllipticK x)");
+        test("erf(x)", "(Erf x)");
+        test("erfc(x)", "(Erfc x)");
+        test("erfi(x)", "(Erfi x)");
+        test("exp(x)", "(Exp x)");
+        test("floor(x)", "(Floor x)");
+        test("C(x)", "(FresnelC x)");
+        test("S(x)", "(FresnelS x)");
+        test("Gamma(x)", "(Gamma x)");
+        test("Γ(x)", "(Gamma x)");
+        test("li(x)", "(Li x)");
+        test("ln(x)", "(Ln x)");
+        test("log(x)", "(Log10 x)");
+        test("Shi(x)", "(Shi x)");
+        test("Si(x)", "(Si x)");
+        test("sin(x)", "(Sin x)");
+        test("sinh(x)", "(Sinh x)");
+        test("sqrt(x)", "(Sqrt x)");
+        test("tan(x)", "(Tan x)");
+        test("tanh(x)", "(Tanh x)");
+        test("atan2(y, x)", "(Atan2 y x)");
+        test("I(n, x)", "(BesselI n x)");
+        test("J(n, x)", "(BesselJ n x)");
+        test("K(n, x)", "(BesselK n x)");
+        test("Y(n, x)", "(BesselY n x)");
+        test("Gamma(a, x)", "(GammaInc a x)");
+        test("Γ(a, x)", "(GammaInc a x)");
+        test("log(b, x)", "(Log b x)");
+        test("mod(x, y)", "(Mod x y)");
+        test("gcd(x, y, z)", "(Gcd (Gcd x y) z)");
+        test("lcm(x, y, z)", "(Lcm (Lcm x y) z)");
+        test("max(x, y, z)", "(Max (Max x y) z)");
+        test("min(x, y, z)", "(Min (Min x y) z)");
+        test("ranked_max([x, y, z], k)", "(RankedMax (List x y z) k)");
+        test("ranked_min([x, y, z], k)", "(RankedMin (List x y z) k)");
+        test("x ^ y ^ z", "(Pow x (Pow y z))");
+        test("-x ^ -y", "(Neg (Pow x (Neg y)))");
+        test("+x", "x");
+        test("-x", "(Neg x)");
+        test("2x", "(Mul 2 x)");
+        test("x y z", "(Mul (Mul x y) z)");
+        test("x * y * z", "(Mul (Mul x y) z)");
+        test("x / y / z", "(Div (Div x y) z)");
+        test("x + y + z", "(Add (Add x y) z)");
+        test("x - y - z", "(Sub (Sub x y) z)");
+        test("x + y z", "(Add x (Mul y z))");
+        test("(x + y) z", "(Mul (Add x y) z)");
+        test("x = y", "(Eq x y)");
+        test("x >= y", "(Ge x y)");
+        test("x ≥ y", "(Ge x y)");
+        test("x > y", "(Gt x y)");
+        test("x <= y", "(Le x y)");
+        test("x ≤ y", "(Le x y)");
+        test("x < y", "(Lt x y)");
+        test("x = y = z", "(And (Eq x y) (Eq y z))");
+        test("!(x = y)", "(Not (Eq x y))");
+        test("x = y && y = z", "(And (Eq x y) (Eq y z))");
+        test("x = y || y = z", "(Or (Eq x y) (Eq y z))");
+        test(
             "x = y || y = z && z = x",
             "(Or (Eq x y) (And (Eq y z) (Eq z x)))",
         );
-        test_parse_expr(
+        test(
             "(x = y || y = z) && z = x",
             "(And (Or (Eq x y) (Eq y z)) (Eq z x))",
         );
 
         // TODO: Do we need this?
-        test_parse_expr(
+        test(
             "sgn(x)",
             "(Add (Floor (Min (Max x (Neg 0.5)) 0.5)) (Ceil (Min (Max x (Neg 0.5)) 0.5)))",
         );
-        test_parse_expr(
+        test(
             "sign(x)",
             "(Add (Floor (Min (Max x (Neg 0.5)) 0.5)) (Ceil (Min (Max x (Neg 0.5)) 0.5)))",
         );
-    }
-
-    fn test_parse_expr(input: &str, expected: &str) {
-        let f = super::parse_expr(input, Context::builtin_context()).unwrap();
-        assert_eq!(format!("{}", f.dump_structure()), expected);
     }
 }
