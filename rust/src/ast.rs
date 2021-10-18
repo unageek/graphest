@@ -125,9 +125,9 @@ pub enum ExprKind {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValueType {
-    Scalar,
-    Vector,
     Boolean,
+    Real,
+    RealVector,
     Unknown,
 }
 
@@ -340,7 +340,7 @@ impl Expr {
 
     /// Evaluates the expression.
     ///
-    /// Returns [`None`] if the expression cannot be evaluated to a scalar constant
+    /// Returns [`None`] if the expression cannot be evaluated to a real constant
     /// or constant evaluation is not implemented for the operation.
     pub fn eval(&self) -> Option<Real> {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
@@ -468,8 +468,9 @@ impl Expr {
     pub fn value_type(&self) -> ValueType {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*, ValueType::*};
         match self {
-            constant!(_) => Scalar,
-            var!(x) if x == "t" || x == "x" || x == "y" || x == "<n-theta>" => Scalar,
+            // Real
+            constant!(_) => Real,
+            var!(x) if x == "t" || x == "x" || x == "y" || x == "<n-theta>" => Real,
             unary!(
                 Abs | Acos
                     | Acosh
@@ -517,7 +518,7 @@ impl Expr {
                     | Tanh
                     | UndefAt0,
                 x
-            ) if x.ty == Scalar => Scalar,
+            ) if x.ty == Real => Real,
             binary!(
                 Add | Atan2
                     | BesselI
@@ -537,20 +538,21 @@ impl Expr {
                     | Sub,
                 x,
                 y
-            ) if x.ty == Scalar && y.ty == Scalar => Scalar,
-            ternary!(MulAdd, x, y, z) if x.ty == Scalar && y.ty == Scalar && z.ty == Scalar => {
-                Scalar
-            }
-            binary!(RankedMax | RankedMin, x, y) if x.ty == Vector && y.ty == Scalar => Scalar,
-            pown!(x, _) | rootn!(x, _) if x.ty == Scalar => Scalar,
-            nary!(List, xs) if xs.iter().all(|x| x.ty == Scalar) => Vector,
+            ) if x.ty == Real && y.ty == Real => Real,
+            binary!(RankedMax | RankedMin, x, y) if x.ty == RealVector && y.ty == Real => Real,
+            ternary!(MulAdd, x, y, z) if x.ty == Real && y.ty == Real && z.ty == Real => Real,
+            pown!(x, _) | rootn!(x, _) if x.ty == Real => Real,
+            // RealVector
+            nary!(List, xs) if xs.iter().all(|x| x.ty == Real) => RealVector,
+            // Boolean
             unary!(Not, x) if x.ty == Boolean => Boolean,
             binary!(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
             binary!(
                 Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
                 x,
                 y
-            ) if x.ty == Scalar && y.ty == Scalar => Boolean,
+            ) if x.ty == Real && y.ty == Real => Boolean,
+            // Others
             uninit!() => panic!(),
             _ => Unknown,
         }

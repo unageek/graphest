@@ -1209,13 +1209,13 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms {
             VarSet::EMPTY => {
                 // Stop traversal.
             }
-            VarSet::X if e.ty == ValueType::Scalar => {
+            VarSet::X if e.ty == ValueType::Real => {
                 if !matches!(e, var!(_)) {
                     self.mx.push(self.terms[self.term_index[&e.id]].store_index);
                 }
                 // Stop traversal.
             }
-            VarSet::Y if e.ty == ValueType::Scalar => {
+            VarSet::Y if e.ty == ValueType::Real => {
                 if !matches!(e, var!(_)) {
                     self.my.push(self.terms[self.term_index[&e.id]].store_index);
                 }
