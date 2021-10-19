@@ -1,6 +1,6 @@
 use crate::real::Real;
 use bitflags::*;
-use inari::{const_dec_interval, DecInterval};
+use inari::{const_dec_interval, DecInterval, Decoration};
 use std::{
     collections::hash_map::DefaultHasher,
     fmt,
@@ -153,6 +153,7 @@ bitflags! {
 pub struct Expr {
     pub id: ExprId,
     pub kind: ExprKind,
+    pub totally_defined: bool,
     pub ty: ValueType,
     pub vars: VarSet,
     internal_hash: u64,
@@ -263,6 +264,7 @@ impl Expr {
         Self {
             id: UNINIT_EXPR_ID,
             kind,
+            totally_defined: false,
             ty: ValueType::Unknown,
             vars: VarSet::EMPTY,
             internal_hash: 0,
@@ -419,18 +421,79 @@ impl Expr {
         }
     }
 
-    /// Updates [`Expr::ty`], [`Expr::vars`], and [`Expr::internal_hash`] of the expression.
+    /// Updates [`Expr::totally_defined`], [`Expr::ty`], [`Expr::vars`], and [`Expr::internal_hash`]
+    /// of the expression.
     ///
     /// Precondition: The function is called on all sub-expressions
     /// and they have not been modified since then.
     pub fn update_metadata(&mut self) {
         self.ty = self.value_type();
+        self.totally_defined = self.totally_defined(); // Requires `self.ty`.
         self.vars = self.variables();
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
             let mut hasher = DefaultHasher::new();
             self.kind.hash(&mut hasher);
             hasher.finish()
+        }
+    }
+
+    /// Returns `true` if the expression is real-valued and is defined on the entire domain.
+    ///
+    /// Preconditions:
+    ///
+    /// - [`Expr::totally_defined`] is correctly assigned for all sub-expressions.
+    /// - [`Expr::ty`] is correctly assigned for `self`.
+    fn totally_defined(&self) -> bool {
+        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
+
+        // NOTE: Mathematica's `FunctionDomain` would be useful when the same definition is used.
+        match self {
+            constant!(a) if a.interval().decoration() >= Decoration::Def => true,
+            var!(_) if self.ty == ValueType::Real => true,
+            unary!(
+                Abs | AiryAi
+                    | AiryAiPrime
+                    | AiryBi
+                    | AiryBiPrime
+                    | Asinh
+                    | Atan
+                    | Ceil
+                    | Cos
+                    | Cosh
+                    | Erf
+                    | Erfc
+                    | Erfi
+                    | Exp
+                    | Exp10
+                    | Exp2
+                    | Floor
+                    | FresnelC
+                    | FresnelS
+                    | Neg
+                    | One
+                    | Shi
+                    | Si
+                    | Sin
+                    | Sinc
+                    | Sinh
+                    | Sqr
+                    | Tanh,
+                x
+            ) => x.totally_defined,
+            binary!(Add | Max | Min | Mul | Sub, x, y) => x.totally_defined && y.totally_defined,
+            binary!(Pow, x, constant!(y)) => {
+                x.totally_defined
+                    && matches!(y.rational(), Some(q) if *q >= 0 && q.denom().is_odd())
+            }
+            ternary!(MulAdd, x, y, z) => {
+                x.totally_defined && y.totally_defined && z.totally_defined
+            }
+            nary!(Plus | Times, xs) => xs.iter().all(|x| x.totally_defined),
+            pown!(x, n) => x.totally_defined && *n >= 0,
+            rootn!(x, n) => x.totally_defined && n % 2 == 1,
+            uninit!() => panic!(),
+            _ => false,
         }
     }
 
@@ -472,7 +535,10 @@ impl Expr {
                 y
             ) if real(x) && real(y) => Boolean,
             // Complex
-            unary!(Conj | Cos | Cosh | Exp | Ln | Neg | Sin | Sinh, x) if complex(x) => ComplexT,
+            unary!(
+                Conj | Cos | Cosh | Exp | Ln | Neg | Sin | Sinh | Tan | Tanh,
+                x
+            ) if complex(x) => ComplexT,
             binary!(Complex, x, y) if real(x) && real(y) => ComplexT,
             binary!(Add | Div | Mul | Pow | Sub, x, y)
                 if complex(x) && complex(y) || complex(x) && real(y) || real(x) && complex(y) =>

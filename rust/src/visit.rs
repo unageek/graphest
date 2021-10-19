@@ -1,12 +1,14 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprId, NaryOp, TernaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
     binary, constant,
+    context::Context,
     interval_set::Site,
     nary,
     ops::{
         FormIndex, RankedMinMaxOp, RelOp, ScalarBinaryOp, ScalarTernaryOp, ScalarUnaryOp,
         StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex,
     },
+    parse::parse_expr,
     pown, rootn, ternary, unary, uninit, var,
 };
 use rug::Rational;
@@ -364,7 +366,59 @@ impl VisitMut for PreTransform {
 
 /// Precondition: [`PreTransform`] and then [`UpdateMetadata`] have been applied
 /// and the expression has not been modified since then.
-pub struct ExpandComplexFunctions;
+pub struct ExpandComplexFunctions {
+    unary_ops: HashMap<UnaryOp, Expr>,
+}
+
+impl ExpandComplexFunctions {
+    fn new() -> Self {
+        Self {
+            unary_ops: HashMap::new(),
+        }
+    }
+
+    fn simplify(e: &mut Expr) {
+        loop {
+            let mut fl = Flatten::default();
+            fl.visit_expr_mut(e);
+            let mut s = SortTerms::default();
+            s.visit_expr_mut(e);
+            let mut f = FoldConstant::default();
+            f.visit_expr_mut(e);
+            let mut t = Transform::default();
+            t.visit_expr_mut(e);
+            if !fl.modified && !s.modified && !f.modified && !t.modified {
+                break;
+            }
+        }
+    }
+
+    fn def_unary(&mut self, op: UnaryOp, body: &str) {
+        let mut e = parse_expr(body, Context::builtin_context()).unwrap();
+        PreTransform.visit_expr_mut(&mut e);
+        UpdateMetadata.visit_expr_mut(&mut e);
+        self.visit_expr_mut(&mut e);
+        Self::simplify(&mut e);
+        Parametrize::new(vec!["x".into(), "y".into()]).visit_expr_mut(&mut e);
+        self.unary_ops.insert(op, e);
+    }
+}
+
+impl Default for ExpandComplexFunctions {
+    fn default() -> Self {
+        let mut v = Self::new();
+        v.def_unary(UnaryOp::Abs, "sqrt(x^2 + y^2)");
+        v.def_unary(UnaryOp::Cos, "cos(x) cosh(y) - i sin(x) sinh(y)");
+        v.def_unary(UnaryOp::Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
+        v.def_unary(UnaryOp::Exp, "exp(x) cos(y) + i exp(x) sin(y)");
+        v.def_unary(UnaryOp::Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
+        v.def_unary(UnaryOp::Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
+        // Uses previous definitions.
+        v.def_unary(UnaryOp::Tan, "sin(x + i y) / cos(x + i y)");
+        v.def_unary(UnaryOp::Tanh, "sinh(x + i y) / cosh(x + i y)");
+        v
+    }
+}
 
 impl VisitMut for ExpandComplexFunctions {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
@@ -372,19 +426,6 @@ impl VisitMut for ExpandComplexFunctions {
         traverse_expr_mut(self, e);
 
         match e {
-            unary!(Abs, binary!(Complex, x, y)) => {
-                *e = Expr::binary(
-                    Pow,
-                    box Expr::nary(
-                        Plus,
-                        vec![
-                            Expr::binary(Pow, box take(x), box Expr::two()),
-                            Expr::binary(Pow, box take(y), box Expr::two()),
-                        ],
-                    ),
-                    box Expr::one_half(),
-                );
-            }
             unary!(Arg, binary!(Complex, x, y)) => {
                 *e = Expr::binary(Atan2, box take(y), box take(x));
             }
@@ -393,46 +434,6 @@ impl VisitMut for ExpandComplexFunctions {
                     Complex,
                     box take(x),
                     box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
-                )
-            }
-            unary!(op @ (Cos | Cosh | Sin | Sinh), binary!(Complex, x, y)) => {
-                let op1 = *op;
-                let (op2, op3, op4) = match op {
-                    Cos => (Cosh, Sin, Sinh),
-                    Cosh => (Cos, Sinh, Sin),
-                    Sin => (Cosh, Cos, Sinh),
-                    Sinh => (Cos, Cosh, Sin),
-                    _ => unreachable!(),
-                };
-                *e = Expr::binary(
-                    Complex,
-                    box Expr::nary(
-                        Times,
-                        vec![
-                            Expr::unary(op1, box x.clone()),
-                            Expr::unary(op2, box y.clone()),
-                        ],
-                    ),
-                    box Expr::nary(
-                        Times,
-                        vec![
-                            if *op == Cos {
-                                Expr::minus_one()
-                            } else {
-                                Expr::one()
-                            },
-                            Expr::unary(op3, box x.clone()),
-                            Expr::unary(op4, box y.clone()),
-                        ],
-                    ),
-                );
-            }
-            unary!(Exp, binary!(Complex, x, y)) => {
-                let exp_x = Expr::unary(Exp, box take(x));
-                *e = Expr::binary(
-                    Complex,
-                    box Expr::nary(Times, vec![exp_x.clone(), Expr::unary(Cos, box y.clone())]),
-                    box Expr::nary(Times, vec![exp_x, Expr::unary(Sin, box take(y))]),
                 )
             }
             unary!(Im, binary!(Complex, _, y)) => {
@@ -462,6 +463,12 @@ impl VisitMut for ExpandComplexFunctions {
             }
             unary!(Re, binary!(Complex, x, _)) => {
                 *e = take(x);
+            }
+            unary!(op @ (Abs | Cos | Cosh | Exp | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
+            {
+                let mut new_e = self.unary_ops[op].clone();
+                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                *e = new_e;
             }
             binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(-1.0) => {
                 let inv_sq = Expr::binary(
@@ -530,8 +537,11 @@ impl VisitMut for ExpandComplexFunctions {
                             box Expr::nary(
                                 Plus,
                                 vec![
-                                    Expr::nary(Times, vec![take(a), take(x)]),
-                                    Expr::nary(Times, vec![Expr::minus_one(), take(b), take(y)]),
+                                    Expr::nary(Times, vec![a.clone(), x.clone()]),
+                                    Expr::nary(
+                                        Times,
+                                        vec![Expr::minus_one(), b.clone(), y.clone()],
+                                    ),
                                 ],
                             ),
                             box Expr::nary(
@@ -718,6 +728,9 @@ where
 }
 
 /// Transforms expressions into simpler/normalized forms.
+///
+/// Precondition: [`UpdateMetadata`] have been applied
+/// and the expression has not been modified since then.
 #[derive(Default)]
 pub struct Transform {
     pub modified: bool,
@@ -787,9 +800,19 @@ impl VisitMut for Transform {
                 self.modified = xs.len() < len;
             }
             nary!(Times, xs) => {
-                // Don't replace 0 x with 0 as that alters the domain of the expression.
-
                 let len = xs.len();
+
+                // Don't replace 0 x with 0 unless x is totally defined;
+                // otherwise, tha replacement will alter the domain of the expression.
+                if xs.iter().all(|x| x.totally_defined)
+                    && xs.iter().any(|x| {
+                        matches!(x,
+                            constant!(a) if a.to_f64() == Some(0.0)
+                        )
+                    })
+                {
+                    *xs = vec![Expr::zero()];
+                }
 
                 // Drop ones.
                 xs.retain(|x| !matches!(x, constant!(a) if a.to_f64() == Some(1.0)));
