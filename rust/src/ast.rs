@@ -19,6 +19,7 @@ pub enum UnaryOp {
     AiryAiPrime,
     AiryBi,
     AiryBiPrime,
+    Arg,
     Asin,
     Asinh,
     Atan,
@@ -26,6 +27,7 @@ pub enum UnaryOp {
     Ceil,
     Chi,
     Ci,
+    Conj,
     Cos,
     Cosh,
     Digamma,
@@ -42,12 +44,14 @@ pub enum UnaryOp {
     FresnelC,
     FresnelS,
     Gamma,
+    Im,
     Li,
     Ln,
     Log10,
     Neg,
     Not,
     One,
+    Re,
     Recip,
     Shi,
     Si,
@@ -70,6 +74,7 @@ pub enum BinaryOp {
     BesselJ,
     BesselK,
     BesselY,
+    Complex,
     Div,
     Eq,
     /// Equality in explicit relations.
@@ -126,6 +131,7 @@ pub enum ExprKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValueType {
     Boolean,
+    Complex,
     Real,
     RealVector,
     Unknown,
@@ -342,10 +348,9 @@ impl Expr {
     /// Returns [`None`] if the expression cannot be evaluated to a real constant
     /// or constant evaluation is not implemented for the operation.
     pub fn eval(&self) -> Option<Real> {
-        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
         match self {
             constant!(x) => Some(x.clone()),
-            var!(_) => None,
             unary!(Abs, x) => Some(x.eval()?.abs()),
             unary!(Acos, x) => Some(x.eval()?.acos()),
             unary!(Acosh, x) => Some(x.eval()?.acosh()),
@@ -377,15 +382,11 @@ impl Expr {
             unary!(Li, x) => Some(x.eval()?.li()),
             unary!(Ln, x) => Some(x.eval()?.ln()),
             unary!(Log10, x) => Some(x.eval()?.log10()),
-            unary!(Neg, x) => Some(-x.eval()?),
-            unary!(One, x) => Some(x.eval()?.one()),
             unary!(Shi, x) => Some(x.eval()?.shi()),
             unary!(Si, x) => Some(x.eval()?.si()),
             unary!(Sin, x) => Some(x.eval()?.sin()),
             unary!(Sinc, x) => Some(x.eval()?.sinc()),
             unary!(Sinh, x) => Some(x.eval()?.sinh()),
-            unary!(Sqr, x) => Some(x.eval()?.sqr()),
-            unary!(Sqrt, x) => Some(x.eval()?.sqrt()),
             unary!(Tan, x) => Some(x.eval()?.tan()),
             unary!(Tanh, x) => Some(x.eval()?.tanh()),
             unary!(UndefAt0, x) => Some(x.eval()?.undef_at_0()),
@@ -395,7 +396,6 @@ impl Expr {
             binary!(BesselJ, n, x) => Some(n.eval()?.bessel_j(x.eval()?)),
             binary!(BesselK, n, x) => Some(n.eval()?.bessel_k(x.eval()?)),
             binary!(BesselY, n, x) => Some(n.eval()?.bessel_y(x.eval()?)),
-            binary!(Div, x, y) => Some(x.eval()? / y.eval()?),
             binary!(GammaInc, a, x) => Some(a.eval()?.gamma_inc(x.eval()?)),
             binary!(Gcd, x, y) => Some(x.eval()?.gcd(y.eval()?)),
             binary!(Lcm, x, y) => Some(x.eval()?.lcm(y.eval()?)),
@@ -414,22 +414,8 @@ impl Expr {
                 let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
                 Some(Real::ranked_min(xs, n.eval()?))
             }
-            binary!(RankedMax | RankedMin, _, _) => panic!(),
-            binary!(Sub, x, y) => Some(x.eval()? - y.eval()?),
-            ternary!(MulAdd, _, _, _) => None,
-            nary!(Plus | Times, _) => None,
-            rootn!(x, n) => Some(x.eval()?.rootn(*n)),
-            unary!(Exp10 | Exp2 | Recip, _) | pown!(_, _) => {
-                panic!("use `BinaryOp::Pow` for constant evaluation")
-            }
-            unary!(Not, _) => None,
-            binary!(
-                And | Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt | Or,
-                _,
-                _
-            ) => None,
-            nary!(List, _) => None,
             uninit!() => panic!(),
+            _ => None,
         }
     }
 
@@ -452,10 +438,20 @@ impl Expr {
     ///
     /// Precondition: [`Expr::ty`] is correctly assigned for `self`.
     fn value_type(&self) -> ValueType {
-        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*, ValueType::*};
+        use {
+            BinaryOp::{Complex, *},
+            NaryOp::*,
+            TernaryOp::*,
+            UnaryOp::*,
+            ValueType::{Complex as ComplexT, *},
+        };
 
         fn boolean(e: &Expr) -> bool {
             e.ty == Boolean
+        }
+
+        fn complex(e: &Expr) -> bool {
+            e.ty == ComplexT
         }
 
         fn real(e: &Expr) -> bool {
@@ -475,9 +471,23 @@ impl Expr {
                 x,
                 y
             ) if real(x) && real(y) => Boolean,
+            // Complex
+            unary!(Conj | Cos | Cosh | Exp | Ln | Neg | Sin | Sinh, x) if complex(x) => ComplexT,
+            binary!(Complex, x, y) if real(x) && real(y) => ComplexT,
+            binary!(Add | Div | Mul | Pow | Sub, x, y)
+                if complex(x) && complex(y) || complex(x) && real(y) || real(x) && complex(y) =>
+            {
+                ComplexT
+            }
+            nary!(Plus | Times, xs)
+                if xs.iter().all(|x| complex(x) || real(x)) && xs.iter().any(complex) =>
+            {
+                ComplexT
+            }
             // Real
             constant!(_) => Real,
             var!(x) if x == "t" || x == "x" || x == "y" || x == "<n-theta>" => Real,
+            unary!(Abs | Arg | Im | Re, x) if complex(x) => Real,
             unary!(
                 Abs | Acos
                     | Acosh

@@ -504,6 +504,7 @@ impl FromStr for Relation {
         }
         let relation_type = relation_type(&mut e);
         PreTransform.visit_expr_mut(&mut e);
+        expand_complex_functions(&mut e);
         simplify(&mut e);
 
         let n_theta_range = {
@@ -581,6 +582,11 @@ impl FromStr for Relation {
         slf.initialize();
         Ok(slf)
     }
+}
+
+fn expand_complex_functions(e: &mut Expr) {
+    UpdateMetadata.visit_expr_mut(e);
+    ExpandComplexFunctions.visit_expr_mut(e);
 }
 
 /// Transforms an expression that contains r or θ into the equivalent expression

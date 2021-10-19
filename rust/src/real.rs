@@ -152,7 +152,6 @@ impl Real {
     impl_op!(min(x, y), x.min(&y), rational_ops::min(x, y));
     impl_op!(mul(x, y), &x * &y, Some(x * y));
     impl_op!(neg(x), -&x, Some(-x));
-    impl_op!(one(x));
     impl_op!(pow(x, y), x.pow(&y, None), rational_ops::pow(x, y));
 
     pub fn ranked_max(xs: Vec<Real>, n: Real) -> Self {
@@ -169,18 +168,12 @@ impl Real {
         rational_ops::rem_euclid(x, y)
     );
 
-    pub fn rootn(self, n: u32) -> Self {
-        self.x.rootn(n).into()
-    }
-
     impl_op!(shi(x));
     impl_op!(si(x));
     impl_op!(sin(x));
     impl_op!(sinc(x));
     impl_op!(sinh(x));
     impl_op!(sub(x, y), &x - &y, Some(x - y));
-    impl_op!(sqr(x), x.sqr(), Some(x.square()));
-    impl_op!(sqrt(x));
     impl_op!(tan(x), x.tan(None));
     impl_op!(tanh(x));
     impl_op!(undef_at_0(x));

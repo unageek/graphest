@@ -362,6 +362,203 @@ impl VisitMut for PreTransform {
     }
 }
 
+/// Precondition: [`PreTransform`] and then [`UpdateMetadata`] have been applied
+/// and the expression has not been modified since then.
+pub struct ExpandComplexFunctions;
+
+impl VisitMut for ExpandComplexFunctions {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
+
+        match e {
+            unary!(Abs, binary!(Complex, x, y)) => {
+                *e = Expr::binary(
+                    Pow,
+                    box Expr::nary(
+                        Plus,
+                        vec![
+                            Expr::binary(Pow, box take(x), box Expr::two()),
+                            Expr::binary(Pow, box take(y), box Expr::two()),
+                        ],
+                    ),
+                    box Expr::one_half(),
+                );
+            }
+            unary!(Arg, binary!(Complex, x, y)) => {
+                *e = Expr::binary(Atan2, box take(y), box take(x));
+            }
+            unary!(Conj, binary!(Complex, x, y)) => {
+                *e = Expr::binary(
+                    Complex,
+                    box take(x),
+                    box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
+                )
+            }
+            unary!(op @ (Cos | Cosh | Sin | Sinh), binary!(Complex, x, y)) => {
+                let op1 = *op;
+                let (op2, op3, op4) = match op {
+                    Cos => (Cosh, Sin, Sinh),
+                    Cosh => (Cos, Sinh, Sin),
+                    Sin => (Cosh, Cos, Sinh),
+                    Sinh => (Cos, Cosh, Sin),
+                    _ => unreachable!(),
+                };
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::nary(
+                        Times,
+                        vec![
+                            Expr::unary(op1, box x.clone()),
+                            Expr::unary(op2, box y.clone()),
+                        ],
+                    ),
+                    box Expr::nary(
+                        Times,
+                        vec![
+                            if *op == Cos {
+                                Expr::minus_one()
+                            } else {
+                                Expr::one()
+                            },
+                            Expr::unary(op3, box x.clone()),
+                            Expr::unary(op4, box y.clone()),
+                        ],
+                    ),
+                );
+            }
+            unary!(Exp, binary!(Complex, x, y)) => {
+                let exp_x = Expr::unary(Exp, box take(x));
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::nary(Times, vec![exp_x.clone(), Expr::unary(Cos, box y.clone())]),
+                    box Expr::nary(Times, vec![exp_x, Expr::unary(Sin, box take(y))]),
+                )
+            }
+            unary!(Im, binary!(Complex, _, y)) => {
+                *e = take(y);
+            }
+            unary!(Ln, binary!(Complex, x, y)) => {
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::nary(
+                        Times,
+                        vec![
+                            Expr::one_half(),
+                            Expr::unary(
+                                Ln,
+                                box Expr::nary(
+                                    Plus,
+                                    vec![
+                                        Expr::binary(Pow, box x.clone(), box Expr::two()),
+                                        Expr::binary(Pow, box y.clone(), box Expr::two()),
+                                    ],
+                                ),
+                            ),
+                        ],
+                    ),
+                    box Expr::binary(Atan2, box take(y), box take(x)),
+                )
+            }
+            unary!(Re, binary!(Complex, x, _)) => {
+                *e = take(x);
+            }
+            binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(-1.0) => {
+                let inv_sq = Expr::binary(
+                    Pow,
+                    box Expr::nary(
+                        Plus,
+                        vec![
+                            Expr::binary(Pow, box x.clone(), box Expr::two()),
+                            Expr::binary(Pow, box y.clone(), box Expr::two()),
+                        ],
+                    ),
+                    box Expr::minus_one(),
+                );
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::nary(Times, vec![take(x), inv_sq.clone()]),
+                    box Expr::nary(Times, vec![Expr::minus_one(), take(y), inv_sq]),
+                );
+            }
+            binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(2.0) => {
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::nary(
+                        Plus,
+                        vec![
+                            Expr::binary(Pow, box x.clone(), box Expr::two()),
+                            Expr::nary(
+                                Times,
+                                vec![
+                                    Expr::minus_one(),
+                                    Expr::binary(Pow, box y.clone(), box Expr::two()),
+                                ],
+                            ),
+                        ],
+                    ),
+                    box Expr::nary(Times, vec![Expr::two(), take(x), take(y)]),
+                )
+            }
+            nary!(Plus, xs) if e.ty == ValueType::Complex => {
+                let mut reals = vec![];
+                let mut imags = vec![];
+                for x in xs {
+                    match x {
+                        binary!(Complex, x, y) => {
+                            reals.push(take(x));
+                            imags.push(take(y));
+                        }
+                        _ => {
+                            reals.push(take(x));
+                        }
+                    }
+                }
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::nary(Plus, reals),
+                    box Expr::nary(Plus, imags),
+                );
+            }
+            nary!(Times, xs) if e.ty == ValueType::Complex => {
+                let mut it = xs.drain(..);
+                let mut x = it.next().unwrap();
+                for mut y in it {
+                    x = match (&mut x, &mut y) {
+                        (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
+                            Complex,
+                            box Expr::nary(
+                                Plus,
+                                vec![
+                                    Expr::nary(Times, vec![take(a), take(x)]),
+                                    Expr::nary(Times, vec![Expr::minus_one(), take(b), take(y)]),
+                                ],
+                            ),
+                            box Expr::nary(
+                                Plus,
+                                vec![
+                                    Expr::nary(Times, vec![take(b), take(x)]),
+                                    Expr::nary(Times, vec![take(a), take(y)]),
+                                ],
+                            ),
+                        ),
+                        (a, binary!(Complex, x, y)) | (binary!(Complex, x, y), a) => Expr::binary(
+                            Complex,
+                            box Expr::nary(Times, vec![a.clone(), take(x)]),
+                            box Expr::nary(Times, vec![take(a), take(y)]),
+                        ),
+                        (x, y) => Expr::nary(Times, vec![take(x), take(y)]),
+                    };
+                }
+                *e = x;
+            }
+            _ => return,
+        }
+
+        e.update_metadata();
+    }
+}
+
 /// Flattens out nested expressions of kind [`NaryOp::Plus`]/[`NaryOp::Times`].
 ///
 /// To any expression that contains zero or one term, the following rules are applied:

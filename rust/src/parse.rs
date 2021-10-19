@@ -197,7 +197,11 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
         preceded(pair(char('+'), space0), cut(unary_expr)),
         map(
             separated_pair(
-                alt((value("-", char('-')), value("!", char('!')))),
+                alt((
+                    value("~", char('~')),
+                    value("-", char('-')),
+                    value("!", char('!')),
+                )),
                 space0,
                 cut(unary_expr),
             ),
@@ -404,6 +408,7 @@ mod tests {
         test("γ", "@");
         test("pi", "@");
         test("π", "@");
+        test("i", "(Complex 0 1)");
         test("[x, y, z]", "(List x y z)");
         test("|x|", "(Abs x)");
         test("|(|x| + y)|", "(Abs (Add (Abs x) y))");
@@ -416,6 +421,7 @@ mod tests {
         test("Ai'(x)", "(AiryAiPrime x)");
         test("Bi(x)", "(AiryBi x)");
         test("Bi'(x)", "(AiryBiPrime x)");
+        test("arg(x)", "(Arg x)");
         test("asin(x)", "(Asin x)");
         test("asinh(x)", "(Asinh x)");
         test("atan(x)", "(Atan x)");
@@ -423,6 +429,7 @@ mod tests {
         test("ceil(x)", "(Ceil x)");
         test("Chi(x)", "(Chi x)");
         test("Ci(x)", "(Ci x)");
+        test("~x", "(Conj x)");
         test("cos(x)", "(Cos x)");
         test("cosh(x)", "(Cosh x)");
         test("psi(x)", "(Digamma x)");
@@ -439,9 +446,11 @@ mod tests {
         test("S(x)", "(FresnelS x)");
         test("Gamma(x)", "(Gamma x)");
         test("Γ(x)", "(Gamma x)");
+        test("Im(x)", "(Im x)");
         test("li(x)", "(Li x)");
         test("ln(x)", "(Ln x)");
         test("log(x)", "(Log10 x)");
+        test("Re(x)", "(Re x)");
         test("Shi(x)", "(Shi x)");
         test("Si(x)", "(Si x)");
         test("sin(x)", "(Sin x)");
