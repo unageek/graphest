@@ -536,7 +536,24 @@ impl Expr {
             ) if real(x) && real(y) => Boolean,
             // Complex
             unary!(
-                Conj | Cos | Cosh | Exp | Ln | Neg | Sin | Sinh | Tan | Tanh,
+                Acos | Acosh
+                    | Asin
+                    | Asinh
+                    | Atan
+                    | Atanh
+                    | Conj
+                    | Cos
+                    | Cosh
+                    | Exp
+                    | Ln
+                    | Neg
+                    | Recip
+                    | Sin
+                    | Sinh
+                    | Sqr
+                    | Sqrt
+                    | Tan
+                    | Tanh,
                 x
             ) if complex(x) => ComplexT,
             binary!(Complex, x, y) if real(x) && real(y) => ComplexT,

@@ -406,20 +406,32 @@ impl ExpandComplexFunctions {
 
 impl Default for ExpandComplexFunctions {
     fn default() -> Self {
+        use UnaryOp::*;
+
         let mut v = Self::new();
-        v.def_unary(UnaryOp::Abs, "sqrt(x^2 + y^2)");
-        v.def_unary(UnaryOp::Arg, "atan2(y, x)");
-        v.def_unary(UnaryOp::Cos, "cos(x) cosh(y) - i sin(x) sinh(y)");
-        v.def_unary(UnaryOp::Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
-        v.def_unary(UnaryOp::Exp, "exp(x) cos(y) + i exp(x) sin(y)");
-        v.def_unary(UnaryOp::Ln, "1/2 ln(x^2 + y^2) + i atan2(y, x)");
-        v.def_unary(UnaryOp::Recip, "x / (x^2 + y^2) - i y / (x^2 + y^2)");
-        v.def_unary(UnaryOp::Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
-        v.def_unary(UnaryOp::Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
-        v.def_unary(UnaryOp::Sqr, "x^2 - y^2 + 2 i x y");
-        // Uses the definitions above.
-        v.def_unary(UnaryOp::Tan, "sin(x + i y) / cos(x + i y)");
-        v.def_unary(UnaryOp::Tanh, "sinh(x + i y) / cosh(x + i y)");
+        // Some of the definitions may depend on previous ones.
+        v.def_unary(Abs, "sqrt(x^2 + y^2)");
+        v.def_unary(Arg, "atan2(y, x)");
+        v.def_unary(Cos, "cos(x) cosh(y) - i sin(x) sinh(y)");
+        v.def_unary(Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
+        v.def_unary(Exp, "exp(x) cos(y) + i exp(x) sin(y)");
+        v.def_unary(Ln, "1/2 ln(x^2 + y^2) + i atan2(y, x)");
+        v.def_unary(Recip, "x / (x^2 + y^2) - i y / (x^2 + y^2)");
+        v.def_unary(Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
+        v.def_unary(Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
+        v.def_unary(Sqr, "x^2 - y^2 + 2 i x y");
+        v.def_unary(
+            Sqrt,
+            "sqrt(2 (|x + i y| + x)) / 2 + i y / sqrt(2 (|x + i y| + x))",
+        );
+        v.def_unary(Tan, "sin(x + i y) / cos(x + i y)");
+        v.def_unary(Tanh, "sinh(x + i y) / cosh(x + i y)");
+        v.def_unary(Acos, "-i ln((x + i y) + i sqrt(1 - (x + i y)^2))");
+        v.def_unary(Acosh, "ln(x + i y + sqrt(x + i y + 1) sqrt(x + i y - 1))");
+        v.def_unary(Asin, "-i ln(i (x + i y) + sqrt(1 - (x + i y)^2))");
+        v.def_unary(Asinh, "-i asin(i (x + i y))");
+        v.def_unary(Atan, "i/2 (ln(1 - i (x + i y)) - ln(1 + i (x + i y)))");
+        v.def_unary(Atanh, "-i atan(i (x + i y))");
         v
     }
 }
@@ -443,7 +455,7 @@ impl VisitMut for ExpandComplexFunctions {
             unary!(Re, binary!(Complex, x, _)) => {
                 *e = take(x);
             }
-            unary!(op @ (Abs | Arg | Cos | Cosh | Exp | Ln | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
+            unary!(op @ (Abs | Acos | Acosh | Arg | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
             {
                 let mut new_e = self.unary_ops[op].clone();
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
@@ -451,6 +463,11 @@ impl VisitMut for ExpandComplexFunctions {
             }
             binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(-1.0) => {
                 let mut new_e = self.unary_ops[&Recip].clone();
+                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                *e = new_e;
+            }
+            binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(0.5) => {
+                let mut new_e = self.unary_ops[&Sqrt].clone();
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
