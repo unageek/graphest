@@ -450,7 +450,8 @@ impl Expr {
         // NOTE: Mathematica's `FunctionDomain` would be useful when the same definition is used.
         match self {
             constant!(a) if a.interval().decoration() >= Decoration::Def => true,
-            var!(_) if self.ty == ValueType::Real => true,
+            // `theta` will be expanded to an expression that contains [`BinaryOp::Atan2`].
+            var!(x) if x != "theta" && x != "θ" => true,
             unary!(
                 Abs | AiryAi
                     | AiryAiPrime
@@ -568,8 +569,7 @@ impl Expr {
                 ComplexT
             }
             // Real
-            constant!(_) => Real,
-            var!(x) if x == "t" || x == "x" || x == "y" || x == "<n-theta>" => Real,
+            constant!(_) | var!(_) => Real,
             unary!(Abs | Arg | Im | Re, x) if complex(x) => Real,
             unary!(
                 Abs | Acos

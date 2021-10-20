@@ -367,46 +367,60 @@ impl VisitMut for PreTransform {
 /// Precondition: [`PreTransform`] and then [`UpdateMetadata`] have been applied
 /// and the expression has not been modified since then.
 pub struct ExpandComplexFunctions {
+    binary_ops: HashMap<BinaryOp, Expr>,
     unary_ops: HashMap<UnaryOp, Expr>,
 }
 
 impl ExpandComplexFunctions {
     fn new() -> Self {
         Self {
+            binary_ops: HashMap::new(),
             unary_ops: HashMap::new(),
         }
     }
 
-    fn simplify(e: &mut Expr) {
-        loop {
-            let mut fl = Flatten::default();
-            fl.visit_expr_mut(e);
-            let mut s = SortTerms::default();
-            s.visit_expr_mut(e);
-            let mut f = FoldConstant::default();
-            f.visit_expr_mut(e);
-            let mut t = Transform::default();
-            t.visit_expr_mut(e);
-            if !fl.modified && !s.modified && !f.modified && !t.modified {
-                break;
-            }
-        }
+    fn def_binary(&mut self, op: BinaryOp, body: &str) {
+        let e = self.make_def(vec!["a".into(), "b".into(), "x".into(), "y".into()], body);
+        self.binary_ops.insert(op, e);
     }
 
     fn def_unary(&mut self, op: UnaryOp, body: &str) {
+        let e = self.make_def(vec!["x".into(), "y".into()], body);
+        self.unary_ops.insert(op, e);
+    }
+
+    fn make_def(&mut self, params: Vec<String>, body: &str) -> Expr {
+        // Copy-paste of `relation::simplify`.
+        fn simplify(e: &mut Expr) {
+            loop {
+                let mut fl = Flatten::default();
+                fl.visit_expr_mut(e);
+                let mut s = SortTerms::default();
+                s.visit_expr_mut(e);
+                let mut f = FoldConstant::default();
+                f.visit_expr_mut(e);
+                UpdateMetadata.visit_expr_mut(e);
+                let mut t = Transform::default();
+                t.visit_expr_mut(e);
+                if !fl.modified && !s.modified && !f.modified && !t.modified {
+                    break;
+                }
+            }
+        }
+
         let mut e = parse_expr(body, Context::builtin_context()).unwrap();
         PreTransform.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
         self.visit_expr_mut(&mut e);
-        Self::simplify(&mut e);
-        Parametrize::new(vec!["x".into(), "y".into()]).visit_expr_mut(&mut e);
-        self.unary_ops.insert(op, e);
+        simplify(&mut e);
+        Parametrize::new(params).visit_expr_mut(&mut e);
+        e
     }
 }
 
 impl Default for ExpandComplexFunctions {
     fn default() -> Self {
-        use UnaryOp::*;
+        use {BinaryOp::*, UnaryOp::*};
 
         let mut v = Self::new();
         // Some of the definitions may depend on previous ones.
@@ -420,6 +434,7 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
         v.def_unary(Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
         v.def_unary(Sqr, "x^2 - y^2 + 2 i x y");
+        // https://arblib.org/acb.html#c.acb_sqrt
         v.def_unary(
             Sqrt,
             "sqrt(2 (|x + i y| + x)) / 2 + i y / sqrt(2 (|x + i y| + x))",
@@ -427,11 +442,15 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Tan, "sin(x + i y) / cos(x + i y)");
         v.def_unary(Tanh, "sinh(x + i y) / cosh(x + i y)");
         v.def_unary(Acos, "-i ln((x + i y) + i sqrt(1 - (x + i y)^2))");
+        // https://arblib.org/acb.html#c.acb_acosh
         v.def_unary(Acosh, "ln(x + i y + sqrt(x + i y + 1) sqrt(x + i y - 1))");
+        // https://arblib.org/acb.html#c.acb_asin
         v.def_unary(Asin, "-i ln(i (x + i y) + sqrt(1 - (x + i y)^2))");
         v.def_unary(Asinh, "-i asin(i (x + i y))");
+        // https://arblib.org/acb.html#c.acb_atan
         v.def_unary(Atan, "i/2 (ln(1 - i (x + i y)) - ln(1 + i (x + i y)))");
         v.def_unary(Atanh, "-i atan(i (x + i y))");
+        v.def_binary(Pow, "exp((x + i y) ln(a + i b))");
         v
     }
 }
@@ -474,6 +493,23 @@ impl VisitMut for ExpandComplexFunctions {
             binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(2.0) => {
                 let mut new_e = self.unary_ops[&Sqr].clone();
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                *e = new_e;
+            }
+            binary!(op @ Pow, x, y) if e.ty == ValueType::Complex => {
+                let mut new_e = self.binary_ops[op].clone();
+                let mut subst = match (x, y) {
+                    (binary!(Complex, a, b), binary!(Complex, x, y)) => {
+                        Substitute::new(vec![take(a), take(b), take(x), take(y)])
+                    }
+                    (a, binary!(Complex, x, y)) => {
+                        Substitute::new(vec![take(a), Expr::zero(), take(x), take(y)])
+                    }
+                    (binary!(Complex, a, b), x) => {
+                        Substitute::new(vec![take(a), take(b), take(x), Expr::zero()])
+                    }
+                    _ => panic!(), // `e.ty` is wrong.
+                };
+                subst.visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
             nary!(Plus, xs) if e.ty == ValueType::Complex => {
