@@ -347,6 +347,50 @@ impl Relation {
         self.t_range
     }
 
+    fn eval_explicit_without_cache(&mut self, x: Interval) -> EvalExplicitResult {
+        match self.relation_type {
+            RelationType::ExplicitFunctionOfX(_) => {
+                let p = self.eval(
+                    &RelationArgs {
+                        x,
+                        ..Default::default()
+                    },
+                    None,
+                );
+
+                (self.ts[self.y_explicit.unwrap()].clone(), p)
+            }
+            RelationType::ExplicitFunctionOfY(_) => {
+                let p = self.eval(
+                    &RelationArgs {
+                        y: x,
+                        ..Default::default()
+                    },
+                    None,
+                );
+
+                (self.ts[self.x_explicit.unwrap()].clone(), p)
+            }
+            _ => panic!(),
+        }
+    }
+
+    fn eval_parametric_without_cache(&mut self, t: Interval) -> EvalParametricResult {
+        let p = self.eval(
+            &RelationArgs {
+                t,
+                ..Default::default()
+            },
+            None,
+        );
+
+        (
+            self.ts[self.x_explicit.unwrap()].clone(),
+            self.ts[self.y_explicit.unwrap()].clone(),
+            p,
+        )
+    }
+
     fn eval_with_cache(&mut self, args: &RelationArgs, cache: &mut EvalCache) -> EvalResult {
         let x = args.x;
         let y = args.y;
@@ -431,50 +475,6 @@ impl Relation {
                 .iter()
                 .map(|f| f.eval(ts))
                 .collect(),
-        )
-    }
-
-    fn eval_explicit_without_cache(&mut self, x: Interval) -> EvalExplicitResult {
-        match self.relation_type {
-            RelationType::ExplicitFunctionOfX(_) => {
-                let p = self.eval(
-                    &RelationArgs {
-                        x,
-                        ..Default::default()
-                    },
-                    None,
-                );
-
-                (self.ts[self.y_explicit.unwrap()].clone(), p)
-            }
-            RelationType::ExplicitFunctionOfY(_) => {
-                let p = self.eval(
-                    &RelationArgs {
-                        y: x,
-                        ..Default::default()
-                    },
-                    None,
-                );
-
-                (self.ts[self.x_explicit.unwrap()].clone(), p)
-            }
-            _ => panic!(),
-        }
-    }
-
-    fn eval_parametric_without_cache(&mut self, t: Interval) -> EvalParametricResult {
-        let p = self.eval(
-            &RelationArgs {
-                t,
-                ..Default::default()
-            },
-            None,
-        );
-
-        (
-            self.ts[self.x_explicit.unwrap()].clone(),
-            self.ts[self.y_explicit.unwrap()].clone(),
-            p,
         )
     }
 
@@ -580,22 +580,6 @@ impl FromStr for Relation {
         };
         slf.initialize();
         Ok(slf)
-    }
-}
-
-fn simplify(e: &mut Expr) {
-    loop {
-        let mut fl = Flatten::default();
-        fl.visit_expr_mut(e);
-        let mut s = SortTerms::default();
-        s.visit_expr_mut(e);
-        let mut f = FoldConstant::default();
-        f.visit_expr_mut(e);
-        let mut t = Transform::default();
-        t.visit_expr_mut(e);
-        if !fl.modified && !s.modified && !f.modified && !t.modified {
-            break;
-        }
     }
 }
 
@@ -937,6 +921,22 @@ fn relation_type(e: &mut Expr) -> RelationType {
         Parametric
     } else {
         Implicit
+    }
+}
+
+fn simplify(e: &mut Expr) {
+    loop {
+        let mut fl = Flatten::default();
+        fl.visit_expr_mut(e);
+        let mut s = SortTerms::default();
+        s.visit_expr_mut(e);
+        let mut f = FoldConstant::default();
+        f.visit_expr_mut(e);
+        let mut t = Transform::default();
+        t.visit_expr_mut(e);
+        if !fl.modified && !s.modified && !f.modified && !t.modified {
+            break;
+        }
     }
 }
 
