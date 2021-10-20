@@ -148,7 +148,6 @@ pub struct Expr {
     pub id: ExprId,
     pub kind: ExprKind,
     pub ty: ValueType,
-    /// The set of the free variables in the expression.
     pub vars: VarSet,
     internal_hash: u64,
 }
@@ -434,29 +433,13 @@ impl Expr {
         }
     }
 
-    /// Updates [`Expr::ty`], [`Expr::vars`] and [`Expr::internal_hash`] of the expression.
+    /// Updates [`Expr::ty`], [`Expr::vars`], and [`Expr::internal_hash`] of the expression.
     ///
     /// Precondition:
-    ///   The function is called on all sub-expressions and they have not been changed since then.
+    ///   The function is called on all sub-expressions and they have not been modified since then.
     pub fn update_metadata(&mut self) {
         self.ty = self.value_type();
-        self.vars = match self {
-            constant!(_) => VarSet::EMPTY,
-            var!(name) if name == "r" => VarSet::X | VarSet::Y,
-            var!(name) if name == "t" => VarSet::T,
-            var!(name) if name == "theta" || name == "θ" => {
-                VarSet::X | VarSet::Y | VarSet::N_THETA
-            }
-            var!(name) if name == "x" => VarSet::X,
-            var!(name) if name == "y" => VarSet::Y,
-            var!(name) if name == "<n-theta>" => VarSet::N_THETA,
-            var!(_) => VarSet::EMPTY,
-            unary!(_, x) | pown!(x, _) | rootn!(x, _) => x.vars,
-            binary!(_, x, y) => x.vars | y.vars,
-            ternary!(_, x, y, z) => x.vars | y.vars | z.vars,
-            nary!(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
-            uninit!() => panic!(),
-        };
+        self.vars = self.variables();
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
             let mut hasher = DefaultHasher::new();
@@ -465,17 +448,33 @@ impl Expr {
         }
     }
 
-    pub fn value_type(&self) -> ValueType {
+    /// Returns the value type of the expression.
+    ///
+    /// Precondition: [`Expr::ty`] is correctly assigned for `self`.
+    fn value_type(&self) -> ValueType {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*, ValueType::*};
+
+        fn boolean(e: &Expr) -> bool {
+            e.ty == Boolean
+        }
+
+        fn real(e: &Expr) -> bool {
+            e.ty == Real
+        }
+
+        fn real_vector(e: &Expr) -> bool {
+            e.ty == RealVector
+        }
+
         match self {
             // Boolean
-            unary!(Not, x) if x.ty == Boolean => Boolean,
-            binary!(And | Or, x, y) if x.ty == Boolean && y.ty == Boolean => Boolean,
+            unary!(Not, x) if boolean(x) => Boolean,
+            binary!(And | Or, x, y) if boolean(x) && boolean(y) => Boolean,
             binary!(
                 Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
                 x,
                 y
-            ) if x.ty == Real && y.ty == Real => Boolean,
+            ) if real(x) && real(y) => Boolean,
             // Real
             constant!(_) => Real,
             var!(x) if x == "t" || x == "x" || x == "y" || x == "<n-theta>" => Real,
@@ -526,7 +525,7 @@ impl Expr {
                     | Tanh
                     | UndefAt0,
                 x
-            ) if x.ty == Real => Real,
+            ) if real(x) => Real,
             binary!(
                 Add | Atan2
                     | BesselI
@@ -546,28 +545,46 @@ impl Expr {
                     | Sub,
                 x,
                 y
-            ) if x.ty == Real && y.ty == Real => Real,
-            binary!(RankedMax | RankedMin, x, y) if x.ty == RealVector && y.ty == Real => Real,
-            ternary!(MulAdd, x, y, z) if x.ty == Real && y.ty == Real && z.ty == Real => Real,
-            pown!(x, _) | rootn!(x, _) if x.ty == Real => Real,
+            ) if real(x) && real(y) => Real,
+            binary!(RankedMax | RankedMin, x, y) if real_vector(x) && real(y) => Real,
+            ternary!(MulAdd, x, y, z) if real(x) && real(y) && real(z) => Real,
+            nary!(Plus | Times, xs) if xs.iter().all(real) => Real,
+            pown!(x, _) | rootn!(x, _) if real(x) => Real,
             // RealVector
-            nary!(List, xs) if xs.iter().all(|x| x.ty == Real) => RealVector,
+            nary!(List, xs) if xs.iter().all(real) => RealVector,
             // Others
             uninit!() => panic!(),
             _ => Unknown,
+        }
+    }
+
+    /// Returns the set of free variables in the expression.
+    ///
+    /// Precondition: [`Expr::vars`] is correctly assigned for `self`.
+    fn variables(&self) -> VarSet {
+        match self {
+            constant!(_) => VarSet::EMPTY,
+            var!(name) if name == "r" => VarSet::X | VarSet::Y,
+            var!(name) if name == "t" => VarSet::T,
+            var!(name) if name == "theta" || name == "θ" => {
+                VarSet::X | VarSet::Y | VarSet::N_THETA
+            }
+            var!(name) if name == "x" => VarSet::X,
+            var!(name) if name == "y" => VarSet::Y,
+            var!(name) if name == "<n-theta>" => VarSet::N_THETA,
+            var!(_) => VarSet::EMPTY,
+            unary!(_, x) | pown!(x, _) | rootn!(x, _) => x.vars,
+            binary!(_, x, y) => x.vars | y.vars,
+            ternary!(_, x, y, z) => x.vars | y.vars | z.vars,
+            nary!(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
+            uninit!() => panic!(),
         }
     }
 }
 
 impl Default for Expr {
     fn default() -> Self {
-        Self {
-            id: UNINIT_EXPR_ID,
-            kind: ExprKind::Uninit,
-            ty: ValueType::Unknown,
-            vars: VarSet::EMPTY,
-            internal_hash: 0,
-        }
+        Self::new(ExprKind::Uninit)
     }
 }
 
