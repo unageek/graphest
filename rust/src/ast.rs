@@ -435,8 +435,8 @@ impl Expr {
 
     /// Updates [`Expr::ty`], [`Expr::vars`], and [`Expr::internal_hash`] of the expression.
     ///
-    /// Precondition:
-    ///   The function is called on all sub-expressions and they have not been modified since then.
+    /// Precondition: The function is called on all sub-expressions
+    /// and they have not been modified since then.
     pub fn update_metadata(&mut self) {
         self.ty = self.value_type();
         self.vars = self.variables();

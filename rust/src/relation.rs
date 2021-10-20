@@ -502,7 +502,6 @@ impl FromStr for Relation {
                 break;
             }
         }
-        UpdateMetadata.visit_expr_mut(&mut e);
         let relation_type = relation_type(&mut e);
         PreTransform.visit_expr_mut(&mut e);
         simplify(&mut e);
@@ -803,7 +802,6 @@ fn normalize_explicit_relation(
         let mut it = conjuncts.into_iter();
         let first = it.next().unwrap();
         *e = *it.fold(first, |acc, e| box Expr::binary(And, acc, e));
-        UpdateMetadata.visit_expr_mut(e);
         Some(parts.op)
     } else {
         None
@@ -881,7 +879,6 @@ fn normalize_parametric_relation(e: &mut Expr) -> bool {
         let mut it = conjuncts.into_iter();
         let first = it.next().unwrap();
         *e = *it.fold(first, |acc, e| box Expr::binary(And, acc, e));
-        UpdateMetadata.visit_expr_mut(e);
         true
     } else {
         false
@@ -919,12 +916,16 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
     }
 }
 
-/// Determines the type of the relation. If it is [`RelationType::Parametric`],
-/// normalizes explicit parts of the relation to the form `(ExplicitRel x e)`.
+/// Determines the type of the relation. If it is [`RelationType::ExplicitFunctionOfX`],
+/// [`RelationType::ExplicitFunctionOfY`], or [`RelationType::Parametric`],
+/// normalizes the explicit part(s) of the relation to the form `(ExplicitRel x f(x))`,
+/// where `x` is a variable and `f(x)` is a function of `x`.
 ///
 /// Precondition: [`EliminateNot`] has been applied.
 fn relation_type(e: &mut Expr) -> RelationType {
     use RelationType::*;
+
+    UpdateMetadata.visit_expr_mut(e);
 
     if e.vars.is_empty() {
         Constant
