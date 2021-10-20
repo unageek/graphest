@@ -408,12 +408,16 @@ impl Default for ExpandComplexFunctions {
     fn default() -> Self {
         let mut v = Self::new();
         v.def_unary(UnaryOp::Abs, "sqrt(x^2 + y^2)");
+        v.def_unary(UnaryOp::Arg, "atan2(y, x)");
         v.def_unary(UnaryOp::Cos, "cos(x) cosh(y) - i sin(x) sinh(y)");
         v.def_unary(UnaryOp::Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
         v.def_unary(UnaryOp::Exp, "exp(x) cos(y) + i exp(x) sin(y)");
+        v.def_unary(UnaryOp::Ln, "1/2 ln(x^2 + y^2) + i atan2(y, x)");
+        v.def_unary(UnaryOp::Recip, "x / (x^2 + y^2) - i y / (x^2 + y^2)");
         v.def_unary(UnaryOp::Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
         v.def_unary(UnaryOp::Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
-        // Uses previous definitions.
+        v.def_unary(UnaryOp::Sqr, "x^2 - y^2 + 2 i x y");
+        // Uses the definitions above.
         v.def_unary(UnaryOp::Tan, "sin(x + i y) / cos(x + i y)");
         v.def_unary(UnaryOp::Tanh, "sinh(x + i y) / cosh(x + i y)");
         v
@@ -426,86 +430,34 @@ impl VisitMut for ExpandComplexFunctions {
         traverse_expr_mut(self, e);
 
         match e {
-            unary!(Arg, binary!(Complex, x, y)) => {
-                *e = Expr::binary(Atan2, box take(y), box take(x));
-            }
             unary!(Conj, binary!(Complex, x, y)) => {
                 *e = Expr::binary(
                     Complex,
                     box take(x),
                     box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
-                )
+                );
             }
             unary!(Im, binary!(Complex, _, y)) => {
                 *e = take(y);
             }
-            unary!(Ln, binary!(Complex, x, y)) => {
-                *e = Expr::binary(
-                    Complex,
-                    box Expr::nary(
-                        Times,
-                        vec![
-                            Expr::one_half(),
-                            Expr::unary(
-                                Ln,
-                                box Expr::nary(
-                                    Plus,
-                                    vec![
-                                        Expr::binary(Pow, box x.clone(), box Expr::two()),
-                                        Expr::binary(Pow, box y.clone(), box Expr::two()),
-                                    ],
-                                ),
-                            ),
-                        ],
-                    ),
-                    box Expr::binary(Atan2, box take(y), box take(x)),
-                )
-            }
             unary!(Re, binary!(Complex, x, _)) => {
                 *e = take(x);
             }
-            unary!(op @ (Abs | Cos | Cosh | Exp | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
+            unary!(op @ (Abs | Arg | Cos | Cosh | Exp | Ln | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
             {
                 let mut new_e = self.unary_ops[op].clone();
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
             binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(-1.0) => {
-                let inv_sq = Expr::binary(
-                    Pow,
-                    box Expr::nary(
-                        Plus,
-                        vec![
-                            Expr::binary(Pow, box x.clone(), box Expr::two()),
-                            Expr::binary(Pow, box y.clone(), box Expr::two()),
-                        ],
-                    ),
-                    box Expr::minus_one(),
-                );
-                *e = Expr::binary(
-                    Complex,
-                    box Expr::nary(Times, vec![take(x), inv_sq.clone()]),
-                    box Expr::nary(Times, vec![Expr::minus_one(), take(y), inv_sq]),
-                );
+                let mut new_e = self.unary_ops[&Recip].clone();
+                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                *e = new_e;
             }
             binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(2.0) => {
-                *e = Expr::binary(
-                    Complex,
-                    box Expr::nary(
-                        Plus,
-                        vec![
-                            Expr::binary(Pow, box x.clone(), box Expr::two()),
-                            Expr::nary(
-                                Times,
-                                vec![
-                                    Expr::minus_one(),
-                                    Expr::binary(Pow, box y.clone(), box Expr::two()),
-                                ],
-                            ),
-                        ],
-                    ),
-                    box Expr::nary(Times, vec![Expr::two(), take(x), take(y)]),
-                )
+                let mut new_e = self.unary_ops[&Sqr].clone();
+                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                *e = new_e;
             }
             nary!(Plus, xs) if e.ty == ValueType::Complex => {
                 let mut reals = vec![];
@@ -532,6 +484,24 @@ impl VisitMut for ExpandComplexFunctions {
                 let mut x = it.next().unwrap();
                 for mut y in it {
                     x = match (&mut x, &mut y) {
+                        (binary!(Complex, constant!(a), b), binary!(Complex, constant!(x), y))
+                            if a.to_f64() == Some(0.0) && x.to_f64() == Some(0.0) =>
+                        {
+                            Expr::nary(Times, vec![Expr::minus_one(), b.clone(), y.clone()])
+                        }
+                        (binary!(Complex, constant!(a), b), binary!(Complex, x, y))
+                        | (binary!(Complex, x, y), binary!(Complex, constant!(a), b))
+                            if a.to_f64() == Some(0.0) =>
+                        {
+                            Expr::binary(
+                                Complex,
+                                box Expr::nary(
+                                    Times,
+                                    vec![Expr::minus_one(), b.clone(), y.clone()],
+                                ),
+                                box Expr::nary(Times, vec![take(b), take(x)]),
+                            )
+                        }
                         (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
                             Complex,
                             box Expr::nary(
@@ -552,6 +522,16 @@ impl VisitMut for ExpandComplexFunctions {
                                 ],
                             ),
                         ),
+                        (a, binary!(Complex, constant!(x), y))
+                        | (binary!(Complex, constant!(x), y), a)
+                            if x.to_f64() == Some(0.0) =>
+                        {
+                            Expr::binary(
+                                Complex,
+                                box Expr::zero(),
+                                box Expr::nary(Times, vec![take(a), take(y)]),
+                            )
+                        }
                         (a, binary!(Complex, x, y)) | (binary!(Complex, x, y), a) => Expr::binary(
                             Complex,
                             box Expr::nary(Times, vec![a.clone(), take(x)]),
