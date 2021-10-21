@@ -476,6 +476,76 @@ impl VisitMut for ExpandComplexFunctions {
             unary!(Re, binary!(Complex, x, _)) => {
                 *e = take(x);
             }
+            unary!(Sign, x) => {
+                *e = match x {
+                    binary!(Complex, x, y) => {
+                        // sgn(x + i y) = f(x, y) - f(-x, y) + i (f(y, x) - f(-y, x)), where f is `ReSignNonnegative`.
+                        Expr::binary(
+                            Complex,
+                            box Expr::nary(
+                                Plus,
+                                vec![
+                                    Expr::binary(ReSignNonnegative, box x.clone(), box y.clone()),
+                                    Expr::nary(
+                                        Times,
+                                        vec![
+                                            Expr::minus_one(),
+                                            Expr::binary(
+                                                ReSignNonnegative,
+                                                box Expr::nary(
+                                                    Times,
+                                                    vec![Expr::minus_one(), x.clone()],
+                                                ),
+                                                box y.clone(),
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            box Expr::nary(
+                                Plus,
+                                vec![
+                                    Expr::binary(ReSignNonnegative, box y.clone(), box x.clone()),
+                                    Expr::nary(
+                                        Times,
+                                        vec![
+                                            Expr::minus_one(),
+                                            Expr::binary(
+                                                ReSignNonnegative,
+                                                box Expr::nary(
+                                                    Times,
+                                                    vec![Expr::minus_one(), take(y)],
+                                                ),
+                                                box take(x),
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                        )
+                    }
+                    x => {
+                        // sgn(x) = f(x, 0) - f(-x, 0).
+                        Expr::nary(
+                            Plus,
+                            vec![
+                                Expr::binary(ReSignNonnegative, box x.clone(), box Expr::zero()),
+                                Expr::nary(
+                                    Times,
+                                    vec![
+                                        Expr::minus_one(),
+                                        Expr::binary(
+                                            ReSignNonnegative,
+                                            box Expr::nary(Times, vec![Expr::minus_one(), take(x)]),
+                                            box Expr::zero(),
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        )
+                    }
+                };
+            }
             unary!(op @ (Abs | Acos | Acosh | Arg | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Log10 | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
             {
                 let mut new_e = self.unary_ops[op].clone();
@@ -1131,12 +1201,21 @@ impl AssignId {
     }
 
     /// Returns `true` if the expression can perform branch cut on evaluation.
-    fn term_can_perform_cut(e: &Expr) -> bool {
+    fn expr_can_perform_cut(e: &Expr) -> bool {
         use {BinaryOp::*, UnaryOp::*};
         match e {
             unary!(Ceil | Digamma | Floor | Gamma | Recip | Tan, _)
             | binary!(
-                Atan2 | Div | Gcd | Lcm | Log | Mod | Pow | RankedMax | RankedMin,
+                Atan2
+                    | Div
+                    | Gcd
+                    | Lcm
+                    | Log
+                    | Mod
+                    | Pow
+                    | RankedMax
+                    | RankedMin
+                    | ReSignNonnegative,
                 _,
                 _
             ) => true,
@@ -1156,7 +1235,7 @@ impl VisitMut for AssignId {
                 e.id = id;
 
                 if !self.site_map.contains_key(&id)
-                    && Self::term_can_perform_cut(e)
+                    && Self::expr_can_perform_cut(e)
                     && self.next_site <= Site::MAX
                 {
                     self.site_map.insert(id, Site::new(self.next_site));
@@ -1263,7 +1342,8 @@ impl CollectStatic {
                 }
                 .map(|op| StaticTermKind::Unary(op, self.store_index(x))),
                 binary!(op @ (Add | Atan2 | BesselI | BesselJ | BesselK | BesselY | Div | GammaInc
-                    | Gcd | Lcm | Log | Max | Min | Mod | Mul | Pow | Sub), x, y) => {
+                    | Gcd | Lcm | Log | Max | Min | Mod | Mul | Pow | ReSignNonnegative | Sub), x, y) =>
+                {
                     let op = match op {
                         Add => ScalarBinaryOp::Add,
                         Atan2 => ScalarBinaryOp::Atan2,
@@ -1281,6 +1361,7 @@ impl CollectStatic {
                         Mod => ScalarBinaryOp::Mod,
                         Mul => ScalarBinaryOp::Mul,
                         Pow => ScalarBinaryOp::Pow,
+                        ReSignNonnegative => ScalarBinaryOp::ReSignNonnegative,
                         Sub => ScalarBinaryOp::Sub,
                         _ => unreachable!(),
                     };

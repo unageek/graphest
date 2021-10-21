@@ -1,8 +1,7 @@
 use crate::{
     ast::{BinaryOp, Expr, UnaryOp},
-    parse::parse_expr,
     real::Real,
-    visit::{Parametrize, Substitute, VisitMut},
+    visit::{Substitute, VisitMut},
 };
 use inari::{const_dec_interval, DecInterval};
 use nom::{
@@ -116,12 +115,18 @@ impl Context {
 /// The context that is used when parsing relations.
 static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
     const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
-    let mut ctx = Context::new()
+    Context::new()
         .def("e", Def::constant(DecInterval::E.into()))
         .def("gamma", Def::constant(EULER_GAMMA.into()))
         .def("γ", Def::constant(EULER_GAMMA.into()))
         .def("pi", Def::constant(DecInterval::PI.into()))
         .def("π", Def::constant(DecInterval::PI.into()))
+        .def(
+            "i",
+            Def::Constant {
+                body: Expr::binary(BinaryOp::Complex, box Expr::zero(), box Expr::one()),
+            },
+        )
         .def("abs", Def::unary(UnaryOp::Abs))
         .def("acos", Def::unary(UnaryOp::Acos))
         .def("acosh", Def::unary(UnaryOp::Acosh))
@@ -163,6 +168,8 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("Re", Def::unary(UnaryOp::Re))
         .def("Shi", Def::unary(UnaryOp::Shi))
         .def("Si", Def::unary(UnaryOp::Si))
+        .def("sgn", Def::unary(UnaryOp::Sign))
+        .def("sign", Def::unary(UnaryOp::Sign))
         .def("sin", Def::unary(UnaryOp::Sin))
         .def("sinh", Def::unary(UnaryOp::Sinh))
         .def("sqrt", Def::unary(UnaryOp::Sqrt))
@@ -194,26 +201,7 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("^", Def::binary(BinaryOp::Pow))
         .def("ranked_max", Def::binary(BinaryOp::RankedMax))
         .def("ranked_min", Def::binary(BinaryOp::RankedMin))
-        .def("-", Def::binary(BinaryOp::Sub));
-
-    let def = Def::Constant {
-        body: Expr::binary(BinaryOp::Complex, box Expr::zero(), box Expr::one()),
-    };
-    ctx = ctx.def("i", def);
-
-    let def = Def::Function {
-        arity: 1,
-        body: {
-            let mut body =
-                parse_expr("⌊min(max(x, -0.5), 0.5)⌋ + ⌈min(max(x, -0.5), 0.5)⌉", &ctx).unwrap();
-            Parametrize::new(vec!["x".into()]).visit_expr_mut(&mut body);
-            body
-        },
-        left_associative: false,
-    };
-    ctx = ctx.def("sgn", def.clone()).def("sign", def);
-
-    ctx
+        .def("-", Def::binary(BinaryOp::Sub))
 });
 
 impl Context {

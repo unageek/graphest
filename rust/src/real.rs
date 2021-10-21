@@ -162,12 +162,12 @@ impl Real {
         TupperIntervalSet::ranked_min(xs.iter().map(|x| &x.x).collect(), &n.x, None).into()
     }
 
+    impl_op!(re_sign_nonnegative(x, y), x.re_sign_nonnegative(&y, None));
     impl_op!(
         rem_euclid(x, y),
         x.rem_euclid(&y, None),
         rational_ops::rem_euclid(x, y)
     );
-
     impl_op!(shi(x));
     impl_op!(si(x));
     impl_op!(sin(x));

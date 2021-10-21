@@ -55,6 +55,7 @@ pub enum UnaryOp {
     Recip,
     Shi,
     Si,
+    Sign,
     Sin,
     Sinc,
     Sinh,
@@ -100,6 +101,7 @@ pub enum BinaryOp {
     Pow,
     RankedMax,
     RankedMin,
+    ReSignNonnegative,
     Sub,
 }
 
@@ -416,6 +418,7 @@ impl Expr {
                 let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
                 Some(Real::ranked_min(xs, n.eval()?))
             }
+            binary!(ReSignNonnegative, x, y) => Some(x.eval()?.re_sign_nonnegative(y.eval()?)),
             uninit!() => panic!(),
             _ => None,
         }
@@ -475,6 +478,7 @@ impl Expr {
                     | One
                     | Shi
                     | Si
+                    | Sign
                     | Sin
                     | Sinc
                     | Sinh
@@ -482,7 +486,9 @@ impl Expr {
                     | Tanh,
                 x
             ) => x.totally_defined,
-            binary!(Add | Max | Min | Mul | Sub, x, y) => x.totally_defined && y.totally_defined,
+            binary!(Add | Max | Min | Mul | ReSignNonnegative | Sub, x, y) => {
+                x.totally_defined && y.totally_defined
+            }
             binary!(Pow, x, constant!(y)) => {
                 x.totally_defined
                     && matches!(y.rational(), Some(q) if *q >= 0 && q.denom().is_odd())
@@ -552,6 +558,7 @@ impl Expr {
                     | Log10
                     | Neg
                     | Recip
+                    | Sign
                     | Sin
                     | Sinh
                     | Sqr
@@ -612,6 +619,7 @@ impl Expr {
                     | Recip
                     | Shi
                     | Si
+                    | Sign
                     | Sin
                     | Sinc
                     | Sinh
@@ -638,6 +646,7 @@ impl Expr {
                     | Mod
                     | Mul
                     | Pow
+                    | ReSignNonnegative
                     | Sub,
                 x,
                 y

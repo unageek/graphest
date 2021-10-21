@@ -852,6 +852,53 @@ impl TupperIntervalSet {
         rs
     }
 
+    // f(x, y) = | x / sqrt(x^2 + y^2)  if x > 0,
+    //           | 0                    otherwise.
+    impl_op_cut!(re_sign_nonnegative(x, y), {
+        const ZERO: Interval = const_interval!(0.0, 0.0);
+        const ONE: Interval = const_interval!(1.0, 1.0);
+        let x = x.max(const_dec_interval!(0.0, 0.0));
+        let y = y.abs();
+        // 0 ≤ a ∧ 0 ≤ c.
+        let a = x.inf();
+        let b = x.sup();
+        let c = y.inf();
+        let d = y.sup();
+        let dec = if a == 0.0 && b > 0.0 && c == 0.0 {
+            Decoration::Def
+        } else {
+            Decoration::Dac
+        }
+        .min(x.decoration())
+        .min(y.decoration());
+        if d == 0.0 {
+            if b == 0.0 {
+                let z = DecInterval::set_dec(ZERO, dec);
+                (z, None)
+            } else if a == 0.0 {
+                let z0 = DecInterval::set_dec(ZERO, dec);
+                let z1 = DecInterval::set_dec(ONE, dec);
+                (z0, Some(z1))
+            } else {
+                let z = DecInterval::set_dec(ONE, dec);
+                (z, None)
+            }
+        } else {
+            let aa = interval!(a, a).unwrap();
+            let bb = interval!(b, b).unwrap();
+            let cc = interval!(c, c).unwrap();
+            let dd = interval!(d, d).unwrap();
+            let inf = (aa / (aa.sqr() + dd.sqr()).sqrt()).inf();
+            let sup = if b == 0.0 {
+                0.0
+            } else {
+                (bb / (bb.sqr() + cc.sqr()).sqrt()).sup()
+            };
+            let z = DecInterval::set_dec(interval!(inf, sup).unwrap(), dec);
+            (z, None)
+        }
+    });
+
     impl_op_cut!(recip(x), {
         let a = x.inf();
         let b = x.sup();
@@ -1875,6 +1922,37 @@ mod tests {
         let f = |x| pown(x, 3);
         test!(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
         test!(f, @odd i!(2.0, 3.0), (vec![i!(8.0, 27.0)], Com));
+    }
+
+    #[test]
+    fn re_sign_nonnegative() {
+        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
+            x.re_sign_nonnegative(&y, None)
+        }
+
+        let y = i!(0.0);
+        test!(f, i!(-1.0), y, (vec![i!(0.0)], Dac));
+        test!(f, i!(0.0), y, (vec![i!(0.0)], Dac));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Dac));
+        test!(f, i!(-1.0, 0.0), y, (vec![i!(0.0)], Dac));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(0.0), i!(1.0)], Def));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(0.0), i!(1.0)], Def));
+
+        let y = i!(1.0);
+        test!(f, i!(-1.0), @even y, (vec![i!(0.0)], Dac));
+        test!(f, i!(0.0), @even y, (vec![i!(0.0)], Dac));
+        test!(f, i!(1.0), @even y, (vec![i!(0.7071067811865475, 0.7071067811865477)], Dac));
+        test!(f, i!(-1.0, 0.0), @even y, (vec![i!(0.0)], Dac));
+        test!(f, i!(0.0, 1.0), @even y, (vec![i!(0.0, 0.7071067811865477)], Dac));
+        test!(f, i!(-1.0, 1.0), @even y, (vec![i!(0.0, 0.7071067811865477)], Dac));
+
+        let y = i!(0.0, 1.0);
+        test!(f, i!(-1.0), @even y, (vec![i!(0.0)], Dac));
+        test!(f, i!(0.0), @even y, (vec![i!(0.0)], Dac));
+        test!(f, i!(1.0), @even y, (vec![i!(0.7071067811865475, 1.0)], Dac));
+        test!(f, i!(-1.0, 0.0), @even y, (vec![i!(0.0)], Dac));
+        test!(f, i!(0.0, 1.0), @even y, (vec![i!(0.0, 1.0)], Def));
+        test!(f, i!(-1.0, 1.0), @even y, (vec![i!(0.0, 1.0)], Def));
     }
 
     #[test]

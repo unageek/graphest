@@ -453,6 +453,8 @@ mod tests {
         test("Re(x)", "(Re x)");
         test("Shi(x)", "(Shi x)");
         test("Si(x)", "(Si x)");
+        test("sgn(x)", "(Sign x)");
+        test("sign(x)", "(Sign x)");
         test("sin(x)", "(Sin x)");
         test("sinh(x)", "(Sinh x)");
         test("sqrt(x)", "(Sqrt x)");
@@ -503,16 +505,6 @@ mod tests {
         test(
             "(x = y || y = z) && z = x",
             "(And (Or (Eq x y) (Eq y z)) (Eq z x))",
-        );
-
-        // TODO: Do we need this?
-        test(
-            "sgn(x)",
-            "(Add (Floor (Min (Max x (Neg 0.5)) 0.5)) (Ceil (Min (Max x (Neg 0.5)) 0.5)))",
-        );
-        test(
-            "sign(x)",
-            "(Add (Floor (Min (Max x (Neg 0.5)) 0.5)) (Ceil (Min (Max x (Neg 0.5)) 0.5)))",
         );
     }
 }
