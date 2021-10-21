@@ -430,6 +430,7 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
         v.def_unary(Exp, "exp(x) cos(y) + i exp(x) sin(y)");
         v.def_unary(Ln, "1/2 ln(x^2 + y^2) + i atan2(y, x)");
+        v.def_unary(Log10, "ln(x + i y) / ln(10)");
         v.def_unary(Recip, "x / (x^2 + y^2) - i y / (x^2 + y^2)");
         v.def_unary(Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
         v.def_unary(Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
@@ -450,6 +451,7 @@ impl Default for ExpandComplexFunctions {
         // https://arblib.org/acb.html#c.acb_atan
         v.def_unary(Atan, "i/2 (ln(1 - i (x + i y)) - ln(1 + i (x + i y)))");
         v.def_unary(Atanh, "-i atan(i (x + i y))");
+        v.def_binary(Log, "ln(x + i y) / ln(a + i b)");
         v.def_binary(Pow, "exp((x + i y) ln(a + i b))");
         v
     }
@@ -474,7 +476,7 @@ impl VisitMut for ExpandComplexFunctions {
             unary!(Re, binary!(Complex, x, _)) => {
                 *e = take(x);
             }
-            unary!(op @ (Abs | Acos | Acosh | Arg | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
+            unary!(op @ (Abs | Acos | Acosh | Arg | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Log10 | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
             {
                 let mut new_e = self.unary_ops[op].clone();
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
@@ -495,7 +497,7 @@ impl VisitMut for ExpandComplexFunctions {
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
-            binary!(op @ Pow, x, y) if e.ty == ValueType::Complex => {
+            binary!(op @ (Log | Pow), x, y) if e.ty == ValueType::Complex => {
                 let mut new_e = self.binary_ops[op].clone();
                 let mut subst = match (x, y) {
                     (binary!(Complex, a, b), binary!(Complex, x, y)) => {

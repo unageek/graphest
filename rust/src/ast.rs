@@ -546,7 +546,10 @@ impl Expr {
                     | Cos
                     | Cosh
                     | Exp
+                    | Exp10
+                    | Exp2
                     | Ln
+                    | Log10
                     | Neg
                     | Recip
                     | Sin
@@ -558,7 +561,7 @@ impl Expr {
                 x
             ) if complex(x) => ComplexT,
             binary!(Complex, x, y) if real(x) && real(y) => ComplexT,
-            binary!(Add | Div | Mul | Pow | Sub, x, y)
+            binary!(Add | Div | Log | Mul | Pow | Sub, x, y)
                 if complex(x) && complex(y) || complex(x) && real(y) || real(x) && complex(y) =>
             {
                 ComplexT
