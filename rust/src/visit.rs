@@ -1,12 +1,14 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprId, NaryOp, TernaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
     binary, constant,
+    context::Context,
     interval_set::Site,
     nary,
     ops::{
         FormIndex, RankedMinMaxOp, RelOp, ScalarBinaryOp, ScalarTernaryOp, ScalarUnaryOp,
         StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex,
     },
+    parse::parse_expr,
     pown, rootn, ternary, unary, uninit, var,
 };
 use rug::Rational;
@@ -362,6 +364,288 @@ impl VisitMut for PreTransform {
     }
 }
 
+/// Precondition: [`PreTransform`] and then [`UpdateMetadata`] have been applied
+/// and the expression has not been modified since then.
+pub struct ExpandComplexFunctions {
+    binary_ops: HashMap<BinaryOp, Expr>,
+    unary_ops: HashMap<UnaryOp, Expr>,
+}
+
+impl ExpandComplexFunctions {
+    fn new() -> Self {
+        Self {
+            binary_ops: HashMap::new(),
+            unary_ops: HashMap::new(),
+        }
+    }
+
+    fn def_binary(&mut self, op: BinaryOp, body: &str) {
+        let e = self.make_def(vec!["a".into(), "b".into(), "x".into(), "y".into()], body);
+        self.binary_ops.insert(op, e);
+    }
+
+    fn def_unary(&mut self, op: UnaryOp, body: &str) {
+        let e = self.make_def(vec!["x".into(), "y".into()], body);
+        self.unary_ops.insert(op, e);
+    }
+
+    fn make_def(&mut self, params: Vec<String>, body: &str) -> Expr {
+        // Copy-paste of `relation::simplify`.
+        fn simplify(e: &mut Expr) {
+            loop {
+                let mut fl = Flatten::default();
+                fl.visit_expr_mut(e);
+                let mut s = SortTerms::default();
+                s.visit_expr_mut(e);
+                let mut f = FoldConstant::default();
+                f.visit_expr_mut(e);
+                UpdateMetadata.visit_expr_mut(e);
+                let mut t = Transform::default();
+                t.visit_expr_mut(e);
+                if !fl.modified && !s.modified && !f.modified && !t.modified {
+                    break;
+                }
+            }
+        }
+
+        let mut e = parse_expr(body, Context::builtin_context()).unwrap();
+        PreTransform.visit_expr_mut(&mut e);
+        UpdateMetadata.visit_expr_mut(&mut e);
+        self.visit_expr_mut(&mut e);
+        simplify(&mut e);
+        Parametrize::new(params).visit_expr_mut(&mut e);
+        e
+    }
+}
+
+impl Default for ExpandComplexFunctions {
+    fn default() -> Self {
+        use {BinaryOp::*, UnaryOp::*};
+
+        let mut v = Self::new();
+        // Some of the definitions may depend on previous ones.
+        v.def_unary(Abs, "sqrt(x^2 + y^2)");
+        v.def_unary(Arg, "atan2(y, x)");
+        v.def_unary(Cos, "cos(x) cosh(y) - i sin(x) sinh(y)");
+        v.def_unary(Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
+        v.def_unary(Exp, "exp(x) cos(y) + i exp(x) sin(y)");
+        v.def_unary(Ln, "1/2 ln(x^2 + y^2) + i atan2(y, x)");
+        v.def_unary(Log10, "ln(x + i y) / ln(10)");
+        v.def_unary(Recip, "x / (x^2 + y^2) - i y / (x^2 + y^2)");
+        v.def_unary(Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
+        v.def_unary(Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
+        v.def_unary(Sqr, "x^2 - y^2 + 2 i x y");
+        // https://arblib.org/acb.html#c.acb_sqrt
+        v.def_unary(
+            Sqrt,
+            "sqrt(2 (|x + i y| + x)) / 2 + i y / sqrt(2 (|x + i y| + x))",
+        );
+        v.def_unary(Tan, "sin(x + i y) / cos(x + i y)");
+        v.def_unary(Tanh, "sinh(x + i y) / cosh(x + i y)");
+        v.def_unary(Acos, "-i ln((x + i y) + i sqrt(1 - (x + i y)^2))");
+        // https://arblib.org/acb.html#c.acb_acosh
+        v.def_unary(Acosh, "ln(x + i y + sqrt(x + i y + 1) sqrt(x + i y - 1))");
+        // https://arblib.org/acb.html#c.acb_asin
+        v.def_unary(Asin, "-i ln(i (x + i y) + sqrt(1 - (x + i y)^2))");
+        v.def_unary(Asinh, "-i asin(i (x + i y))");
+        // https://arblib.org/acb.html#c.acb_atan
+        v.def_unary(Atan, "i/2 (ln(1 - i (x + i y)) - ln(1 + i (x + i y)))");
+        v.def_unary(Atanh, "-i atan(i (x + i y))");
+        v.def_binary(Log, "ln(x + i y) / ln(a + i b)");
+        v.def_binary(Pow, "exp((x + i y) ln(a + i b))");
+        v
+    }
+}
+
+impl VisitMut for ExpandComplexFunctions {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+        traverse_expr_mut(self, e);
+
+        match e {
+            unary!(Conj, binary!(Complex, x, y)) => {
+                *e = Expr::binary(
+                    Complex,
+                    box take(x),
+                    box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
+                );
+            }
+            unary!(Im, binary!(Complex, _, y)) => {
+                *e = take(y);
+            }
+            unary!(Re, binary!(Complex, x, _)) => {
+                *e = take(x);
+            }
+            unary!(Sign, x) => {
+                *e = match x {
+                    binary!(Complex, x, y) => {
+                        // sgn(x + i y) = f(x, y) - f(-x, y) + i (f(y, x) - f(-y, x)), where f is `ReSignNonnegative`.
+                        Expr::binary(
+                            Complex,
+                            box Expr::nary(
+                                Plus,
+                                vec![
+                                    Expr::binary(ReSignNonnegative, box x.clone(), box y.clone()),
+                                    Expr::nary(
+                                        Times,
+                                        vec![
+                                            Expr::minus_one(),
+                                            Expr::binary(
+                                                ReSignNonnegative,
+                                                box Expr::nary(
+                                                    Times,
+                                                    vec![Expr::minus_one(), x.clone()],
+                                                ),
+                                                box y.clone(),
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            box Expr::nary(
+                                Plus,
+                                vec![
+                                    Expr::binary(ReSignNonnegative, box y.clone(), box x.clone()),
+                                    Expr::nary(
+                                        Times,
+                                        vec![
+                                            Expr::minus_one(),
+                                            Expr::binary(
+                                                ReSignNonnegative,
+                                                box Expr::nary(
+                                                    Times,
+                                                    vec![Expr::minus_one(), take(y)],
+                                                ),
+                                                box take(x),
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                        )
+                    }
+                    x => {
+                        // sgn(x) = f(x, 0) - f(-x, 0).
+                        Expr::nary(
+                            Plus,
+                            vec![
+                                Expr::binary(ReSignNonnegative, box x.clone(), box Expr::zero()),
+                                Expr::nary(
+                                    Times,
+                                    vec![
+                                        Expr::minus_one(),
+                                        Expr::binary(
+                                            ReSignNonnegative,
+                                            box Expr::nary(Times, vec![Expr::minus_one(), take(x)]),
+                                            box Expr::zero(),
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        )
+                    }
+                };
+            }
+            unary!(op @ (Abs | Acos | Acosh | Arg | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Log10 | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
+            {
+                let mut new_e = self.unary_ops[op].clone();
+                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                *e = new_e;
+            }
+            binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(-1.0) => {
+                let mut new_e = self.unary_ops[&Recip].clone();
+                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                *e = new_e;
+            }
+            binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(0.5) => {
+                let mut new_e = self.unary_ops[&Sqrt].clone();
+                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                *e = new_e;
+            }
+            binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(2.0) => {
+                let mut new_e = self.unary_ops[&Sqr].clone();
+                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                *e = new_e;
+            }
+            binary!(op @ (Log | Pow), x, y) if e.ty == ValueType::Complex => {
+                let mut new_e = self.binary_ops[op].clone();
+                let mut subst = match (x, y) {
+                    (binary!(Complex, a, b), binary!(Complex, x, y)) => {
+                        Substitute::new(vec![take(a), take(b), take(x), take(y)])
+                    }
+                    (a, binary!(Complex, x, y)) => {
+                        Substitute::new(vec![take(a), Expr::zero(), take(x), take(y)])
+                    }
+                    (binary!(Complex, a, b), x) => {
+                        Substitute::new(vec![take(a), take(b), take(x), Expr::zero()])
+                    }
+                    _ => panic!(), // `e.ty` is wrong.
+                };
+                subst.visit_expr_mut(&mut new_e);
+                *e = new_e;
+            }
+            nary!(Plus, xs) if e.ty == ValueType::Complex => {
+                let mut reals = vec![];
+                let mut imags = vec![];
+                for x in xs {
+                    match x {
+                        binary!(Complex, x, y) => {
+                            reals.push(take(x));
+                            imags.push(take(y));
+                        }
+                        _ => {
+                            reals.push(take(x));
+                        }
+                    }
+                }
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::nary(Plus, reals),
+                    box Expr::nary(Plus, imags),
+                );
+            }
+            nary!(Times, xs) if e.ty == ValueType::Complex => {
+                let mut it = xs.drain(..);
+                let mut x = it.next().unwrap();
+                for mut y in it {
+                    x = match (&mut x, &mut y) {
+                        (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
+                            Complex,
+                            box Expr::nary(
+                                Plus,
+                                vec![
+                                    Expr::nary(Times, vec![a.clone(), x.clone()]),
+                                    Expr::nary(
+                                        Times,
+                                        vec![Expr::minus_one(), b.clone(), y.clone()],
+                                    ),
+                                ],
+                            ),
+                            box Expr::nary(
+                                Plus,
+                                vec![
+                                    Expr::nary(Times, vec![take(b), take(x)]),
+                                    Expr::nary(Times, vec![take(a), take(y)]),
+                                ],
+                            ),
+                        ),
+                        (a, binary!(Complex, x, y)) | (binary!(Complex, x, y), a) => Expr::binary(
+                            Complex,
+                            box Expr::nary(Times, vec![a.clone(), take(x)]),
+                            box Expr::nary(Times, vec![take(a), take(y)]),
+                        ),
+                        _ => panic!(), // `e.ty` is wrong.
+                    };
+                }
+                *e = x;
+            }
+            _ => return,
+        }
+
+        e.update_metadata();
+    }
+}
+
 /// Flattens out nested expressions of kind [`NaryOp::Plus`]/[`NaryOp::Times`].
 ///
 /// To any expression that contains zero or one term, the following rules are applied:
@@ -521,6 +805,9 @@ where
 }
 
 /// Transforms expressions into simpler/normalized forms.
+///
+/// Precondition: [`UpdateMetadata`] have been applied
+/// and the expression has not been modified since then.
 #[derive(Default)]
 pub struct Transform {
     pub modified: bool,
@@ -590,9 +877,19 @@ impl VisitMut for Transform {
                 self.modified = xs.len() < len;
             }
             nary!(Times, xs) => {
-                // Don't replace 0 x with 0 as that alters the domain of the expression.
-
                 let len = xs.len();
+
+                // Don't replace 0 x with 0 unless x is totally defined;
+                // otherwise, tha replacement will alter the domain of the expression.
+                if xs.iter().all(|x| x.totally_defined)
+                    && xs.iter().any(|x| {
+                        matches!(x,
+                            constant!(a) if a.to_f64() == Some(0.0)
+                        )
+                    })
+                {
+                    *xs = vec![Expr::zero()];
+                }
 
                 // Drop ones.
                 xs.retain(|x| !matches!(x, constant!(a) if a.to_f64() == Some(1.0)));
@@ -876,12 +1173,21 @@ impl AssignId {
     }
 
     /// Returns `true` if the expression can perform branch cut on evaluation.
-    fn term_can_perform_cut(e: &Expr) -> bool {
+    fn expr_can_perform_cut(e: &Expr) -> bool {
         use {BinaryOp::*, UnaryOp::*};
         match e {
             unary!(Ceil | Digamma | Floor | Gamma | Recip | Tan, _)
             | binary!(
-                Atan2 | Div | Gcd | Lcm | Log | Mod | Pow | RankedMax | RankedMin,
+                Atan2
+                    | Div
+                    | Gcd
+                    | Lcm
+                    | Log
+                    | Mod
+                    | Pow
+                    | RankedMax
+                    | RankedMin
+                    | ReSignNonnegative,
                 _,
                 _
             ) => true,
@@ -901,7 +1207,7 @@ impl VisitMut for AssignId {
                 e.id = id;
 
                 if !self.site_map.contains_key(&id)
-                    && Self::term_can_perform_cut(e)
+                    && Self::expr_can_perform_cut(e)
                     && self.next_site <= Site::MAX
                 {
                     self.site_map.insert(id, Site::new(self.next_site));
@@ -1008,7 +1314,8 @@ impl CollectStatic {
                 }
                 .map(|op| StaticTermKind::Unary(op, self.store_index(x))),
                 binary!(op @ (Add | Atan2 | BesselI | BesselJ | BesselK | BesselY | Div | GammaInc
-                    | Gcd | Lcm | Log | Max | Min | Mod | Mul | Pow | Sub), x, y) => {
+                    | Gcd | Lcm | Log | Max | Min | Mod | Mul | Pow | ReSignNonnegative | Sub), x, y) =>
+                {
                     let op = match op {
                         Add => ScalarBinaryOp::Add,
                         Atan2 => ScalarBinaryOp::Atan2,
@@ -1026,6 +1333,7 @@ impl CollectStatic {
                         Mod => ScalarBinaryOp::Mod,
                         Mul => ScalarBinaryOp::Mul,
                         Pow => ScalarBinaryOp::Pow,
+                        ReSignNonnegative => ScalarBinaryOp::ReSignNonnegative,
                         Sub => ScalarBinaryOp::Sub,
                         _ => unreachable!(),
                     };

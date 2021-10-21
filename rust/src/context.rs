@@ -1,8 +1,7 @@
 use crate::{
     ast::{BinaryOp, Expr, UnaryOp},
-    parse::parse_expr,
     real::Real,
-    visit::{Parametrize, Substitute, VisitMut},
+    visit::{Substitute, VisitMut},
 };
 use inari::{const_dec_interval, DecInterval};
 use nom::{
@@ -116,12 +115,18 @@ impl Context {
 /// The context that is used when parsing relations.
 static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
     const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
-    let ctx = Context::new()
+    Context::new()
         .def("e", Def::constant(DecInterval::E.into()))
         .def("gamma", Def::constant(EULER_GAMMA.into()))
         .def("γ", Def::constant(EULER_GAMMA.into()))
         .def("pi", Def::constant(DecInterval::PI.into()))
         .def("π", Def::constant(DecInterval::PI.into()))
+        .def(
+            "i",
+            Def::Constant {
+                body: Expr::binary(BinaryOp::Complex, box Expr::zero(), box Expr::one()),
+            },
+        )
         .def("abs", Def::unary(UnaryOp::Abs))
         .def("acos", Def::unary(UnaryOp::Acos))
         .def("acosh", Def::unary(UnaryOp::Acosh))
@@ -129,6 +134,7 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("Ai'", Def::unary(UnaryOp::AiryAiPrime))
         .def("Bi", Def::unary(UnaryOp::AiryBi))
         .def("Bi'", Def::unary(UnaryOp::AiryBiPrime))
+        .def("arg", Def::unary(UnaryOp::Arg))
         .def("asin", Def::unary(UnaryOp::Asin))
         .def("asinh", Def::unary(UnaryOp::Asinh))
         .def("atan", Def::unary(UnaryOp::Atan))
@@ -136,6 +142,7 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("ceil", Def::unary(UnaryOp::Ceil))
         .def("Chi", Def::unary(UnaryOp::Chi))
         .def("Ci", Def::unary(UnaryOp::Ci))
+        .def("~", Def::unary(UnaryOp::Conj))
         .def("cos", Def::unary(UnaryOp::Cos))
         .def("cosh", Def::unary(UnaryOp::Cosh))
         .def("psi", Def::unary(UnaryOp::Digamma))
@@ -152,13 +159,17 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("S", Def::unary(UnaryOp::FresnelS))
         .def("Gamma", Def::unary(UnaryOp::Gamma))
         .def("Γ", Def::unary(UnaryOp::Gamma))
+        .def("Im", Def::unary(UnaryOp::Im))
         .def("li", Def::unary(UnaryOp::Li))
         .def("ln", Def::unary(UnaryOp::Ln))
         .def("log", Def::unary(UnaryOp::Log10))
         .def("-", Def::unary(UnaryOp::Neg))
         .def("!", Def::unary(UnaryOp::Not))
+        .def("Re", Def::unary(UnaryOp::Re))
         .def("Shi", Def::unary(UnaryOp::Shi))
         .def("Si", Def::unary(UnaryOp::Si))
+        .def("sgn", Def::unary(UnaryOp::Sign))
+        .def("sign", Def::unary(UnaryOp::Sign))
         .def("sin", Def::unary(UnaryOp::Sin))
         .def("sinh", Def::unary(UnaryOp::Sinh))
         .def("sqrt", Def::unary(UnaryOp::Sqrt))
@@ -190,16 +201,7 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("^", Def::binary(BinaryOp::Pow))
         .def("ranked_max", Def::binary(BinaryOp::RankedMax))
         .def("ranked_min", Def::binary(BinaryOp::RankedMin))
-        .def("-", Def::binary(BinaryOp::Sub));
-
-    let mut body = parse_expr("⌊min(max(x, -0.5), 0.5)⌋ + ⌈min(max(x, -0.5), 0.5)⌉", &ctx).unwrap();
-    Parametrize::new(vec!["x".into()]).visit_expr_mut(&mut body);
-    let def = Def::Function {
-        arity: 1,
-        body,
-        left_associative: false,
-    };
-    ctx.def("sgn", def.clone()).def("sign", def)
+        .def("-", Def::binary(BinaryOp::Sub))
 });
 
 impl Context {

@@ -1,6 +1,6 @@
 use crate::real::Real;
 use bitflags::*;
-use inari::{const_dec_interval, DecInterval};
+use inari::{const_dec_interval, DecInterval, Decoration};
 use std::{
     collections::hash_map::DefaultHasher,
     fmt,
@@ -19,6 +19,7 @@ pub enum UnaryOp {
     AiryAiPrime,
     AiryBi,
     AiryBiPrime,
+    Arg,
     Asin,
     Asinh,
     Atan,
@@ -26,6 +27,7 @@ pub enum UnaryOp {
     Ceil,
     Chi,
     Ci,
+    Conj,
     Cos,
     Cosh,
     Digamma,
@@ -42,15 +44,18 @@ pub enum UnaryOp {
     FresnelC,
     FresnelS,
     Gamma,
+    Im,
     Li,
     Ln,
     Log10,
     Neg,
     Not,
     One,
+    Re,
     Recip,
     Shi,
     Si,
+    Sign,
     Sin,
     Sinc,
     Sinh,
@@ -70,6 +75,7 @@ pub enum BinaryOp {
     BesselJ,
     BesselK,
     BesselY,
+    Complex,
     Div,
     Eq,
     /// Equality in explicit relations.
@@ -95,6 +101,7 @@ pub enum BinaryOp {
     Pow,
     RankedMax,
     RankedMin,
+    ReSignNonnegative,
     Sub,
 }
 
@@ -126,6 +133,7 @@ pub enum ExprKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValueType {
     Boolean,
+    Complex,
     Real,
     RealVector,
     Unknown,
@@ -147,6 +155,7 @@ bitflags! {
 pub struct Expr {
     pub id: ExprId,
     pub kind: ExprKind,
+    pub totally_defined: bool,
     pub ty: ValueType,
     pub vars: VarSet,
     internal_hash: u64,
@@ -257,6 +266,7 @@ impl Expr {
         Self {
             id: UNINIT_EXPR_ID,
             kind,
+            totally_defined: false,
             ty: ValueType::Unknown,
             vars: VarSet::EMPTY,
             internal_hash: 0,
@@ -342,10 +352,9 @@ impl Expr {
     /// Returns [`None`] if the expression cannot be evaluated to a real constant
     /// or constant evaluation is not implemented for the operation.
     pub fn eval(&self) -> Option<Real> {
-        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
         match self {
             constant!(x) => Some(x.clone()),
-            var!(_) => None,
             unary!(Abs, x) => Some(x.eval()?.abs()),
             unary!(Acos, x) => Some(x.eval()?.acos()),
             unary!(Acosh, x) => Some(x.eval()?.acosh()),
@@ -377,15 +386,11 @@ impl Expr {
             unary!(Li, x) => Some(x.eval()?.li()),
             unary!(Ln, x) => Some(x.eval()?.ln()),
             unary!(Log10, x) => Some(x.eval()?.log10()),
-            unary!(Neg, x) => Some(-x.eval()?),
-            unary!(One, x) => Some(x.eval()?.one()),
             unary!(Shi, x) => Some(x.eval()?.shi()),
             unary!(Si, x) => Some(x.eval()?.si()),
             unary!(Sin, x) => Some(x.eval()?.sin()),
             unary!(Sinc, x) => Some(x.eval()?.sinc()),
             unary!(Sinh, x) => Some(x.eval()?.sinh()),
-            unary!(Sqr, x) => Some(x.eval()?.sqr()),
-            unary!(Sqrt, x) => Some(x.eval()?.sqrt()),
             unary!(Tan, x) => Some(x.eval()?.tan()),
             unary!(Tanh, x) => Some(x.eval()?.tanh()),
             unary!(UndefAt0, x) => Some(x.eval()?.undef_at_0()),
@@ -395,7 +400,6 @@ impl Expr {
             binary!(BesselJ, n, x) => Some(n.eval()?.bessel_j(x.eval()?)),
             binary!(BesselK, n, x) => Some(n.eval()?.bessel_k(x.eval()?)),
             binary!(BesselY, n, x) => Some(n.eval()?.bessel_y(x.eval()?)),
-            binary!(Div, x, y) => Some(x.eval()? / y.eval()?),
             binary!(GammaInc, a, x) => Some(a.eval()?.gamma_inc(x.eval()?)),
             binary!(Gcd, x, y) => Some(x.eval()?.gcd(y.eval()?)),
             binary!(Lcm, x, y) => Some(x.eval()?.lcm(y.eval()?)),
@@ -414,31 +418,20 @@ impl Expr {
                 let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
                 Some(Real::ranked_min(xs, n.eval()?))
             }
-            binary!(RankedMax | RankedMin, _, _) => panic!(),
-            binary!(Sub, x, y) => Some(x.eval()? - y.eval()?),
-            ternary!(MulAdd, _, _, _) => None,
-            nary!(Plus | Times, _) => None,
-            rootn!(x, n) => Some(x.eval()?.rootn(*n)),
-            unary!(Exp10 | Exp2 | Recip, _) | pown!(_, _) => {
-                panic!("use `BinaryOp::Pow` for constant evaluation")
-            }
-            unary!(Not, _) => None,
-            binary!(
-                And | Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt | Or,
-                _,
-                _
-            ) => None,
-            nary!(List, _) => None,
+            binary!(ReSignNonnegative, x, y) => Some(x.eval()?.re_sign_nonnegative(y.eval()?)),
             uninit!() => panic!(),
+            _ => None,
         }
     }
 
-    /// Updates [`Expr::ty`], [`Expr::vars`], and [`Expr::internal_hash`] of the expression.
+    /// Updates [`Expr::totally_defined`], [`Expr::ty`], [`Expr::vars`], and [`Expr::internal_hash`]
+    /// of the expression.
     ///
     /// Precondition: The function is called on all sub-expressions
     /// and they have not been modified since then.
     pub fn update_metadata(&mut self) {
         self.ty = self.value_type();
+        self.totally_defined = self.totally_defined(); // Requires `self.ty`.
         self.vars = self.variables();
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
@@ -448,14 +441,87 @@ impl Expr {
         }
     }
 
+    /// Returns `true` if the expression is real-valued and is defined on the entire domain.
+    ///
+    /// Preconditions:
+    ///
+    /// - [`Expr::totally_defined`] is correctly assigned for all sub-expressions.
+    /// - [`Expr::ty`] is correctly assigned for `self`.
+    fn totally_defined(&self) -> bool {
+        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
+
+        // NOTE: Mathematica's `FunctionDomain` would be useful when the same definition is used.
+        match self {
+            constant!(a) if a.interval().decoration() >= Decoration::Def => true,
+            // `theta` will be expanded to an expression that contains [`BinaryOp::Atan2`].
+            var!(x) if x != "theta" && x != "θ" => true,
+            unary!(
+                Abs | AiryAi
+                    | AiryAiPrime
+                    | AiryBi
+                    | AiryBiPrime
+                    | Asinh
+                    | Atan
+                    | Ceil
+                    | Cos
+                    | Cosh
+                    | Erf
+                    | Erfc
+                    | Erfi
+                    | Exp
+                    | Exp10
+                    | Exp2
+                    | Floor
+                    | FresnelC
+                    | FresnelS
+                    | Neg
+                    | One
+                    | Shi
+                    | Si
+                    | Sign
+                    | Sin
+                    | Sinc
+                    | Sinh
+                    | Sqr
+                    | Tanh,
+                x
+            ) => x.totally_defined,
+            binary!(Add | Max | Min | Mul | ReSignNonnegative | Sub, x, y) => {
+                x.totally_defined && y.totally_defined
+            }
+            binary!(Pow, x, constant!(y)) => {
+                x.totally_defined
+                    && matches!(y.rational(), Some(q) if *q >= 0 && q.denom().is_odd())
+            }
+            ternary!(MulAdd, x, y, z) => {
+                x.totally_defined && y.totally_defined && z.totally_defined
+            }
+            nary!(Plus | Times, xs) => xs.iter().all(|x| x.totally_defined),
+            pown!(x, n) => x.totally_defined && *n >= 0,
+            rootn!(x, n) => x.totally_defined && n % 2 == 1,
+            uninit!() => panic!(),
+            _ => false,
+        }
+    }
+
     /// Returns the value type of the expression.
     ///
     /// Precondition: [`Expr::ty`] is correctly assigned for `self`.
     fn value_type(&self) -> ValueType {
-        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*, ValueType::*};
+        use {
+            BinaryOp::{Complex, *},
+            NaryOp::*,
+            TernaryOp::*,
+            UnaryOp::*,
+            ValueType::{Complex as ComplexT, *},
+        };
 
         fn boolean(e: &Expr) -> bool {
             e.ty == Boolean
+        }
+
+        fn complex(e: &Expr) -> bool {
+            e.ty == ComplexT
         }
 
         fn real(e: &Expr) -> bool {
@@ -475,9 +541,46 @@ impl Expr {
                 x,
                 y
             ) if real(x) && real(y) => Boolean,
+            // Complex
+            unary!(
+                Acos | Acosh
+                    | Asin
+                    | Asinh
+                    | Atan
+                    | Atanh
+                    | Conj
+                    | Cos
+                    | Cosh
+                    | Exp
+                    | Exp10
+                    | Exp2
+                    | Ln
+                    | Log10
+                    | Neg
+                    | Recip
+                    | Sign
+                    | Sin
+                    | Sinh
+                    | Sqr
+                    | Sqrt
+                    | Tan
+                    | Tanh,
+                x
+            ) if complex(x) => ComplexT,
+            binary!(Complex, x, y) if real(x) && real(y) => ComplexT,
+            binary!(Add | Div | Log | Mul | Pow | Sub, x, y)
+                if complex(x) && complex(y) || complex(x) && real(y) || real(x) && complex(y) =>
+            {
+                ComplexT
+            }
+            nary!(Plus | Times, xs)
+                if xs.iter().all(|x| complex(x) || real(x)) && xs.iter().any(complex) =>
+            {
+                ComplexT
+            }
             // Real
-            constant!(_) => Real,
-            var!(x) if x == "t" || x == "x" || x == "y" || x == "<n-theta>" => Real,
+            constant!(_) | var!(_) => Real,
+            unary!(Abs | Arg | Im | Re, x) if complex(x) => Real,
             unary!(
                 Abs | Acos
                     | Acosh
@@ -516,6 +619,7 @@ impl Expr {
                     | Recip
                     | Shi
                     | Si
+                    | Sign
                     | Sin
                     | Sinc
                     | Sinh
@@ -542,6 +646,7 @@ impl Expr {
                     | Mod
                     | Mul
                     | Pow
+                    | ReSignNonnegative
                     | Sub,
                 x,
                 y
