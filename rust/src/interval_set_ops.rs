@@ -852,7 +852,9 @@ impl TupperIntervalSet {
         rs
     }
 
-    // f(x, y) = | x / sqrt(x^2 + y^2)  if x > 0,
+    // f(x, y) = | Re(sgn(x + i y))  if x > 0,
+    //           | 0                 otherwise,
+    //         = | x / sqrt(x^2 + y^2)  if x > 0,
     //           | 0                    otherwise.
     impl_op_cut!(re_sign_nonnegative(x, y), {
         const ZERO: Interval = const_interval!(0.0, 0.0);

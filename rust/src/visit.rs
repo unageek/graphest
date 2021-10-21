@@ -609,24 +609,6 @@ impl VisitMut for ExpandComplexFunctions {
                 let mut x = it.next().unwrap();
                 for mut y in it {
                     x = match (&mut x, &mut y) {
-                        (binary!(Complex, constant!(a), b), binary!(Complex, constant!(x), y))
-                            if a.to_f64() == Some(0.0) && x.to_f64() == Some(0.0) =>
-                        {
-                            Expr::nary(Times, vec![Expr::minus_one(), b.clone(), y.clone()])
-                        }
-                        (binary!(Complex, constant!(a), b), binary!(Complex, x, y))
-                        | (binary!(Complex, x, y), binary!(Complex, constant!(a), b))
-                            if a.to_f64() == Some(0.0) =>
-                        {
-                            Expr::binary(
-                                Complex,
-                                box Expr::nary(
-                                    Times,
-                                    vec![Expr::minus_one(), b.clone(), y.clone()],
-                                ),
-                                box Expr::nary(Times, vec![take(b), take(x)]),
-                            )
-                        }
                         (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
                             Complex,
                             box Expr::nary(
@@ -647,22 +629,12 @@ impl VisitMut for ExpandComplexFunctions {
                                 ],
                             ),
                         ),
-                        (a, binary!(Complex, constant!(x), y))
-                        | (binary!(Complex, constant!(x), y), a)
-                            if x.to_f64() == Some(0.0) =>
-                        {
-                            Expr::binary(
-                                Complex,
-                                box Expr::zero(),
-                                box Expr::nary(Times, vec![take(a), take(y)]),
-                            )
-                        }
                         (a, binary!(Complex, x, y)) | (binary!(Complex, x, y), a) => Expr::binary(
                             Complex,
                             box Expr::nary(Times, vec![a.clone(), take(x)]),
                             box Expr::nary(Times, vec![take(a), take(y)]),
                         ),
-                        (x, y) => Expr::nary(Times, vec![take(x), take(y)]),
+                        _ => panic!(), // `e.ty` is wrong.
                     };
                 }
                 *e = x;
