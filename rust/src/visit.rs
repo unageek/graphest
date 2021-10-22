@@ -608,6 +608,27 @@ impl VisitMut for ExpandComplexFunctions {
                 subst.visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
+            binary!(op @ (Eq | Ge | Gt | Le | Lt), binary!(Complex, x, y), _) => {
+                *e = Expr::binary(
+                    And,
+                    box Expr::binary(*op, box take(x), box Expr::zero()),
+                    box Expr::binary(Eq, box take(y), box Expr::zero()),
+                );
+            }
+            binary!(op @ (Neq | Nge | Ngt | Nle | Nlt), binary!(Complex, x, y), _) => {
+                *e = Expr::binary(
+                    Or,
+                    box Expr::binary(*op, box take(x), box Expr::zero()),
+                    box Expr::binary(Neq, box take(y), box Expr::zero()),
+                );
+            }
+            binary!(ExplicitRel, z, binary!(Complex, x, y)) => {
+                *e = Expr::binary(
+                    And,
+                    box Expr::binary(ExplicitRel, box take(z), box take(x)),
+                    box Expr::binary(Eq, box take(y), box Expr::zero()),
+                );
+            }
             nary!(Plus, xs) if e.ty == ValueType::Complex => {
                 let mut reals = vec![];
                 let mut imags = vec![];

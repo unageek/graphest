@@ -78,7 +78,6 @@ pub enum BinaryOp {
     Complex,
     Div,
     Eq,
-    /// Equality in explicit relations.
     ExplicitRel,
     GammaInc,
     Gcd,
@@ -543,7 +542,7 @@ impl Expr {
                 Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
                 x,
                 y
-            ) if real(x) && real(y) => Boolean,
+            ) if (complex(x) || real(x)) && (complex(y) || real(y)) => Boolean,
             // Complex
             unary!(
                 Acos | Acosh
