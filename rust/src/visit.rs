@@ -425,7 +425,6 @@ impl Default for ExpandComplexFunctions {
         let mut v = Self::new();
         // Some of the definitions may depend on previous ones.
         v.def_unary(Abs, "sqrt(x^2 + y^2)");
-        v.def_unary(Arg, "atan2(y, x)");
         v.def_unary(Cos, "cos(x) cosh(y) - i sin(x) sinh(y)");
         v.def_unary(Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
         v.def_unary(Exp, "exp(x) cos(y) + i exp(x) sin(y)");
@@ -463,6 +462,13 @@ impl VisitMut for ExpandComplexFunctions {
         traverse_expr_mut(self, e);
 
         match e {
+            unary!(Arg, binary!(Complex, x, y)) => {
+                *e = Expr::binary(Atan2, box take(y), box take(x));
+            }
+            unary!(Arg, x) => {
+                assert_eq!(x.ty, ValueType::Real);
+                *e = Expr::binary(Atan2, box Expr::zero(), box take(x));
+            }
             unary!(Conj, binary!(Complex, x, y)) => {
                 *e = Expr::binary(
                     Complex,
@@ -470,83 +476,101 @@ impl VisitMut for ExpandComplexFunctions {
                     box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
                 );
             }
-            unary!(Im, binary!(Complex, _, y)) => {
-                *e = take(y);
-            }
-            unary!(Re, binary!(Complex, x, _)) => {
+            unary!(Conj, x) => {
+                assert_eq!(x.ty, ValueType::Real);
                 *e = take(x);
             }
+            unary!(Im, binary!(Complex, x, y)) => {
+                *e = Expr::nary(
+                    Plus,
+                    vec![
+                        // Keep `x` to preserve the domain.
+                        Expr::nary(Times, vec![Expr::zero(), take(x)]),
+                        take(y),
+                    ],
+                );
+            }
+            unary!(Im, x) => {
+                assert_eq!(x.ty, ValueType::Real);
+                // Keep `x` to preserve the domain.
+                *e = Expr::nary(Times, vec![Expr::zero(), take(x)]);
+            }
+            unary!(Re, binary!(Complex, x, y)) => {
+                *e = Expr::nary(
+                    Plus,
+                    vec![
+                        take(x),
+                        // Keep `y` to preserve the domain.
+                        Expr::nary(Times, vec![Expr::zero(), take(y)]),
+                    ],
+                );
+            }
+            unary!(Re, x) => {
+                assert_eq!(x.ty, ValueType::Real);
+                *e = take(x);
+            }
+            unary!(Sign, binary!(Complex, x, y)) => {
+                // sgn(x + i y) = f(x, y) - f(-x, y) + i (f(y, x) - f(-y, x)), where f is `ReSignNonnegative`.
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::nary(
+                        Plus,
+                        vec![
+                            Expr::binary(ReSignNonnegative, box x.clone(), box y.clone()),
+                            Expr::nary(
+                                Times,
+                                vec![
+                                    Expr::minus_one(),
+                                    Expr::binary(
+                                        ReSignNonnegative,
+                                        box Expr::nary(Times, vec![Expr::minus_one(), x.clone()]),
+                                        box y.clone(),
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                    box Expr::nary(
+                        Plus,
+                        vec![
+                            Expr::binary(ReSignNonnegative, box y.clone(), box x.clone()),
+                            Expr::nary(
+                                Times,
+                                vec![
+                                    Expr::minus_one(),
+                                    Expr::binary(
+                                        ReSignNonnegative,
+                                        box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
+                                        box take(x),
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                );
+            }
             unary!(Sign, x) => {
-                *e = match x {
-                    binary!(Complex, x, y) => {
-                        // sgn(x + i y) = f(x, y) - f(-x, y) + i (f(y, x) - f(-y, x)), where f is `ReSignNonnegative`.
-                        Expr::binary(
-                            Complex,
-                            box Expr::nary(
-                                Plus,
-                                vec![
-                                    Expr::binary(ReSignNonnegative, box x.clone(), box y.clone()),
-                                    Expr::nary(
-                                        Times,
-                                        vec![
-                                            Expr::minus_one(),
-                                            Expr::binary(
-                                                ReSignNonnegative,
-                                                box Expr::nary(
-                                                    Times,
-                                                    vec![Expr::minus_one(), x.clone()],
-                                                ),
-                                                box y.clone(),
-                                            ),
-                                        ],
-                                    ),
-                                ],
-                            ),
-                            box Expr::nary(
-                                Plus,
-                                vec![
-                                    Expr::binary(ReSignNonnegative, box y.clone(), box x.clone()),
-                                    Expr::nary(
-                                        Times,
-                                        vec![
-                                            Expr::minus_one(),
-                                            Expr::binary(
-                                                ReSignNonnegative,
-                                                box Expr::nary(
-                                                    Times,
-                                                    vec![Expr::minus_one(), take(y)],
-                                                ),
-                                                box take(x),
-                                            ),
-                                        ],
-                                    ),
-                                ],
-                            ),
-                        )
-                    }
-                    x => {
-                        // sgn(x) = f(x, 0) - f(-x, 0).
+                assert_eq!(x.ty, ValueType::Real);
+                // sgn(x) = f(x, 0) - f(-x, 0).
+                *e = Expr::nary(
+                    Plus,
+                    vec![
+                        Expr::binary(ReSignNonnegative, box x.clone(), box Expr::zero()),
                         Expr::nary(
-                            Plus,
+                            Times,
                             vec![
-                                Expr::binary(ReSignNonnegative, box x.clone(), box Expr::zero()),
-                                Expr::nary(
-                                    Times,
-                                    vec![
-                                        Expr::minus_one(),
-                                        Expr::binary(
-                                            ReSignNonnegative,
-                                            box Expr::nary(Times, vec![Expr::minus_one(), take(x)]),
-                                            box Expr::zero(),
-                                        ),
-                                    ],
+                                Expr::minus_one(),
+                                Expr::binary(
+                                    ReSignNonnegative,
+                                    box Expr::nary(Times, vec![Expr::minus_one(), take(x)]),
+                                    box Expr::zero(),
                                 ),
                             ],
-                        )
-                    }
-                };
+                        ),
+                    ],
+                );
             }
-            unary!(op @ (Abs | Acos | Acosh | Arg | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Log10 | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
+            unary!(op @ (Abs | Acos | Acosh | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Log10 | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
             {
                 let mut new_e = self.unary_ops[op].clone();
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);

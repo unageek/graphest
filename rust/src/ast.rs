@@ -463,6 +463,7 @@ impl Expr {
                     | Asinh
                     | Atan
                     | Ceil
+                    | Conj
                     | Cos
                     | Cosh
                     | Erf
@@ -474,8 +475,10 @@ impl Expr {
                     | Floor
                     | FresnelC
                     | FresnelS
+                    | Im
                     | Neg
                     | One
+                    | Re
                     | Shi
                     | Si
                     | Sign
@@ -588,6 +591,7 @@ impl Expr {
                     | AiryAiPrime
                     | AiryBi
                     | AiryBiPrime
+                    | Arg
                     | Asin
                     | Asinh
                     | Atan
@@ -595,6 +599,7 @@ impl Expr {
                     | Ceil
                     | Chi
                     | Ci
+                    | Conj
                     | Cos
                     | Cosh
                     | Digamma
@@ -611,11 +616,13 @@ impl Expr {
                     | FresnelC
                     | FresnelS
                     | Gamma
+                    | Im
                     | Li
                     | Ln
                     | Log10
                     | Neg
                     | One
+                    | Re
                     | Recip
                     | Shi
                     | Si
