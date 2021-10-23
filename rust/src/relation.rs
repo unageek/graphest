@@ -495,13 +495,7 @@ impl FromStr for Relation {
     fn from_str(s: &str) -> Result<Self, String> {
         let mut e = parse_expr(s, Context::builtin_context())?;
         // TODO: Check types and return a pretty error message.
-        loop {
-            let mut v = EliminateNot::default();
-            v.visit_expr_mut(&mut e);
-            if !v.modified {
-                break;
-            }
-        }
+        eliminate_not(&mut e);
         let relation_type = relation_type(&mut e);
         PreTransform.visit_expr_mut(&mut e);
         expand_complex_functions(&mut e);
@@ -582,11 +576,6 @@ impl FromStr for Relation {
         slf.initialize();
         Ok(slf)
     }
-}
-
-fn expand_complex_functions(e: &mut Expr) {
-    UpdateMetadata.visit_expr_mut(e);
-    ExpandComplexFunctions::default().visit_expr_mut(e);
 }
 
 /// Transforms an expression that contains r or θ into the equivalent expression
@@ -911,7 +900,7 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
 /// normalizes the explicit part(s) of the relation to the form `(ExplicitRel x f(x))`,
 /// where `x` is a variable and `f(x)` is a function of `x`.
 ///
-/// Precondition: [`EliminateNot`] has been applied.
+/// Precondition: [`EliminateNot`] has been applied to the expression.
 fn relation_type(e: &mut Expr) -> RelationType {
     use RelationType::*;
 
@@ -927,23 +916,6 @@ fn relation_type(e: &mut Expr) -> RelationType {
         Parametric
     } else {
         Implicit
-    }
-}
-
-fn simplify(e: &mut Expr) {
-    loop {
-        let mut fl = Flatten::default();
-        fl.visit_expr_mut(e);
-        let mut s = SortTerms::default();
-        s.visit_expr_mut(e);
-        let mut f = FoldConstant::default();
-        f.visit_expr_mut(e);
-        UpdateMetadata.visit_expr_mut(e);
-        let mut t = Transform::default();
-        t.visit_expr_mut(e);
-        if !fl.modified && !s.modified && !f.modified && !t.modified {
-            break;
-        }
     }
 }
 

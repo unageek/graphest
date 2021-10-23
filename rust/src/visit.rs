@@ -365,7 +365,7 @@ impl VisitMut for PreTransform {
 }
 
 /// Precondition: [`PreTransform`] and then [`UpdateMetadata`] have been applied
-/// and the expression has not been modified since then.
+/// to the expression and it has not been modified since then.
 pub struct ExpandComplexFunctions {
     binary_ops: HashMap<BinaryOp, Expr>,
     unary_ops: HashMap<UnaryOp, Expr>,
@@ -390,24 +390,6 @@ impl ExpandComplexFunctions {
     }
 
     fn make_def(&mut self, params: Vec<String>, body: &str) -> Expr {
-        // Copy-paste of `relation::simplify`.
-        fn simplify(e: &mut Expr) {
-            loop {
-                let mut fl = Flatten::default();
-                fl.visit_expr_mut(e);
-                let mut s = SortTerms::default();
-                s.visit_expr_mut(e);
-                let mut f = FoldConstant::default();
-                f.visit_expr_mut(e);
-                UpdateMetadata.visit_expr_mut(e);
-                let mut t = Transform::default();
-                t.visit_expr_mut(e);
-                if !fl.modified && !s.modified && !f.modified && !t.modified {
-                    break;
-                }
-            }
-        }
-
         let mut e = parse_expr(body, Context::builtin_context()).unwrap();
         PreTransform.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
@@ -608,14 +590,14 @@ impl VisitMut for ExpandComplexFunctions {
                 subst.visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
-            binary!(op @ (Eq | Ge | Gt | Le | Lt), binary!(Complex, x, y), _) => {
+            binary!(op @ (Eq | Le | Lt), binary!(Complex, x, y), _) => {
                 *e = Expr::binary(
                     And,
                     box Expr::binary(*op, box take(x), box Expr::zero()),
                     box Expr::binary(Eq, box take(y), box Expr::zero()),
                 );
             }
-            binary!(op @ (Neq | Nge | Ngt | Nle | Nlt), binary!(Complex, x, y), _) => {
+            binary!(op @ (Neq | Nle | Nlt), binary!(Complex, x, y), _) => {
                 *e = Expr::binary(
                     Or,
                     box Expr::binary(*op, box take(x), box Expr::zero()),
@@ -851,8 +833,8 @@ where
 
 /// Transforms expressions into simpler/normalized forms.
 ///
-/// Precondition: [`UpdateMetadata`] have been applied
-/// and the expression has not been modified since then.
+/// Precondition: [`UpdateMetadata`] has been applied to the expression
+/// and it has not been modified since then.
 #[derive(Default)]
 pub struct Transform {
     pub modified: bool,
@@ -1199,7 +1181,10 @@ impl VisitMut for UpdateMetadata {
 type SiteMap = HashMap<ExprId, Site>;
 type UnsafeExprRef = UnsafeRef<Expr>;
 
-/// Assigns [`ExprId`]s to unique expressions in topological order.
+/// Assigns an [`ExprId`] to each unique expression in topological order.
+///
+/// Precondition: [`UpdateMetadata`] have been applied to the expression
+/// and it has not been modified since then.
 pub struct AssignId {
     next_id: ExprId,
     next_site: u8,
@@ -1577,6 +1562,40 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms {
     }
 }
 
+// Utility wrappers.
+
+pub fn eliminate_not(e: &mut Expr) {
+    loop {
+        let mut v = EliminateNot::default();
+        v.visit_expr_mut(e);
+        if !v.modified {
+            break;
+        }
+    }
+}
+
+pub fn expand_complex_functions(e: &mut Expr) {
+    UpdateMetadata.visit_expr_mut(e);
+    ExpandComplexFunctions::default().visit_expr_mut(e);
+}
+
+pub fn simplify(e: &mut Expr) {
+    loop {
+        let mut fl = Flatten::default();
+        fl.visit_expr_mut(e);
+        let mut s = SortTerms::default();
+        s.visit_expr_mut(e);
+        let mut f = FoldConstant::default();
+        f.visit_expr_mut(e);
+        UpdateMetadata.visit_expr_mut(e);
+        let mut t = Transform::default();
+        t.visit_expr_mut(e);
+        if !fl.modified && !s.modified && !f.modified && !t.modified {
+            break;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1629,6 +1648,43 @@ mod tests {
         test("x < y", "(Lt (Plus x (Times -1 y)) 0)");
         test("x ≥ y", "(Le (Plus y (Times -1 x)) 0)");
         test("x > y", "(Lt (Plus y (Times -1 x)) 0)");
+    }
+
+    #[test]
+    fn expand_complex_functions() {
+        fn test(input: &str, expected: &str) {
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            super::eliminate_not(&mut e);
+            PreTransform.visit_expr_mut(&mut e);
+            super::expand_complex_functions(&mut e);
+            simplify(&mut e);
+            assert_eq!(format!("{}", e.dump_structure()), expected);
+        }
+
+        test("|x + i y|", "(Pow (Plus (Pow x 2) (Pow y 2)) 0.5)");
+        test("arg(x + i y)", "(Atan2 y x)");
+        test("arg(x)", "(Atan2 0 x)");
+        test("~(x + i y)", "(Complex x (Times -1 y))");
+        test("~x", "x");
+        test("Im(x + i y)", "y");
+        test("Im(x)", "0");
+        test("Re(x + i y)", "x");
+        test("Re(x)", "x");
+        test("x + i y = 0", "(And (Eq x 0) (Eq y 0))");
+        test("x + i y ≤ 0", "(And (Le x 0) (Eq y 0))");
+        test("x + i y < 0", "(And (Lt x 0) (Eq y 0))");
+        test("!(x + i y = 0)", "(Or (Neq x 0) (Neq y 0))");
+        test("!(x + i y ≤ 0)", "(Or (Nle x 0) (Neq y 0))");
+        test("!(x + i y < 0)", "(Or (Nlt x 0) (Neq y 0))");
+        test("(a + i b) + (x + i y)", "(Complex (Plus a x) (Plus b y))");
+        test("a + (x + i y)", "(Complex (Plus a x) y)");
+        test("(a + i b) + x", "(Complex (Plus a x) b)");
+        test(
+            "(a + i b) (x + i y)",
+            "(Complex (Plus (Times a x) (Times -1 b y)) (Plus (Times b x) (Times a y)))",
+        );
+        test("a (x + i y)", "(Complex (Times a x) (Times a y))");
+        test("(a + i b) x", "(Complex (Times a x) (Times b x))");
     }
 
     #[test]
