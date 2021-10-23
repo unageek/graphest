@@ -864,6 +864,13 @@ impl VisitMut for Transform {
         traverse_expr_mut(self, e);
 
         match e {
+            // Don't replace x^0 with 1 unless x is totally defined;
+            // otherwise, tha replacement will alter the domain of the expression.
+            binary!(Pow, x, constant!(a)) if x.totally_defined && a.to_f64() == Some(0.0) => {
+                // x^0 → 1
+                *e = Expr::one();
+                self.modified = true;
+            }
             binary!(Pow, x, constant!(a)) if a.to_f64() == Some(1.0) => {
                 // x^1 → x
                 *e = take(x);
@@ -1703,6 +1710,10 @@ mod tests {
             assert_eq!(output, expected);
             assert_eq!(v.modified, input != output);
         }
+
+        test("sin(x)^0", "1");
+        test("sqrt(x)^0", "(Pow (Pow x 0.5) 0)");
+        test("x^1", "x");
 
         test("0 + x", "x");
         test("x + x", "(Times 2 x)");
