@@ -559,6 +559,10 @@ impl Expr {
             e.ty == Real
         }
 
+        fn real_or_complex(e: &Expr) -> bool {
+            real(e) || complex(e)
+        }
+
         fn real_vector(e: &Expr) -> bool {
             e.ty == RealVector
         }
@@ -571,7 +575,7 @@ impl Expr {
                 Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
                 x,
                 y
-            ) if (complex(x) || real(x)) && (complex(y) || real(y)) => Boolean,
+            ) if real_or_complex(x) && real_or_complex(y) => Boolean,
             // Complex
             unary!(
                 Acos | Acosh
@@ -600,13 +604,11 @@ impl Expr {
             ) if complex(x) => ComplexT,
             binary!(Complex, x, y) if real(x) && real(y) => ComplexT,
             binary!(Add | Div | Log | Mul | Pow | Sub, x, y)
-                if complex(x) && complex(y) || complex(x) && real(y) || real(x) && complex(y) =>
+                if real_or_complex(x) && real_or_complex(y) && (complex(x) || complex(y)) =>
             {
                 ComplexT
             }
-            nary!(Plus | Times, xs)
-                if xs.iter().all(|x| complex(x) || real(x)) && xs.iter().any(complex) =>
-            {
+            nary!(Plus | Times, xs) if xs.iter().all(real_or_complex) && xs.iter().any(complex) => {
                 ComplexT
             }
             // Real
