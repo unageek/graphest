@@ -492,9 +492,13 @@ impl Relation {
 impl FromStr for Relation {
     type Err = String;
 
+    // TODO: Return a more meaningful error message.
     fn from_str(s: &str) -> Result<Self, String> {
         let mut e = parse_expr(s, Context::builtin_context())?;
-        // TODO: Check types and return a pretty error message.
+        UpdateMetadata.visit_expr_mut(&mut e);
+        if e.ty != ValueType::Boolean {
+            return Err("the relation must be a Boolean-valued expression".into());
+        }
         eliminate_not(&mut e);
         let relation_type = relation_type(&mut e);
         PreTransform.visit_expr_mut(&mut e);
@@ -531,9 +535,7 @@ impl FromStr for Relation {
         PostTransform.visit_expr_mut(&mut e);
         FuseMulAdd.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
-        if e.ty != ValueType::Boolean {
-            return Err("the relation must be a Boolean expression".into());
-        }
+        assert_eq!(e.ty, ValueType::Boolean);
         let mut v = AssignId::new();
         v.visit_expr_mut(&mut e);
         let collector = CollectStatic::new(v);
