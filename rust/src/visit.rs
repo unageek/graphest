@@ -1,6 +1,6 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprId, NaryOp, TernaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
-    binary, constant,
+    binary, bool_constant, constant,
     context::Context,
     interval_set::Site,
     nary,
@@ -9,8 +9,11 @@ use crate::{
         StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex,
     },
     parse::parse_expr,
-    pown, rootn, ternary, unary, uninit, var,
+    pown,
+    real::Real,
+    rootn, ternary, unary, uninit, var,
 };
+use inari::Decoration;
 use rug::Rational;
 use std::{
     cmp::Ordering,
@@ -51,7 +54,7 @@ fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
         }
         pown!(x, _) => v.visit_expr(x),
         rootn!(x, _) => v.visit_expr(x),
-        constant!(_) | var!(_) => (),
+        bool_constant!(_) | constant!(_) | var!(_) => (),
         uninit!() => panic!(),
     };
 }
@@ -86,7 +89,7 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
         }
         pown!(x, _) => v.visit_expr_mut(x),
         rootn!(x, _) => v.visit_expr_mut(x),
-        constant!(_) | var!(_) => (),
+        bool_constant!(_) | constant!(_) | var!(_) => (),
         uninit!() => panic!(),
     };
 }
@@ -904,6 +907,22 @@ impl VisitMut for Transform {
         traverse_expr_mut(self, e);
 
         match e {
+            binary!(And, x @ bool_constant!(_), y) | binary!(And, y, x @ bool_constant!(_)) => {
+                *e = match x {
+                    bool_constant!(false) => take(x),
+                    bool_constant!(true) => take(y),
+                    _ => unreachable!(),
+                };
+                self.modified = true;
+            }
+            binary!(Or, x @ bool_constant!(_), y) | binary!(Or, y, x @ bool_constant!(_)) => {
+                *e = match x {
+                    bool_constant!(false) => take(y),
+                    bool_constant!(true) => take(x),
+                    _ => unreachable!(),
+                };
+                self.modified = true;
+            }
             // Don't replace x^0 with 1 unless x is totally defined;
             // otherwise, tha replacement will alter the domain of the expression.
             binary!(Pow, x, constant!(a)) if x.totally_defined && a.to_f64() == Some(0.0) => {
@@ -1040,6 +1059,46 @@ impl VisitMut for FoldConstant {
 
         match e {
             constant!(_) => (),
+            binary!(op @ (Eq | Le | Lt | Neq | Nle | Nlt), constant!(a), constant!(b))
+                if b.to_f64() == Some(0.0) =>
+            {
+                fn is_true_pred(op: BinaryOp, a: &Real) -> bool {
+                    match op {
+                        Eq => a.to_f64() == Some(0.0),
+                        Le => {
+                            a.interval().decoration() >= Decoration::Def
+                                && a.interval().iter().all(|a| a.x.sup() <= 0.0)
+                        }
+                        Lt => {
+                            a.interval().decoration() >= Decoration::Def
+                                && a.interval().iter().all(|a| a.x.sup() < 0.0)
+                        }
+                        Neq => !a.interval().iter().any(|a| a.x.contains(0.0)),
+                        Nle => !a.interval().iter().any(|a| a.x.inf() <= 0.0),
+                        Nlt => !a.interval().iter().any(|a| a.x.inf() < 0.0),
+                        _ => panic!(),
+                    }
+                }
+
+                let neg_op = match op {
+                    Eq => Neq,
+                    Le => Nle,
+                    Lt => Nlt,
+                    Neq => Eq,
+                    Nle => Le,
+                    Nlt => Lt,
+                    _ => unreachable!(),
+                };
+                let is_true = is_true_pred(*op, a);
+                let is_false = is_true_pred(neg_op, a);
+                if is_true {
+                    *e = Expr::bool_constant(true);
+                    self.modified = true;
+                } else if is_false {
+                    *e = Expr::bool_constant(false);
+                    self.modified = true;
+                }
+            }
             nary!(op @ (Plus | Times), xs) => {
                 if let [_, constant!(_), ..] = &mut xs[..] {
                     let bin_op = match op {
@@ -1456,7 +1515,7 @@ impl CollectStatic {
                 nary!(List | Plus | Times, _) => None,
                 pown!(x, n) => Some(StaticTermKind::Pown(self.store_index(x), *n)),
                 rootn!(x, n) => Some(StaticTermKind::Rootn(self.store_index(x), *n)),
-                var!(_) | uninit!() => panic!(),
+                bool_constant!(_) | var!(_) | uninit!() => panic!(),
             };
             if let Some(k) = k {
                 self.term_index.insert(t.id, self.terms.len());
@@ -1507,6 +1566,7 @@ impl CollectStatic {
         use BinaryOp::*;
         for t in self.exprs.iter().copied() {
             let k = match &*t {
+                bool_constant!(a) => Some(StaticFormKind::Constant(*a)),
                 binary!(ExplicitRel, _, _) => Some(StaticFormKind::Constant(true)),
                 binary!(And, x, y) => {
                     Some(StaticFormKind::And(self.form_index(x), self.form_index(y)))
@@ -1835,6 +1895,26 @@ mod tests {
             assert_eq!(output, expected);
             assert_eq!(v.modified, input != output);
         }
+
+        test("false && false", "false");
+        test("false && true", "false");
+        test("true && false", "false");
+        test("true && true", "true");
+
+        test("false && y = x", "false");
+        test("y = x && false", "false");
+        test("true && y = x", "(Eq y x)");
+        test("y = x && true", "(Eq y x)");
+
+        test("false || false", "false");
+        test("false || true", "true");
+        test("true || false", "true");
+        test("true || true", "true");
+
+        test("false || y = x", "(Eq y x)");
+        test("y = x || false", "(Eq y x)");
+        test("true || y = x", "true");
+        test("y = x || true", "true");
 
         test("sin(x)^0", "1");
         test("sqrt(x)^0", "(Pow (Pow x 0.5) 0)");

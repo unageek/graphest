@@ -1,6 +1,6 @@
 use crate::{
     ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType, VarSet},
-    binary, constant,
+    binary, bool_constant, constant,
     context::Context,
     eval_result::EvalResult,
     interval_set::TupperIntervalSet,
@@ -668,7 +668,7 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
     use {NaryOp::*, UnaryOp::*};
 
     match e {
-        constant!(_) => Some(0.into()),
+        bool_constant!(_) | constant!(_) => Some(0.into()),
         x @ var!(_) if x.vars.contains(variable) => None,
         var!(_) => Some(0.into()),
         unary!(op, x) => {

@@ -29,7 +29,14 @@ enum Def {
 }
 
 impl Def {
-    /// Creates a definition of a constant.
+    /// Creates a definition of a Boolean constant.
+    fn bool_constant(x: bool) -> Self {
+        Self::Constant {
+            body: Expr::bool_constant(x),
+        }
+    }
+
+    /// Creates a definition of a real constant.
     fn constant(x: Real) -> Self {
         Self::Constant {
             body: Expr::constant(x),
@@ -116,6 +123,8 @@ impl Context {
 static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
     const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
     Context::new()
+        .def("false", Def::bool_constant(false))
+        .def("true", Def::bool_constant(true))
         .def("e", Def::constant(DecInterval::E.into()))
         .def("gamma", Def::constant(EULER_GAMMA.into()))
         .def("γ", Def::constant(EULER_GAMMA.into()))
