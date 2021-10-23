@@ -51,7 +51,8 @@ fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
         }
         pown!(x, _) => v.visit_expr(x),
         rootn!(x, _) => v.visit_expr(x),
-        constant!(_) | var!(_) | uninit!() => (),
+        constant!(_) | var!(_) => (),
+        uninit!() => panic!(),
     };
 }
 
@@ -85,7 +86,8 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
         }
         pown!(x, _) => v.visit_expr_mut(x),
         rootn!(x, _) => v.visit_expr_mut(x),
-        constant!(_) | var!(_) | uninit!() => (),
+        constant!(_) | var!(_) => (),
+        uninit!() => panic!(),
     };
 }
 
