@@ -442,7 +442,12 @@ impl Default for ExpandComplexFunctions {
 
 impl VisitMut for ExpandComplexFunctions {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+        use {
+            BinaryOp::{Complex, *},
+            NaryOp::*,
+            UnaryOp::*,
+            ValueType::{Complex as ComplexT, *},
+        };
         traverse_expr_mut(self, e);
 
         match e {
@@ -450,7 +455,7 @@ impl VisitMut for ExpandComplexFunctions {
                 *e = Expr::binary(Atan2, box take(y), box take(x));
             }
             unary!(Arg, x) => {
-                assert_eq!(x.ty, ValueType::Real);
+                assert_eq!(x.ty, Real);
                 *e = Expr::binary(Atan2, box Expr::zero(), box take(x));
             }
             unary!(Conj, binary!(Complex, x, y)) => {
@@ -461,7 +466,7 @@ impl VisitMut for ExpandComplexFunctions {
                 );
             }
             unary!(Conj, x) => {
-                assert_eq!(x.ty, ValueType::Real);
+                assert_eq!(x.ty, Real);
                 *e = take(x);
             }
             unary!(Im, binary!(Complex, x, y)) => {
@@ -475,7 +480,7 @@ impl VisitMut for ExpandComplexFunctions {
                 );
             }
             unary!(Im, x) => {
-                assert_eq!(x.ty, ValueType::Real);
+                assert_eq!(x.ty, Real);
                 // Keep `x` to preserve the domain.
                 *e = Expr::nary(Times, vec![Expr::zero(), take(x)]);
             }
@@ -490,7 +495,7 @@ impl VisitMut for ExpandComplexFunctions {
                 );
             }
             unary!(Re, x) => {
-                assert_eq!(x.ty, ValueType::Real);
+                assert_eq!(x.ty, Real);
                 *e = take(x);
             }
             unary!(Sign, binary!(Complex, x, y)) => {
@@ -534,7 +539,7 @@ impl VisitMut for ExpandComplexFunctions {
                 );
             }
             unary!(Sign, x) => {
-                assert_eq!(x.ty, ValueType::Real);
+                assert_eq!(x.ty, Real);
                 // sgn(x) = f(x, 0) - f(-x, 0).
                 *e = Expr::nary(
                     Plus,
@@ -575,7 +580,7 @@ impl VisitMut for ExpandComplexFunctions {
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
-            binary!(op @ (Log | Pow), x, y) if e.ty == ValueType::Complex => {
+            binary!(op @ (Log | Pow), x, y) if e.ty == ComplexT => {
                 let mut new_e = self.binary_ops[op].clone();
                 let mut subst = match (x, y) {
                     (binary!(Complex, a, b), binary!(Complex, x, y)) => {
@@ -613,7 +618,7 @@ impl VisitMut for ExpandComplexFunctions {
                     box Expr::binary(Eq, box take(y), box Expr::zero()),
                 );
             }
-            nary!(Plus, xs) if e.ty == ValueType::Complex => {
+            nary!(Plus, xs) if e.ty == ComplexT => {
                 let mut reals = vec![];
                 let mut imags = vec![];
                 for x in xs {
@@ -633,7 +638,7 @@ impl VisitMut for ExpandComplexFunctions {
                     box Expr::nary(Plus, imags),
                 );
             }
-            nary!(Times, xs) if e.ty == ValueType::Complex => {
+            nary!(Times, xs) if e.ty == ComplexT => {
                 let mut it = xs.drain(..);
                 let mut x = it.next().unwrap();
                 for mut y in it {
