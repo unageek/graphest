@@ -669,7 +669,7 @@ impl VisitMut for ExpandComplexFunctions {
             _ => return,
         }
 
-        e.update_metadata();
+        UpdateMetadata.visit_expr_mut(e);
     }
 }
 
