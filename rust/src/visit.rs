@@ -864,15 +864,10 @@ impl VisitMut for Transform {
         traverse_expr_mut(self, e);
 
         match e {
-            binary!(Pow, x, constant!(a)) => {
-                match a.to_f64() {
-                    Some(a) if a == 1.0 => {
-                        // (Pow x 1) → x
-                        *e = take(x);
-                        self.modified = true;
-                    }
-                    _ => (),
-                }
+            binary!(Pow, x, constant!(a)) if a.to_f64() == Some(1.0) => {
+                // x^1 → x
+                *e = take(x);
+                self.modified = true;
             }
             nary!(Plus, xs) => {
                 let len = xs.len();
@@ -953,7 +948,7 @@ impl VisitMut for Transform {
                                     && (*a < 0 && *b < 0 || *a >= 0 && *b >= 0)
                             }) =>
                         {
-                            // x^a x^b /. a, b ∈ ℤ ∧ (a, b < 0 ∨ a, b ≥ 0) → x^(a + b)
+                            // x^a x^b /; a, b ∈ ℤ ∧ (a, b < 0 ∨ a, b ≥ 0) → x^(a + b)
                             Some(Expr::binary(
                                 Pow,
                                 box take(x1),
@@ -963,7 +958,7 @@ impl VisitMut for Transform {
                         (x, binary!(Pow, y1, y2 @ constant!(_)))
                             if x == y1 && test_rational(y2, |a| *a.denom() == 1 && *a >= 0) =>
                         {
-                            // x x^a /. a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
+                            // x x^a /; a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
                             Some(Expr::binary(
                                 Pow,
                                 box take(x),
@@ -1308,60 +1303,72 @@ impl CollectStatic {
                 var!(x) if x == "y" => Some(StaticTermKind::Y),
                 var!(x) if x == "<n-theta>" => Some(StaticTermKind::NTheta),
                 var!(x) if x == "t" => Some(StaticTermKind::T),
-                unary!(op, x) => match op {
-                    Abs => Some(ScalarUnaryOp::Abs),
-                    Acos => Some(ScalarUnaryOp::Acos),
-                    Acosh => Some(ScalarUnaryOp::Acosh),
-                    AiryAi => Some(ScalarUnaryOp::AiryAi),
-                    AiryAiPrime => Some(ScalarUnaryOp::AiryAiPrime),
-                    AiryBi => Some(ScalarUnaryOp::AiryBi),
-                    AiryBiPrime => Some(ScalarUnaryOp::AiryBiPrime),
-                    Asin => Some(ScalarUnaryOp::Asin),
-                    Asinh => Some(ScalarUnaryOp::Asinh),
-                    Atan => Some(ScalarUnaryOp::Atan),
-                    Atanh => Some(ScalarUnaryOp::Atanh),
-                    Ceil => Some(ScalarUnaryOp::Ceil),
-                    Chi => Some(ScalarUnaryOp::Chi),
-                    Ci => Some(ScalarUnaryOp::Ci),
-                    Cos => Some(ScalarUnaryOp::Cos),
-                    Cosh => Some(ScalarUnaryOp::Cosh),
-                    Digamma => Some(ScalarUnaryOp::Digamma),
-                    Ei => Some(ScalarUnaryOp::Ei),
-                    EllipticE => Some(ScalarUnaryOp::EllipticE),
-                    EllipticK => Some(ScalarUnaryOp::EllipticK),
-                    Erf => Some(ScalarUnaryOp::Erf),
-                    Erfc => Some(ScalarUnaryOp::Erfc),
-                    Erfi => Some(ScalarUnaryOp::Erfi),
-                    Exp => Some(ScalarUnaryOp::Exp),
-                    Exp10 => Some(ScalarUnaryOp::Exp10),
-                    Exp2 => Some(ScalarUnaryOp::Exp2),
-                    Floor => Some(ScalarUnaryOp::Floor),
-                    FresnelC => Some(ScalarUnaryOp::FresnelC),
-                    FresnelS => Some(ScalarUnaryOp::FresnelS),
-                    Gamma => Some(ScalarUnaryOp::Gamma),
-                    Li => Some(ScalarUnaryOp::Li),
-                    Ln => Some(ScalarUnaryOp::Ln),
-                    Log10 => Some(ScalarUnaryOp::Log10),
-                    Neg => Some(ScalarUnaryOp::Neg),
-                    One => Some(ScalarUnaryOp::One),
-                    Recip => Some(ScalarUnaryOp::Recip),
-                    Shi => Some(ScalarUnaryOp::Shi),
-                    Si => Some(ScalarUnaryOp::Si),
-                    Sin => Some(ScalarUnaryOp::Sin),
-                    Sinc => Some(ScalarUnaryOp::Sinc),
-                    Sinh => Some(ScalarUnaryOp::Sinh),
-                    Sqr => Some(ScalarUnaryOp::Sqr),
-                    Sqrt => Some(ScalarUnaryOp::Sqrt),
-                    Tan => Some(ScalarUnaryOp::Tan),
-                    Tanh => Some(ScalarUnaryOp::Tanh),
-                    UndefAt0 => Some(ScalarUnaryOp::UndefAt0),
-                    _ => None,
-                }
+                unary!(op, x) => (|| {
+                    Some(match op {
+                        Abs => ScalarUnaryOp::Abs,
+                        Acos => ScalarUnaryOp::Acos,
+                        Acosh => ScalarUnaryOp::Acosh,
+                        AiryAi => ScalarUnaryOp::AiryAi,
+                        AiryAiPrime => ScalarUnaryOp::AiryAiPrime,
+                        AiryBi => ScalarUnaryOp::AiryBi,
+                        AiryBiPrime => ScalarUnaryOp::AiryBiPrime,
+                        Asin => ScalarUnaryOp::Asin,
+                        Asinh => ScalarUnaryOp::Asinh,
+                        Atan => ScalarUnaryOp::Atan,
+                        Atanh => ScalarUnaryOp::Atanh,
+                        Ceil => ScalarUnaryOp::Ceil,
+                        Chi => ScalarUnaryOp::Chi,
+                        Ci => ScalarUnaryOp::Ci,
+                        Cos => ScalarUnaryOp::Cos,
+                        Cosh => ScalarUnaryOp::Cosh,
+                        Digamma => ScalarUnaryOp::Digamma,
+                        Ei => ScalarUnaryOp::Ei,
+                        EllipticE => ScalarUnaryOp::EllipticE,
+                        EllipticK => ScalarUnaryOp::EllipticK,
+                        Erf => ScalarUnaryOp::Erf,
+                        Erfc => ScalarUnaryOp::Erfc,
+                        Erfi => ScalarUnaryOp::Erfi,
+                        Exp => ScalarUnaryOp::Exp,
+                        Exp10 => ScalarUnaryOp::Exp10,
+                        Exp2 => ScalarUnaryOp::Exp2,
+                        Floor => ScalarUnaryOp::Floor,
+                        FresnelC => ScalarUnaryOp::FresnelC,
+                        FresnelS => ScalarUnaryOp::FresnelS,
+                        Gamma => ScalarUnaryOp::Gamma,
+                        Li => ScalarUnaryOp::Li,
+                        Ln => ScalarUnaryOp::Ln,
+                        Log10 => ScalarUnaryOp::Log10,
+                        Neg => ScalarUnaryOp::Neg,
+                        One => ScalarUnaryOp::One,
+                        Recip => ScalarUnaryOp::Recip,
+                        Shi => ScalarUnaryOp::Shi,
+                        Si => ScalarUnaryOp::Si,
+                        Sin => ScalarUnaryOp::Sin,
+                        Sinc => ScalarUnaryOp::Sinc,
+                        Sinh => ScalarUnaryOp::Sinh,
+                        Sqr => ScalarUnaryOp::Sqr,
+                        Sqrt => ScalarUnaryOp::Sqrt,
+                        Tan => ScalarUnaryOp::Tan,
+                        Tanh => ScalarUnaryOp::Tanh,
+                        UndefAt0 => ScalarUnaryOp::UndefAt0,
+                        Arg | Conj | Im | Re | Not | Sign => return None,
+                    })
+                })()
                 .map(|op| StaticTermKind::Unary(op, self.store_index(x))),
-                binary!(op @ (Add | Atan2 | BesselI | BesselJ | BesselK | BesselY | Div | GammaInc
-                    | Gcd | Lcm | Log | Max | Min | Mod | Mul | Pow | ReSignNonnegative | Sub), x, y) =>
-                {
+                binary!(op @ (RankedMax | RankedMin), nary!(List, xs), n) => {
                     let op = match op {
+                        RankedMax => RankedMinMaxOp::RankedMax,
+                        RankedMin => RankedMinMaxOp::RankedMin,
+                        _ => unreachable!(),
+                    };
+                    Some(StaticTermKind::RankedMinMax(
+                        op,
+                        box xs.iter().map(|x| self.store_index(x)).collect(),
+                        self.store_index(n),
+                    ))
+                }
+                binary!(op, x, y) => (|| {
+                    Some(match op {
                         Add => ScalarBinaryOp::Add,
                         Atan2 => ScalarBinaryOp::Atan2,
                         BesselI => ScalarBinaryOp::BesselI,
@@ -1380,30 +1387,14 @@ impl CollectStatic {
                         Pow => ScalarBinaryOp::Pow,
                         ReSignNonnegative => ScalarBinaryOp::ReSignNonnegative,
                         Sub => ScalarBinaryOp::Sub,
-                        _ => unreachable!(),
-                    };
-                    Some(StaticTermKind::Binary(
-                        op,
-                        self.store_index(x),
-                        self.store_index(y),
-                    ))
-                }
-                binary!(op @ (RankedMax | RankedMin), nary!(List, xs), n) => {
-                    let op = match op {
-                        RankedMax => RankedMinMaxOp::RankedMax,
-                        RankedMin => RankedMinMaxOp::RankedMin,
-                        _ => unreachable!(),
-                    };
-                    Some(StaticTermKind::RankedMinMax(
-                        op,
-                        box xs.iter().map(|x| self.store_index(x)).collect(),
-                        self.store_index(n),
-                    ))
-                }
-                binary!(_, _, _) => None,
-                ternary!(op, x, y, z) => match op {
-                    MulAdd => Some(ScalarTernaryOp::MulAdd),
-                }
+                        And | Complex | Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt
+                        | Nle | Nlt | Or | RankedMax | RankedMin => return None,
+                    })
+                })()
+                .map(|op| StaticTermKind::Binary(op, self.store_index(x), self.store_index(y))),
+                ternary!(op, x, y, z) => Some(match op {
+                    MulAdd => ScalarTernaryOp::MulAdd,
+                })
                 .map(|op| {
                     StaticTermKind::Ternary(
                         op,
@@ -1412,7 +1403,7 @@ impl CollectStatic {
                         self.store_index(z),
                     )
                 }),
-                nary!(_, _) => None,
+                nary!(List | Plus | Times, _) => None,
                 pown!(x, n) => Some(StaticTermKind::Pown(self.store_index(x), *n)),
                 rootn!(x, n) => Some(StaticTermKind::Rootn(self.store_index(x), *n)),
                 var!(_) | uninit!() => panic!(),
@@ -1638,6 +1629,7 @@ mod tests {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
             PreTransform.visit_expr_mut(&mut e);
+            UpdateMetadata.visit_expr_mut(&mut e);
             Transform::default().visit_expr_mut(&mut e);
             let input = format!("{}", e.dump_structure());
             let mut v = Flatten::default();
@@ -1702,6 +1694,7 @@ mod tests {
             FoldConstant::default().visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
             let input = format!("{}", e.dump_structure());
+            UpdateMetadata.visit_expr_mut(&mut e);
             let mut v = Transform::default();
             v.visit_expr_mut(&mut e);
             FoldConstant::default().visit_expr_mut(&mut e);
@@ -1719,6 +1712,7 @@ mod tests {
         test("x y + 2x y", "(Times 3 x y)");
         test("2x y + 3x y", "(Times 5 x y)");
 
+        test("0 sin(x)", "0");
         test("0 sqrt(x)", "(Times 0 (Pow x 0.5))");
         test("1 x", "x");
 

@@ -346,14 +346,15 @@ impl Expr {
         DumpStructure(self)
     }
 
-    /// Evaluates the expression.
+    /// Evaluates `self` if it is a real-valued constant expression.
     ///
-    /// Returns [`None`] if the expression cannot be evaluated to a real constant
+    /// Returns [`None`] if the expression is not both real-valued and constant,
     /// or constant evaluation is not implemented for the operation.
     pub fn eval(&self) -> Option<Real> {
-        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
         match self {
             constant!(x) => Some(x.clone()),
+            var!(_) => None,
             unary!(Abs, x) => Some(x.eval()?.abs()),
             unary!(Acos, x) => Some(x.eval()?.acos()),
             unary!(Acosh, x) => Some(x.eval()?.acosh()),
@@ -393,6 +394,10 @@ impl Expr {
             unary!(Tan, x) => Some(x.eval()?.tan()),
             unary!(Tanh, x) => Some(x.eval()?.tanh()),
             unary!(UndefAt0, x) => Some(x.eval()?.undef_at_0()),
+            unary!(
+                Arg | Conj | Exp10 | Exp2 | Im | Neg | Not | One | Re | Recip | Sign | Sqr | Sqrt,
+                _
+            ) => None,
             binary!(Add, x, y) => Some(x.eval()? + y.eval()?),
             binary!(Atan2, y, x) => Some(y.eval()?.atan2(x.eval()?)),
             binary!(BesselI, n, x) => Some(n.eval()?.bessel_i(x.eval()?)),
@@ -418,8 +423,32 @@ impl Expr {
                 Some(Real::ranked_min(xs, n.eval()?))
             }
             binary!(ReSignNonnegative, x, y) => Some(x.eval()?.re_sign_nonnegative(y.eval()?)),
+            binary!(
+                And | Complex
+                    | Div
+                    | Eq
+                    | ExplicitRel
+                    | Ge
+                    | Gt
+                    | Le
+                    | Lt
+                    | Neq
+                    | Nge
+                    | Ngt
+                    | Nle
+                    | Nlt
+                    | Or
+                    | RankedMax
+                    | RankedMin
+                    | Sub,
+                _,
+                _
+            ) => None,
+            ternary!(MulAdd, _, _, _) => None,
+            nary!(List | Plus | Times, _) => None,
+            pown!(_, _) => None,
+            rootn!(_, _) => None,
             uninit!() => panic!(),
-            _ => None,
         }
     }
 
