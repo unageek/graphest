@@ -500,9 +500,11 @@ impl FromStr for Relation {
             return Err("the relation must be a Boolean-valued expression".into());
         }
         eliminate_not(&mut e);
-        let relation_type = relation_type(&mut e);
         PreTransform.visit_expr_mut(&mut e);
         expand_complex_functions(&mut e);
+        simplify(&mut e);
+        let relation_type = relation_type(&mut e);
+        NormalizeRelationalExprs.visit_expr_mut(&mut e);
         simplify(&mut e);
 
         let n_theta_range = {
@@ -1019,6 +1021,7 @@ mod tests {
         assert_eq!(f("x = cos(t) && y = sin(t) && 0 < t < 1 < 2"), Parametric);
         assert_eq!(f("0 < t < 1 < 2 && sin(t) = y && cos(t) = x"), Parametric);
         assert_eq!(f("x = t && y = t && x = 2t"), Implicit);
+        assert_eq!(f("x + i y = exp(i t)"), Parametric);
     }
 
     #[test]

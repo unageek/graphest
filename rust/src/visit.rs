@@ -215,7 +215,8 @@ where
     }
 }
 
-/// Replaces expressions that contain [`UnaryOp::Not`] with their equivalents without the operation.
+/// Eliminates [`UnaryOp::Not`]s by distributing them over logical connectives
+/// and then replacing relational operators with their negated counterparts.
 #[derive(Default)]
 pub struct EliminateNot {
     pub modified: bool,
@@ -270,12 +271,11 @@ impl VisitMut for EliminateNot {
     }
 }
 
-/// Does following three tasks:
+/// Does the following tasks:
 ///
 /// - Replace arithmetic expressions that contain [`UnaryOp::Neg`], [`UnaryOp::Sqrt`],
 ///   [`BinaryOp::Add`], [`BinaryOp::Div`], [`BinaryOp::Mul`] or [`BinaryOp::Sub`] with their equivalents
 ///   with [`BinaryOp::Pow`], [`NaryOp::Plus`] and [`NaryOp::Times`].
-/// - Eliminate usage of [`BinaryOp::Ge`], [`BinaryOp::Gt`], [`BinaryOp::Nge`], [`BinaryOp::Ngt`].
 /// - Do some ad-hoc transformations, mainly for demonstrational purposes.
 pub struct PreTransform;
 
@@ -331,35 +331,6 @@ impl VisitMut for PreTransform {
                     Plus,
                     vec![take(x), Expr::nary(Times, vec![Expr::minus_one(), take(y)])],
                 );
-            }
-            binary!(op @ (Eq | Le | Lt | Neq | Nle | Nlt), x, y) => {
-                // (op x y) → (op (Plus x (Times -1 y)) 0)
-                *e = Expr::binary(
-                    *op,
-                    box Expr::nary(
-                        Plus,
-                        vec![take(x), Expr::nary(Times, vec![Expr::minus_one(), take(y)])],
-                    ),
-                    box Expr::zero(),
-                )
-            }
-            binary!(op @ (Ge | Gt | Nge | Ngt), x, y) => {
-                // (op x y) → (inv-op (Plus y (Times -1 x)) 0)
-                let inv_op = match op {
-                    Ge => Le,
-                    Gt => Lt,
-                    Nge => Nle,
-                    Ngt => Nlt,
-                    _ => unreachable!(),
-                };
-                *e = Expr::binary(
-                    inv_op,
-                    box Expr::nary(
-                        Plus,
-                        vec![take(y), Expr::nary(Times, vec![Expr::minus_one(), take(x)])],
-                    ),
-                    box Expr::zero(),
-                )
             }
             _ => (),
         }
@@ -597,26 +568,49 @@ impl VisitMut for ExpandComplexFunctions {
                 subst.visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
-            binary!(op @ (Eq | Le | Lt), binary!(Complex, x, y), _) => {
-                *e = Expr::binary(
-                    And,
-                    box Expr::binary(*op, box take(x), box Expr::zero()),
-                    box Expr::binary(Eq, box take(y), box Expr::zero()),
-                );
+            binary!(op @ (Eq | Ge | Gt | Le | Lt), x, y)
+                if x.ty == ComplexT || y.ty == ComplexT =>
+            {
+                *e = match (x, y) {
+                    (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
+                        And,
+                        box Expr::binary(*op, box take(a), box take(x)),
+                        box Expr::binary(Eq, box take(b), box take(y)),
+                    ),
+                    (binary!(Complex, a, b), x) => Expr::binary(
+                        And,
+                        box Expr::binary(*op, box take(a), box take(x)),
+                        box Expr::binary(Eq, box take(b), box Expr::zero()),
+                    ),
+                    (a, binary!(Complex, x, y)) => Expr::binary(
+                        And,
+                        box Expr::binary(*op, box take(a), box take(x)),
+                        box Expr::binary(Eq, box Expr::zero(), box take(y)),
+                    ),
+                    _ => panic!(), // `x.ty` or `y.ty` is wrong.
+                };
             }
-            binary!(op @ (Neq | Nle | Nlt), binary!(Complex, x, y), _) => {
-                *e = Expr::binary(
-                    Or,
-                    box Expr::binary(*op, box take(x), box Expr::zero()),
-                    box Expr::binary(Neq, box take(y), box Expr::zero()),
-                );
-            }
-            binary!(ExplicitRel, z, binary!(Complex, x, y)) => {
-                *e = Expr::binary(
-                    And,
-                    box Expr::binary(ExplicitRel, box take(z), box take(x)),
-                    box Expr::binary(Eq, box take(y), box Expr::zero()),
-                );
+            binary!(op @ (Neq | Nge | Ngt | Nle | Nlt), x, y)
+                if x.ty == ComplexT || y.ty == ComplexT =>
+            {
+                *e = match (x, y) {
+                    (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
+                        Or,
+                        box Expr::binary(*op, box take(a), box take(x)),
+                        box Expr::binary(Neq, box take(b), box take(y)),
+                    ),
+                    (binary!(Complex, a, b), x) => Expr::binary(
+                        Or,
+                        box Expr::binary(*op, box take(a), box take(x)),
+                        box Expr::binary(Neq, box take(b), box Expr::zero()),
+                    ),
+                    (a, binary!(Complex, x, y)) => Expr::binary(
+                        Or,
+                        box Expr::binary(*op, box take(a), box take(x)),
+                        box Expr::binary(Neq, box Expr::zero(), box take(y)),
+                    ),
+                    _ => panic!(), // `x.ty` or `y.ty` is wrong.
+                };
             }
             nary!(Plus, xs) if e.ty == ComplexT => {
                 let mut reals = vec![];
@@ -677,6 +671,53 @@ impl VisitMut for ExpandComplexFunctions {
         }
 
         UpdateMetadata.visit_expr_mut(e);
+    }
+}
+
+/// Does the following tasks:
+///
+/// - Eliminates [`BinaryOp::Ge`], [`BinaryOp::Gt`], [`BinaryOp::Nge`], and [`BinaryOp::Ngt`]
+///   by inverting formulae that contain any of them.
+/// - Transposes all terms to the left-hand sides of formulae, leaving zeros on the right-hand sides.
+pub struct NormalizeRelationalExprs;
+
+impl VisitMut for NormalizeRelationalExprs {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, NaryOp::*};
+        traverse_expr_mut(self, e);
+
+        match e {
+            binary!(op @ (Eq | Le | Lt | Neq | Nle | Nlt), x, y) => {
+                // (op x y) → (op (Plus x (Times -1 y)) 0)
+                *e = Expr::binary(
+                    *op,
+                    box Expr::nary(
+                        Plus,
+                        vec![take(x), Expr::nary(Times, vec![Expr::minus_one(), take(y)])],
+                    ),
+                    box Expr::zero(),
+                )
+            }
+            binary!(op @ (Ge | Gt | Nge | Ngt), x, y) => {
+                // (op x y) → (inv-op (Plus y (Times -1 x)) 0)
+                let inv_op = match op {
+                    Ge => Le,
+                    Gt => Lt,
+                    Nge => Nle,
+                    Ngt => Nlt,
+                    _ => unreachable!(),
+                };
+                *e = Expr::binary(
+                    inv_op,
+                    box Expr::nary(
+                        Plus,
+                        vec![take(y), Expr::nary(Times, vec![Expr::minus_one(), take(x)])],
+                    ),
+                    box Expr::zero(),
+                )
+            }
+            _ => (),
+        }
     }
 }
 
@@ -1649,12 +1690,6 @@ mod tests {
         test("sin(x)/x", "(Sinc (UndefAt0 x))");
         test("x/sin(x)", "(Pow (Sinc (UndefAt0 x)) -1)");
         test("x y", "(Times x y)");
-        test("x - y", "(Plus x (Times -1 y))");
-        test("x = y", "(Eq (Plus x (Times -1 y)) 0)");
-        test("x ≤ y", "(Le (Plus x (Times -1 y)) 0)");
-        test("x < y", "(Lt (Plus x (Times -1 y)) 0)");
-        test("x ≥ y", "(Le (Plus y (Times -1 x)) 0)");
-        test("x > y", "(Lt (Plus y (Times -1 x)) 0)");
     }
 
     #[test]
@@ -1677,12 +1712,20 @@ mod tests {
         test("Im(x)", "0");
         test("Re(x + i y)", "x");
         test("Re(x)", "x");
-        test("x + i y = 0", "(And (Eq x 0) (Eq y 0))");
-        test("x + i y ≤ 0", "(And (Le x 0) (Eq y 0))");
-        test("x + i y < 0", "(And (Lt x 0) (Eq y 0))");
-        test("!(x + i y = 0)", "(Or (Neq x 0) (Neq y 0))");
-        test("!(x + i y ≤ 0)", "(Or (Nle x 0) (Neq y 0))");
-        test("!(x + i y < 0)", "(Or (Nlt x 0) (Neq y 0))");
+        test("a + i b = x + i y", "(And (Eq a x) (Eq b y))");
+        test("a + i b ≥ x + i y", "(And (Ge a x) (Eq b y))");
+        test("a + i b > x + i y", "(And (Gt a x) (Eq b y))");
+        test("a + i b ≤ x + i y", "(And (Le a x) (Eq b y))");
+        test("a + i b < x + i y", "(And (Lt a x) (Eq b y))");
+        test("a < x + i y", "(And (Lt a x) (Eq 0 y))");
+        test("a + i b < x", "(And (Lt a x) (Eq b 0))");
+        test("!(a + i b = x + i y)", "(Or (Neq a x) (Neq b y))");
+        test("!(a + i b ≥ x + i y)", "(Or (Nge a x) (Neq b y))");
+        test("!(a + i b > x + i y)", "(Or (Ngt a x) (Neq b y))");
+        test("!(a + i b ≤ x + i y)", "(Or (Nle a x) (Neq b y))");
+        test("!(a + i b < x + i y)", "(Or (Nlt a x) (Neq b y))");
+        test("!(a < x + i y)", "(Or (Nlt a x) (Neq 0 y))");
+        test("!(a + i b < x)", "(Or (Nlt a x) (Neq b 0))");
         test("(a + i b) + (x + i y)", "(Complex (Plus a x) (Plus b y))");
         test("a + (x + i y)", "(Complex (Plus a x) y)");
         test("(a + i b) + x", "(Complex (Plus a x) b)");
@@ -1692,6 +1735,28 @@ mod tests {
         );
         test("a (x + i y)", "(Complex (Times a x) (Times a y))");
         test("(a + i b) x", "(Complex (Times a x) (Times b x))");
+    }
+
+    #[test]
+    fn normalize_relational_exprs() {
+        fn test(input: &str, expected: &str) {
+            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            super::eliminate_not(&mut e);
+            PreTransform.visit_expr_mut(&mut e);
+            NormalizeRelationalExprs.visit_expr_mut(&mut e);
+            assert_eq!(format!("{}", e.dump_structure()), expected);
+        }
+
+        test("x = y", "(Eq (Plus x (Times -1 y)) 0)");
+        test("x ≥ y", "(Le (Plus y (Times -1 x)) 0)");
+        test("x > y", "(Lt (Plus y (Times -1 x)) 0)");
+        test("x ≤ y", "(Le (Plus x (Times -1 y)) 0)");
+        test("x < y", "(Lt (Plus x (Times -1 y)) 0)");
+        test("!(x = y)", "(Neq (Plus x (Times -1 y)) 0)");
+        test("!(x ≥ y)", "(Nle (Plus y (Times -1 x)) 0)");
+        test("!(x > y)", "(Nlt (Plus y (Times -1 x)) 0)");
+        test("!(x ≤ y)", "(Nle (Plus x (Times -1 y)) 0)");
+        test("!(x < y)", "(Nlt (Plus x (Times -1 y)) 0)");
     }
 
     #[test]
