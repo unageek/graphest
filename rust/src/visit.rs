@@ -1407,11 +1407,13 @@ impl CollectStatic {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
         for t in self.exprs.iter().copied() {
             let k = match &*t {
+                bool_constant!(_) => None,
                 constant!(x) => Some(StaticTermKind::Constant(box x.interval().clone())),
                 var!(x) if x == "x" => Some(StaticTermKind::X),
                 var!(x) if x == "y" => Some(StaticTermKind::Y),
                 var!(x) if x == "<n-theta>" => Some(StaticTermKind::NTheta),
                 var!(x) if x == "t" => Some(StaticTermKind::T),
+                var!(_) => panic!(),
                 unary!(op, x) => (|| {
                     Some(match op {
                         Abs => ScalarUnaryOp::Abs,
@@ -1515,7 +1517,7 @@ impl CollectStatic {
                 nary!(List | Plus | Times, _) => None,
                 pown!(x, n) => Some(StaticTermKind::Pown(self.store_index(x), *n)),
                 rootn!(x, n) => Some(StaticTermKind::Rootn(self.store_index(x), *n)),
-                bool_constant!(_) | var!(_) | uninit!() => panic!(),
+                uninit!() => panic!(),
             };
             if let Some(k) = k {
                 self.term_index.insert(t.id, self.terms.len());
