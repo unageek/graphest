@@ -834,7 +834,7 @@ impl VisitMut for SortTerms {
                 .windows(2)
                 .any(|xs| cmp_terms(&xs[0], &xs[1]) == Ordering::Greater)
             {
-                // (op x y) /; y ≺ x → (op y x)
+                // (op … y … x …) /; x ≺ y → (op … x … y …)
                 xs.sort_by(cmp_terms);
                 self.modified = true;
             }
