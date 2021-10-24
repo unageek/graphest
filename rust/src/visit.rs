@@ -349,7 +349,7 @@ impl VisitMut for PreTransform {
 
 /// Precondition: [`PreTransform`] and then [`UpdateMetadata`] have been applied
 /// to the expression and it has not been modified since then.
-pub struct ExpandComplexFunctions {
+struct ExpandComplexFunctions {
     binary_ops: HashMap<BinaryOp, Expr>,
     unary_ops: HashMap<UnaryOp, Expr>,
 }
@@ -740,8 +740,8 @@ impl VisitMut for NormalizeRelationalExprs {
 /// - `(Times) → 1`
 /// - `(Times x) → x`
 #[derive(Default)]
-pub struct Flatten {
-    pub modified: bool,
+struct Flatten {
+    modified: bool,
 }
 
 impl VisitMut for Flatten {
@@ -783,8 +783,8 @@ impl VisitMut for Flatten {
 /// Sorts terms in [`NaryOp::Plus`] and [`NaryOp::Times`] to bring similar ones together.
 /// Terms of kind [`ExprKind::Constant`](crate::ast::ExprKind::Constant) are moved to the beginning.
 #[derive(Default)]
-pub struct SortTerms {
-    pub modified: bool,
+struct SortTerms {
+    modified: bool,
 }
 
 fn cmp_terms(x: &Expr, y: &Expr) -> Ordering {
@@ -894,8 +894,8 @@ where
 /// Precondition: [`UpdateMetadata`] has been applied to the expression
 /// and it has not been modified since then.
 #[derive(Default)]
-pub struct Transform {
-    pub modified: bool,
+struct Transform {
+    modified: bool,
 }
 
 impl VisitMut for Transform {
@@ -1029,8 +1029,8 @@ impl VisitMut for Transform {
 
 /// Performs constant folding.
 #[derive(Default)]
-pub struct FoldConstant {
-    pub modified: bool,
+struct FoldConstant {
+    modified: bool,
 }
 
 impl VisitMut for FoldConstant {
@@ -1226,7 +1226,7 @@ impl VisitMut for FuseMulAdd {
     }
 }
 
-/// Updates metadata of terms and formulas.
+/// Updates metadata of the expression recursively.
 pub struct UpdateMetadata;
 
 impl VisitMut for UpdateMetadata {
@@ -1620,13 +1620,13 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms {
     }
 }
 
-// Utility wrappers.
-
+/// Precondition: [`PreTransform`] has been applied to the expression.
 pub fn expand_complex_functions(e: &mut Expr) {
     UpdateMetadata.visit_expr_mut(e);
     ExpandComplexFunctions::default().visit_expr_mut(e);
 }
 
+/// Precondition: [`PreTransform`] has been applied to the expression.
 pub fn simplify(e: &mut Expr) {
     loop {
         let mut fl = Flatten::default();
