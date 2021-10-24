@@ -179,8 +179,8 @@ impl VisitMut for Substitute {
         traverse_expr_mut(self, e);
 
         if let var!(x) = e {
-            if x.starts_with("#") {
-                if let Ok(i) = x[1..].parse::<usize>() {
+            if let Some(x) = x.strip_prefix('#') {
+                if let Ok(i) = x.parse::<usize>() {
                     *e = self.args.get(i).unwrap().clone()
                 }
             }
