@@ -217,20 +217,41 @@ where
 
 /// Eliminates [`UnaryOp::Not`]s by distributing them over logical connectives
 /// and then replacing relational operators with their negated counterparts.
-#[derive(Default)]
-pub struct EliminateNot {
-    pub modified: bool,
-}
+pub struct EliminateNot;
 
 impl VisitMut for EliminateNot {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
         use {BinaryOp::*, UnaryOp::*};
-        traverse_expr_mut(self, e);
+
+        let mut modified = false;
 
         if let unary!(Not, x) = e {
             match x {
-                binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x1, x2) => {
-                    // (Not (op x1 x2)) → (neg-op x1 x2)
+                unary!(Not, x) => {
+                    // (Not (Not x)) → x
+                    *e = take(x);
+                    modified = true;
+                }
+                binary!(And, x, y) => {
+                    // (Not (And x y)) → (Or (Not x) (Not y))
+                    *e = Expr::binary(
+                        Or,
+                        box Expr::unary(Not, box take(x)),
+                        box Expr::unary(Not, box take(y)),
+                    );
+                    modified = true;
+                }
+                binary!(Or, x, y) => {
+                    // (Not (Or x y)) → (And (Not x) (Not y))
+                    *e = Expr::binary(
+                        And,
+                        box Expr::unary(Not, box take(x)),
+                        box Expr::unary(Not, box take(y)),
+                    );
+                    modified = true;
+                }
+                binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x, y) => {
+                    // (Not (op x y)) → (neg-op x y)
                     let neg_op = match op {
                         Eq => Neq,
                         Ge => Nge,
@@ -244,29 +265,18 @@ impl VisitMut for EliminateNot {
                         Nlt => Lt,
                         _ => unreachable!(),
                     };
-                    *e = Expr::binary(neg_op, box take(x1), box take(x2));
-                    self.modified = true;
-                }
-                binary!(And, x1, x2) => {
-                    // (Not (And (x1 x2))) → (Or (Not x1) (Not x2))
-                    *e = Expr::binary(
-                        Or,
-                        box Expr::unary(Not, box take(x1)),
-                        box Expr::unary(Not, box take(x2)),
-                    );
-                    self.modified = true;
-                }
-                binary!(Or, x1, x2) => {
-                    // (Not (Or (x1 x2))) → (And (Not x1) (Not x2))
-                    *e = Expr::binary(
-                        And,
-                        box Expr::unary(Not, box take(x1)),
-                        box Expr::unary(Not, box take(x2)),
-                    );
-                    self.modified = true;
+                    *e = Expr::binary(neg_op, box take(x), box take(y));
+                    modified = true;
                 }
                 _ => (),
             }
+        }
+
+        if modified {
+            // `e` is not visited yet.
+            self.visit_expr_mut(e);
+        } else {
+            traverse_expr_mut(self, e);
         }
     }
 }
@@ -1612,16 +1622,6 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms {
 
 // Utility wrappers.
 
-pub fn eliminate_not(e: &mut Expr) {
-    loop {
-        let mut v = EliminateNot::default();
-        v.visit_expr_mut(e);
-        if !v.modified {
-            break;
-        }
-    }
-}
-
 pub fn expand_complex_functions(e: &mut Expr) {
     UpdateMetadata.visit_expr_mut(e);
     ExpandComplexFunctions::default().visit_expr_mut(e);
@@ -1653,12 +1653,8 @@ mod tests {
     fn eliminate_not() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
-            let input = format!("{}", e.dump_structure());
-            let mut v = EliminateNot::default();
-            v.visit_expr_mut(&mut e);
-            let output = format!("{}", e.dump_structure());
+            EliminateNot.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_structure()), expected);
-            assert_eq!(v.modified, input != output);
         }
 
         test("!(x = y)", "(Neq x y)");
@@ -1671,8 +1667,9 @@ mod tests {
         test("!!(x < y)", "(Lt x y)");
         test("!!(x ≥ y)", "(Ge x y)");
         test("!!(x > y)", "(Gt x y)");
-        test("!(x = y && z = w)", "(Or (Not (Eq x y)) (Not (Eq z w)))");
-        test("!(x = y || z = w)", "(And (Not (Eq x y)) (Not (Eq z w)))");
+        test("!!!(x = y)", "(Neq x y)");
+        test("!(x = y && z = w)", "(Or (Neq x y) (Neq z w))");
+        test("!(x = y || z = w)", "(And (Neq x y) (Neq z w))");
     }
 
     #[test]
@@ -1696,7 +1693,7 @@ mod tests {
     fn expand_complex_functions() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
-            super::eliminate_not(&mut e);
+            EliminateNot.visit_expr_mut(&mut e);
             PreTransform.visit_expr_mut(&mut e);
             super::expand_complex_functions(&mut e);
             simplify(&mut e);
@@ -1741,7 +1738,7 @@ mod tests {
     fn normalize_relational_exprs() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
-            super::eliminate_not(&mut e);
+            EliminateNot.visit_expr_mut(&mut e);
             PreTransform.visit_expr_mut(&mut e);
             NormalizeRelationalExprs.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_structure()), expected);
