@@ -406,22 +406,21 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
         v.def_unary(Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
         v.def_unary(Sqr, "x^2 - y^2 + 2 i x y");
-        // https://arblib.org/acb.html#c.acb_sqrt
-        v.def_unary(
-            Sqrt,
-            "sqrt(2 (|x + i y| + x)) / 2 + i y / sqrt(2 (|x + i y| + x))",
-        );
+        v.def_unary(Sqrt, "exp(0.5 ln(x + i y))");
         v.def_unary(Tan, "sin(x + i y) / cos(x + i y)");
         v.def_unary(Tanh, "sinh(x + i y) / cosh(x + i y)");
-        v.def_unary(Acos, "-i ln((x + i y) + i sqrt(1 - (x + i y)^2))");
-        // https://arblib.org/acb.html#c.acb_acosh
-        v.def_unary(Acosh, "ln(x + i y + sqrt(x + i y + 1) sqrt(x + i y - 1))");
-        // https://arblib.org/acb.html#c.acb_asin
+        // http://functions.wolfram.com/01.13.02.0001.01
+        v.def_unary(Acos, "π/2 + i ln(i (x + i y) + sqrt(1 - (x + i y)^2))");
+        // http://functions.wolfram.com/01.26.02.0001.01
+        v.def_unary(Acosh, "ln(x + i y + sqrt(x + i y - 1) sqrt(x + i y + 1))");
+        // http://functions.wolfram.com/01.12.02.0001.01
         v.def_unary(Asin, "-i ln(i (x + i y) + sqrt(1 - (x + i y)^2))");
-        v.def_unary(Asinh, "-i asin(i (x + i y))");
-        // https://arblib.org/acb.html#c.acb_atan
+        // http://functions.wolfram.com/01.25.02.0001.01
+        v.def_unary(Asinh, "ln((x + i y) + sqrt((x + i y)^2 + 1))");
+        // http://functions.wolfram.com/01.14.02.0001.01
         v.def_unary(Atan, "i/2 (ln(1 - i (x + i y)) - ln(1 + i (x + i y)))");
-        v.def_unary(Atanh, "-i atan(i (x + i y))");
+        // http://functions.wolfram.com/01.27.02.0001.01
+        v.def_unary(Atanh, "1/2 (ln(1 + (x + i y)) - ln(1 - (x + i y)))");
         v.def_binary(Log, "ln(x + i y) / ln(a + i b)");
         v.def_binary(Pow, "exp((x + i y) ln(a + i b))");
         v
