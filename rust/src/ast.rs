@@ -118,6 +118,7 @@ pub enum NaryOp {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum ExprKind {
+    BoolConstant(bool),
     Constant(Box<Real>),
     Var(String),
     Unary(UnaryOp, Box<Expr>),
@@ -166,6 +167,17 @@ macro_rules! binary {
     ($($op:pat)|*, $x:pat, $y:pat) => {
         $crate::ast::Expr {
             kind: $crate::ast::ExprKind::Binary($($op)|*, box $x, box $y),
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::BoolConstant`].
+#[macro_export]
+macro_rules! bool_constant {
+    ($a:pat) => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::BoolConstant($a),
             ..
         }
     };
@@ -277,6 +289,11 @@ impl Expr {
         Self::new(ExprKind::Binary(op, x, y))
     }
 
+    /// Creates a new expression of kind [`ExprKind::BoolConstant`].
+    pub fn bool_constant(x: bool) -> Self {
+        Self::new(ExprKind::BoolConstant(x))
+    }
+
     /// Creates a new expression of kind [`ExprKind::Constant`].
     pub fn constant(x: Real) -> Self {
         Self::new(ExprKind::Constant(box x))
@@ -353,6 +370,7 @@ impl Expr {
     pub fn eval(&self) -> Option<Real> {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
         match self {
+            bool_constant!(_) => None,
             constant!(x) => Some(x.clone()),
             var!(_) => None,
             unary!(Abs, x) => Some(x.eval()?.abs()),
@@ -569,6 +587,7 @@ impl Expr {
 
         match self {
             // Boolean
+            bool_constant!(_) => Boolean,
             unary!(Not, x) if boolean(x) => Boolean,
             binary!(And | Or, x, y) if boolean(x) && boolean(y) => Boolean,
             binary!(
@@ -705,7 +724,7 @@ impl Expr {
     /// Precondition: [`Expr::vars`] is correctly assigned for `self`.
     fn variables(&self) -> VarSet {
         match self {
-            constant!(_) => VarSet::EMPTY,
+            bool_constant!(_) | constant!(_) => VarSet::EMPTY,
             var!(name) if name == "r" => VarSet::X | VarSet::Y,
             var!(name) if name == "t" => VarSet::T,
             var!(name) if name == "theta" || name == "θ" => {
@@ -749,6 +768,9 @@ struct DumpStructure<'a>(&'a Expr);
 impl<'a> fmt::Display for DumpStructure<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
+            bool_constant!(a) => {
+                write!(f, "{}", a)
+            }
             constant!(a) => {
                 if let Some(a) = a.to_f64() {
                     write!(f, "{}", a)

@@ -403,6 +403,8 @@ mod tests {
             assert_eq!(format!("{}", f.dump_structure()), expected);
         }
 
+        test("false", "false");
+        test("true", "true");
         test("e", "@");
         test("gamma", "@");
         test("γ", "@");
