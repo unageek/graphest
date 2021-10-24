@@ -136,8 +136,9 @@ impl<T: Eq + Hash> Hash for UnsafeRef<T> {
     }
 }
 
-/// Replaces the names of [`ExprKind::Var`](crate::ast::ExprKind::Var)s that are equal
-/// to `params[i]` with `i.to_string()`.
+/// Replaces the name of each [`ExprKind::Var`] that matches `params[i]` with `"#i"`.
+///
+/// [`ExprKind::Var`]: crate::ast::ExprKind::Var
 pub struct Parametrize {
     params: Vec<String>,
 }
@@ -154,14 +155,15 @@ impl VisitMut for Parametrize {
 
         if let var!(x) = e {
             if let Some(i) = self.params.iter().position(|p| p == x) {
-                *x = i.to_string();
+                *x = format!("#{}", i);
             }
         }
     }
 }
 
-/// Replaces all expressions of the kind [`ExprKind::Var`](crate::ast::ExprKind::Var)
-/// with name `"0", "1", …` with `args[0], args[1], …`, respectively.
+/// Replaces each [`ExprKind::Var`] with name `"#i"` with `args[i]`.
+///
+/// [`ExprKind::Var`]: crate::ast::ExprKind::Var
 pub struct Substitute {
     args: Vec<Expr>,
 }
@@ -177,8 +179,10 @@ impl VisitMut for Substitute {
         traverse_expr_mut(self, e);
 
         if let var!(x) = e {
-            if let Ok(i) = x.parse::<usize>() {
-                *e = self.args.get(i).unwrap().clone()
+            if x.starts_with("#") {
+                if let Ok(i) = x[1..].parse::<usize>() {
+                    *e = self.args.get(i).unwrap().clone()
+                }
             }
         }
     }

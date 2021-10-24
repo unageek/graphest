@@ -47,7 +47,7 @@ impl Def {
     fn unary(op: UnaryOp) -> Self {
         Self::Function {
             arity: 1,
-            body: Expr::unary(op, box Expr::var("0")),
+            body: Expr::unary(op, box Expr::var("#0")),
             left_associative: false,
         }
     }
@@ -56,7 +56,7 @@ impl Def {
     fn binary(op: BinaryOp) -> Self {
         Self::Function {
             arity: 2,
-            body: Expr::binary(op, box Expr::var("0"), box Expr::var("1")),
+            body: Expr::binary(op, box Expr::var("#0"), box Expr::var("#1")),
             left_associative: false,
         }
     }
