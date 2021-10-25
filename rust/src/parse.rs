@@ -7,7 +7,7 @@ use inari::dec_interval;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, digit0, digit1, satisfy, space0},
+    character::complete::{char, digit0, digit1, one_of, satisfy, space0},
     combinator::{all_consuming, cut, map, map_opt, not, opt, peek, recognize, value},
     error::VerboseError,
     multi::{fold_many0, many0_count},
@@ -199,7 +199,7 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
             separated_pair(
                 alt((
                     value("~", char('~')),
-                    value("-", char('-')),
+                    value("-", one_of("-−")), // a hyphen-minus or a minus sign
                     value("!", char('!')),
                 )),
                 space0,
@@ -452,6 +452,8 @@ mod tests {
         test("li(x)", "(Li x)");
         test("ln(x)", "(Ln x)");
         test("log(x)", "(Log10 x)");
+        test("-x", "(Neg x)"); // hyphen-minus
+        test("−x", "(Neg x)"); // minus sign
         test("Re(x)", "(Re x)");
         test("Shi(x)", "(Shi x)");
         test("Si(x)", "(Si x)");
@@ -480,7 +482,6 @@ mod tests {
         test("x ^ y ^ z", "(Pow x (Pow y z))");
         test("-x ^ -y", "(Neg (Pow x (Neg y)))");
         test("+x", "x");
-        test("-x", "(Neg x)");
         test("2x", "(Mul 2 x)");
         test("x y z", "(Mul (Mul x y) z)");
         test("x * y * z", "(Mul (Mul x y) z)");
