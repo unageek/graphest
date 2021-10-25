@@ -412,7 +412,10 @@ impl Default for ExpandComplexFunctions {
         // http://functions.wolfram.com/01.13.02.0001.01
         v.def_unary(Acos, "π/2 + i ln(i (x + i y) + sqrt(1 - (x + i y)^2))");
         // http://functions.wolfram.com/01.26.02.0001.01
-        v.def_unary(Acosh, "ln(x + i y + sqrt(x + i y - 1) sqrt(x + i y + 1))");
+        v.def_unary(
+            Acosh,
+            "ln((x + i y) + sqrt((x + i y) - 1) sqrt((x + i y) + 1))",
+        );
         // http://functions.wolfram.com/01.12.02.0001.01
         v.def_unary(Asin, "-i ln(i (x + i y) + sqrt(1 - (x + i y)^2))");
         // http://functions.wolfram.com/01.25.02.0001.01
