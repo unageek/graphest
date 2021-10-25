@@ -22,6 +22,11 @@ export interface RelationInputProps {
   relation: string;
 }
 
+interface Selection {
+  start: number;
+  end: number;
+}
+
 export const RelationInput = (props: RelationInputProps): JSX.Element => {
   const [rawRelation, setRawRelation] = useState(props.relation);
   const [hasError, setHasError] = useState(false);
@@ -39,40 +44,37 @@ export const RelationInput = (props: RelationInputProps): JSX.Element => {
 
   useImperativeHandle(props.actionsRef, () => ({
     insertSymbol: (symbol: string) => {
-      const start = textFieldRef.current?.selectionStart ?? null;
-      const end = textFieldRef.current?.selectionEnd ?? null;
-      if (start === null || start === -1 || end === null || end === -1) return;
+      const s = getSelection();
+      if (!s) return;
 
-      const rel = rawRelation;
-      setRawRelation(rel.slice(0, start) + symbol + rel.slice(end));
+      const r = rawRelation;
+      setRawRelation(r.slice(0, s.start) + symbol + r.slice(s.end));
 
-      const newStart = start + symbol.length;
-      const newEnd = newStart;
-      window.setTimeout(() => {
-        textFieldRef.current?.setSelectionRange(newStart, newEnd);
-      }, 0);
+      const start = s.start + symbol.length;
+      const end = start;
+      setSelectionDeferred({ start, end });
     },
     insertSymbolPair: (first: string, second: string) => {
-      const start = textFieldRef.current?.selectionStart ?? null;
-      const end = textFieldRef.current?.selectionEnd ?? null;
-      if (start === null || start === -1 || end === null || end === -1) return;
+      const s = getSelection();
+      if (!s) return;
 
-      const rel = rawRelation;
+      const r = rawRelation;
       setRawRelation(
-        rel.slice(0, start) +
+        r.slice(0, s.start) +
           first +
-          rel.slice(start, end) +
+          r.slice(s.start, s.end) +
           second +
-          rel.slice(end)
+          r.slice(s.end)
       );
 
-      const [newStart, newEnd] =
-        start === end
-          ? [start + first.length, start + first.length]
-          : [start, start + (first.length + (end - start) + second.length)];
-      window.setTimeout(() => {
-        textFieldRef.current?.setSelectionRange(newStart, newEnd);
-      }, 0);
+      const [start, end] =
+        s.start === s.end
+          ? [s.start + first.length, s.start + first.length]
+          : [
+              s.start,
+              s.start + (first.length + (s.end - s.start) + second.length),
+            ];
+      setSelectionDeferred({ start, end });
     },
   }));
 
@@ -91,13 +93,39 @@ export const RelationInput = (props: RelationInputProps): JSX.Element => {
     }
   }
 
+  function getSelection(): Selection | undefined {
+    const start = textFieldRef.current?.selectionStart ?? null;
+    const end = textFieldRef.current?.selectionEnd ?? null;
+    return start === null || start === -1 || end === null || end === -1
+      ? undefined
+      : { start, end };
+  }
+
+  function normalizeRelation(relation: string): string {
+    // Replace every hyphen-minus with a minus sign.
+    return relation.replaceAll("-", "−");
+  }
+
+  function setSelectionDeferred(selection: Selection) {
+    window.setTimeout(() => {
+      textFieldRef.current?.setSelectionRange(selection.start, selection.end);
+    }, 0);
+  }
+
   return (
     <TextField
       borderless={!hasError}
       componentRef={textFieldRef}
-      onChange={(e) => {
+      onChange={(_, relation) => {
+        if (relation === undefined || relation === rawRelation) {
+          return;
+        }
+        const s = getSelection();
         setHasError(false);
-        setRawRelation((e.target as HTMLInputElement).value);
+        setRawRelation(normalizeRelation(relation));
+        if (s) {
+          setSelectionDeferred(s);
+        }
       }}
       onGetErrorMessage={getErrorMessage}
       onKeyDown={(e) => {
