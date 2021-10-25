@@ -23,9 +23,15 @@ export interface RelationInputProps {
 }
 
 export const RelationInput = (props: RelationInputProps): JSX.Element => {
-  const [rawRelation, setRawRelation] = useState("y = sin(x)");
+  const [rawRelation, setRawRelation] = useState(props.relation);
   const [hasError, setHasError] = useState(false);
   const textFieldRef = useRef<ITextField>(null);
+
+  useEffect(() => {
+    if (props.relation !== rawRelation) {
+      setRawRelation(props.relation);
+    }
+  }, [props.relation]);
 
   useEffect(() => {
     textFieldRef.current?.focus();
