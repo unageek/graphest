@@ -244,7 +244,10 @@ fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
         pair(
             delimited(
                 space0,
-                alt((value("+", char('+')), value("-", char('-')))),
+                alt((
+                    value("+", char('+')),
+                    value("-", one_of("-−")), // a hyphen-minus or a minus sign
+                )),
                 space0,
             ),
             cut(multiplicative_expr),
@@ -486,7 +489,8 @@ mod tests {
         test("x * y * z", "(Mul (Mul x y) z)");
         test("x / y / z", "(Div (Div x y) z)");
         test("x + y + z", "(Add (Add x y) z)");
-        test("x - y - z", "(Sub (Sub x y) z)");
+        test("x - y - z", "(Sub (Sub x y) z)"); // hyphen-minus
+        test("x − y − z", "(Sub (Sub x y) z)"); // minus sign
         test("x + y z", "(Add x (Mul y z))");
         test("(x + y) z", "(Mul (Add x y) z)");
         test("x = y", "(Eq x y)");
