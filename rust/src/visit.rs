@@ -586,46 +586,27 @@ impl VisitMut for ExpandComplexFunctions {
                 subst.visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
-            binary!(op @ (Eq | Ge | Gt | Le | Lt), x, y)
-                if x.ty == ComplexT || y.ty == ComplexT =>
-            {
-                *e = match (x, y) {
-                    (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
-                        And,
-                        box Expr::binary(*op, box take(a), box take(x)),
-                        box Expr::binary(Eq, box take(b), box take(y)),
-                    ),
-                    (binary!(Complex, a, b), x) => Expr::binary(
-                        And,
-                        box Expr::binary(*op, box take(a), box take(x)),
-                        box Expr::binary(Eq, box take(b), box Expr::zero()),
-                    ),
-                    (a, binary!(Complex, x, y)) => Expr::binary(
-                        And,
-                        box Expr::binary(*op, box take(a), box take(x)),
-                        box Expr::binary(Eq, box Expr::zero(), box take(y)),
-                    ),
-                    _ => panic!(), // `x.ty` or `y.ty` is wrong.
+            binary!(op @ (Eq | Neq), x, y) if x.ty == ComplexT || y.ty == ComplexT => {
+                let and_or = match op {
+                    Eq => And,
+                    Neq => Or,
+                    _ => unreachable!(),
                 };
-            }
-            binary!(op @ (Neq | Nge | Ngt | Nle | Nlt), x, y)
-                if x.ty == ComplexT || y.ty == ComplexT =>
-            {
                 *e = match (x, y) {
                     (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
-                        Or,
+                        and_or,
                         box Expr::binary(*op, box take(a), box take(x)),
-                        box Expr::binary(Neq, box take(b), box take(y)),
+                        box Expr::binary(*op, box take(b), box take(y)),
                     ),
                     (binary!(Complex, a, b), x) => Expr::binary(
-                        Or,
+                        and_or,
                         box Expr::binary(*op, box take(a), box take(x)),
-                        box Expr::binary(Neq, box take(b), box Expr::zero()),
+                        box Expr::binary(*op, box take(b), box Expr::zero()),
                     ),
                     (a, binary!(Complex, x, y)) => Expr::binary(
-                        Or,
+                        and_or,
                         box Expr::binary(*op, box take(a), box take(x)),
-                        box Expr::binary(Neq, box Expr::zero(), box take(y)),
+                        box Expr::binary(*op, box Expr::zero(), box take(y)),
                     ),
                     _ => panic!(), // `x.ty` or `y.ty` is wrong.
                 };
@@ -1761,19 +1742,11 @@ mod tests {
         test("Re(x + i y)", "x");
         test("Re(x)", "x");
         test("a + i b = x + i y", "(And (Eq a x) (Eq b y))");
-        test("a + i b ≥ x + i y", "(And (Ge a x) (Eq b y))");
-        test("a + i b > x + i y", "(And (Gt a x) (Eq b y))");
-        test("a + i b ≤ x + i y", "(And (Le a x) (Eq b y))");
-        test("a + i b < x + i y", "(And (Lt a x) (Eq b y))");
-        test("a < x + i y", "(And (Lt a x) (Eq 0 y))");
-        test("a + i b < x", "(And (Lt a x) (Eq b 0))");
+        test("a = x + i y", "(And (Eq a x) (Eq 0 y))");
+        test("a + i b = x", "(And (Eq a x) (Eq b 0))");
         test("!(a + i b = x + i y)", "(Or (Neq a x) (Neq b y))");
-        test("!(a + i b ≥ x + i y)", "(Or (Nge a x) (Neq b y))");
-        test("!(a + i b > x + i y)", "(Or (Ngt a x) (Neq b y))");
-        test("!(a + i b ≤ x + i y)", "(Or (Nle a x) (Neq b y))");
-        test("!(a + i b < x + i y)", "(Or (Nlt a x) (Neq b y))");
-        test("!(a < x + i y)", "(Or (Nlt a x) (Neq 0 y))");
-        test("!(a + i b < x)", "(Or (Nlt a x) (Neq b 0))");
+        test("!(a = x + i y)", "(Or (Neq a x) (Neq 0 y))");
+        test("!(a + i b = x)", "(Or (Neq a x) (Neq b 0))");
         test("(a + i b) + (x + i y)", "(Complex (Plus a x) (Plus b y))");
         test("a + (x + i y)", "(Complex (Plus a x) y)");
         test("(a + i b) + x", "(Complex (Plus a x) b)");

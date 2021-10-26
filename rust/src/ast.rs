@@ -584,11 +584,12 @@ impl Expr {
             bool_constant!(_) => Boolean,
             unary!(Not, x) if boolean(x) => Boolean,
             binary!(And | Or, x, y) if boolean(x) && boolean(y) => Boolean,
+            binary!(Eq | Neq, x, y) if real_or_complex(x) && real_or_complex(y) => Boolean,
             binary!(
-                Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt,
+                ExplicitRel | Ge | Gt | Le | Lt | Nge | Ngt | Nle | Nlt,
                 x,
                 y
-            ) if real_or_complex(x) && real_or_complex(y) => Boolean,
+            ) if real(x) && real(y) => Boolean,
             // Complex
             unary!(
                 Acos | Acosh
