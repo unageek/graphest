@@ -87,19 +87,14 @@ impl Arb {
         &self.0
     }
 
-    /// Creates an `Arb` interval `[x ± 0]`.
-    pub fn from_f64(x: f64) -> Self {
-        let mut y = Self::new();
-        unsafe {
-            arb_set_d(y.as_mut_ptr(), x);
-        }
-        y
-    }
-
     /// Creates an `Arb` interval that encloses `x`.
     pub fn from_interval(x: Interval) -> Self {
         let mut y = Self::new();
-        if !x.is_common_interval() {
+        if x.is_singleton() {
+            unsafe {
+                arb_set_d(y.as_mut_ptr(), x.inf());
+            }
+        } else if !x.is_common_interval() {
             unsafe {
                 arb_zero_pm_inf(y.as_mut_ptr());
             }

@@ -147,7 +147,6 @@ impl Real {
     impl_op!(li(x));
     impl_op!(ln(x));
     impl_op!(log(x, b), x.log(&b, None));
-    impl_op!(log10(x));
     impl_op!(max(x, y), x.max(&y), rational_ops::max(x, y));
     impl_op!(min(x, y), x.min(&y), rational_ops::min(x, y));
     impl_op!(mul(x, y), &x * &y, Some(x * y));

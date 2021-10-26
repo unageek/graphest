@@ -685,24 +685,6 @@ impl TupperIntervalSet {
         }
     );
 
-    impl_arb_op!(
-        exp10(x),
-        if x.is_common_interval() {
-            arb_exp10(x)
-        } else {
-            x.exp10()
-        }
-    );
-
-    impl_arb_op!(
-        exp2(x),
-        if x.is_common_interval() {
-            arb_exp2(x)
-        } else {
-            x.exp2()
-        }
-    );
-
     impl_arb_op!(fresnel_c(x), {
         let a = x.inf();
         let b = x.sup();
@@ -855,26 +837,6 @@ impl TupperIntervalSet {
             arb_ln(x)
         } else {
             x.ln()
-        },
-        gt!(x, 0.0)
-    );
-
-    impl_arb_op!(
-        log10(x),
-        if x.inf() > 0.0 && x.sup() < f64::INFINITY {
-            arb_log10(x)
-        } else {
-            x.log10()
-        },
-        gt!(x, 0.0)
-    );
-
-    impl_arb_op!(
-        log2(x),
-        if x.inf() > 0.0 && x.sup() < f64::INFINITY {
-            arb_log2(x)
-        } else {
-            x.log2()
         },
         gt!(x, 0.0)
     );
@@ -1130,26 +1092,6 @@ arb_fn!(
     ZERO_TO_INF
 );
 arb_fn!(
-    arb_exp10(x),
-    arb_pow(
-        x,
-        Arb::from_f64(10.0).as_mut_ptr(), // TODO: `SyncLazy`
-        x,
-        f64::MANTISSA_DIGITS.into()
-    ),
-    ZERO_TO_INF
-);
-arb_fn!(
-    arb_exp2(x),
-    arb_pow(
-        x,
-        Arb::from_f64(2.0).as_mut_ptr(), // TODO: `SyncLazy`
-        x,
-        f64::MANTISSA_DIGITS.into()
-    ),
-    ZERO_TO_INF
-);
-arb_fn!(
     arb_fresnel_c(x),
     arb_hypgeom_fresnel(null(), x, x, 1, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.7798934003768229, 0.7798934003768229) // [C(-1), C(1)]
@@ -1177,16 +1119,6 @@ arb_fn!(
 arb_fn!(
     arb_ln(x),
     arb_log(x, x, f64::MANTISSA_DIGITS.into()),
-    Interval::ENTIRE
-);
-arb_fn!(
-    arb_log10(x),
-    arb_log_base_ui(x, x, 10, f64::MANTISSA_DIGITS.into()),
-    Interval::ENTIRE
-);
-arb_fn!(
-    arb_log2(x),
-    arb_log_base_ui(x, x, 2, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE
 );
 arb_fn!(
