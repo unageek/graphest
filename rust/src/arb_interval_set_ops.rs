@@ -728,10 +728,12 @@ impl TupperIntervalSet {
     });
 
     pub fn gamma(&self, site: Option<Site>) -> Self {
+        // NSolve[{Gamma[x] == $MaxMachineNumber, 0 < x < 180}, x]
+        const X_LIMIT: f64 = 171.0;
         if self.iter().all(|x| {
             let a = x.x.inf();
             let b = x.x.sup();
-            b < 0.0 && a.ceil() > b.floor() || a > 0.0 && b < f64::INFINITY
+            b < 0.0 && a.ceil() > b.floor() || a > 0.0 && b < X_LIMIT
         }) {
             let mut rs = Self::new();
             for x in self {
