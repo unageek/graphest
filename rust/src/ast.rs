@@ -38,8 +38,6 @@ pub enum UnaryOp {
     Erfc,
     Erfi,
     Exp,
-    Exp10,
-    Exp2,
     Floor,
     FresnelC,
     FresnelS,
@@ -47,7 +45,6 @@ pub enum UnaryOp {
     Im,
     Li,
     Ln,
-    Log10,
     Neg,
     Not,
     One,
@@ -403,7 +400,6 @@ impl Expr {
             unary!(Gamma, x) => Some(x.eval()?.gamma()),
             unary!(Li, x) => Some(x.eval()?.li()),
             unary!(Ln, x) => Some(x.eval()?.ln()),
-            unary!(Log10, x) => Some(x.eval()?.log10()),
             unary!(Shi, x) => Some(x.eval()?.shi()),
             unary!(Si, x) => Some(x.eval()?.si()),
             unary!(Sin, x) => Some(x.eval()?.sin()),
@@ -413,7 +409,7 @@ impl Expr {
             unary!(Tanh, x) => Some(x.eval()?.tanh()),
             unary!(UndefAt0, x) => Some(x.eval()?.undef_at_0()),
             unary!(
-                Arg | Conj | Exp10 | Exp2 | Im | Neg | Not | One | Re | Recip | Sign | Sqr | Sqrt,
+                Arg | Conj | Im | Neg | Not | One | Re | Recip | Sign | Sqr | Sqrt,
                 _
             ) => None,
             binary!(Add, x, y) => Some(x.eval()? + y.eval()?),
@@ -516,8 +512,6 @@ impl Expr {
                     | Erfc
                     | Erfi
                     | Exp
-                    | Exp10
-                    | Exp2
                     | Floor
                     | FresnelC
                     | FresnelS
@@ -606,10 +600,7 @@ impl Expr {
                     | Cos
                     | Cosh
                     | Exp
-                    | Exp10
-                    | Exp2
                     | Ln
-                    | Log10
                     | Neg
                     | Recip
                     | Sign
@@ -659,8 +650,6 @@ impl Expr {
                     | Erfc
                     | Erfi
                     | Exp
-                    | Exp10
-                    | Exp2
                     | Floor
                     | FresnelC
                     | FresnelS
@@ -668,7 +657,6 @@ impl Expr {
                     | Im
                     | Li
                     | Ln
-                    | Log10
                     | Neg
                     | One
                     | Re

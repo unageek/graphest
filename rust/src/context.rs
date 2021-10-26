@@ -171,7 +171,6 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("Im", Def::unary(UnaryOp::Im))
         .def("li", Def::unary(UnaryOp::Li))
         .def("ln", Def::unary(UnaryOp::Ln))
-        .def("log", Def::unary(UnaryOp::Log10))
         .def("-", Def::unary(UnaryOp::Neg))
         .def("!", Def::unary(UnaryOp::Not))
         .def("Re", Def::unary(UnaryOp::Re))

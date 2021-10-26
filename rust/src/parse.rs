@@ -451,7 +451,6 @@ mod tests {
         test("Im(x)", "(Im x)");
         test("li(x)", "(Li x)");
         test("ln(x)", "(Ln x)");
-        test("log(x)", "(Log10 x)");
         test("-x", "(Neg x)"); // hyphen-minus
         test("−x", "(Neg x)"); // minus sign
         test("Re(x)", "(Re x)");

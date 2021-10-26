@@ -401,7 +401,6 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
         v.def_unary(Exp, "exp(x) cos(y) + i exp(x) sin(y)");
         v.def_unary(Ln, "1/2 ln(x^2 + y^2) + i atan2(y, x)");
-        v.def_unary(Log10, "ln(x + i y) / ln(10)");
         v.def_unary(Recip, "x / (x^2 + y^2) - i y / (x^2 + y^2)");
         v.def_unary(Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
         v.def_unary(Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
@@ -549,7 +548,7 @@ impl VisitMut for ExpandComplexFunctions {
                     ],
                 );
             }
-            unary!(op @ (Abs | Acos | Acosh | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Log10 | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
+            unary!(op @ (Abs | Acos | Acosh | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
             {
                 let mut new_e = self.unary_ops[op].clone();
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
@@ -1219,19 +1218,6 @@ impl VisitMut for PostTransform {
         traverse_expr_mut(self, e);
 
         match e {
-            binary!(Pow, constant!(a), y) => {
-                match a.to_f64() {
-                    Some(a) if a == 2.0 => {
-                        // (Pow 2 x) → (Exp2 x)
-                        *e = Expr::unary(Exp2, box take(y));
-                    }
-                    Some(a) if a == 10.0 => {
-                        // (Pow 10 x) → (Exp10 x)
-                        *e = Expr::unary(Exp10, box take(y));
-                    }
-                    _ => (),
-                }
-            }
             binary!(Pow, x, constant!(a)) => {
                 if let Some(a) = a.rational() {
                     if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
@@ -1446,15 +1432,12 @@ impl CollectStatic {
                         Erfc => ScalarUnaryOp::Erfc,
                         Erfi => ScalarUnaryOp::Erfi,
                         Exp => ScalarUnaryOp::Exp,
-                        Exp10 => ScalarUnaryOp::Exp10,
-                        Exp2 => ScalarUnaryOp::Exp2,
                         Floor => ScalarUnaryOp::Floor,
                         FresnelC => ScalarUnaryOp::FresnelC,
                         FresnelS => ScalarUnaryOp::FresnelS,
                         Gamma => ScalarUnaryOp::Gamma,
                         Li => ScalarUnaryOp::Li,
                         Ln => ScalarUnaryOp::Ln,
-                        Log10 => ScalarUnaryOp::Log10,
                         Neg => ScalarUnaryOp::Neg,
                         One => ScalarUnaryOp::One,
                         Recip => ScalarUnaryOp::Recip,
@@ -1961,8 +1944,6 @@ mod tests {
             assert_eq!(format!("{}", e.dump_structure()), expected);
         }
 
-        test("2^x", "(Exp2 x)");
-        test("10^x", "(Exp10 x)");
         test("x^-1", "(Recip x)");
         test("x^0", "(One x)");
         test("x^1", "x");

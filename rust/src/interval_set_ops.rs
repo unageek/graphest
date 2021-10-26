@@ -290,12 +290,6 @@ impl TupperIntervalSet {
     impl_op!(exp(x), x.exp());
 
     #[cfg(not(feature = "arb"))]
-    impl_op!(exp10(x), x.exp10());
-
-    #[cfg(not(feature = "arb"))]
-    impl_op!(exp2(x), x.exp2());
-
-    #[cfg(not(feature = "arb"))]
     pub fn gamma(&self, site: Option<Site>) -> Self {
         self.gamma_impl(site)
     }
@@ -597,14 +591,8 @@ impl TupperIntervalSet {
     impl_op!(ln(x), x.ln());
 
     pub fn log(&self, rhs: &Self, site: Option<Site>) -> Self {
-        self.log2().div(&rhs.log2(), site)
+        self.ln().div(&rhs.ln(), site)
     }
-
-    #[cfg(not(feature = "arb"))]
-    impl_op!(log10(x), x.log10());
-
-    #[cfg(not(feature = "arb"))]
-    impl_op!(log2(x), x.log2());
 
     impl_op!(max(x, y), x.max(y));
 
@@ -2070,11 +2058,7 @@ mod tests {
             TupperIntervalSet::erf,
             TupperIntervalSet::erfc,
             TupperIntervalSet::exp,
-            TupperIntervalSet::exp10,
-            TupperIntervalSet::exp2,
             TupperIntervalSet::ln,
-            TupperIntervalSet::log10,
-            TupperIntervalSet::log2,
             TupperIntervalSet::one,
             TupperIntervalSet::sin,
             TupperIntervalSet::sinc,
