@@ -20,6 +20,7 @@ export interface RelationInputProps {
   onEnterKeyPressed: () => void;
   onRelationChanged: (relation: string) => void;
   relation: string;
+  relationInputByUser: boolean;
 }
 
 interface Selection {
@@ -33,7 +34,7 @@ export const RelationInput = (props: RelationInputProps): JSX.Element => {
   const textFieldRef = useRef<ITextField>(null);
 
   useEffect(() => {
-    if (props.relation !== rawRelation) {
+    if (!props.relationInputByUser) {
       setRawRelation(props.relation);
     }
   }, [props.relation]);
@@ -117,7 +118,7 @@ export const RelationInput = (props: RelationInputProps): JSX.Element => {
       borderless={!hasError}
       componentRef={textFieldRef}
       onChange={(_, relation) => {
-        if (relation === undefined || relation === rawRelation) {
+        if (relation === undefined) {
           return;
         }
         const s = getSelection();

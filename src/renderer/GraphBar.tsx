@@ -51,8 +51,11 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
         actionsRef={relationInputActionsRef}
         grow
         onEnterKeyPressed={props.focusGraphView}
-        onRelationChanged={(r) => dispatch(setGraphRelation(props.graphId, r))}
+        onRelationChanged={(r) =>
+          dispatch(setGraphRelation(props.graphId, r, true))
+        }
         relation={graph.relation}
+        relationInputByUser={graph.relationInputByUser}
       />
       {graph.isProcessing && <Spinner size={SpinnerSize.small} />}
       <SymbolsButton

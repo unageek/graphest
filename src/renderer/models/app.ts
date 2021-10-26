@@ -40,6 +40,7 @@ const slice = createSlice({
               id,
               isProcessing: false,
               relation: "y = sin(x)",
+              relationInputByUser: false,
             },
           },
           allIds: [...s.graphs.allIds, id],
