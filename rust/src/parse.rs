@@ -200,7 +200,7 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 alt((
                     value("~", char('~')),
                     value("-", one_of("-−")), // a hyphen-minus or a minus sign
-                    value("!", char('!')),
+                    value("!", one_of("!¬")),
                 )),
                 space0,
                 cut(unary_expr),
@@ -312,7 +312,10 @@ fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
     let (i, x) = relational_expr(i)?;
 
     fold_many0(
-        preceded(delimited(space0, tag("&&"), space0), cut(relational_expr)),
+        preceded(
+            delimited(space0, alt((tag("&&"), tag("∧"))), space0),
+            cut(relational_expr),
+        ),
         move || x.clone(),
         move |xs, y| ctx.apply("&&", vec![xs, y]).unwrap(),
     )(i)
@@ -323,7 +326,10 @@ fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
     let (i, x) = and_expr(i)?;
 
     fold_many0(
-        preceded(delimited(space0, tag("||"), space0), cut(and_expr)),
+        preceded(
+            delimited(space0, alt((tag("||"), tag("∨"))), space0),
+            cut(and_expr),
+        ),
         move || x.clone(),
         move |xs, y| ctx.apply("||", vec![xs, y]).unwrap(),
     )(i)
@@ -501,7 +507,12 @@ mod tests {
         test("x ≤ y", "(Le x y)");
         test("x < y", "(Lt x y)");
         test("x = y = z", "(And (Eq x y) (Eq y z))");
-        test("!(x = y)", "(Not (Eq x y))");
+        test("!x", "(Not x)");
+        test("¬x", "(Not x)");
+        test("x && y", "(And x y)");
+        test("x ∧ y", "(And x y)");
+        test("x || y", "(Or x y)");
+        test("x ∨ y", "(Or x y)");
         test("x = y && y = z", "(And (Eq x y) (Eq y z))");
         test("x = y || y = z", "(Or (Eq x y) (Eq y z))");
         test(
