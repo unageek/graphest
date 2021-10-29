@@ -357,7 +357,7 @@ impl VisitMut for PreTransform {
 /// Precondition: [`PreTransform`] and then [`UpdateMetadata`] have been applied
 /// to the expression and it has not been modified since then.
 struct ExpandComplexFunctions {
-    binary_ops: HashMap<BinaryOp, Expr>,
+    binary_ops: HashMap<(BinaryOp, ValueType, ValueType), Expr>,
     unary_ops: HashMap<UnaryOp, Expr>,
 }
 
@@ -369,9 +369,9 @@ impl ExpandComplexFunctions {
         }
     }
 
-    fn def_binary(&mut self, op: BinaryOp, body: &str) {
+    fn def_binary(&mut self, op: BinaryOp, t1: ValueType, t2: ValueType, body: &str) {
         let e = self.make_def(vec!["a".into(), "b".into(), "x".into(), "y".into()], body);
-        self.binary_ops.insert(op, e);
+        self.binary_ops.insert((op, t1, t2), e);
     }
 
     fn def_unary(&mut self, op: UnaryOp, body: &str) {
@@ -392,7 +392,11 @@ impl ExpandComplexFunctions {
 
 impl Default for ExpandComplexFunctions {
     fn default() -> Self {
-        use {BinaryOp::*, UnaryOp::*};
+        use {
+            BinaryOp::*,
+            UnaryOp::*,
+            ValueType::{Complex as ComplexT, *},
+        };
 
         let mut v = Self::new();
         // Some of the definitions may depend on previous ones.
@@ -401,11 +405,13 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
         v.def_unary(Exp, "exp(x) cos(y) + i exp(x) sin(y)");
         v.def_unary(Ln, "1/2 ln(x^2 + y^2) + i atan2(y, x)");
+        v.def_binary(Pow, ComplexT, ComplexT, "exp((x + i y) ln(a + i b))");
+        v.def_binary(Pow, ComplexT, Real, "exp(x ln(a + i b))");
+        v.def_binary(Pow, Real, ComplexT, "exp((x + i y) ln(a))");
         v.def_unary(Recip, "x / (x^2 + y^2) - i y / (x^2 + y^2)");
         v.def_unary(Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
         v.def_unary(Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
         v.def_unary(Sqr, "x^2 - y^2 + 2 i x y");
-        v.def_unary(Sqrt, "exp(0.5 ln(x + i y))");
         v.def_unary(Tan, "sin(x + i y) / cos(x + i y)");
         v.def_unary(Tanh, "sinh(x + i y) / cosh(x + i y)");
         // http://functions.wolfram.com/01.13.02.0001.01
@@ -423,8 +429,9 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Atan, "i/2 (ln(1 - i (x + i y)) - ln(1 + i (x + i y)))");
         // http://functions.wolfram.com/01.27.02.0001.01
         v.def_unary(Atanh, "1/2 (ln(1 + (x + i y)) - ln(1 - (x + i y)))");
-        v.def_binary(Log, "ln(x + i y) / ln(a + i b)");
-        v.def_binary(Pow, "exp((x + i y) ln(a + i b))");
+        v.def_binary(Log, ComplexT, ComplexT, "ln(x + i y) / ln(a + i b)");
+        v.def_binary(Log, ComplexT, Real, "ln(x) / ln(a + i b)");
+        v.def_binary(Log, Real, ComplexT, "ln(x + i y) / ln(a)");
         v
     }
 }
@@ -559,18 +566,13 @@ impl VisitMut for ExpandComplexFunctions {
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
-            binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(0.5) => {
-                let mut new_e = self.unary_ops[&Sqrt].clone();
-                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
-                *e = new_e;
-            }
             binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(2.0) => {
                 let mut new_e = self.unary_ops[&Sqr].clone();
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
             binary!(op @ (Log | Pow), x, y) if e.ty == ComplexT => {
-                let mut new_e = self.binary_ops[op].clone();
+                let mut new_e = self.binary_ops[&(*op, x.ty, y.ty)].clone();
                 let mut subst = match (x, y) {
                     (binary!(Complex, a, b), binary!(Complex, x, y)) => {
                         Substitute::new(vec![take(a), take(b), take(x), take(y)])

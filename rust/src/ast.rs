@@ -127,7 +127,7 @@ pub enum ExprKind {
     Uninit,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ValueType {
     Boolean,
     Complex,
