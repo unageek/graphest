@@ -88,28 +88,6 @@ macro_rules! impl_op {
             rs
         }
     };
-
-    ($op:ident($x:ident, $y:ident, $z:ident), $result:expr) => {
-        pub fn $op(&self, $y: &Self, $z: &Self) -> Self {
-            let mut rs = Self::new();
-            for x in self {
-                for y in $y {
-                    if let Some(g) = x.g.union(y.g) {
-                        for z in $z {
-                            if let Some(g) = g.union(z.g) {
-                                let $x = x.dec_interval();
-                                let $y = y.dec_interval();
-                                let $z = z.dec_interval();
-                                rs.insert(TupperInterval::new($result, g));
-                            }
-                        }
-                    }
-                }
-            }
-            rs.normalize(false);
-            rs
-        }
-    };
 }
 
 fn insert_intervals(
@@ -633,16 +611,34 @@ impl TupperIntervalSet {
         rs
     }
 
-    impl_op!(if_then_else(cond, t, f), {
-        assert!(cond.decoration() >= Decoration::Def);
-        if cond == DI_ZERO {
-            DecInterval::set_dec(f.interval().unwrap(), cond.decoration().min(f.decoration()))
-        } else if cond == DI_ONE {
-            DecInterval::set_dec(t.interval().unwrap(), cond.decoration().min(t.decoration()))
-        } else {
-            panic!();
+    pub fn if_then_else(&self, t: &Self, f: &Self) -> Self {
+        assert!(self.decoration() >= Decoration::Def);
+        let mut rs = Self::new();
+        for cond in self {
+            let xs = if cond.x == I_ZERO {
+                f
+            } else if cond.x == I_ONE {
+                t
+            } else {
+                panic!();
+            };
+
+            if xs.is_empty() {
+                rs.insert(TupperInterval::new(DecInterval::EMPTY, BranchMap::new()));
+            } else {
+                for x in xs {
+                    if let Some(g) = cond.g.union(x.g) {
+                        rs.insert(TupperInterval::new(
+                            DecInterval::set_dec(x.x, cond.d.min(x.d)),
+                            g,
+                        ))
+                    }
+                }
+            }
         }
-    });
+        rs.normalize(false);
+        rs
+    }
 
     // For x, y ∈ ℚ, the LCM (least common multiple) of x and y is defined as:
     //
