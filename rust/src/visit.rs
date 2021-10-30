@@ -1916,6 +1916,28 @@ mod tests {
     }
 
     #[test]
+    fn expand_boole() {
+        fn test(input: &str, expected: &str) {
+            let mut e =
+                parse_expr(&format!("if({}, x, y)", input), Context::builtin_context()).unwrap();
+            ExpandBoole.visit_expr_mut(&mut e);
+            assert_eq!(
+                format!("{}", e.dump_structure()),
+                format!("(IfThenElse {} x y)", expected)
+            );
+        }
+
+        test("false", "0");
+        test("true", "1");
+        test("¬x", "(Plus 1 (Times -1 (Boole x)))");
+        test("x ∧ y", "(Min (Boole x) (Boole y))");
+        test("x ∨ y", "(Max (Boole x) (Boole y))");
+        test("x = 0", "(BooleEqZero x)");
+        test("x ≤ 0", "(BooleLeZero x)");
+        test("x < 0", "(BooleLtZero x)");
+    }
+
+    #[test]
     fn flatten() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
