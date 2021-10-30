@@ -1001,7 +1001,7 @@ struct Transform {
 
 impl VisitMut for Transform {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, NaryOp::*};
+        use {BinaryOp::*, NaryOp::*, TernaryOp::*};
         traverse_expr_mut(self, e);
 
         match e {
@@ -1031,6 +1031,14 @@ impl VisitMut for Transform {
             binary!(Pow, x, constant!(a)) if a.to_f64() == Some(1.0) => {
                 // x^1 → x
                 *e = take(x);
+                self.modified = true;
+            }
+            ternary!(IfThenElse, constant!(a), _, f) if a.to_f64() == Some(0.0) => {
+                *e = take(f);
+                self.modified = true;
+            }
+            ternary!(IfThenElse, constant!(a), t, _) if a.to_f64() == Some(1.0) => {
+                *e = take(t);
                 self.modified = true;
             }
             nary!(Plus, xs) => {
@@ -1973,6 +1981,7 @@ mod tests {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
             PreTransform.visit_expr_mut(&mut e);
+            ExpandBoole.visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
             FoldConstant::default().visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
@@ -2010,6 +2019,9 @@ mod tests {
         test("sin(x)^0", "1");
         test("sqrt(x)^0", "(Pow (Pow x 0.5) 0)");
         test("x^1", "x");
+
+        test("if(false, x, y)", "y");
+        test("if(true, x, y)", "x");
 
         test("0 + x", "x");
         test("x + x", "(Times 2 x)");
