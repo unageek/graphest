@@ -7,7 +7,7 @@ use crate::{
     nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
     parse::parse_expr,
-    unary, var,
+    ternary, unary, var,
     visit::*,
 };
 use inari::{const_interval, interval, DecInterval, Interval};
@@ -505,6 +505,7 @@ impl FromStr for Relation {
         simplify(&mut e);
         let relation_type = relation_type(&mut e);
         NormalizeRelationalExprs.visit_expr_mut(&mut e);
+        ExpandBoole.visit_expr_mut(&mut e);
         simplify(&mut e);
 
         let n_theta_range = {
@@ -667,6 +668,16 @@ fn expand_polar_coords(e: &mut Expr) {
 fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
     use {NaryOp::*, UnaryOp::*};
 
+    fn common_period(xp: Integer, yp: Integer) -> Integer {
+        if xp == 0 {
+            yp
+        } else if yp == 0 {
+            xp
+        } else {
+            xp.lcm(&yp)
+        }
+    }
+
     match e {
         bool_constant!(_) | constant!(_) => Some(0.into()),
         x @ var!(_) if x.vars.contains(variable) => None,
@@ -728,29 +739,19 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
         binary!(_, x, y) => {
             let xp = function_period(x, variable)?;
             let yp = function_period(y, variable)?;
-            Some(if xp == 0 {
-                yp
-            } else if yp == 0 {
-                xp
-            } else {
-                xp.lcm(&yp)
-            })
+            Some(common_period(xp, yp))
+        }
+        ternary!(_, x, y, z) => {
+            let xp = function_period(x, variable)?;
+            let yp = function_period(y, variable)?;
+            let zp = function_period(z, variable)?;
+            Some(common_period(common_period(xp, yp), zp))
         }
         nary!(_, xs) => xs
             .iter()
             .map(|x| function_period(x, variable))
             .collect::<Option<Vec<_>>>()
-            .map(|ps| {
-                ps.into_iter().fold(Integer::from(0), |xp, yp| {
-                    if xp == 0 {
-                        yp
-                    } else if yp == 0 {
-                        xp
-                    } else {
-                        xp.lcm(&yp)
-                    }
-                })
-            }),
+            .map(|ps| ps.into_iter().fold(Integer::from(0), common_period)),
         _ => panic!("unexpected kind of expression"),
     }
 }

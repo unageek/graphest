@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, UnaryOp},
+    ast::{BinaryOp, Expr, TernaryOp, UnaryOp},
     real::Real,
     visit::{Substitute, VisitMut},
 };
@@ -121,7 +121,7 @@ impl Context {
 
 /// The context that is used when parsing relations.
 static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
-    use {BinaryOp::*, UnaryOp::*};
+    use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
 
     const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
     Context::new()
@@ -212,6 +212,21 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("ranked_max", Def::binary(RankedMax))
         .def("ranked_min", Def::binary(RankedMin))
         .def("-", Def::binary(Sub))
+        .def(
+            "if",
+            Def::Function {
+                arity: 3,
+                body: {
+                    Expr::ternary(
+                        IfThenElse,
+                        box Expr::unary(Boole, box Expr::var("#0")),
+                        box Expr::var("#1"),
+                        box Expr::var("#2"),
+                    )
+                },
+                left_associative: false,
+            },
+        )
 });
 
 impl Context {

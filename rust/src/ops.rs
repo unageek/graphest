@@ -51,6 +51,9 @@ pub enum ScalarUnaryOp {
     Asinh,
     Atan,
     Atanh,
+    BooleEqZero,
+    BooleLeZero,
+    BooleLtZero,
     Ceil,
     Chi,
     Ci,
@@ -109,6 +112,7 @@ pub enum ScalarBinaryOp {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ScalarTernaryOp {
+    IfThenElse,
     MulAdd,
 }
 
@@ -183,6 +187,9 @@ impl StaticTerm {
             Unary(Asinh, x) => self.put(ts, ts[*x].asinh()),
             Unary(Atan, x) => self.put(ts, ts[*x].atan()),
             Unary(Atanh, x) => self.put(ts, ts[*x].atanh()),
+            Unary(BooleEqZero, x) => self.put(ts, ts[*x].boole_eq_zero(self.site)),
+            Unary(BooleLeZero, x) => self.put(ts, ts[*x].boole_le_zero(self.site)),
+            Unary(BooleLtZero, x) => self.put(ts, ts[*x].boole_lt_zero(self.site)),
             Unary(Ceil, x) => self.put(ts, ts[*x].ceil(self.site)),
             Unary(Chi, x) => self.put(ts, ts[*x].chi()),
             Unary(Ci, x) => self.put(ts, ts[*x].ci()),
@@ -236,6 +243,9 @@ impl StaticTerm {
                 self.put(ts, ts[*x].re_sign_nonnegative(&ts[*y], self.site))
             }
             Binary(Sub, x, y) => self.put(ts, &ts[*x] - &ts[*y]),
+            Ternary(IfThenElse, cond, t, f) => {
+                self.put(ts, ts[*cond].if_then_else(&ts[*t], &ts[*f]))
+            }
             Ternary(MulAdd, x, y, z) => self.put(ts, ts[*x].mul_add(&ts[*y], &ts[*z])),
             Pown(x, n) => self.put(ts, ts[*x].pown(*n, self.site)),
             Rootn(x, n) => self.put(ts, ts[*x].rootn(*n)),

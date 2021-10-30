@@ -103,6 +103,19 @@ macro_rules! impl_op {
             }
         }
     };
+
+    ($op:ident($x:ident, $y:ident, $z:ident)) => {
+        impl_op!($op($x, $y, $z), $x.$op(&$y, &$z));
+    };
+
+    ($op:ident($x:ident, $y:ident, $z:ident), $result:expr) => {
+        pub fn $op(self, $y: Self, $z: Self) -> Self {
+            let $x = self.x;
+            let $y = $y.x;
+            let $z = $z.x;
+            $result.into()
+        }
+    };
 }
 
 impl Real {
@@ -123,6 +136,9 @@ impl Real {
     impl_op!(bessel_j(n, x));
     impl_op!(bessel_k(n, x));
     impl_op!(bessel_y(n, x));
+    impl_op!(boole_eq_zero(x), x.boole_eq_zero(None));
+    impl_op!(boole_le_zero(x), x.boole_le_zero(None));
+    impl_op!(boole_lt_zero(x), x.boole_lt_zero(None));
     impl_op!(ceil(x), x.ceil(None), Some(x.ceil()));
     impl_op!(chi(x));
     impl_op!(ci(x));
@@ -143,6 +159,7 @@ impl Real {
     impl_op!(gamma(x), x.gamma(None));
     impl_op!(gamma_inc(a, x));
     impl_op!(gcd(x, y), x.gcd(&y, None), rational_ops::gcd(x, y));
+    impl_op!(if_then_else(cond, t, f));
     impl_op!(lcm(x, y), x.lcm(&y, None), rational_ops::lcm(x, y));
     impl_op!(li(x));
     impl_op!(ln(x));

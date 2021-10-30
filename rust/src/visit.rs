@@ -232,55 +232,62 @@ impl VisitMut for EliminateNot {
 
         let mut modified = false;
 
-        if let unary!(Not, x) = e {
-            match x {
-                unary!(Not, x) => {
-                    // (Not (Not x)) → x
-                    *e = take(x);
-                    modified = true;
-                }
-                binary!(And, x, y) => {
-                    // (Not (And x y)) → (Or (Not x) (Not y))
-                    *e = Expr::binary(
-                        Or,
-                        box Expr::unary(Not, box take(x)),
-                        box Expr::unary(Not, box take(y)),
-                    );
-                    modified = true;
-                }
-                binary!(Or, x, y) => {
-                    // (Not (Or x y)) → (And (Not x) (Not y))
-                    *e = Expr::binary(
-                        And,
-                        box Expr::unary(Not, box take(x)),
-                        box Expr::unary(Not, box take(y)),
-                    );
-                    modified = true;
-                }
-                binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x, y) => {
-                    // (Not (op x y)) → (neg-op x y)
-                    let neg_op = match op {
-                        Eq => Neq,
-                        Ge => Nge,
-                        Gt => Ngt,
-                        Le => Nle,
-                        Lt => Nlt,
-                        Neq => Eq,
-                        Nge => Ge,
-                        Ngt => Gt,
-                        Nle => Le,
-                        Nlt => Lt,
-                        _ => unreachable!(),
-                    };
-                    *e = Expr::binary(neg_op, box take(x), box take(y));
-                    modified = true;
-                }
-                _ => (),
+        match e {
+            unary!(Boole, _) => {
+                // Stop traversal.
+                return;
             }
+            unary!(Not, x) => {
+                match x {
+                    unary!(Not, x) => {
+                        // (Not (Not x)) → x
+                        *e = take(x);
+                        modified = true;
+                    }
+                    binary!(And, x, y) => {
+                        // (Not (And x y)) → (Or (Not x) (Not y))
+                        *e = Expr::binary(
+                            Or,
+                            box Expr::unary(Not, box take(x)),
+                            box Expr::unary(Not, box take(y)),
+                        );
+                        modified = true;
+                    }
+                    binary!(Or, x, y) => {
+                        // (Not (Or x y)) → (And (Not x) (Not y))
+                        *e = Expr::binary(
+                            And,
+                            box Expr::unary(Not, box take(x)),
+                            box Expr::unary(Not, box take(y)),
+                        );
+                        modified = true;
+                    }
+                    binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x, y) => {
+                        // (Not (op x y)) → (neg-op x y)
+                        let neg_op = match op {
+                            Eq => Neq,
+                            Ge => Nge,
+                            Gt => Ngt,
+                            Le => Nle,
+                            Lt => Nlt,
+                            Neq => Eq,
+                            Nge => Ge,
+                            Ngt => Gt,
+                            Nle => Le,
+                            Nlt => Lt,
+                            _ => unreachable!(),
+                        };
+                        *e = Expr::binary(neg_op, box take(x), box take(y));
+                        modified = true;
+                    }
+                    _ => (),
+                }
+            }
+            _ => (),
         }
 
         if modified {
-            // `e` is not visited yet.
+            // `e` has not been visited yet.
             self.visit_expr_mut(e);
         } else {
             traverse_expr_mut(self, e);
@@ -441,6 +448,7 @@ impl VisitMut for ExpandComplexFunctions {
         use {
             BinaryOp::{Complex, *},
             NaryOp::*,
+            TernaryOp::*,
             UnaryOp::*,
             ValueType::{Complex as ComplexT, *},
         };
@@ -613,6 +621,36 @@ impl VisitMut for ExpandComplexFunctions {
                     _ => panic!(), // `x.ty` or `y.ty` is wrong.
                 };
             }
+            ternary!(IfThenElse, cond, t, f) if e.ty == ComplexT => {
+                *e = match (t, f) {
+                    (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
+                        Complex,
+                        box Expr::ternary(IfThenElse, box cond.clone(), box take(a), box take(x)),
+                        box Expr::ternary(IfThenElse, box take(cond), box take(b), box take(y)),
+                    ),
+                    (binary!(Complex, a, b), x) => Expr::binary(
+                        Complex,
+                        box Expr::ternary(IfThenElse, box cond.clone(), box take(a), box take(x)),
+                        box Expr::ternary(
+                            IfThenElse,
+                            box take(cond),
+                            box take(b),
+                            box Expr::zero(),
+                        ),
+                    ),
+                    (a, binary!(Complex, x, y)) => Expr::binary(
+                        Complex,
+                        box Expr::ternary(IfThenElse, box cond.clone(), box take(a), box take(x)),
+                        box Expr::ternary(
+                            IfThenElse,
+                            box take(cond),
+                            box Expr::zero(),
+                            box take(y),
+                        ),
+                    ),
+                    _ => panic!(), // `t.ty` or `f.ty` is wrong.
+                }
+            }
             nary!(Plus, xs) if e.ty == ComplexT => {
                 let mut reals = vec![];
                 let mut imags = vec![];
@@ -718,6 +756,78 @@ impl VisitMut for NormalizeRelationalExprs {
                 )
             }
             _ => (),
+        }
+    }
+}
+
+/// Precondition: [`NormalizeRelationalExprs`] has been applied to the expression.
+pub struct ExpandBoole;
+
+impl VisitMut for ExpandBoole {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, NaryOp::*, UnaryOp::*};
+
+        let mut modified = false;
+
+        if let unary!(Boole, x) = e {
+            match x {
+                bool_constant!(false) => {
+                    *e = Expr::zero();
+                    modified = true;
+                }
+                bool_constant!(true) => {
+                    *e = Expr::one();
+                    modified = true;
+                }
+                unary!(Not, x) => {
+                    *e = Expr::nary(
+                        Plus,
+                        vec![
+                            Expr::one(),
+                            Expr::nary(
+                                Times,
+                                vec![Expr::minus_one(), Expr::unary(Boole, box take(x))],
+                            ),
+                        ],
+                    );
+                    modified = true;
+                }
+                binary!(And, x, y) => {
+                    *e = Expr::binary(
+                        Min,
+                        box Expr::unary(Boole, box take(x)),
+                        box Expr::unary(Boole, box take(y)),
+                    );
+                    modified = true;
+                }
+                binary!(Or, x, y) => {
+                    *e = Expr::binary(
+                        Max,
+                        box Expr::unary(Boole, box take(x)),
+                        box Expr::unary(Boole, box take(y)),
+                    );
+                    modified = true;
+                }
+                binary!(op @ (Eq | Le | Lt), x, y) => {
+                    assert!(matches!(y, constant!(a) if a.to_f64() == Some(0.0)));
+                    let op = match op {
+                        Eq => BooleEqZero,
+                        Le => BooleLeZero,
+                        Lt => BooleLtZero,
+                        _ => unreachable!(),
+                    };
+                    *e = Expr::unary(op, box take(x));
+                    modified = true;
+                }
+                _ => (),
+            }
+        }
+
+        if modified {
+            // `e` has not been visited yet.
+            self.visit_expr_mut(e);
+        } else {
+            traverse_expr_mut(self, e);
         }
     }
 }
@@ -891,7 +1001,7 @@ struct Transform {
 
 impl VisitMut for Transform {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, NaryOp::*};
+        use {BinaryOp::*, NaryOp::*, TernaryOp::*};
         traverse_expr_mut(self, e);
 
         match e {
@@ -921,6 +1031,14 @@ impl VisitMut for Transform {
             binary!(Pow, x, constant!(a)) if a.to_f64() == Some(1.0) => {
                 // x^1 → x
                 *e = take(x);
+                self.modified = true;
+            }
+            ternary!(IfThenElse, constant!(a), _, f) if a.to_f64() == Some(0.0) => {
+                *e = take(f);
+                self.modified = true;
+            }
+            ternary!(IfThenElse, constant!(a), t, _) if a.to_f64() == Some(1.0) => {
+                *e = take(t);
                 self.modified = true;
             }
             nary!(Plus, xs) => {
@@ -1300,7 +1418,18 @@ impl AssignId {
     fn expr_can_perform_cut(e: &Expr) -> bool {
         use {BinaryOp::*, UnaryOp::*};
         match e {
-            unary!(Ceil | Digamma | Floor | Gamma | Recip | Tan, _)
+            unary!(
+                BooleEqZero
+                    | BooleLeZero
+                    | BooleLtZero
+                    | Ceil
+                    | Digamma
+                    | Floor
+                    | Gamma
+                    | Recip
+                    | Tan,
+                _
+            )
             | binary!(
                 Atan2
                     | Div
@@ -1402,6 +1531,9 @@ impl CollectStatic {
                         Asinh => ScalarUnaryOp::Asinh,
                         Atan => ScalarUnaryOp::Atan,
                         Atanh => ScalarUnaryOp::Atanh,
+                        BooleEqZero => ScalarUnaryOp::BooleEqZero,
+                        BooleLeZero => ScalarUnaryOp::BooleLeZero,
+                        BooleLtZero => ScalarUnaryOp::BooleLtZero,
                         Ceil => ScalarUnaryOp::Ceil,
                         Chi => ScalarUnaryOp::Chi,
                         Ci => ScalarUnaryOp::Ci,
@@ -1434,7 +1566,7 @@ impl CollectStatic {
                         Tan => ScalarUnaryOp::Tan,
                         Tanh => ScalarUnaryOp::Tanh,
                         UndefAt0 => ScalarUnaryOp::UndefAt0,
-                        Arg | Conj | Im | Re | Not | Sign => return None,
+                        Arg | Boole | Conj | Im | Re | Not | Sign => return None,
                     })
                 })()
                 .map(|op| StaticTermKind::Unary(op, self.store_index(x))),
@@ -1476,6 +1608,7 @@ impl CollectStatic {
                 })()
                 .map(|op| StaticTermKind::Binary(op, self.store_index(x), self.store_index(y))),
                 ternary!(op, x, y, z) => Some(match op {
+                    IfThenElse => ScalarTernaryOp::IfThenElse,
                     MulAdd => ScalarTernaryOp::MulAdd,
                 })
                 .map(|op| {
@@ -1783,6 +1916,28 @@ mod tests {
     }
 
     #[test]
+    fn expand_boole() {
+        fn test(input: &str, expected: &str) {
+            let mut e =
+                parse_expr(&format!("if({}, x, y)", input), Context::builtin_context()).unwrap();
+            ExpandBoole.visit_expr_mut(&mut e);
+            assert_eq!(
+                format!("{}", e.dump_structure()),
+                format!("(IfThenElse {} x y)", expected)
+            );
+        }
+
+        test("false", "0");
+        test("true", "1");
+        test("¬x", "(Plus 1 (Times -1 (Boole x)))");
+        test("x ∧ y", "(Min (Boole x) (Boole y))");
+        test("x ∨ y", "(Max (Boole x) (Boole y))");
+        test("x = 0", "(BooleEqZero x)");
+        test("x ≤ 0", "(BooleLeZero x)");
+        test("x < 0", "(BooleLtZero x)");
+    }
+
+    #[test]
     fn flatten() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
@@ -1848,6 +2003,7 @@ mod tests {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
             PreTransform.visit_expr_mut(&mut e);
+            ExpandBoole.visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
             FoldConstant::default().visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
@@ -1885,6 +2041,9 @@ mod tests {
         test("sin(x)^0", "1");
         test("sqrt(x)^0", "(Pow (Pow x 0.5) 0)");
         test("x^1", "x");
+
+        test("if(false, x, y)", "y");
+        test("if(true, x, y)", "x");
 
         test("0 + x", "x");
         test("x + x", "(Times 2 x)");
