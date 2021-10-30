@@ -24,6 +24,10 @@ pub enum UnaryOp {
     Asinh,
     Atan,
     Atanh,
+    Boole, // Iverson bracket
+    BooleEqZero,
+    BooleLeZero,
+    BooleLtZero,
     Ceil,
     Chi,
     Ci,
@@ -103,6 +107,7 @@ pub enum BinaryOp {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum TernaryOp {
+    IfThenElse,
     MulAdd,
 }
 
@@ -381,6 +386,9 @@ impl Expr {
             unary!(Asinh, x) => Some(x.eval()?.asinh()),
             unary!(Atan, x) => Some(x.eval()?.atan()),
             unary!(Atanh, x) => Some(x.eval()?.atanh()),
+            unary!(BooleEqZero, x) => Some(x.eval()?.boole_eq_zero()),
+            unary!(BooleLeZero, x) => Some(x.eval()?.boole_le_zero()),
+            unary!(BooleLtZero, x) => Some(x.eval()?.boole_lt_zero()),
             unary!(Ceil, x) => Some(x.eval()?.ceil()),
             unary!(Chi, x) => Some(x.eval()?.chi()),
             unary!(Ci, x) => Some(x.eval()?.ci()),
@@ -409,7 +417,7 @@ impl Expr {
             unary!(Tanh, x) => Some(x.eval()?.tanh()),
             unary!(UndefAt0, x) => Some(x.eval()?.undef_at_0()),
             unary!(
-                Arg | Conj | Im | Neg | Not | One | Re | Recip | Sign | Sqr | Sqrt,
+                Arg | Boole | Conj | Im | Neg | Not | One | Re | Recip | Sign | Sqr | Sqrt,
                 _
             ) => None,
             binary!(Add, x, y) => Some(x.eval()? + y.eval()?),
@@ -458,6 +466,9 @@ impl Expr {
                 _,
                 _
             ) => None,
+            ternary!(IfThenElse, cond, t, f) => {
+                Some(cond.eval()?.if_then_else(t.eval()?, f.eval()?))
+            }
             ternary!(MulAdd, _, _, _) => None,
             nary!(List | Plus | Times, _) => None,
             pown!(_, _) => None,
@@ -536,6 +547,7 @@ impl Expr {
                 x.totally_defined
                     && matches!(y.rational(), Some(q) if *q >= 0 && q.denom().is_odd())
             }
+            ternary!(IfThenElse, _, t, f) => t.totally_defined && f.totally_defined,
             ternary!(MulAdd, x, y, z) => {
                 x.totally_defined && y.totally_defined && z.totally_defined
             }
@@ -619,11 +631,20 @@ impl Expr {
             {
                 ComplexT
             }
+            ternary!(IfThenElse, cond, t, f)
+                if real(cond)
+                    && real_or_complex(t)
+                    && real_or_complex(f)
+                    && (complex(t) || complex(f)) =>
+            {
+                ComplexT
+            }
             nary!(Plus | Times, xs) if xs.iter().all(real_or_complex) && xs.iter().any(complex) => {
                 ComplexT
             }
             // Real
             constant!(_) | var!(_) => Real,
+            unary!(Boole, x) if boolean(x) => Real,
             unary!(Abs | Arg | Im | Re, x) if complex(x) => Real,
             unary!(
                 Abs | Acos
@@ -637,6 +658,9 @@ impl Expr {
                     | Asinh
                     | Atan
                     | Atanh
+                    | BooleEqZero
+                    | BooleLeZero
+                    | BooleLtZero
                     | Ceil
                     | Chi
                     | Ci
@@ -697,6 +721,7 @@ impl Expr {
                 y
             ) if real(x) && real(y) => Real,
             binary!(RankedMax | RankedMin, x, y) if real_vector(x) && real(y) => Real,
+            ternary!(IfThenElse, cond, t, f) if real(cond) && real(t) && real(f) => Real,
             ternary!(MulAdd, x, y, z) if real(x) && real(y) && real(z) => Real,
             nary!(Plus | Times, xs) if xs.iter().all(real) => Real,
             pown!(x, _) | rootn!(x, _) if real(x) => Real,

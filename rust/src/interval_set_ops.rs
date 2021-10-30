@@ -88,6 +88,28 @@ macro_rules! impl_op {
             rs
         }
     };
+
+    ($op:ident($x:ident, $y:ident, $z:ident), $result:expr) => {
+        pub fn $op(&self, $y: &Self, $z: &Self) -> Self {
+            let mut rs = Self::new();
+            for x in self {
+                for y in $y {
+                    if let Some(g) = x.g.union(y.g) {
+                        for z in $z {
+                            if let Some(g) = g.union(z.g) {
+                                let $x = x.dec_interval();
+                                let $y = y.dec_interval();
+                                let $z = z.dec_interval();
+                                rs.insert(TupperInterval::new($result, g));
+                            }
+                        }
+                    }
+                }
+            }
+            rs.normalize(false);
+            rs
+        }
+    };
 }
 
 fn insert_intervals(
@@ -161,6 +183,11 @@ macro_rules! impl_op_cut {
     };
 }
 
+const I_ZERO: Interval = const_interval!(0.0, 0.0);
+const I_ONE: Interval = const_interval!(1.0, 1.0);
+const DI_ZERO: DecInterval = const_dec_interval!(0.0, 0.0);
+const DI_ONE: DecInterval = const_dec_interval!(1.0, 1.0);
+
 impl TupperIntervalSet {
     impl_op!(abs(x), x.abs());
 
@@ -231,6 +258,78 @@ impl TupperIntervalSet {
 
     #[cfg(not(feature = "arb"))]
     impl_op!(atanh(x), x.atanh());
+
+    pub fn boole_eq_zero(&self, site: Option<Site>) -> Self {
+        if self.is_empty() {
+            Self::from(DI_ZERO)
+        } else {
+            self.boole_eq_zero_nonempty(site)
+        }
+    }
+
+    impl_op_cut!(boole_eq_zero_nonempty(x), {
+        let maybe_false = x != DI_ZERO || x.decoration() < Decoration::Def;
+        let maybe_true = x.contains(0.0);
+        if maybe_false && maybe_true {
+            (
+                DecInterval::set_dec(I_ZERO, Decoration::Def),
+                Some(DecInterval::set_dec(I_ONE, Decoration::Def)),
+            )
+        } else if maybe_false {
+            (DI_ZERO, None)
+        } else {
+            assert!(maybe_true);
+            (DI_ONE, None)
+        }
+    });
+
+    pub fn boole_le_zero(&self, site: Option<Site>) -> Self {
+        if self.is_empty() {
+            Self::from(DI_ZERO)
+        } else {
+            self.boole_le_zero_nonempty(site)
+        }
+    }
+
+    impl_op_cut!(boole_le_zero_nonempty(x), {
+        let maybe_false = x.sup() > 0.0 || x.decoration() < Decoration::Def;
+        let maybe_true = x.inf() <= 0.0;
+        if maybe_false && maybe_true {
+            (
+                DecInterval::set_dec(I_ZERO, Decoration::Def),
+                Some(DecInterval::set_dec(I_ONE, Decoration::Def)),
+            )
+        } else if maybe_false {
+            (DI_ZERO, None)
+        } else {
+            assert!(maybe_true);
+            (DI_ONE, None)
+        }
+    });
+
+    pub fn boole_lt_zero(&self, site: Option<Site>) -> Self {
+        if self.is_empty() {
+            Self::from(DI_ZERO)
+        } else {
+            self.boole_lt_zero_nonempty(site)
+        }
+    }
+
+    impl_op_cut!(boole_lt_zero_nonempty(x), {
+        let maybe_false = x.sup() >= 0.0 || x.decoration() < Decoration::Def;
+        let maybe_true = x.inf() < 0.0;
+        if maybe_false && maybe_true {
+            (
+                DecInterval::set_dec(I_ZERO, Decoration::Def),
+                Some(DecInterval::set_dec(I_ONE, Decoration::Def)),
+            )
+        } else if maybe_false {
+            (DI_ZERO, None)
+        } else {
+            assert!(maybe_true);
+            (DI_ONE, None)
+        }
+    });
 
     #[cfg(not(feature = "arb"))]
     impl_op!(cos(x), x.cos());
@@ -533,6 +632,17 @@ impl TupperIntervalSet {
         }
         rs
     }
+
+    impl_op!(if_then_else(cond, t, f), {
+        assert!(cond.decoration() >= Decoration::Def);
+        if cond == DI_ZERO {
+            DecInterval::set_dec(f.interval().unwrap(), cond.decoration().min(f.decoration()))
+        } else if cond == DI_ONE {
+            DecInterval::set_dec(t.interval().unwrap(), cond.decoration().min(t.decoration()))
+        } else {
+            panic!();
+        }
+    });
 
     // For x, y ∈ ℚ, the LCM (least common multiple) of x and y is defined as:
     //
