@@ -389,6 +389,8 @@ impl ExpandComplexFunctions {
     fn make_def(&mut self, params: Vec<String>, body: &str) -> Expr {
         let mut e = parse_expr(body, Context::builtin_context()).unwrap();
         PreTransform.visit_expr_mut(&mut e);
+        NormalizeRelationalExprs.visit_expr_mut(&mut e);
+        ExpandBoole.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
         self.visit_expr_mut(&mut e);
         simplify(&mut e);
@@ -412,9 +414,24 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Cosh, "cosh(x) cos(y) + i sinh(x) sin(y)");
         v.def_unary(Exp, "exp(x) cos(y) + i exp(x) sin(y)");
         v.def_unary(Ln, "1/2 ln(x^2 + y^2) + i atan2(y, x)");
-        v.def_binary(Pow, ComplexT, ComplexT, "exp((x + i y) ln(a + i b))");
-        v.def_binary(Pow, ComplexT, Real, "exp(x ln(a + i b))");
-        v.def_binary(Pow, Real, ComplexT, "exp((x + i y) ln(a))");
+        v.def_binary(
+            Pow,
+            ComplexT,
+            ComplexT,
+            "if(a = 0 ∧ b = 0 ∧ x > 0, 0, exp((x + i y) ln(a + i b)))",
+        );
+        v.def_binary(
+            Pow,
+            ComplexT,
+            Real,
+            "if(a = 0 ∧ b = 0 ∧ x > 0, 0, exp(x ln(a + i b)))",
+        );
+        v.def_binary(
+            Pow,
+            Real,
+            ComplexT,
+            "if(a = 0 ∧ x > 0, 0, exp((x + i y) ln(a)))",
+        );
         v.def_unary(Recip, "x / (x^2 + y^2) - i y / (x^2 + y^2)");
         v.def_unary(Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
         v.def_unary(Sinh, "sinh(x) cos(y) + i cosh(x) sin(y)");
