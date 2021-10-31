@@ -1241,9 +1241,6 @@ macro_rules! impl_rel_op {
 impl TupperIntervalSet {
     impl_rel_op!(le_zero, true, true, false, false);
     impl_rel_op!(lt_zero, true, false, false, false);
-    impl_rel_op!(neq_zero, true, false, true, true);
-    impl_rel_op!(nle_zero, false, false, true, true);
-    impl_rel_op!(nlt_zero, false, true, true, true);
 }
 
 // Copied from https://github.com/unageek/inari/blob/b398df0609ea96c28574f8b1acdabbc87cb7cf78/src/elementary.rs

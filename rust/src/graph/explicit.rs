@@ -10,7 +10,7 @@ use crate::{
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
     image::{Image, PixelIndex, PixelRange},
-    interval_set::{DecSignSet, SignSet, TupperIntervalSet},
+    interval_set::TupperIntervalSet,
     region::Region,
     relation::{EvalExplicitCache, ExplicitRelationOp, Relation, RelationType},
 };
@@ -192,15 +192,10 @@ impl Explicit {
         };
         let im_ys = self.im_intervals(&ys);
 
-        let cond_is_true = cond
-            .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-            .eval(self.rel.forms());
-        let cond_is_false = !cond
-            .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(self.rel.forms());
+        let cond = cond.result(self.rel.forms());
         let dec = ys.decoration();
 
-        if dec >= Decoration::Def && cond_is_true {
+        if dec >= Decoration::Def && cond.certainly_true() {
             let im_y = im_ys
                 .iter()
                 .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y));
@@ -213,7 +208,7 @@ impl Explicit {
             if pixels == t_pixels {
                 return vec![];
             }
-        } else if cond_is_false {
+        } else if cond.certainly_false() {
             return vec![];
         }
 
@@ -242,15 +237,10 @@ impl Explicit {
         };
         let im_ys = self.im_intervals(&ys);
 
-        let cond_is_true = cond
-            .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-            .eval(self.rel.forms());
-        let cond_is_false = !cond
-            .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(self.rel.forms());
+        let cond = cond.result(self.rel.forms());
         let dec = ys.decoration();
 
-        if dec >= Decoration::Def && cond_is_true {
+        if dec >= Decoration::Def && cond.certainly_true() {
             let im_y = im_ys
                 .iter()
                 .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y));
@@ -263,7 +253,7 @@ impl Explicit {
             if pixels == t_pixels {
                 return vec![];
             }
-        } else if cond_is_false {
+        } else if cond.certainly_false() {
             return vec![];
         }
 
@@ -275,7 +265,7 @@ impl Explicit {
                 .map(|&x| Self::eval_on_point(&mut self.rel, x, Some(&mut self.cache)))
                 .collect::<SmallVec<[_; 3]>>();
 
-            if dec >= Decoration::Dac && cond_is_true {
+            if dec >= Decoration::Dac && cond.certainly_true() {
                 let ys = rs
                     .into_iter()
                     .map(|(y, _)| {
@@ -310,12 +300,10 @@ impl Explicit {
                 }
             } else {
                 for (ys, cond) in rs {
-                    let cond_is_true = cond
-                        .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-                        .eval(self.rel.forms());
+                    let cond = cond.result(self.rel.forms());
                     let dec = ys.decoration();
 
-                    if dec >= Decoration::Def && cond_is_true {
+                    if dec >= Decoration::Def && cond.certainly_true() {
                         let im_y = self
                             .im_intervals(&ys)
                             .into_iter()

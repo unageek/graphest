@@ -499,7 +499,7 @@ impl FromStr for Relation {
         if e.ty != ValueType::Boolean {
             return Err("the relation must be a Boolean-valued expression".into());
         }
-        EliminateNot.visit_expr_mut(&mut e);
+        NormalizeNotExprs.visit_expr_mut(&mut e);
         PreTransform.visit_expr_mut(&mut e);
         expand_complex_functions(&mut e);
         simplify(&mut e);

@@ -92,11 +92,6 @@ pub enum BinaryOp {
     Min,
     Mod,
     Mul,
-    Neq,
-    Nge,
-    Ngt,
-    Nle,
-    Nlt,
     Or,
     Pow,
     RankedMax,
@@ -454,11 +449,6 @@ impl Expr {
                     | Gt
                     | Le
                     | Lt
-                    | Neq
-                    | Nge
-                    | Ngt
-                    | Nle
-                    | Nlt
                     | Or
                     | RankedMax
                     | RankedMin
@@ -596,12 +586,8 @@ impl Expr {
             bool_constant!(_) => Boolean,
             unary!(Not, x) if boolean(x) => Boolean,
             binary!(And | Or, x, y) if boolean(x) && boolean(y) => Boolean,
-            binary!(Eq | Neq, x, y) if real_or_complex(x) && real_or_complex(y) => Boolean,
-            binary!(
-                ExplicitRel | Ge | Gt | Le | Lt | Nge | Ngt | Nle | Nlt,
-                x,
-                y
-            ) if real(x) && real(y) => Boolean,
+            binary!(Eq, x, y) if real_or_complex(x) && real_or_complex(y) => Boolean,
+            binary!(ExplicitRel | Ge | Gt | Le | Lt, x, y) if real(x) && real(y) => Boolean,
             // Complex
             unary!(
                 Acos | Acosh

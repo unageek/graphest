@@ -5,10 +5,11 @@ pub use crate::{
     geom::Box2D,
     graph::{
         constant::Constant, explicit::Explicit, implicit::Implicit, parametric::Parametric, Graph,
-        GraphingStatistics, Padding, Ternary,
+        GraphingStatistics, Padding,
     },
     image::{Image, PixelIndex, PixelRange},
     relation::{Relation, RelationType},
+    ternary::Ternary,
 };
 
 #[cfg(feature = "arb")]
@@ -30,4 +31,5 @@ mod rational_ops;
 mod real;
 mod region;
 mod relation;
+mod ternary;
 mod visit;

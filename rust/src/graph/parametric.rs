@@ -6,7 +6,7 @@ use crate::{
         Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
     image::{Image, PixelIndex, PixelRange},
-    interval_set::{DecSignSet, SignSet, TupperIntervalSet},
+    interval_set::TupperIntervalSet,
     region::Region,
     relation::{EvalParametricCache, Relation, RelationType},
 };
@@ -152,15 +152,10 @@ impl Parametric {
             .map(|r| Self::outer_pixels(&r))
             .collect::<Vec<_>>();
 
-        let cond_is_true = cond
-            .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-            .eval(self.rel.forms());
-        let cond_is_false = !cond
-            .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(self.rel.forms());
+        let cond = cond.result(self.rel.forms());
 
         let dec = xs.decoration().min(ys.decoration());
-        if dec >= Decoration::Def && cond_is_true {
+        if dec >= Decoration::Def && cond.certainly_true() {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
             if Self::is_pixel(&r) {
@@ -224,7 +219,7 @@ impl Parametric {
                     return vec![];
                 }
             }
-        } else if cond_is_false {
+        } else if cond.certainly_false() {
             return vec![];
         }
 

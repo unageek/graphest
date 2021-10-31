@@ -1,4 +1,4 @@
-use crate::image::Image;
+use crate::{image::Image, Ternary};
 use std::{error, fmt, time::Duration};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -67,44 +67,9 @@ pub struct Padding {
     pub top: u32,
 }
 
-/// A ternary value which could be either [`False`], [`Uncertain`] or [`True`].
-///
-/// The values are ordered as: [`False`] < [`Uncertain`] < [`True`].
-///
-/// The default value is [`Uncertain`].
-///
-/// [`False`]: Ternary::False
-/// [`True`]: Ternary::True
-/// [`Uncertain`]: Ternary::Uncertain
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Ternary {
-    False,
-    Uncertain,
-    True,
-}
-
-impl Default for Ternary {
-    fn default() -> Self {
-        Ternary::Uncertain
-    }
-}
-
 pub mod constant;
 pub mod explicit;
 pub mod implicit;
 pub mod parametric;
 
 mod common;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ternary() {
-        assert_eq!(Ternary::default(), Ternary::Uncertain);
-
-        assert!(Ternary::False < Ternary::Uncertain);
-        assert!(Ternary::Uncertain < Ternary::True);
-    }
-}
