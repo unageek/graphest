@@ -140,6 +140,12 @@ impl TupperInterval {
     }
 }
 
+impl From<DecInterval> for TupperInterval {
+    fn from(x: DecInterval) -> Self {
+        Self::new(x, BranchMap::new())
+    }
+}
+
 type TupperIntervalVecBackingArray = [TupperInterval; 2];
 type TupperIntervalVec = SmallVec<TupperIntervalVecBackingArray>;
 
@@ -326,7 +332,7 @@ impl<'a> Extend<&'a TupperInterval> for TupperIntervalSet {
 impl From<DecInterval> for TupperIntervalSet {
     fn from(x: DecInterval) -> Self {
         let mut xs = Self::new();
-        xs.insert(TupperInterval::new(x, BranchMap::new()));
+        xs.insert(x.into());
         xs
     }
 }
@@ -393,28 +399,22 @@ mod tests {
         let mut xs = TupperIntervalSet::new();
         assert_eq!(xs.decoration(), Trv);
 
-        xs.insert(TupperInterval::new(
-            const_dec_interval!(0.0, 0.0),
-            BranchMap::new(),
-        ));
+        xs.insert(TupperInterval::from(const_dec_interval!(0.0, 0.0)));
         assert_eq!(xs.decoration(), Com);
 
-        xs.insert(TupperInterval::new(
-            DecInterval::set_dec(const_interval!(0.0, 0.0), Def),
-            BranchMap::new(),
-        ));
+        xs.insert(TupperInterval::from(DecInterval::set_dec(
+            const_interval!(0.0, 0.0),
+            Def,
+        )));
         assert_eq!(xs.decoration(), Def);
 
         let mut xs = TupperIntervalSet::new();
         assert_eq!(xs.decoration(), Trv);
 
-        xs.insert(TupperInterval::new(DecInterval::EMPTY, BranchMap::new()));
+        xs.insert(TupperInterval::from(DecInterval::EMPTY));
         assert_eq!(xs.decoration(), Trv);
 
-        xs.insert(TupperInterval::new(
-            const_dec_interval!(0.0, 0.0),
-            BranchMap::new(),
-        ));
+        xs.insert(TupperInterval::from(const_dec_interval!(0.0, 0.0)));
         assert_eq!(xs.decoration(), Trv);
     }
 
@@ -498,30 +498,27 @@ mod tests {
 
         for d in [Decoration::Com, Decoration::Dac, Decoration::Def] {
             let mut xs = TupperIntervalSet::new();
-            xs.insert(TupperInterval::new(
-                DecInterval::set_dec(const_interval!(0.1, 0.1), d),
-                BranchMap::new(),
-            ));
+            xs.insert(TupperInterval::from(DecInterval::set_dec(
+                const_interval!(0.1, 0.1),
+                d,
+            )));
             assert_eq!(xs.to_f64(), Some(0.1));
         }
 
         let mut xs = TupperIntervalSet::new();
-        xs.insert(TupperInterval::new(
-            DecInterval::set_dec(const_interval!(0.1, 0.1), Decoration::Trv),
-            BranchMap::new(),
-        ));
+        xs.insert(TupperInterval::from(DecInterval::set_dec(
+            const_interval!(0.1, 0.1),
+            Decoration::Trv,
+        )));
         assert_eq!(xs.to_f64(), None);
 
         let mut xs = TupperIntervalSet::new();
-        xs.insert(TupperInterval::new(DecInterval::PI, BranchMap::new()));
+        xs.insert(TupperInterval::from(DecInterval::PI));
         assert_eq!(xs.to_f64(), None);
 
         // The sign bit of 0.0 is positive.
         let mut xs = TupperIntervalSet::new();
-        xs.insert(TupperInterval::new(
-            const_dec_interval!(0.0, 0.0),
-            BranchMap::new(),
-        ));
+        xs.insert(TupperInterval::from(const_dec_interval!(0.0, 0.0)));
         assert_eq!(xs.to_f64(), Some(0.0));
         if let Some(zero) = xs.to_f64() {
             assert!(zero.is_sign_positive());

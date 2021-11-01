@@ -630,7 +630,7 @@ impl TupperIntervalSet {
             };
 
             if xs.is_empty() {
-                rs.insert(TupperInterval::new(DecInterval::EMPTY, BranchMap::new()));
+                rs.insert(TupperInterval::from(DecInterval::EMPTY));
             } else {
                 for x in xs {
                     if let Some(g) = cond.g.union(x.g) {
@@ -1386,7 +1386,7 @@ mod tests {
             let mut y_exp = expected
                 .0
                 .iter()
-                .map(|y| TupperInterval::new(DecInterval::set_dec(*y, dy_exp), BranchMap::new()))
+                .map(|y| TupperInterval::from(DecInterval::set_dec(*y, dy_exp)))
                 .collect::<TupperIntervalSet>();
             y_exp.normalize(true);
 
@@ -1411,9 +1411,7 @@ mod tests {
                 let mut z_exp = expected
                     .0
                     .iter()
-                    .map(|z| {
-                        TupperInterval::new(DecInterval::set_dec(*z, dz_exp), BranchMap::new())
-                    })
+                    .map(|z| TupperInterval::from(DecInterval::set_dec(*z, dz_exp)))
                     .collect::<TupperIntervalSet>();
                 z_exp.normalize(true);
 
@@ -1490,8 +1488,8 @@ mod tests {
             let y_exp = {
                 let mut y_exp = match (dx, t_expected) {
                     (Trv, True) | (_, Uncertain) => vec![
-                        TupperInterval::new(DecInterval::set_dec(I_ZERO, Def), BranchMap::new()),
-                        TupperInterval::new(DecInterval::set_dec(I_ONE, Def), BranchMap::new()),
+                        TupperInterval::from(DecInterval::set_dec(I_ZERO, Def)),
+                        TupperInterval::from(DecInterval::set_dec(I_ONE, Def)),
                     ]
                     .into_iter()
                     .collect(),
