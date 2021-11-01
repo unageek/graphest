@@ -1,10 +1,8 @@
 use crate::{
     graph::{Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Ternary},
     image::Image,
-    interval_set::{DecSignSet, SignSet},
     relation::{Relation, RelationArgs, RelationType},
 };
-use inari::Decoration;
 use std::time::{Duration, Instant};
 
 /// Plots a constant relation with a single evaluation.
@@ -37,20 +35,8 @@ impl Constant {
     fn refine_impl(&mut self) -> Result<bool, GraphingError> {
         if self.result.is_none() {
             let r = self.rel.eval(&RelationArgs::default(), None);
-            let is_true = r
-                .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-                .eval(self.rel.forms());
-            let is_false = !r
-                .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-                .eval(self.rel.forms());
 
-            self.result = Some(if is_true {
-                Ternary::True
-            } else if is_false {
-                Ternary::False
-            } else {
-                Ternary::Uncertain
-            });
+            self.result = Some(r.result(self.rel.forms()));
         }
 
         if self.result == Some(Ternary::Uncertain) {

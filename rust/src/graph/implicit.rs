@@ -258,21 +258,17 @@ impl Implicit {
             b.t,
             Some(&mut self.cache_eval_on_region),
         );
-        let is_true = r_u_up
-            .map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-            .eval(self.rel.forms());
-        let is_false = !r_u_up
-            .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(self.rel.forms());
 
-        if is_true {
+        let result = r_u_up.result(self.rel.forms());
+
+        if result.certainly_true() {
             for p in pixels.iter() {
                 self.im[p] = PixelState::True;
             }
             return true;
         }
 
-        is_false
+        result.certainly_false()
     }
 
     /// Tries to prove or disprove the existence of a solution in the block
@@ -298,10 +294,10 @@ impl Implicit {
         let p_dn = self.block_to_region(&b.pixel_block()).inner();
         let inter = u_up.intersection(&p_dn);
 
-        // Save `locally_zero_mask` for later use (see the comment below).
-        let locally_zero_mask =
-            r_u_up.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def);
-        if locally_zero_mask.eval(self.rel.forms()) && !inter.is_empty() {
+        let result_mask = r_u_up.result_mask();
+        let result = result_mask.eval(self.rel.forms());
+
+        if result.certainly_true() && !inter.is_empty() {
             // The relation is true everywhere in the subpixel, and the subpixel certainly overlaps
             // with the pixel. Therefore, the pixel contains a solution.
             for p in &pixels {
@@ -309,10 +305,8 @@ impl Implicit {
             }
             return true;
         }
-        if !r_u_up
-            .map(|DecSignSet(ss, _)| ss.contains(SignSet::ZERO))
-            .eval(self.rel.forms())
-        {
+
+        if result.certainly_false() {
             // The relation is false everywhere in the subpixel.
             return true;
         }
@@ -367,10 +361,11 @@ impl Implicit {
             neg_mask |= r.map(|DecSignSet(ss, _)| (SignSet::NEG | SignSet::ZERO).contains(ss));
             pos_mask |= r.map(|DecSignSet(ss, _)| (SignSet::POS | SignSet::ZERO).contains(ss));
 
-            if r.map(|DecSignSet(ss, d)| ss == SignSet::ZERO && d >= Decoration::Def)
-                .eval(self.rel.forms())
+            let point_result = r.result(self.rel.forms());
+
+            if point_result.certainly_true()
                 || (&(&neg_mask & &pos_mask) & &dac_mask)
-                    .solution_certainly_exists(self.rel.forms(), &locally_zero_mask)
+                    .solution_certainly_exists(self.rel.forms(), &result_mask)
             {
                 // Found a solution.
                 for p in &pixels {

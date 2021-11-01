@@ -9,9 +9,7 @@ use crate::{
         StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex,
     },
     parse::parse_expr,
-    pown,
-    real::Real,
-    rootn, ternary, unary, uninit, var,
+    pown, rootn, ternary, unary, uninit, var,
 };
 use inari::Decoration;
 use rug::Rational;
@@ -222,68 +220,43 @@ where
     }
 }
 
-/// Eliminates [`UnaryOp::Not`]s by distributing them over logical connectives
-/// and then replacing relational operators with their negated counterparts.
-pub struct EliminateNot;
+/// Distributes [`UnaryOp::Not`] over [`BinaryOp::And`] and [`BinaryOp::Or`],
+/// and then eliminates double negations.
+pub struct NormalizeNotExprs;
 
-impl VisitMut for EliminateNot {
+impl VisitMut for NormalizeNotExprs {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
         use {BinaryOp::*, UnaryOp::*};
 
         let mut modified = false;
 
-        match e {
-            unary!(Boole, _) => {
-                // Stop traversal.
-                return;
-            }
-            unary!(Not, x) => {
-                match x {
-                    unary!(Not, x) => {
-                        // (Not (Not x)) → x
-                        *e = take(x);
-                        modified = true;
-                    }
-                    binary!(And, x, y) => {
-                        // (Not (And x y)) → (Or (Not x) (Not y))
-                        *e = Expr::binary(
-                            Or,
-                            box Expr::unary(Not, box take(x)),
-                            box Expr::unary(Not, box take(y)),
-                        );
-                        modified = true;
-                    }
-                    binary!(Or, x, y) => {
-                        // (Not (Or x y)) → (And (Not x) (Not y))
-                        *e = Expr::binary(
-                            And,
-                            box Expr::unary(Not, box take(x)),
-                            box Expr::unary(Not, box take(y)),
-                        );
-                        modified = true;
-                    }
-                    binary!(op @ (Eq | Ge | Gt | Le | Lt | Neq | Nge | Ngt | Nle | Nlt), x, y) => {
-                        // (Not (op x y)) → (neg-op x y)
-                        let neg_op = match op {
-                            Eq => Neq,
-                            Ge => Nge,
-                            Gt => Ngt,
-                            Le => Nle,
-                            Lt => Nlt,
-                            Neq => Eq,
-                            Nge => Ge,
-                            Ngt => Gt,
-                            Nle => Le,
-                            Nlt => Lt,
-                            _ => unreachable!(),
-                        };
-                        *e = Expr::binary(neg_op, box take(x), box take(y));
-                        modified = true;
-                    }
-                    _ => (),
+        if let unary!(Not, x) = e {
+            match x {
+                unary!(Not, x) => {
+                    // (Not (Not x)) → x
+                    *e = take(x);
+                    modified = true;
                 }
+                binary!(And, x, y) => {
+                    // (Not (And x y)) → (Or (Not x) (Not y))
+                    *e = Expr::binary(
+                        Or,
+                        box Expr::unary(Not, box take(x)),
+                        box Expr::unary(Not, box take(y)),
+                    );
+                    modified = true;
+                }
+                binary!(Or, x, y) => {
+                    // (Not (Or x y)) → (And (Not x) (Not y))
+                    *e = Expr::binary(
+                        And,
+                        box Expr::unary(Not, box take(x)),
+                        box Expr::unary(Not, box take(y)),
+                    );
+                    modified = true;
+                }
+                _ => (),
             }
-            _ => (),
         }
 
         if modified {
@@ -586,6 +559,26 @@ impl VisitMut for ExpandComplexFunctions {
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
+            binary!(Eq, x, y) if x.ty == ComplexT || y.ty == ComplexT => {
+                *e = match (x, y) {
+                    (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
+                        And,
+                        box Expr::binary(Eq, box take(a), box take(x)),
+                        box Expr::binary(Eq, box take(b), box take(y)),
+                    ),
+                    (binary!(Complex, a, b), x) => Expr::binary(
+                        And,
+                        box Expr::binary(Eq, box take(a), box take(x)),
+                        box Expr::binary(Eq, box take(b), box Expr::zero()),
+                    ),
+                    (a, binary!(Complex, x, y)) => Expr::binary(
+                        And,
+                        box Expr::binary(Eq, box take(a), box take(x)),
+                        box Expr::binary(Eq, box Expr::zero(), box take(y)),
+                    ),
+                    _ => panic!(), // `x.ty` or `y.ty` is wrong.
+                };
+            }
             binary!(Pow, binary!(Complex, x, y), constant!(a)) if a.to_f64() == Some(-1.0) => {
                 let mut new_e = self.unary_ops[&Recip].clone();
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
@@ -612,31 +605,6 @@ impl VisitMut for ExpandComplexFunctions {
                 };
                 subst.visit_expr_mut(&mut new_e);
                 *e = new_e;
-            }
-            binary!(op @ (Eq | Neq), x, y) if x.ty == ComplexT || y.ty == ComplexT => {
-                let and_or = match op {
-                    Eq => And,
-                    Neq => Or,
-                    _ => unreachable!(),
-                };
-                *e = match (x, y) {
-                    (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
-                        and_or,
-                        box Expr::binary(*op, box take(a), box take(x)),
-                        box Expr::binary(*op, box take(b), box take(y)),
-                    ),
-                    (binary!(Complex, a, b), x) => Expr::binary(
-                        and_or,
-                        box Expr::binary(*op, box take(a), box take(x)),
-                        box Expr::binary(*op, box take(b), box Expr::zero()),
-                    ),
-                    (a, binary!(Complex, x, y)) => Expr::binary(
-                        and_or,
-                        box Expr::binary(*op, box take(a), box take(x)),
-                        box Expr::binary(*op, box Expr::zero(), box take(y)),
-                    ),
-                    _ => panic!(), // `x.ty` or `y.ty` is wrong.
-                };
             }
             ternary!(IfThenElse, cond, t, f) if e.ty == ComplexT => {
                 *e = match (t, f) {
@@ -732,9 +700,10 @@ impl VisitMut for ExpandComplexFunctions {
 
 /// Does the following tasks:
 ///
-/// - Eliminates [`BinaryOp::Ge`], [`BinaryOp::Gt`], [`BinaryOp::Nge`], and [`BinaryOp::Ngt`]
-///   by inverting formulae that contain any of them.
-/// - Transposes all terms to the left-hand sides of formulae, leaving zeros on the right-hand sides.
+/// - Replaces [`BinaryOp::Ge`] and [`BinaryOp::Gt`] with [`BinaryOp::Le`] and [`BinaryOp::Lt`]
+///   by flipping the signs of both sides of the inequalities.
+/// - Transposes all terms to the left-hand sides of equations and inequalities,
+///   leaving zeros on the right-hand sides.
 pub struct NormalizeRelationalExprs;
 
 impl VisitMut for NormalizeRelationalExprs {
@@ -743,7 +712,7 @@ impl VisitMut for NormalizeRelationalExprs {
         traverse_expr_mut(self, e);
 
         match e {
-            binary!(op @ (Eq | Le | Lt | Neq | Nle | Nlt), x, y) => {
+            binary!(op @ (Eq | Le | Lt), x, y) => {
                 // (op x y) → (op (Plus x (Times -1 y)) 0)
                 *e = Expr::binary(
                     *op,
@@ -754,13 +723,11 @@ impl VisitMut for NormalizeRelationalExprs {
                     box Expr::zero(),
                 )
             }
-            binary!(op @ (Ge | Gt | Nge | Ngt), x, y) => {
+            binary!(op @ (Ge | Gt), x, y) => {
                 // (op x y) → (inv-op (Plus y (Times -1 x)) 0)
                 let inv_op = match op {
                     Ge => Le,
                     Gt => Lt,
-                    Nge => Nle,
-                    Ngt => Nlt,
                     _ => unreachable!(),
                 };
                 *e = Expr::binary(
@@ -1182,42 +1149,31 @@ impl VisitMut for FoldConstant {
 
         match e {
             constant!(_) => (),
-            binary!(op @ (Eq | Le | Lt | Neq | Nle | Nlt), constant!(a), constant!(b))
-                if b.to_f64() == Some(0.0) =>
-            {
-                fn is_true_pred(op: BinaryOp, a: &Real) -> bool {
-                    match op {
-                        Eq => a.to_f64() == Some(0.0),
-                        Le => {
-                            a.interval().decoration() >= Decoration::Def
-                                && a.interval().iter().all(|a| a.x.sup() <= 0.0)
-                        }
-                        Lt => {
-                            a.interval().decoration() >= Decoration::Def
-                                && a.interval().iter().all(|a| a.x.sup() < 0.0)
-                        }
-                        Neq => !a.interval().iter().any(|a| a.x.contains(0.0)),
-                        Nle => !a.interval().iter().any(|a| a.x.inf() <= 0.0),
-                        Nlt => !a.interval().iter().any(|a| a.x.inf() < 0.0),
-                        _ => panic!(),
+            binary!(op @ (Eq | Le | Lt), constant!(a), constant!(b)) if b.to_f64() == Some(0.0) => {
+                let certainly_true = match op {
+                    Eq => a.to_f64() == Some(0.0),
+                    Le => {
+                        a.interval().decoration() >= Decoration::Def
+                            && a.interval().iter().all(|a| a.x.sup() <= 0.0)
                     }
-                }
-
-                let neg_op = match op {
-                    Eq => Neq,
-                    Le => Nle,
-                    Lt => Nlt,
-                    Neq => Eq,
-                    Nle => Le,
-                    Nlt => Lt,
+                    Lt => {
+                        a.interval().decoration() >= Decoration::Def
+                            && a.interval().iter().all(|a| a.x.sup() < 0.0)
+                    }
                     _ => unreachable!(),
                 };
-                let is_true = is_true_pred(*op, a);
-                let is_false = is_true_pred(neg_op, a);
-                if is_true {
+                let certainly_false = match op {
+                    Eq => !a.interval().iter().any(|a| a.x.contains(0.0)),
+                    Le => !a.interval().iter().any(|a| a.x.inf() <= 0.0),
+                    Lt => !a.interval().iter().any(|a| a.x.inf() < 0.0),
+                    _ => unreachable!(),
+                };
+                assert!(!(certainly_true && certainly_false));
+
+                if certainly_true {
                     *e = Expr::bool_constant(true);
                     self.modified = true;
-                } else if is_false {
+                } else if certainly_false {
                     *e = Expr::bool_constant(false);
                     self.modified = true;
                 }
@@ -1619,8 +1575,8 @@ impl CollectStatic {
                         Pow => ScalarBinaryOp::Pow,
                         ReSignNonnegative => ScalarBinaryOp::ReSignNonnegative,
                         Sub => ScalarBinaryOp::Sub,
-                        And | Complex | Eq | ExplicitRel | Ge | Gt | Le | Lt | Neq | Nge | Ngt
-                        | Nle | Nlt | Or | RankedMax | RankedMin => return None,
+                        And | Complex | Eq | ExplicitRel | Ge | Gt | Le | Lt | Or | RankedMax
+                        | RankedMin => return None,
                     })
                 })()
                 .map(|op| StaticTermKind::Binary(op, self.store_index(x), self.store_index(y))),
@@ -1665,14 +1621,11 @@ impl CollectStatic {
         use BinaryOp::*;
         for t in self.exprs.iter().copied() {
             let k = match &*t {
-                binary!(op @ (Eq | Le | Lt | Neq | Nle | Nlt), x, _) => {
+                binary!(op @ (Eq | Le | Lt), x, _) => {
                     let op = match op {
                         Eq => RelOp::EqZero,
                         Le => RelOp::LeZero,
                         Lt => RelOp::LtZero,
-                        Neq => RelOp::NeqZero,
-                        Nle => RelOp::NleZero,
-                        Nlt => RelOp::NltZero,
                         _ => unreachable!(),
                     };
                     Some(StaticFormKind::Atomic(op, self.store_index(x)))
@@ -1687,11 +1640,12 @@ impl CollectStatic {
     }
 
     fn collect_non_atomic_forms(&mut self) {
-        use BinaryOp::*;
+        use {BinaryOp::*, UnaryOp::*};
         for t in self.exprs.iter().copied() {
             let k = match &*t {
                 bool_constant!(a) => Some(StaticFormKind::Constant(*a)),
                 binary!(ExplicitRel, _, _) => Some(StaticFormKind::Constant(true)),
+                unary!(Not, x) => Some(StaticFormKind::Not(self.form_index(x))),
                 binary!(And, x, y) => {
                     Some(StaticFormKind::And(self.form_index(x), self.form_index(y)))
                 }
@@ -1834,26 +1788,18 @@ mod tests {
     use crate::{context::Context, parse::parse_expr};
 
     #[test]
-    fn eliminate_not() {
+    fn normalize_not_exprs() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
-            EliminateNot.visit_expr_mut(&mut e);
+            NormalizeNotExprs.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_structure()), expected);
         }
 
-        test("!(x = y)", "(Neq x y)");
-        test("!(x ≤ y)", "(Nle x y)");
-        test("!(x < y)", "(Nlt x y)");
-        test("!(x ≥ y)", "(Nge x y)");
-        test("!(x > y)", "(Ngt x y)");
+        test("!(x = y)", "(Not (Eq x y))");
         test("!!(x = y)", "(Eq x y)");
-        test("!!(x ≤ y)", "(Le x y)");
-        test("!!(x < y)", "(Lt x y)");
-        test("!!(x ≥ y)", "(Ge x y)");
-        test("!!(x > y)", "(Gt x y)");
-        test("!!!(x = y)", "(Neq x y)");
-        test("!(x = y && z = w)", "(Or (Neq x y) (Neq z w))");
-        test("!(x = y || z = w)", "(And (Neq x y) (Neq z w))");
+        test("!!!(x = y)", "(Not (Eq x y))");
+        test("!(x = y && z = w)", "(Or (Not (Eq x y)) (Not (Eq z w)))");
+        test("!(x = y || z = w)", "(And (Not (Eq x y)) (Not (Eq z w)))");
     }
 
     #[test]
@@ -1877,7 +1823,6 @@ mod tests {
     fn expand_complex_functions() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
-            EliminateNot.visit_expr_mut(&mut e);
             PreTransform.visit_expr_mut(&mut e);
             super::expand_complex_functions(&mut e);
             simplify(&mut e);
@@ -1896,9 +1841,6 @@ mod tests {
         test("a + i b = x + i y", "(And (Eq a x) (Eq b y))");
         test("a = x + i y", "(And (Eq a x) (Eq 0 y))");
         test("a + i b = x", "(And (Eq a x) (Eq b 0))");
-        test("!(a + i b = x + i y)", "(Or (Neq a x) (Neq b y))");
-        test("!(a = x + i y)", "(Or (Neq a x) (Neq 0 y))");
-        test("!(a + i b = x)", "(Or (Neq a x) (Neq b 0))");
         test("(a + i b) + (x + i y)", "(Complex (Plus a x) (Plus b y))");
         test("a + (x + i y)", "(Complex (Plus a x) y)");
         test("(a + i b) + x", "(Complex (Plus a x) b)");
@@ -1914,7 +1856,6 @@ mod tests {
     fn normalize_relational_exprs() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
-            EliminateNot.visit_expr_mut(&mut e);
             PreTransform.visit_expr_mut(&mut e);
             NormalizeRelationalExprs.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_structure()), expected);
@@ -1925,11 +1866,6 @@ mod tests {
         test("x > y", "(Lt (Plus y (Times -1 x)) 0)");
         test("x ≤ y", "(Le (Plus x (Times -1 y)) 0)");
         test("x < y", "(Lt (Plus x (Times -1 y)) 0)");
-        test("!(x = y)", "(Neq (Plus x (Times -1 y)) 0)");
-        test("!(x ≥ y)", "(Nle (Plus y (Times -1 x)) 0)");
-        test("!(x > y)", "(Nlt (Plus y (Times -1 x)) 0)");
-        test("!(x ≤ y)", "(Nle (Plus x (Times -1 y)) 0)");
-        test("!(x < y)", "(Nlt (Plus x (Times -1 y)) 0)");
     }
 
     #[test]

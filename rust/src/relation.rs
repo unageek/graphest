@@ -499,7 +499,7 @@ impl FromStr for Relation {
         if e.ty != ValueType::Boolean {
             return Err("the relation must be a Boolean-valued expression".into());
         }
-        EliminateNot.visit_expr_mut(&mut e);
+        NormalizeNotExprs.visit_expr_mut(&mut e);
         PreTransform.visit_expr_mut(&mut e);
         expand_complex_functions(&mut e);
         simplify(&mut e);
@@ -904,8 +904,6 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
 /// [`RelationType::ExplicitFunctionOfY`], or [`RelationType::Parametric`],
 /// normalizes the explicit part(s) of the relation to the form `(ExplicitRel x f(x))`,
 /// where `x` is a variable and `f(x)` is a function of `x`.
-///
-/// Precondition: [`EliminateNot`] has been applied to the expression.
 fn relation_type(e: &mut Expr) -> RelationType {
     use RelationType::*;
 

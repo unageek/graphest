@@ -1,8 +1,10 @@
 use crate::{
-    interval_set::DecSignSet,
+    interval_set::{DecSignSet, SignSet},
     ops::{StaticForm, StaticFormKind},
+    Ternary,
 };
-use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
+use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
+use inari::Decoration;
 use smallvec::SmallVec;
 use std::mem::size_of;
 
@@ -16,7 +18,38 @@ impl EvalResult {
     where
         F: Fn(DecSignSet) -> bool,
     {
-        EvalResultMask(self.0.iter().copied().map(f).collect())
+        EvalResultMask(self.0.iter().map(|&x| f(x).into()).collect())
+    }
+
+    /// Applies the given function that returns `(certainly, possibly)` on each result.
+    pub fn map_maybe<F>(&self, f: F) -> EvalResultMask
+    where
+        F: Fn(DecSignSet) -> (bool, bool),
+    {
+        EvalResultMask(
+            self.0
+                .iter()
+                .map(|&x| match f(x) {
+                    (true, true) => Ternary::True,
+                    (false, true) => Ternary::Uncertain,
+                    (false, false) => Ternary::False,
+                    _ => panic!(),
+                })
+                .collect(),
+        )
+    }
+
+    pub fn result(&self, forms: &[StaticForm]) -> Ternary {
+        self.result_mask().eval(forms)
+    }
+
+    pub fn result_mask(&self) -> EvalResultMask {
+        self.map_maybe(|DecSignSet(ss, d)| {
+            (
+                ss == SignSet::ZERO && d >= Decoration::Def,
+                ss.contains(SignSet::ZERO),
+            )
+        })
     }
 
     /// Returns the size allocated by the [`EvalResult`] in bytes.
@@ -31,24 +64,25 @@ impl EvalResult {
 
 /// A sequence of Boolean values assigned to atomic formulas.
 #[derive(Clone, Debug)]
-pub struct EvalResultMask(pub SmallVec<[bool; 32]>);
+pub struct EvalResultMask(pub SmallVec<[Ternary; 32]>);
 
 impl EvalResultMask {
     /// Evaluates the last formula to a Boolean value.
-    pub fn eval(&self, forms: &[StaticForm]) -> bool {
+    pub fn eval(&self, forms: &[StaticForm]) -> Ternary {
         Self::eval_impl(&self.0[..], forms, forms.len() - 1)
     }
 
-    fn eval_impl(slf: &[bool], forms: &[StaticForm], i: usize) -> bool {
+    fn eval_impl(slf: &[Ternary], forms: &[StaticForm], i: usize) -> Ternary {
         use StaticFormKind::*;
         match &forms[i].kind {
-            Constant(b) => *b,
+            Constant(a) => (*a).into(),
             Atomic(_, _) => slf[i],
+            Not(x) => !Self::eval_impl(slf, forms, *x as usize),
             And(x, y) => {
-                Self::eval_impl(slf, forms, *x as usize) && Self::eval_impl(slf, forms, *y as usize)
+                Self::eval_impl(slf, forms, *x as usize) & Self::eval_impl(slf, forms, *y as usize)
             }
             Or(x, y) => {
-                Self::eval_impl(slf, forms, *x as usize) || Self::eval_impl(slf, forms, *y as usize)
+                Self::eval_impl(slf, forms, *x as usize) | Self::eval_impl(slf, forms, *y as usize)
             }
         }
     }
@@ -66,31 +100,38 @@ impl EvalResultMask {
             forms.len() - 1,
             &locally_zero_mask.0[..],
         )
+        .certainly_true()
     }
 
     fn solution_certainly_exists_impl(
-        slf: &[bool],
+        slf: &[Ternary],
         forms: &[StaticForm],
         i: usize,
-        locally_zero_mask: &[bool],
-    ) -> bool {
+        locally_zero_mask: &[Ternary],
+    ) -> Ternary {
         use StaticFormKind::*;
         match &forms[i].kind {
-            Constant(b) => *b,
+            Constant(a) => (*a).into(),
             Atomic(_, _) => slf[i],
+            Not(x) => {
+                // The match arm for `And` uses `certainly_true()`,
+                // so the result can be wrong if it is negated.
+                assert!(!matches!(forms[*x as usize].kind, And(_, _)));
+                !Self::solution_certainly_exists_impl(slf, forms, *x as usize, locally_zero_mask)
+            }
             And(x, y) => {
-                if Self::eval_impl(locally_zero_mask, forms, *x as usize) {
+                if Self::eval_impl(locally_zero_mask, forms, *x as usize).certainly_true() {
                     Self::solution_certainly_exists_impl(slf, forms, *y as usize, locally_zero_mask)
-                } else if Self::eval_impl(locally_zero_mask, forms, *y as usize) {
+                } else if Self::eval_impl(locally_zero_mask, forms, *y as usize).certainly_true() {
                     Self::solution_certainly_exists_impl(slf, forms, *x as usize, locally_zero_mask)
                 } else {
                     // Cannot tell the existence of a solution by a normal conjunction.
-                    false
+                    Ternary::False
                 }
             }
             Or(x, y) => {
                 Self::solution_certainly_exists_impl(slf, forms, *x as usize, locally_zero_mask)
-                    || Self::solution_certainly_exists_impl(
+                    | Self::solution_certainly_exists_impl(
                         slf,
                         forms,
                         *y as usize,
@@ -110,7 +151,7 @@ impl BitAnd for &EvalResultMask {
             self.0
                 .iter()
                 .zip(rhs.0.iter())
-                .map(|(&x, &y)| x && y)
+                .map(|(&x, &y)| x & y)
                 .collect(),
         )
     }
@@ -131,7 +172,7 @@ impl BitOr for &EvalResultMask {
             self.0
                 .iter()
                 .zip(rhs.0.iter())
-                .map(|(&x, &y)| x || y)
+                .map(|(&x, &y)| x | y)
                 .collect(),
         )
     }
@@ -140,5 +181,13 @@ impl BitOr for &EvalResultMask {
 impl BitOrAssign for EvalResultMask {
     fn bitor_assign(&mut self, rhs: Self) {
         *self = self.bitor(&rhs)
+    }
+}
+
+impl Not for EvalResultMask {
+    type Output = EvalResultMask;
+
+    fn not(self) -> Self::Output {
+        EvalResultMask(self.0.iter().map(|&x| !x).collect())
     }
 }

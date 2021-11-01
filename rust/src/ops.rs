@@ -128,9 +128,6 @@ pub enum RelOp {
     EqZero,
     LeZero,
     LtZero,
-    NeqZero,
-    NleZero,
-    NltZero,
 }
 
 #[derive(Clone, Debug)]
@@ -278,6 +275,7 @@ impl StaticTerm {
 pub enum StaticFormKind {
     Constant(bool),
     Atomic(RelOp, StoreIndex),
+    Not(FormIndex),
     And(FormIndex, FormIndex),
     Or(FormIndex, FormIndex),
 }
@@ -298,10 +296,7 @@ impl StaticForm {
             Atomic(EqZero, x) => ts[*x].eq_zero(),
             Atomic(LeZero, x) => ts[*x].le_zero(),
             Atomic(LtZero, x) => ts[*x].lt_zero(),
-            Atomic(NeqZero, x) => ts[*x].neq_zero(),
-            Atomic(NleZero, x) => ts[*x].nle_zero(),
-            Atomic(NltZero, x) => ts[*x].nlt_zero(),
-            Constant(_) | And(_, _) | Or(_, _) => {
+            Constant(_) | Not(_) | And(_, _) | Or(_, _) => {
                 panic!("constant or non-atomic formulas cannot be evaluated")
             }
         }
