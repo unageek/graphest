@@ -74,12 +74,33 @@ impl Not for Ternary {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use Ternary::*;
 
     #[test]
     fn ternary() {
-        assert_eq!(Ternary::default(), Ternary::Uncertain);
+        assert_eq!(Ternary::default(), Uncertain);
+        assert_eq!(Ternary::from(false), False);
+        assert_eq!(Ternary::from(true), True);
 
-        assert!(Ternary::False < Ternary::Uncertain);
-        assert!(Ternary::Uncertain < Ternary::True);
+        assert!(False < Uncertain);
+        assert!(Uncertain < True);
+
+        assert_eq!(False & False, False);
+        assert_eq!(False & Uncertain, False);
+        assert_eq!(False & True, False);
+        assert_eq!(Uncertain & Uncertain, Uncertain);
+        assert_eq!(Uncertain & True, Uncertain);
+        assert_eq!(True & True, True);
+
+        assert_eq!(False | False, False);
+        assert_eq!(False | Uncertain, Uncertain);
+        assert_eq!(False | True, True);
+        assert_eq!(Uncertain | Uncertain, Uncertain);
+        assert_eq!(Uncertain | True, True);
+        assert_eq!(True | True, True);
+
+        assert_eq!(!False, True);
+        assert_eq!(!Uncertain, Uncertain);
+        assert_eq!(!True, False);
     }
 }
