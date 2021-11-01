@@ -967,15 +967,21 @@ impl TupperIntervalSet {
                 (z, None)
             }
         } else {
-            let aa = interval!(a, a).unwrap();
-            let bb = interval!(b, b).unwrap();
-            let cc = interval!(c, c).unwrap();
-            let dd = interval!(d, d).unwrap();
-            let inf = (aa / (aa.sqr() + dd.sqr()).sqrt()).inf();
-            let sup = if b == 0.0 {
+            let inf = if d == f64::INFINITY {
                 0.0
             } else {
-                (bb / (bb.sqr() + cc.sqr()).sqrt()).sup()
+                let a = interval!(a, a).unwrap();
+                let d = interval!(d, d).unwrap();
+                (a / (a.sqr() + d.sqr()).sqrt()).inf()
+            };
+            let sup = if b == 0.0 {
+                0.0
+            } else if b == f64::INFINITY {
+                1.0
+            } else {
+                let b = interval!(b, b).unwrap();
+                let c = interval!(c, c).unwrap();
+                (b / (b.sqr() + c.sqr()).sqrt()).sup()
             };
             let z = DecInterval::set_dec(interval!(inf, sup).unwrap(), dec);
             (z, None)
