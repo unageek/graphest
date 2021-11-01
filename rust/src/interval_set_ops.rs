@@ -2241,6 +2241,9 @@ mod tests {
         }
 
         let fs = [
+            TupperIntervalSet::boole_eq_zero,
+            TupperIntervalSet::boole_le_zero,
+            TupperIntervalSet::boole_lt_zero,
             TupperIntervalSet::ceil,
             TupperIntervalSet::digamma,
             TupperIntervalSet::floor,
@@ -2276,6 +2279,7 @@ mod tests {
             TupperIntervalSet::lcm,
             TupperIntervalSet::log,
             TupperIntervalSet::pow,
+            TupperIntervalSet::re_sign_nonnegative,
             TupperIntervalSet::rem_euclid,
         ];
         for f in &fs {
