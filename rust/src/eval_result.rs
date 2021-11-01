@@ -26,17 +26,7 @@ impl EvalResult {
     where
         F: Fn(DecSignSet) -> (bool, bool),
     {
-        EvalResultMask(
-            self.0
-                .iter()
-                .map(|&x| match f(x) {
-                    (true, true) => Ternary::True,
-                    (false, true) => Ternary::Uncertain,
-                    (false, false) => Ternary::False,
-                    _ => panic!(),
-                })
-                .collect(),
-        )
+        EvalResultMask(self.0.iter().map(|&x| f(x).into()).collect())
     }
 
     pub fn result(&self, forms: &[StaticForm]) -> Ternary {

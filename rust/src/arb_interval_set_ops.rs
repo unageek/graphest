@@ -1,85 +1,48 @@
 use crate::{
     interval_set::{Site, TupperInterval, TupperIntervalSet},
-    interval_set_ops,
+    interval_set_ops, Ternary,
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use itertools::Itertools;
-use std::ops::{BitAnd, BitOr};
-
-#[derive(Clone, Copy, Eq, Debug, PartialEq)]
-struct BoolInterval(bool, bool);
-
-impl BoolInterval {
-    pub const TRUE: Self = Self(true, true);
-
-    pub fn new(a: bool, b: bool) -> Self {
-        assert!(!a || b); // a → b
-        Self(a, b)
-    }
-
-    pub fn certainly(self) -> bool {
-        self.0
-    }
-
-    pub fn possibly(self) -> bool {
-        self.1
-    }
-}
 
 macro_rules! ge {
     ($x:expr, $y:expr) => {{
         static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
-        BoolInterval::new($x.inf() >= $y, $x.sup() >= $y)
+        Ternary::from(($x.inf() >= $y, $x.sup() >= $y))
     }};
 }
 
 macro_rules! gt {
     ($x:expr, $y:expr) => {{
         static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
-        BoolInterval::new($x.inf() > $y, $x.sup() > $y)
+        Ternary::from(($x.inf() > $y, $x.sup() > $y))
     }};
 }
 
 macro_rules! le {
     ($x:expr, $y:expr) => {{
         static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
-        BoolInterval::new($x.sup() <= $y, $x.inf() <= $y)
+        Ternary::from(($x.sup() <= $y, $x.inf() <= $y))
     }};
 }
 
 macro_rules! lt {
     ($x:expr, $y:expr) => {{
         static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
-        BoolInterval::new($x.sup() < $y, $x.inf() < $y)
+        Ternary::from(($x.sup() < $y, $x.inf() < $y))
     }};
 }
 
 macro_rules! ne {
     ($x:expr, $y:expr) => {{
         static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
-        BoolInterval::new(!$x.contains($y), $x != const_interval!($y, $y))
+        Ternary::from((!$x.contains($y), $x != const_interval!($y, $y)))
     }};
-}
-
-impl BitAnd for BoolInterval {
-    type Output = Self;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        Self::new(self.0 && rhs.0, self.1 && rhs.1)
-    }
-}
-
-impl BitOr for BoolInterval {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Self::new(self.0 || rhs.0, self.1 || rhs.1)
-    }
 }
 
 macro_rules! impl_arb_op {
     ($op:ident($x:ident), $result:expr) => {
-        impl_arb_op!($op($x), $result, BoolInterval::TRUE);
+        impl_arb_op!($op($x), $result, Ternary::True);
     };
 
     ($op:ident($x:ident), $result:expr, $def:expr) => {
@@ -88,8 +51,8 @@ macro_rules! impl_arb_op {
             for x in self {
                 let $x = x.x;
                 let def = $def;
-                if def.possibly() {
-                    let dec = if def.certainly() {
+                if def.possibly_true() {
+                    let dec = if def.certainly_true() {
                         // Assuming the restriction of f to x is continuous.
                         Decoration::Dac.min(x.d)
                     } else {
@@ -112,8 +75,8 @@ macro_rules! impl_arb_op {
                         let $x = x.x;
                         let $y = y.x;
                         let def = $def;
-                        if def.possibly() {
-                            let dec = if def.certainly() {
+                        if def.possibly_true() {
+                            let dec = if def.certainly_true() {
                                 // Assuming the restriction of f to x × y is continuous.
                                 Decoration::Dac.min(x.d).min(y.d)
                             } else {
@@ -370,7 +333,7 @@ impl TupperIntervalSet {
                 "`I(n, x)` only permits integers and half-integers for `n`"
             );
             if n.inf() % 1.0 == 0.0 {
-                BoolInterval::TRUE
+                Ternary::True
             } else {
                 gt!(x, 0.0)
             }
@@ -430,7 +393,7 @@ impl TupperIntervalSet {
                 "`J(n, x)` only permits integers and half-integers for `n`"
             );
             if n.inf() % 1.0 == 0.0 {
-                BoolInterval::TRUE
+                Ternary::True
             } else {
                 gt!(x, 0.0)
             }
@@ -792,7 +755,7 @@ impl TupperIntervalSet {
             );
             let s = s.inf();
             if s > 0.0 && s % 1.0 == 0.0 {
-                BoolInterval::TRUE
+                Ternary::True
             } else {
                 gt!(x, 0.0)
             }
