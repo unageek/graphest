@@ -13,18 +13,11 @@ use std::mem::size_of;
 pub struct EvalResult(pub SmallVec<[DecSignSet; 32]>);
 
 impl EvalResult {
-    /// Applies the given boolean-valued function on each result.
-    pub fn map<F>(&self, f: F) -> EvalResultMask
+    /// Applies the given ternary-valued function on each result.
+    pub fn map<F, T>(&self, f: F) -> EvalResultMask
     where
-        F: Fn(DecSignSet) -> bool,
-    {
-        EvalResultMask(self.0.iter().map(|&x| f(x).into()).collect())
-    }
-
-    /// Applies the given function that returns `(certainly, possibly)` on each result.
-    pub fn map_maybe<F>(&self, f: F) -> EvalResultMask
-    where
-        F: Fn(DecSignSet) -> (bool, bool),
+        F: Fn(DecSignSet) -> T,
+        T: Into<Ternary>,
     {
         EvalResultMask(self.0.iter().map(|&x| f(x).into()).collect())
     }
@@ -34,7 +27,7 @@ impl EvalResult {
     }
 
     pub fn result_mask(&self) -> EvalResultMask {
-        self.map_maybe(|DecSignSet(ss, d)| {
+        self.map(|DecSignSet(ss, d)| {
             (
                 ss == SignSet::ZERO && d >= Decoration::Def,
                 ss.contains(SignSet::ZERO),
