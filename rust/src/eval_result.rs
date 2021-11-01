@@ -104,9 +104,9 @@ impl EvalResultMask {
             Constant(a) => (*a).into(),
             Atomic(_, _) => slf[i],
             Not(x) => {
-                // The match arm for `And` uses `certainly_true()`,
-                // so the result can be wrong if it is negated.
-                assert!(!matches!(forms[*x as usize].kind, And(_, _)));
+                // `Not` must not be nested inside `And` since the result of the match arm for `And`
+                // uses `certainly_true()`, and negating it can lead to a wrong conclusion.
+                assert!(matches!(forms[*x as usize].kind, Atomic(_, _)));
                 !Self::solution_certainly_exists_impl(slf, forms, *x as usize, locally_zero_mask)
             }
             And(x, y) => {
