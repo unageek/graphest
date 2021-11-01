@@ -707,9 +707,10 @@ impl VisitMut for ExpandComplexFunctions {
 
 /// Does the following tasks:
 ///
-/// - Eliminates [`BinaryOp::Ge`], [`BinaryOp::Gt`], [`BinaryOp::Nge`], and [`BinaryOp::Ngt`]
-///   by inverting formulae that contain any of them.
-/// - Transposes all terms to the left-hand sides of formulae, leaving zeros on the right-hand sides.
+/// - Replaces [`BinaryOp::Ge`] and [`BinaryOp::Gt`] with [`BinaryOp::Le`] and [`BinaryOp::Lt`]
+///   by flipping the signs of both sides of the inequalities.
+/// - Transposes all terms to the left-hand sides of equations and inequalities,
+///   leaving zeros on the right-hand sides.
 pub struct NormalizeRelationalExprs;
 
 impl VisitMut for NormalizeRelationalExprs {
