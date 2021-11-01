@@ -230,40 +230,33 @@ impl VisitMut for NormalizeNotExprs {
 
         let mut modified = false;
 
-        match e {
-            unary!(Boole, _) => {
-                // Stop traversal.
-                return;
-            }
-            unary!(Not, x) => {
-                match x {
-                    unary!(Not, x) => {
-                        // (Not (Not x)) → x
-                        *e = take(x);
-                        modified = true;
-                    }
-                    binary!(And, x, y) => {
-                        // (Not (And x y)) → (Or (Not x) (Not y))
-                        *e = Expr::binary(
-                            Or,
-                            box Expr::unary(Not, box take(x)),
-                            box Expr::unary(Not, box take(y)),
-                        );
-                        modified = true;
-                    }
-                    binary!(Or, x, y) => {
-                        // (Not (Or x y)) → (And (Not x) (Not y))
-                        *e = Expr::binary(
-                            And,
-                            box Expr::unary(Not, box take(x)),
-                            box Expr::unary(Not, box take(y)),
-                        );
-                        modified = true;
-                    }
-                    _ => (),
+        if let unary!(Not, x) = e {
+            match x {
+                unary!(Not, x) => {
+                    // (Not (Not x)) → x
+                    *e = take(x);
+                    modified = true;
                 }
+                binary!(And, x, y) => {
+                    // (Not (And x y)) → (Or (Not x) (Not y))
+                    *e = Expr::binary(
+                        Or,
+                        box Expr::unary(Not, box take(x)),
+                        box Expr::unary(Not, box take(y)),
+                    );
+                    modified = true;
+                }
+                binary!(Or, x, y) => {
+                    // (Not (Or x y)) → (And (Not x) (Not y))
+                    *e = Expr::binary(
+                        And,
+                        box Expr::unary(Not, box take(x)),
+                        box Expr::unary(Not, box take(y)),
+                    );
+                    modified = true;
+                }
+                _ => (),
             }
-            _ => (),
         }
 
         if modified {
@@ -1157,7 +1150,7 @@ impl VisitMut for FoldConstant {
         match e {
             constant!(_) => (),
             binary!(op @ (Eq | Le | Lt), constant!(a), constant!(b)) if b.to_f64() == Some(0.0) => {
-                let is_true = match op {
+                let certainly_true = match op {
                     Eq => a.to_f64() == Some(0.0),
                     Le => {
                         a.interval().decoration() >= Decoration::Def
@@ -1169,16 +1162,18 @@ impl VisitMut for FoldConstant {
                     }
                     _ => unreachable!(),
                 };
-                let is_false = match op {
+                let certainly_false = match op {
                     Eq => !a.interval().iter().any(|a| a.x.contains(0.0)),
                     Le => !a.interval().iter().any(|a| a.x.inf() <= 0.0),
                     Lt => !a.interval().iter().any(|a| a.x.inf() < 0.0),
                     _ => unreachable!(),
                 };
-                if is_true {
+                assert!(!(certainly_true && certainly_false));
+
+                if certainly_true {
                     *e = Expr::bool_constant(true);
                     self.modified = true;
-                } else if is_false {
+                } else if certainly_false {
                     *e = Expr::bool_constant(false);
                     self.modified = true;
                 }
@@ -1793,7 +1788,7 @@ mod tests {
     use crate::{context::Context, parse::parse_expr};
 
     #[test]
-    fn eliminate_not() {
+    fn normalize_not_exprs() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
             NormalizeNotExprs.visit_expr_mut(&mut e);

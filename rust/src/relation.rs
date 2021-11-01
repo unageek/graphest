@@ -904,8 +904,6 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
 /// [`RelationType::ExplicitFunctionOfY`], or [`RelationType::Parametric`],
 /// normalizes the explicit part(s) of the relation to the form `(ExplicitRel x f(x))`,
 /// where `x` is a variable and `f(x)` is a function of `x`.
-///
-/// Precondition: [`NormalizeNotExprs`] has been applied to the expression.
 fn relation_type(e: &mut Expr) -> RelationType {
     use RelationType::*;
 
