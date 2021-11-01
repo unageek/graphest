@@ -1,5 +1,8 @@
-use crate::interval_set::{
-    Branch, BranchMap, DecSignSet, SignSet, Site, TupperInterval, TupperIntervalSet,
+use crate::{
+    interval_set::{
+        Branch, BranchMap, DecSignSet, SignSet, Site, TupperInterval, TupperIntervalSet,
+    },
+    Ternary,
 };
 use gmp_mpfr_sys::mpfr;
 use inari::{const_dec_interval, const_interval, interval, DecInterval, Decoration, Interval};
@@ -166,6 +169,36 @@ const I_ONE: Interval = const_interval!(1.0, 1.0);
 const DI_ZERO: DecInterval = const_dec_interval!(0.0, 0.0);
 const DI_ONE: DecInterval = const_dec_interval!(1.0, 1.0);
 
+/// Returns the parity of the function f(x) = x^y.
+///
+/// Precondition: `y` is finite.
+fn exponentiation_parity(y: f64) -> Parity {
+    if y == y.trunc() {
+        // y ∈ ℤ.
+        if y == 2.0 * (y / 2.0).trunc() {
+            // y ∈ 2ℤ.
+            Parity::Even
+        } else {
+            // y ∈ 2ℤ + 1.
+            Parity::Odd
+        }
+    } else {
+        // y is a rational number of the form odd / even.
+        Parity::None
+    }
+}
+
+fn ternary_to_intervals(t: Ternary) -> (DecInterval, Option<DecInterval>) {
+    match t {
+        Ternary::False => (DI_ZERO, None),
+        Ternary::True => (DI_ONE, None),
+        _ => (
+            DecInterval::set_dec(I_ZERO, Decoration::Def),
+            Some(DecInterval::set_dec(I_ONE, Decoration::Def)),
+        ),
+    }
+}
+
 impl TupperIntervalSet {
     impl_op!(abs(x), x.abs());
 
@@ -246,19 +279,10 @@ impl TupperIntervalSet {
     }
 
     impl_op_cut!(boole_eq_zero_nonempty(x), {
-        let maybe_false = x != DI_ZERO || x.decoration() < Decoration::Def;
-        let maybe_true = x.contains(0.0);
-        if maybe_false && maybe_true {
-            (
-                DecInterval::set_dec(I_ZERO, Decoration::Def),
-                Some(DecInterval::set_dec(I_ONE, Decoration::Def)),
-            )
-        } else if maybe_false {
-            (DI_ZERO, None)
-        } else {
-            assert!(maybe_true);
-            (DI_ONE, None)
-        }
+        ternary_to_intervals(Ternary::from((
+            x == DI_ZERO && x.decoration() >= Decoration::Def,
+            x.contains(0.0),
+        )))
     });
 
     pub fn boole_le_zero(&self, site: Option<Site>) -> Self {
@@ -270,19 +294,10 @@ impl TupperIntervalSet {
     }
 
     impl_op_cut!(boole_le_zero_nonempty(x), {
-        let maybe_false = x.sup() > 0.0 || x.decoration() < Decoration::Def;
-        let maybe_true = x.inf() <= 0.0;
-        if maybe_false && maybe_true {
-            (
-                DecInterval::set_dec(I_ZERO, Decoration::Def),
-                Some(DecInterval::set_dec(I_ONE, Decoration::Def)),
-            )
-        } else if maybe_false {
-            (DI_ZERO, None)
-        } else {
-            assert!(maybe_true);
-            (DI_ONE, None)
-        }
+        ternary_to_intervals(Ternary::from((
+            x.sup() <= 0.0 && x.decoration() >= Decoration::Def,
+            x.inf() <= 0.0,
+        )))
     });
 
     pub fn boole_lt_zero(&self, site: Option<Site>) -> Self {
@@ -294,19 +309,10 @@ impl TupperIntervalSet {
     }
 
     impl_op_cut!(boole_lt_zero_nonempty(x), {
-        let maybe_false = x.sup() >= 0.0 || x.decoration() < Decoration::Def;
-        let maybe_true = x.inf() < 0.0;
-        if maybe_false && maybe_true {
-            (
-                DecInterval::set_dec(I_ZERO, Decoration::Def),
-                Some(DecInterval::set_dec(I_ONE, Decoration::Def)),
-            )
-        } else if maybe_false {
-            (DI_ZERO, None)
-        } else {
-            assert!(maybe_true);
-            (DI_ONE, None)
-        }
+        ternary_to_intervals(Ternary::from((
+            x.sup() < 0.0 && x.decoration() >= Decoration::Def,
+            x.inf() < 0.0,
+        )))
     });
 
     #[cfg(not(feature = "arb"))]
@@ -729,25 +735,6 @@ impl TupperIntervalSet {
         DecInterval::set_dec(const_interval!(1.0, 1.0), x.decoration())
     });
 
-    /// Returns the parity of the function f(x) = x^y.
-    ///
-    /// Precondition: `y` is finite.
-    fn exponentiation_parity(y: f64) -> Parity {
-        if y == y.trunc() {
-            // y ∈ ℤ.
-            if y == 2.0 * (y / 2.0).trunc() {
-                // y ∈ 2ℤ.
-                Parity::Even
-            } else {
-                // y ∈ 2ℤ + 1.
-                Parity::Odd
-            }
-        } else {
-            // y is a rational number of the form odd / even.
-            Parity::None
-        }
-    }
-
     // For any integer m and any positive odd integer n, we define
     //
     //   x^(m/n) = rootn(x, n)^m,
@@ -769,7 +756,7 @@ impl TupperIntervalSet {
             let a = x.inf();
             let c = y.inf();
             if y.is_singleton() {
-                match Self::exponentiation_parity(c) {
+                match exponentiation_parity(c) {
                     Parity::None => (x.pow(y), None),
                     Parity::Even => {
                         let dec = if x.contains(0.0) && c < 0.0 {
@@ -1375,6 +1362,7 @@ pub(crate) fn sinc(x: Interval) -> Interval {
 mod tests {
     use super::*;
     use inari::{Decoration::*, *};
+    use Ternary::*;
 
     macro_rules! i {
         ($a:expr) => {
@@ -1486,6 +1474,38 @@ mod tests {
         };
     }
 
+    fn test_boole_op<F>(f: F, x: Interval, t_expected: Ternary)
+    where
+        F: Fn(TupperIntervalSet) -> TupperIntervalSet,
+    {
+        let decs = [Com, Dac, Def, Trv];
+        for &dx in &decs {
+            let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
+            let y = {
+                let mut y = f(x);
+                y.normalize(true);
+                y
+            };
+
+            let y_exp = {
+                let mut y_exp = match (dx, t_expected) {
+                    (Trv, True) | (_, Uncertain) => vec![
+                        TupperInterval::new(DecInterval::set_dec(I_ZERO, Def), BranchMap::new()),
+                        TupperInterval::new(DecInterval::set_dec(I_ONE, Def), BranchMap::new()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    (_, False) => TupperIntervalSet::from(DI_ZERO),
+                    (_, True) => TupperIntervalSet::from(DI_ONE),
+                };
+                y_exp.normalize(true);
+                y_exp
+            };
+
+            assert_eq!(y, y_exp);
+        }
+    }
+
     #[cfg(not(feature = "arb"))]
     #[test]
     fn atan2() {
@@ -1589,6 +1609,51 @@ mod tests {
             i!(-1.0, 1.0),
             (vec![(-Interval::PI).convex_hull(Interval::PI)], Trv)
         );
+    }
+
+    #[test]
+    fn boole_eq_zero() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.boole_eq_zero(None)
+        }
+
+        test_boole_op(f, Interval::EMPTY, False);
+        test_boole_op(f, i!(-1.0), False);
+        test_boole_op(f, i!(0.0), True);
+        test_boole_op(f, i!(1.0), False);
+        test_boole_op(f, i!(-1.0, 0.0), Uncertain);
+        test_boole_op(f, i!(0.0, 1.0), Uncertain);
+        test_boole_op(f, i!(-1.0, 1.0), Uncertain);
+    }
+
+    #[test]
+    fn boole_le_zero() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.boole_le_zero(None)
+        }
+
+        test_boole_op(f, Interval::EMPTY, False);
+        test_boole_op(f, i!(-1.0), True);
+        test_boole_op(f, i!(0.0), True);
+        test_boole_op(f, i!(1.0), False);
+        test_boole_op(f, i!(-1.0, 0.0), True);
+        test_boole_op(f, i!(0.0, 1.0), Uncertain);
+        test_boole_op(f, i!(-1.0, 1.0), Uncertain);
+    }
+
+    #[test]
+    fn boole_lt_zero() {
+        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+            x.boole_lt_zero(None)
+        }
+
+        test_boole_op(f, Interval::EMPTY, False);
+        test_boole_op(f, i!(-1.0), True);
+        test_boole_op(f, i!(0.0), False);
+        test_boole_op(f, i!(1.0), False);
+        test_boole_op(f, i!(-1.0, 0.0), Uncertain);
+        test_boole_op(f, i!(0.0, 1.0), False);
+        test_boole_op(f, i!(-1.0, 1.0), Uncertain);
     }
 
     #[test]
