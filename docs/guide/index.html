@@ -1469,28 +1469,28 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 <p><code>x &lt; y</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(x &lt; y\)</p></td>
-<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(x\) and \(y\) must be real.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p><code>x &lt;= y</code> or <code>x ≤ y</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(x ≤ y\)</p></td>
-<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(x\) and \(y\) must be real.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p><code>x &gt; y</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(x &gt; y\)</p></td>
-<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(x\) and \(y\) must be real.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p><code>x &gt;= y</code> or <code>x ≥ y</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(x ≥ y\)</p></td>
-<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(x\) and \(y\) must be real.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1535,7 +1535,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </tbody>
 </table>
 <div class="paragraph">
-<p><code>X</code> and <code>Y</code> must be formulae.</p>
+<p>In all definitions, <code>X</code> and <code>Y</code> must be formulae.</p>
 </div>
 </div>
 </div>
@@ -1557,13 +1557,14 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>if(X, t, f)</code></p>
+<p><code>if(COND, t, f)</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\begin{cases}
-  t &amp; \if X, \\
+  t &amp; \if \mathrm{COND}, \\
   f &amp; \otherwise
  \end{cases}\)</p></td>
-<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(\mathrm{COND}\) must be a formula.<br>
+\(t\) and/or \(f\) can be either real or complex.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1768,7 +1769,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-11-03 13:55:16 +0900
+Last updated 2021-11-04 01:35:50 +0900
 </div>
 </div>
 

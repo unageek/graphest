@@ -510,19 +510,19 @@ Branch cuts for a fixed stem:[z]: stem:[(−∞, 0)], continuous from above.
 
 |`x < y`
 |stem:[x < y]
-|
+|stem:[x] and stem:[y] must be real.
 
 |`x \<= y` or `x ≤ y`
 |stem:[x ≤ y]
-|
+|stem:[x] and stem:[y] must be real.
 
 |`x > y`
 |stem:[x > y]
-|
+|stem:[x] and stem:[y] must be real.
 
 |`x >= y` or `x ≥ y`
 |stem:[x ≥ y]
-|
+|stem:[x] and stem:[y] must be real.
 |===
 
 ==== Logical Connectives
@@ -544,7 +544,7 @@ Branch cuts for a fixed stem:[z]: stem:[(−∞, 0)], continuous from above.
 |https://en.wikipedia.org/wiki/Negation[Negation] (logical NOT).
 |===
 
-`X` and `Y` must be formulae.
+In all definitions, `X` and `Y` must be formulae.
 
 === Conditional Expressions
 
@@ -552,12 +552,13 @@ Branch cuts for a fixed stem:[z]: stem:[(−∞, 0)], continuous from above.
 |===
 |Input |Interpreted as |Notes
 
-|`if(X, t, f)`
+|`if(COND, t, f)`
 |stem:[\begin{cases}
-  t & \if X, \\
+  t & \if \mathrm{COND}, \\
   f & \otherwise
  \end{cases}]
-|
+|stem:[\mathrm{COND}] must be a formula. +
+stem:[t] and/or stem:[f] can be either real or complex.
 |===
 
 === Special Functions
