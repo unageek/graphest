@@ -192,7 +192,7 @@ function createMainMenu(): Menu {
           accelerator: isMac ? "" : "F1",
           click: async () => {
             await shell.openExternal(
-              "https://github.com/unageek/graphest/blob/master/docs/guide/README.adoc"
+              "https://unageek.github.io/graphest/guide/"
             );
           },
         },
