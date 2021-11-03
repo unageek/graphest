@@ -1414,8 +1414,8 @@ mod tests {
     {
         let decs = [Com, Dac, Def, Trv];
         for &dx in &decs {
+            let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
             for &dy in &decs {
-                let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
                 let y = TupperIntervalSet::from(DecInterval::set_dec(y, dy));
                 let z = {
                     let mut z = f(&x, &y);
@@ -1868,6 +1868,63 @@ mod tests {
             @even i!(5.0, 6.0),
             (vec![i!(0.0, 2.0), i!(4.0, 6.0)], Trv)
         );
+    }
+
+    #[test]
+    fn if_then_else() {
+        fn test(x: Interval, t: Interval, f: Interval, expected: (Vec<Interval>, Decoration)) {
+            let decs = [Com, Dac, Def, Trv];
+            let x = TupperIntervalSet::from(DecInterval::new(x));
+            let cond = x.boole_eq_zero(None);
+            for &dt in &decs {
+                let t = TupperIntervalSet::from(DecInterval::set_dec(t, dt));
+                for &df in &decs {
+                    let f = TupperIntervalSet::from(DecInterval::set_dec(f, df));
+                    let y = {
+                        let mut y = cond.if_then_else(&t, &f);
+                        y.normalize(true);
+                        y
+                    };
+
+                    let y_exp = {
+                        let dy = expected.1.min(if cond.to_f64() == Some(0.0) {
+                            f.decoration()
+                        } else if cond.to_f64() == Some(1.0) {
+                            t.decoration()
+                        } else {
+                            t.decoration().min(f.decoration())
+                        });
+                        let mut y = expected
+                            .0
+                            .iter()
+                            .map(|&y| TupperInterval::from(DecInterval::set_dec(y, dy)))
+                            .collect::<TupperIntervalSet>();
+                        y.normalize(true);
+                        y
+                    };
+
+                    assert_eq!(y, y_exp);
+                }
+            }
+        }
+
+        // True cases
+        let x = i!(0.0);
+        test(x, i!(2.0), i!(3.0), (vec![i!(2.0)], Com));
+        test(x, Interval::EMPTY, i!(3.0), (vec![], Trv));
+        test(x, i!(2.0), Interval::EMPTY, (vec![i!(2.0)], Com));
+
+        // False cases
+        let x = i!(1.0);
+        test(x, i!(2.0), i!(3.0), (vec![i!(3.0)], Com));
+        test(x, Interval::EMPTY, i!(3.0), (vec![i!(3.0)], Com));
+        test(x, i!(2.0), Interval::EMPTY, (vec![], Trv));
+
+        // Uncertain cases
+        let x = i!(0.0, 1.0);
+        test(x, i!(2.0), i!(3.0), (vec![i!(2.0), i!(3.0)], Def));
+        test(x, Interval::EMPTY, i!(3.0), (vec![i!(3.0)], Trv));
+        test(x, i!(2.0), Interval::EMPTY, (vec![i!(2.0)], Trv));
     }
 
     #[test]
