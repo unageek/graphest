@@ -1382,22 +1382,27 @@ mod tests {
 
     fn test1<F>(f: F, x: Interval, expected: (Vec<Interval>, Decoration))
     where
-        F: Fn(TupperIntervalSet) -> TupperIntervalSet,
+        F: Fn(&TupperIntervalSet) -> TupperIntervalSet,
     {
         let decs = [Com, Dac, Def, Trv];
         for &dx in &decs {
             let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
+            let y = {
+                let mut y = f(&x);
+                y.normalize(true);
+                y
+            };
 
-            let dy_exp = expected.1.min(x.decoration());
-            let mut y_exp = expected
-                .0
-                .iter()
-                .map(|y| TupperInterval::from(DecInterval::set_dec(*y, dy_exp)))
-                .collect::<TupperIntervalSet>();
-            y_exp.normalize(true);
-
-            let mut y = f(x);
-            y.normalize(true);
+            let y_exp = {
+                let dy = expected.1.min(x.decoration());
+                let mut y = expected
+                    .0
+                    .iter()
+                    .map(|&y| TupperInterval::from(DecInterval::set_dec(y, dy)))
+                    .collect::<TupperIntervalSet>();
+                y.normalize(true);
+                y
+            };
 
             assert_eq!(y, y_exp);
         }
@@ -1405,24 +1410,29 @@ mod tests {
 
     fn test2<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
     where
-        F: Fn(TupperIntervalSet, TupperIntervalSet) -> TupperIntervalSet,
+        F: Fn(&TupperIntervalSet, &TupperIntervalSet) -> TupperIntervalSet,
     {
         let decs = [Com, Dac, Def, Trv];
         for &dx in &decs {
             for &dy in &decs {
                 let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
                 let y = TupperIntervalSet::from(DecInterval::set_dec(y, dy));
+                let z = {
+                    let mut z = f(&x, &y);
+                    z.normalize(true);
+                    z
+                };
 
-                let dz_exp = expected.1.min(x.decoration()).min(y.decoration());
-                let mut z_exp = expected
-                    .0
-                    .iter()
-                    .map(|z| TupperInterval::from(DecInterval::set_dec(*z, dz_exp)))
-                    .collect::<TupperIntervalSet>();
-                z_exp.normalize(true);
-
-                let mut z = f(x, y);
-                z.normalize(true);
+                let z_exp = {
+                    let dz = expected.1.min(x.decoration()).min(y.decoration());
+                    let mut z = expected
+                        .0
+                        .iter()
+                        .map(|&z| TupperInterval::from(DecInterval::set_dec(z, dz)))
+                        .collect::<TupperIntervalSet>();
+                    z.normalize(true);
+                    z
+                };
 
                 assert_eq!(z, z_exp);
             }
@@ -1480,19 +1490,19 @@ mod tests {
 
     fn test_boole_op<F>(f: F, x: Interval, t_expected: Ternary)
     where
-        F: Fn(TupperIntervalSet) -> TupperIntervalSet,
+        F: Fn(&TupperIntervalSet) -> TupperIntervalSet,
     {
         let decs = [Com, Dac, Def, Trv];
         for &dx in &decs {
             let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
             let y = {
-                let mut y = f(x);
+                let mut y = f(&x);
                 y.normalize(true);
                 y
             };
 
             let y_exp = {
-                let mut y_exp = match (dx, t_expected) {
+                let mut y = match (dx, t_expected) {
                     (Trv, True) | (_, Uncertain) => vec![
                         TupperInterval::from(DecInterval::set_dec(I_ZERO, Def)),
                         TupperInterval::from(DecInterval::set_dec(I_ONE, Def)),
@@ -1502,8 +1512,8 @@ mod tests {
                     (_, False) => TupperIntervalSet::from(DI_ZERO),
                     (_, True) => TupperIntervalSet::from(DI_ONE),
                 };
-                y_exp.normalize(true);
-                y_exp
+                y.normalize(true);
+                y
             };
 
             assert_eq!(y, y_exp);
@@ -1513,8 +1523,8 @@ mod tests {
     #[cfg(not(feature = "arb"))]
     #[test]
     fn atan2() {
-        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
-            x.atan2(&y, None)
+        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
+            x.atan2(y, None)
         }
 
         let y = i!(0.0);
@@ -1617,7 +1627,7 @@ mod tests {
 
     #[test]
     fn boole_eq_zero() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.boole_eq_zero(None)
         }
 
@@ -1632,7 +1642,7 @@ mod tests {
 
     #[test]
     fn boole_le_zero() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.boole_le_zero(None)
         }
 
@@ -1647,7 +1657,7 @@ mod tests {
 
     #[test]
     fn boole_lt_zero() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.boole_lt_zero(None)
         }
 
@@ -1662,7 +1672,7 @@ mod tests {
 
     #[test]
     fn ceil() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.ceil(None)
         }
 
@@ -1679,7 +1689,7 @@ mod tests {
 
     #[test]
     fn digamma() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.digamma(None)
         }
 
@@ -1730,8 +1740,8 @@ mod tests {
 
     #[test]
     fn div() {
-        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
-            x.div(&y, None)
+        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
+            x.div(y, None)
         }
 
         // x / 0
@@ -1782,7 +1792,7 @@ mod tests {
 
     #[test]
     fn floor() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.floor(None)
         }
 
@@ -1799,7 +1809,7 @@ mod tests {
 
     #[test]
     fn gamma() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.gamma(None)
         }
 
@@ -1821,23 +1831,23 @@ mod tests {
         );
 
         let x = TupperIntervalSet::from(dec_interval!("[-2.0000000000000000001]").unwrap());
-        assert!(f(x).iter().all(|x| x.x.sup() < 0.0));
+        assert!(f(&x).iter().all(|x| x.x.sup() < 0.0));
         let x = TupperIntervalSet::from(dec_interval!("[-1.9999999999999999999]").unwrap());
-        assert!(f(x).iter().all(|x| x.x.inf() > 0.0));
+        assert!(f(&x).iter().all(|x| x.x.inf() > 0.0));
         let x = TupperIntervalSet::from(dec_interval!("[-1.0000000000000000001]").unwrap());
-        assert!(f(x).iter().all(|x| x.x.inf() > 0.0));
+        assert!(f(&x).iter().all(|x| x.x.inf() > 0.0));
         let x = TupperIntervalSet::from(dec_interval!("[-0.99999999999999999999]").unwrap());
-        assert!(f(x).iter().all(|x| x.x.sup() < 0.0));
+        assert!(f(&x).iter().all(|x| x.x.sup() < 0.0));
         let x = TupperIntervalSet::from(dec_interval!("[-1e-500]").unwrap());
-        assert!(f(x).iter().all(|x| x.x.sup() < 0.0));
+        assert!(f(&x).iter().all(|x| x.x.sup() < 0.0));
         let x = TupperIntervalSet::from(dec_interval!("[1e-500]").unwrap());
-        assert!(f(x).iter().all(|x| x.x.inf() > 0.0));
+        assert!(f(&x).iter().all(|x| x.x.inf() > 0.0));
     }
 
     #[test]
     fn gcd() {
-        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
-            x.gcd(&y, None)
+        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
+            x.gcd(y, None)
         }
 
         test!(f, i!(0.0), i!(0.0), (vec![i!(0.0)], Dac));
@@ -1862,8 +1872,8 @@ mod tests {
 
     #[test]
     fn lcm() {
-        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
-            x.lcm(&y, None)
+        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
+            x.lcm(y, None)
         }
 
         test!(f, i!(0.0), i!(0.0), (vec![i!(0.0)], Dac));
@@ -1874,7 +1884,7 @@ mod tests {
 
     #[test]
     fn one() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.one()
         }
 
@@ -1883,8 +1893,8 @@ mod tests {
 
     #[test]
     fn pow() {
-        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
-            x.pow(&y, None)
+        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
+            x.pow(y, None)
         }
 
         // x^-3
@@ -2038,12 +2048,12 @@ mod tests {
 
     #[test]
     fn pown() {
-        fn pown(x: TupperIntervalSet, n: i32) -> TupperIntervalSet {
+        fn pown(x: &TupperIntervalSet, n: i32) -> TupperIntervalSet {
             x.pown(n, None)
         }
 
         // x^-2
-        let f = |x| pown(x, -2);
+        let f = |x: &_| pown(x, -2);
         test!(f, i!(0.0), (vec![], Trv));
         test!(f, @even i!(1.0), (vec![i!(1.0)], Com));
         test!(f, @even i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
@@ -2055,7 +2065,7 @@ mod tests {
         );
 
         // x^-1
-        let f = |x| pown(x, -1);
+        let f = |x: &_| pown(x, -1);
         test!(f, i!(0.0), (vec![], Trv));
         test!(f, @odd i!(1.0), (vec![i!(1.0)], Com));
         test!(f, @odd i!(0.0, 1.0), (vec![i!(1.0, f64::INFINITY)], Trv));
@@ -2071,25 +2081,25 @@ mod tests {
         );
 
         // x^0
-        let f = |x| pown(x, 0);
+        let f = |x: &_| pown(x, 0);
         test!(f, i!(-1.0, 1.0), (vec![i!(1.0)], Com));
         test!(f, @even i!(2.0, 3.0), (vec![i!(1.0, 1.0)], Com));
 
         // x^2
-        let f = |x| pown(x, 2);
+        let f = |x: &_| pown(x, 2);
         test!(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Com));
         test!(f, @even i!(2.0, 3.0), (vec![i!(4.0, 9.0)], Com));
 
         // x^3
-        let f = |x| pown(x, 3);
+        let f = |x: &_| pown(x, 3);
         test!(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
         test!(f, @odd i!(2.0, 3.0), (vec![i!(8.0, 27.0)], Com));
     }
 
     #[test]
     fn re_sign_nonnegative() {
-        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
-            x.re_sign_nonnegative(&y, None)
+        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
+            x.re_sign_nonnegative(y, None)
         }
 
         let y = i!(0.0);
@@ -2119,7 +2129,7 @@ mod tests {
 
     #[test]
     fn recip() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.recip(None)
         }
 
@@ -2140,8 +2150,8 @@ mod tests {
 
     #[test]
     fn rem_euclid() {
-        fn f(x: TupperIntervalSet, y: TupperIntervalSet) -> TupperIntervalSet {
-            x.rem_euclid(&y, None)
+        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
+            x.rem_euclid(y, None)
         }
 
         let y = i!(0.0);
@@ -2165,16 +2175,16 @@ mod tests {
 
     #[test]
     fn rootn() {
-        fn rootn(x: TupperIntervalSet, n: u32) -> TupperIntervalSet {
+        fn rootn(x: &TupperIntervalSet, n: u32) -> TupperIntervalSet {
             x.rootn(n)
         }
 
         // x^1/0
-        let f = |x| rootn(x, 0);
+        let f = |x: &_| rootn(x, 0);
         test!(f, i!(-1.0, 1.0), (vec![], Trv));
 
         // x^1/2
-        let f = |x| rootn(x, 2);
+        let f = |x: &_| rootn(x, 2);
         test!(f, i!(-1.0), (vec![], Trv));
         test!(f, i!(0.0), (vec![i!(0.0)], Com));
         test!(f, i!(1.0), (vec![i!(1.0)], Com));
@@ -2184,14 +2194,14 @@ mod tests {
         test!(f, i!(4.0, 9.0), (vec![i!(2.0, 3.0)], Com));
 
         // x^1/3
-        let f = |x| rootn(x, 3);
+        let f = |x: &_| rootn(x, 3);
         test!(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
         test!(f, @odd i!(8.0, 27.0), (vec![i!(2.0, 3.0)], Com));
     }
 
     #[test]
     fn undef_at_0() {
-        fn f(x: TupperIntervalSet) -> TupperIntervalSet {
+        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.undef_at_0()
         }
 
