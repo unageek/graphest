@@ -10,6 +10,7 @@
     "clean": "npm-run-all clean:*",
     "clean:app": "rm -rf dist release",
     "clean:rust": "rm -rf target",
+    "guide": "cd docs/guide && asciidoctor --trace -r ./config/remove_mathjax.rb index.adoc && open index.html",
     "lint": "prettier --check .",
     "release:mac": "npm run lint && npm run clean && NODE_ENV=production npm run build && electron-builder --mac --publish always",
     "release:win": "npm run lint && npm run clean && cross-env-shell NODE_ENV=production npm run build && electron-builder --win --publish always",
