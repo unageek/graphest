@@ -1971,25 +1971,25 @@ mod tests {
             assert_eq!(v.modified, input != output);
         }
 
-        test("false && false", "false");
-        test("false && true", "false");
-        test("true && false", "false");
-        test("true && true", "true");
+        test("false && false", "False");
+        test("false && true", "False");
+        test("true && false", "False");
+        test("true && true", "True");
 
-        test("false && y = x", "false");
-        test("y = x && false", "false");
+        test("false && y = x", "False");
+        test("y = x && false", "False");
         test("true && y = x", "(Eq y x)");
         test("y = x && true", "(Eq y x)");
 
-        test("false || false", "false");
-        test("false || true", "true");
-        test("true || false", "true");
-        test("true || true", "true");
+        test("false || false", "False");
+        test("false || true", "True");
+        test("true || false", "True");
+        test("true || true", "True");
 
         test("false || y = x", "(Eq y x)");
         test("y = x || false", "(Eq y x)");
-        test("true || y = x", "true");
-        test("y = x || true", "true");
+        test("true || y = x", "True");
+        test("y = x || true", "True");
 
         test("sin(x)^0", "1");
         test("sqrt(x)^0", "(Pow (Pow x 0.5) 0)");

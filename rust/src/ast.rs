@@ -768,8 +768,11 @@ struct DumpStructure<'a>(&'a Expr);
 impl<'a> fmt::Display for DumpStructure<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
-            bool_constant!(a) => {
-                write!(f, "{}", a)
+            bool_constant!(false) => {
+                write!(f, "False")
+            }
+            bool_constant!(true) => {
+                write!(f, "True")
             }
             constant!(a) => {
                 if let Some(a) = a.to_f64() {
