@@ -116,6 +116,24 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
                   ≥
                 </CommandBarButton>
               </Bar>
+              <Bar>
+                <CommandBarButton
+                  onClick={() => {
+                    props.onSymbolChosen("∧");
+                    dismiss();
+                  }}
+                >
+                  ∧
+                </CommandBarButton>
+                <CommandBarButton
+                  onClick={() => {
+                    props.onSymbolChosen("∨");
+                    dismiss();
+                  }}
+                >
+                  ∨
+                </CommandBarButton>
+              </Bar>
             </Stack>
           </FocusZone>
         </Callout>
