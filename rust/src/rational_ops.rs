@@ -10,9 +10,10 @@ pub fn div(x: Rational, y: Rational) -> Option<Rational> {
     }
 }
 
-pub fn gcd(mut x: Rational, mut y: Rational) -> Option<Rational> {
+pub fn gcd(mut x: Rational, y: Rational) -> Option<Rational> {
+    let mut y = y.abs();
     while y != 0 {
-        let rem = rem_euclid(x, y.clone())?;
+        let rem = modulo(x, y.clone())?;
         x = y;
         y = rem;
     }
@@ -44,6 +45,14 @@ pub fn min(x: Rational, y: Rational) -> Option<Rational> {
     }
 }
 
+pub fn modulo(x: Rational, y: Rational) -> Option<Rational> {
+    if y == 0 {
+        None
+    } else {
+        Some(&x - &y * Rational::from(&x / &y).floor())
+    }
+}
+
 pub fn pow(x: Rational, y: Rational) -> Option<Rational> {
     let xn = x.numer().to_i32()?;
     let xd = x.denom().to_u32()?;
@@ -72,15 +81,6 @@ pub fn pow(x: Rational, y: Rational) -> Option<Rational> {
         } else {
             None
         }
-    }
-}
-
-pub fn rem_euclid(x: Rational, y: Rational) -> Option<Rational> {
-    if y == 0 {
-        None
-    } else {
-        let y = y.abs();
-        Some(&x - &y * Rational::from(&x / &y).floor())
     }
 }
 
@@ -190,6 +190,24 @@ mod tests {
     }
 
     #[test]
+    fn modulo() {
+        use super::modulo;
+        test!(modulo, r!(0), r!(0), None);
+        test!(modulo, r!(0), r!(4 / 5), Some(r!(0)));
+        test!(modulo, r!(0), r!(-4 / 5), Some(r!(0)));
+        test!(modulo, r!(2 / 3), r!(0), None);
+        test!(modulo, r!(2 / 3), r!(4 / 5), Some(r!(2 / 3)));
+        test!(modulo, r!(2 / 3), r!(-4 / 5), Some(r!(-2 / 15)));
+        test!(modulo, r!(4 / 5), r!(2 / 3), Some(r!(2 / 15)));
+        test!(modulo, r!(4 / 5), r!(-2 / 3), Some(r!(-8 / 15)));
+        test!(modulo, r!(-2 / 3), r!(0), None);
+        test!(modulo, r!(-2 / 3), r!(4 / 5), Some(r!(2 / 15)));
+        test!(modulo, r!(-2 / 3), r!(-4 / 5), Some(r!(-2 / 3)));
+        test!(modulo, r!(-4 / 5), r!(2 / 3), Some(r!(8 / 15)));
+        test!(modulo, r!(-4 / 5), r!(-2 / 3), Some(r!(-2 / 15)));
+    }
+
+    #[test]
     fn pow() {
         use super::pow;
         test!(pow, r!(0), r!(-4), None);
@@ -213,16 +231,5 @@ mod tests {
 
         // The result is rational, but not computed.
         test!(pow, r!(1), r!(1 / 2), None);
-    }
-
-    #[test]
-    fn rem_euclid() {
-        use super::rem_euclid;
-        test!(rem_euclid, r!(0), r!(0), None);
-        test!(rem_euclid, r!(2 / 3), r!(0), None);
-        test!(rem_euclid, r!(2 / 3), @even r!(4 / 5), Some(r!(2 / 3)));
-        test!(rem_euclid, r!(4 / 5), @even r!(2 / 3), Some(r!(2 / 15)));
-        test!(rem_euclid, r!(-2 / 3), @even r!(4 / 5), Some(r!(2 / 15)));
-        test!(rem_euclid, r!(-4 / 5), @even r!(2 / 3), Some(r!(8 / 15)));
     }
 }

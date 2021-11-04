@@ -166,6 +166,7 @@ impl Real {
     impl_op!(log(x, b), x.log(&b, None));
     impl_op!(max(x, y), x.max(&y), rational_ops::max(x, y));
     impl_op!(min(x, y), x.min(&y), rational_ops::min(x, y));
+    impl_op!(modulo(x, y), x.modulo(&y, None), rational_ops::modulo(x, y));
     impl_op!(mul(x, y), &x * &y, Some(x * y));
     impl_op!(neg(x), -&x, Some(-x));
     impl_op!(pow(x, y), x.pow(&y, None), rational_ops::pow(x, y));
@@ -179,11 +180,6 @@ impl Real {
     }
 
     impl_op!(re_sign_nonnegative(x, y), x.re_sign_nonnegative(&y, None));
-    impl_op!(
-        rem_euclid(x, y),
-        x.rem_euclid(&y, None),
-        rational_ops::rem_euclid(x, y)
-    );
     impl_op!(shi(x));
     impl_op!(si(x));
     impl_op!(sin(x));
