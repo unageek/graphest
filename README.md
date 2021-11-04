@@ -4,7 +4,9 @@
 
 <img align="right" width="456" alt="Cover image" src="docs/cover.png">
 
-To get started, [download the app](https://github.com/unageek/graphest/releases) (available for macOS and Windows), and try plotting some of the [example relations](Examples.md).
+## Getting Started
+
+[Download the app](https://github.com/unageek/graphest/releases) (available for macOS and Windows), and try plotting some of the [example relations](Examples.md).
 
 ## Features
 
