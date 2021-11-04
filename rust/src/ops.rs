@@ -233,7 +233,7 @@ impl StaticTerm {
             Binary(Log, b, x) => self.put(ts, ts[*x].log(&ts[*b], self.site)),
             Binary(Max, x, y) => self.put(ts, ts[*x].max(&ts[*y])),
             Binary(Min, x, y) => self.put(ts, ts[*x].min(&ts[*y])),
-            Binary(Mod, x, y) => self.put(ts, ts[*x].rem_euclid(&ts[*y], self.site)),
+            Binary(Mod, x, y) => self.put(ts, ts[*x].modulo(&ts[*y], self.site)),
             Binary(Mul, x, y) => self.put(ts, &ts[*x] * &ts[*y]),
             Binary(Pow, x, y) => self.put(ts, ts[*x].pow(&ts[*y], self.site)),
             Binary(ReSignNonnegative, x, y) => {

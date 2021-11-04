@@ -761,10 +761,14 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p><code>mod(x, y)</code></p>
 </div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(x \mod y = x - |y| \left⌊ \dfrac{x}{|y|} \right⌋\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The non-negative remainder of \(x/y\) (<a href="https://en.wikipedia.org/wiki/Modulo_operation">modulo operation</a>).<br>
-\(0 ≤ x \mod y &lt; |y|\).</p></td>
-<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(x \mod y = x - y \left⌊ \dfrac{x}{y} \right⌋\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The remainder of \(x/y\) (<a href="https://en.wikipedia.org/wiki/Modulo_operation">modulo operation</a>).<br>
+\(\begin{cases}
+  y &lt; x \mod y ≤ 0 &amp; \if y &lt; 0, \\
+  0                &amp; \if y = 0, \\
+  0 ≤ x \mod y &lt; y &amp; \if y &gt; 0.
+ \end{cases}\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Mod/">MFS</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1232,8 +1236,8 @@ Undefined for \(z = 0\).</p></td>
 <p><code>sgn(z)</code> or <code>sign(z)</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sgn z = \begin{cases}
-  \dfrac{z}{|z|} &amp; \if z ≠ 0, \\
-  0                &amp; \if z = 0
+  0                &amp; \if z = 0, \\
+  \dfrac{z}{|z|} &amp; \if z ≠ 0
  \end{cases}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The complex sign of \(z\).</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Sign/">MFS</a></p></td>
@@ -1769,7 +1773,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-11-04 01:35:50 +0900
+Last updated 2021-11-04 11:40:35 +0900
 </div>
 </div>
 

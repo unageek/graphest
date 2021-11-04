@@ -577,7 +577,7 @@ impl TupperIntervalSet {
                         }
 
                         // (used later) R_{k+1} = `rem`.
-                        let mut rem = xs.rem_euclid(ys, None);
+                        let mut rem = xs.modulo(ys, None);
                         rem.normalize(true);
 
                         if ys.iter().any(|y| y.x.contains(0.0)) {
@@ -709,6 +709,29 @@ impl TupperIntervalSet {
     impl_op!(max(x, y), x.max(y));
 
     impl_op!(min(x, y), x.min(y));
+
+    // f(x, y) = x - y ⌊x / y⌋.
+    impl_op_cut!(modulo(x, y), {
+        let q = (x / y).floor();
+        let qa = q.inf();
+        let qb = q.sup();
+        let range = y.interval().unwrap().convex_hull(I_ZERO);
+        if qb - qa == 1.0 {
+            let q0 = DecInterval::set_dec(interval!(qa, qa).unwrap(), q.decoration());
+            let q1 = DecInterval::set_dec(interval!(qb, qb).unwrap(), q.decoration());
+            let z0 = (-y).mul_add(q0, x);
+            let z1 = (-y).mul_add(q1, x);
+            let z0 =
+                DecInterval::set_dec(z0.interval().unwrap().intersection(range), z0.decoration());
+            let z1 =
+                DecInterval::set_dec(z1.interval().unwrap().intersection(range), z1.decoration());
+            (z0, Some(z1))
+        } else {
+            let z = (-y).mul_add(q, x);
+            let z = DecInterval::set_dec(z.interval().unwrap().intersection(range), z.decoration());
+            (z, None)
+        }
+    });
 
     pub fn mul_add(&self, rhs: &Self, addend: &Self) -> Self {
         let mut rs = Self::new();
@@ -997,30 +1020,6 @@ impl TupperIntervalSet {
             (x0.recip(), Some(x1.recip()))
         } else {
             (x.recip(), None)
-        }
-    });
-
-    impl_op_cut!(rem_euclid(x, y), {
-        // Compute x - |y| ⌊x / |y|⌋.
-        let y = y.abs(); // Take abs, normalize, then iterate over could be better.
-        let q = (x / y).floor();
-        let qa = q.inf();
-        let qb = q.sup();
-        let range = interval!(0.0, y.sup()).unwrap();
-        if qb - qa == 1.0 {
-            let q0 = DecInterval::set_dec(interval!(qa, qa).unwrap(), q.decoration());
-            let q1 = DecInterval::set_dec(interval!(qb, qb).unwrap(), q.decoration());
-            let z0 = (-y).mul_add(q0, x);
-            let z1 = (-y).mul_add(q1, x);
-            let z0 =
-                DecInterval::set_dec(z0.interval().unwrap().intersection(range), z0.decoration());
-            let z1 =
-                DecInterval::set_dec(z1.interval().unwrap().intersection(range), z1.decoration());
-            (z0, Some(z1))
-        } else {
-            let z = (-y).mul_add(q, x);
-            let z = DecInterval::set_dec(z.interval().unwrap().intersection(range), z.decoration());
-            (z, None)
         }
     });
 
@@ -1940,6 +1939,49 @@ mod tests {
     }
 
     #[test]
+    fn modulo() {
+        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
+            x.modulo(y, None)
+        }
+
+        let y = i!(-3.0);
+        test!(f, i!(-1.0), y, (vec![i!(-1.0)], Com));
+        test!(f, i!(0.0), y, (vec![i!(0.0)], Dac));
+        test!(f, i!(1.0), y, (vec![i!(-2.0)], Com));
+        test!(
+            f,
+            i!(-1.0, 1.0),
+            y,
+            (vec![i!(-3.0, -2.0), i!(-1.0, 0.0)], Def)
+        );
+
+        let y = i!(0.0);
+        test!(f, i!(-1.0, 1.0), y, (vec![], Trv));
+
+        let y = i!(3.0);
+        test!(f, i!(-1.0), y, (vec![i!(2.0)], Com));
+        test!(f, i!(0.0), y, (vec![i!(0.0)], Dac));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0), i!(2.0, 3.0)], Def));
+
+        let y = i!(-2.5, -1.5);
+        test!(f, i!(-2.0), y, (vec![i!(-2.0), i!(-0.5, 0.0)], Def));
+        // NOTE: This is not the tightest enclosure,
+        // which is {2} mod ([-2.5, -2] ∪ (-2, -1.5]) = [-0.5, 0] ∪ (-2, -1].
+        test!(f, i!(2.0), y, (vec![i!(-2.5, -1.0), i!(-0.5, 0.0)], Def));
+
+        let y = i!(1.5, 2.5);
+        // NOTE: This is not the tightest enclosure,
+        // which is {-2} mod ([1.5, 2) ∪ [2, 2.5]) = [1, 2) ∪ [0, 0.5].
+        test!(f, i!(-2.0), y, (vec![i!(0.0, 0.5), i!(1.0, 2.5)], Def));
+        test!(f, i!(2.0), y, (vec![i!(0.0, 0.5), i!(2.0)], Def));
+
+        let y = i!(-3.0, 3.0);
+        test!(f, i!(0.0), y, (vec![i!(0.0)], Trv));
+        test!(f, i!(-3.0, 3.0), y, (vec![i!(-3.0, 3.0)], Trv));
+    }
+
+    #[test]
     fn one() {
         fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
             x.one()
@@ -2206,31 +2248,6 @@ mod tests {
     }
 
     #[test]
-    fn rem_euclid() {
-        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
-            x.rem_euclid(y, None)
-        }
-
-        let y = i!(0.0);
-        test!(f, i!(-1.0, 1.0), y, (vec![], Trv));
-
-        let y = i!(3.0);
-        test!(f, i!(-1.0), @even y, (vec![i!(2.0)], Com));
-        test!(f, i!(0.0), @even y, (vec![i!(0.0)], Dac));
-        test!(f, i!(1.0), @even y, (vec![i!(1.0)], Com));
-        test!(f, i!(-1.0, 1.0), @even y, (vec![i!(0.0, 1.0), i!(2.0, 3.0)], Def));
-
-        let y = i!(1.5, 2.5);
-        // NOTE: This is not the tightest enclosure, which is {[0.0, 0.5], [1.0, 2.0]}.
-        test!(f, i!(-2.0), @even y, (vec![i!(0.0, 0.5), i!(1.0, 2.5)], Def));
-        test!(f, i!(2.0), @even y, (vec![i!(0.0, 0.5), i!(2.0)], Def));
-
-        let y = i!(-3.0, 3.0);
-        test!(f, i!(0.0), y, (vec![i!(0.0)], Trv));
-        test!(f, i!(-3.0, -3.0), y, (vec![i!(0.0, 3.0)], Trv));
-    }
-
-    #[test]
     fn rootn() {
         fn rootn(x: &TupperIntervalSet, n: u32) -> TupperIntervalSet {
             x.rootn(n)
@@ -2351,9 +2368,9 @@ mod tests {
             TupperIntervalSet::gcd,
             TupperIntervalSet::lcm,
             TupperIntervalSet::log,
+            TupperIntervalSet::modulo,
             TupperIntervalSet::pow,
             TupperIntervalSet::re_sign_nonnegative,
-            TupperIntervalSet::rem_euclid,
         ];
         for f in &fs {
             for x in &xs {

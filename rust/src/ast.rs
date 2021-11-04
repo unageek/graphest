@@ -428,7 +428,7 @@ impl Expr {
             binary!(Log, b, x) => Some(x.eval()?.log(b.eval()?)),
             binary!(Max, x, y) => Some(x.eval()?.max(y.eval()?)),
             binary!(Min, x, y) => Some(x.eval()?.min(y.eval()?)),
-            binary!(Mod, x, y) => Some(x.eval()?.rem_euclid(y.eval()?)),
+            binary!(Mod, x, y) => Some(x.eval()?.modulo(y.eval()?)),
             binary!(Mul, x, y) => Some(x.eval()? * y.eval()?),
             binary!(Pow, x, y) => Some(x.eval()?.pow(y.eval()?)),
             binary!(RankedMax, nary!(List, xs), n) => {
