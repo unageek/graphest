@@ -205,7 +205,7 @@ x^2 + y^2 = 1 || y = -cos(x)
 - Fig. 15 (b) “the patterned star”
 
   ```text
-  0.15 > |ranked_min([cos(8y), cos(4(y-sqrt(3)x)), cos(4(y+sqrt(3)x))], 2) - cos(⌊3/π mod(atan2(y,x),2π) - 0.5⌋) - 0.1| && ranked_min([|2x|, |x-sqrt(3)y|, |x+sqrt(3)y|], 2) < 10
+  0.15 > |rankedMin([cos(8y), cos(4(y-sqrt(3)x)), cos(4(y+sqrt(3)x))], 2) - cos(⌊3/π mod(atan2(y,x),2π) - 0.5⌋) - 0.1| && rankedMin([|2x|, |x-sqrt(3)y|, |x+sqrt(3)y|], 2) < 10
   ```
 
 ## Examples taken from [GrafEq Reviews](http://www.peda.com/grafeq/reviews.html)

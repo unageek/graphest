@@ -2,7 +2,7 @@
 
 ## Notes
 
-- Assign each test with a UUID (variant 1, version 4) and prefix it with `t_` to make an identifier.
+- The name of each test case must be a UUID (variant 1, version 4) prefixed with `t_`.
 
 - Run tests with:
 
@@ -10,7 +10,7 @@
   cargo t --release --test graph -- --test-threads=4
   ```
 
-  Each execution can consume up to ~1GiB of RAM (peak usage can be higher), so here we use `--test-threads=4` to limit the number of concurrent executions.
+  Each execution can consume up to ~1 GiB of RAM (peak usage can be higher), so here we use `--test-threads=4` to limit the number of concurrent executions.
 
 - You can time each test with:
 

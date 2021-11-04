@@ -285,8 +285,8 @@ stem:[\min \set{x_1, …, x_n}]
 |https://functions.wolfram.com/ElementaryFunctions/Max/[MFS] +
 https://functions.wolfram.com/ElementaryFunctions/Min/[MFS]
 
-|`ranked_max([x~1~, …, x~n~], k)`
-`ranked_min([x~1~, …, x~n~], k)` +
+|`rankedMax([x~1~, …, x~n~], k)`
+`rankedMin([x~1~, …, x~n~], k)` +
 |
 |The stem:[k]th largest and the stem:[k]th smallest elements of the list stem:[\list{x_1, …, x_n}], respectively.
 |

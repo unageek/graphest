@@ -209,8 +209,8 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("*", Def::binary(Mul))
         .def("||", Def::binary(Or))
         .def("^", Def::binary(Pow))
-        .def("ranked_max", Def::binary(RankedMax))
-        .def("ranked_min", Def::binary(RankedMin))
+        .def("rankedMax", Def::binary(RankedMax))
+        .def("rankedMin", Def::binary(RankedMin))
         .def("-", Def::binary(Sub))
         .def(
             "if",
