@@ -763,10 +763,10 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(x \mod y = x - y \left⌊ \dfrac{x}{y} \right⌋\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The remainder of \(x/y\) (<a href="https://en.wikipedia.org/wiki/Modulo_operation">modulo operation</a>).<br>
-\(\begin{cases}
-  y &lt; x \mod y ≤ 0 &amp; \if y &lt; 0, \\
-  0                &amp; \if y = 0, \\
-  0 ≤ x \mod y &lt; y &amp; \if y &gt; 0.
+Undefined for \(y = 0\).<br>
+The range is \(\begin{cases}
+  (y, 0] &amp; \if y &lt; 0, \\
+  [0, y)  &amp; \if y &gt; 0.
  \end{cases}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Mod/">MFS</a></p></td>
 </tr>
@@ -1773,7 +1773,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-11-04 11:40:35 +0900
+Last updated 2021-11-04 15:23:37 +0900
 </div>
 </div>
 

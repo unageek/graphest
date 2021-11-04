@@ -129,10 +129,10 @@
 |`mod(x, y)`
 |stem:[x \mod y = x - y \left⌊ \dfrac{x}{y} \right⌋]
 |The remainder of stem:[x/y] (https://en.wikipedia.org/wiki/Modulo_operation[modulo operation]). +
-stem:[\begin{cases}
-  y < x \mod y ≤ 0 & \if y < 0, \\
-  0                & \if y = 0, \\
-  0 ≤ x \mod y < y & \if y > 0.
+Undefined for stem:[y = 0]. +
+The range is stem:[\begin{cases}
+  (y, 0\] & \if y < 0, \\
+  [0, y)  & \if y > 0.
  \end{cases}]
 |https://functions.wolfram.com/IntegerFunctions/Mod/[MFS]
 
