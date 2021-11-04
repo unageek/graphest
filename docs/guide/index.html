@@ -517,7 +517,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="ulist">
 <ul>
 <li>
-<p>You don&#8217;t need a space around parentheses or in a few situations such as <code>2x</code> .</p>
+<p>You don&#8217;t need a space around parentheses or in a expression like <code>2x</code> .</p>
 </li>
 </ul>
 </div>
@@ -529,21 +529,21 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <p>Use parentheses to group a part of the relation like <code>1 / (x + 3)</code>.</p>
 </li>
 <li>
-<p>Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, \((x, y) = (1, 0)\) is identical to \((r, θ) = (1, 0), (1, 2π), (1, −2π), (1, 4π), …; (−1, π), (−1, −π), (−1, 3π), …\)</p>
+<p>Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, \((x, y) = (1, 0)\) is identical to \((r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …\)</p>
 <div class="ulist">
 <ul>
 <li>
-<p>You can restrict the range of <code>r</code> or <code>θ</code> as in <code>r = θ ∧ 0 ≤ θ ≤ 2π</code>.</p>
+<p>You can restrict the range of <code>r</code> or <code>θ</code> as in <code>r = θ ∧ 0 ≤ θ &lt; 2π</code>.</p>
 </li>
 </ul>
 </div>
 </li>
 <li>
-<p>You can make a parametric relation by using a real parameter <code>t</code> as in <code>x = cos(t) ∧ y = sin(t)</code>, <code>x + i y = exp(i t)</code> or <code>x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π</code>.</p>
+<p>You can make a parametric relation by using a real parameter <code>t</code> as in <code>x = cos(t) ∧ y = sin(t)</code>, <code>x + i y = exp(i t)</code>, or <code>x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π</code>.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Any relation that contains <code>t</code> is implicitly interpreted as \(∃t ∈ 𝐑[…]\)</p>
+<p>Any relation that contains <code>t</code> is implicitly interpreted as \(∃t ∈ 𝐑[…]\).</p>
 </li>
 </ul>
 </div>
@@ -854,19 +854,19 @@ Undefined if any of the numbers is irrational.</p></td>
 </tbody>
 </table>
 <div class="paragraph">
-<p>There are different ways of defining exponentiation for zero and negative exponents. The following definition is used in Graphest.</p>
+<p>For real \(x\) and \(y\), \(x^y\) is defined as follows.</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>For any coprime integers \(p\) and \(q\) \((q &gt; 0)\), \(x^{p/q}\) is defined to be \((\sqrt[q]{x})^p\), where \(\sqrt[q]{x}\) is the real, non-negative \(q\)th root of \(x\).</p>
+<p>For any coprime integers \(p\) and \(q\) \((q &gt; 0)\), \(x^{p/q}\) is defined to be \((\sqrt[q]{x})^p\), where \(\sqrt[q]{x}\) is the real non-negative \(q\)th root of \(x\).</p>
 <div class="ulist">
 <ul>
 <li>
 <p>\(x^{p/q}\) is an even (odd) function of \(x\) if \(p\) is even (odd).</p>
 </li>
 <li>
-<p>For \(x &lt; 0\), \(x^y\) is defined if and only if \(y\) is a rational number with an odd denominator.</p>
+<p>For \(x &lt; 0\), \(x^y\) is defined for \(y\) only if \(y\) is a rational number with an odd denominator.</p>
 </li>
 </ul>
 </div>
@@ -874,7 +874,13 @@ Undefined if any of the numbers is irrational.</p></td>
 <li>
 <p>\(0^0\) is defined to be 1.</p>
 </li>
+<li>
+<p>Otherwise, \(x^y\) is equal to \(e^{y \ln x}\).</p>
+</li>
 </ul>
+</div>
+<div class="paragraph">
+<p>If \(x\) and/or \(y\) are complex, the principal value of \(e^{y \ln x}\) is returned. See the complex <a href="#complex-pow">Exponentiation and Logarithm</a> for details.</p>
 </div>
 </div>
 <div class="sect3">
@@ -1246,7 +1252,7 @@ Undefined for \(z = 0\).</p></td>
 </table>
 </div>
 <div class="sect3">
-<h4 id="_exponentiation_and_logarithm_2"><a class="anchor" href="#_exponentiation_and_logarithm_2"></a><a class="link" href="#_exponentiation_and_logarithm_2">Exponentiation and Logarithm</a></h4>
+<h4 id="complex-pow"><a class="anchor" href="#complex-pow"></a><a class="link" href="#complex-pow">Exponentiation and Logarithm</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
 <col style="width: 33.3333%;">
@@ -1576,7 +1582,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 <div class="sect2">
 <h3 id="_special_functions"><a class="anchor" href="#_special_functions"></a><a class="link" href="#_special_functions">Special Functions</a></h3>
 <div class="paragraph">
-<p>All functions accept only real numbers as inputs at the moment.</p>
+<p>All functions accept only real inputs at the moment.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -1773,7 +1779,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-11-04 15:23:37 +0900
+Last updated 2021-11-04 17:14:02 +0900
 </div>
 </div>
 

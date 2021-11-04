@@ -10,13 +10,13 @@
 
 * A valid relation must be either an equation, an inequality, or a compound <<formulae,formula>>, such as `y = sin(x)` or `sin(x) < cos(y)`.
 * Enter the product of `x` and `y` as `x y`, instead of [red]`xy`.
-** You don't need a space around parentheses or in a few situations such as `2x` .
+** You don't need a space around parentheses or in a expression like `2x` .
 * Enter the sine of stem:[x] as `sin(x)`, instead of [red]`sinx` or [red]`sin x`.
 * Use parentheses to group a part of the relation like `1 / (x + 3)`.
-* Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, stem:[(x, y) = (1, 0)] is identical to stem:[(r, θ) = (1, 0), (1, 2π), (1, −2π), (1, 4π), …; (−1, π), (−1, −π), (−1, 3π), …]
-** You can restrict the range of `r` or `θ` as in `r = θ ∧ 0 ≤ θ ≤ 2π`.
-* You can make a parametric relation by using a real parameter `t` as in `x = cos(t) ∧ y = sin(t)`, `x + i y = exp(i t)` or `x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π`.
-** Any relation that contains `t` is implicitly interpreted as stem:[∃t ∈ 𝐑[…\]]
+* Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, stem:[(x, y) = (1, 0)] is identical to stem:[(r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …]
+** You can restrict the range of `r` or `θ` as in `r = θ ∧ 0 ≤ θ < 2π`.
+* You can make a parametric relation by using a real parameter `t` as in `x = cos(t) ∧ y = sin(t)`, `x + i y = exp(i t)`, or `x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π`.
+** Any relation that contains `t` is implicitly interpreted as stem:[∃t ∈ 𝐑[…\]].
 
 == Definitions Reference
 
@@ -183,12 +183,15 @@ Undefined if any of the numbers is irrational.
 |https://functions.wolfram.com/ElementaryFunctions/Log2/[MFS]
 |===
 
-There are different ways of defining exponentiation for zero and negative exponents. The following definition is used in Graphest.
+For real stem:[x] and stem:[y], stem:[x^y] is defined as follows.
 
-* For any coprime integers stem:[p] and stem:[q] stem:[(q > 0)], stem:[x^{p/q}] is defined to be stem:[(\sqrt[q\]{x})^p], where stem:[\sqrt[q\]{x}] is the real, non-negative stem:[q]th root of stem:[x].
+* For any coprime integers stem:[p] and stem:[q] stem:[(q > 0)], stem:[x^{p/q}] is defined to be stem:[(\sqrt[q\]{x})^p], where stem:[\sqrt[q\]{x}] is the real non-negative stem:[q]th root of stem:[x].
 ** stem:[x^{p/q}] is an even (odd) function of stem:[x] if stem:[p] is even (odd).
-** For stem:[x < 0], stem:[x^y] is defined if and only if stem:[y] is a rational number with an odd denominator.
+** For stem:[x < 0], stem:[x^y] is defined for stem:[y] only if stem:[y] is a rational number with an odd denominator.
 * stem:[0^0] is defined to be 1.
+* Otherwise, stem:[x^y] is equal to stem:[e^{y \ln x}].
+
+If stem:[x] and/or stem:[y] are complex, the principal value of stem:[e^{y \ln x}] is returned. See the complex <<complex-pow>> for details.
 
 ==== Trigonometry
 
@@ -389,6 +392,7 @@ Undefined for stem:[z = 0].
 |https://functions.wolfram.com/ComplexComponents/Sign/[MFS]
 |===
 
+[#complex-pow]
 ==== Exponentiation and Logarithm
 
 [cols="a,,,0"]
@@ -567,7 +571,7 @@ stem:[t] and/or stem:[f] can be either real or complex.
 
 === Special Functions
 
-All functions accept only real numbers as inputs at the moment.
+All functions accept only real inputs at the moment.
 
 [cols="a,,,0"]
 |===
