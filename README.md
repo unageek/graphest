@@ -15,9 +15,9 @@
 
 ## Getting Started
 
-[Download the app, available for macOS and Windows.](https://github.com/unageek/graphest/releases)
+[Download the app](https://github.com/unageek/graphest/releases), available for macOS and Windows.
 
-Try copy-pasting [example relations](Examples.md).
+Try copy-pasting some of the [example relations](Examples.md).
 
 ## [Building from Source](docs/build.md)
 
