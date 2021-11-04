@@ -130,7 +130,7 @@
 |stem:[x \mod y = x - y \left⌊ \dfrac{x}{y} \right⌋]
 |The remainder of stem:[x/y] (https://en.wikipedia.org/wiki/Modulo_operation[modulo operation]). +
 Undefined for stem:[y = 0]. +
-The range is stem:[\begin{cases}
+The range for a fixed stem:[y] is stem:[\begin{cases}
   (y, 0\] & \if y < 0, \\
   [0, y)  & \if y > 0.
  \end{cases}]

@@ -2,6 +2,8 @@
 
 **Graphest** is a graphing calculator that can faithfully plot arbitrary mathematical relations.
 
+To get started, [download the app](https://github.com/unageek/graphest/releases) (available for macOS and Windows), and try plotting some of the [example relations](Examples.md).
+
 <img align="right" width="456" alt="Cover image" src="docs/cover.png">
 
 ## Features
@@ -12,12 +14,6 @@
 - Parametric relations
 - Full interactivity
 - Extensive set of [mathematical functions](https://unageek.github.io/graphest/guide/)
-
-## Getting Started
-
-[Download the app](https://github.com/unageek/graphest/releases), available for macOS and Windows.
-
-Try copy-pasting some of the [example relations](Examples.md).
 
 ## [Building from Source](docs/build.md)
 
