@@ -7,17 +7,17 @@
 ## Features
 
 - Plot arbitrary equations/inequalities
-- Never gives an incorrect result; if you find a relation that is incorrectly plotted, please [report it here](https://github.com/unageek/graphest/issues/new)
+- Never gives an incorrect result; if you find any relation plotted incorrectly, please [report it here](https://github.com/unageek/graphest/issues/new)
 - Cartesian and polar coordinates
 - Parametric relations
 - Full interactivity
-- Extensive set of [mathematical functions](docs/guide/README.adoc)
+- Extensive set of [mathematical functions](https://unageek.github.io/graphest/guide/)
 
 ## Getting Started
 
-The latest version of the app is available on the [releases page](https://github.com/unageek/graphest/releases).
+[Download the app, available for macOS and Windows.](https://github.com/unageek/graphest/releases)
 
-You can try messing around with [example relations](Examples.md).
+Try copy-pasting [example relations](Examples.md).
 
 ## [Building from Source](docs/build.md)
 
