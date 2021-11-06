@@ -9,6 +9,10 @@ import {
   screen,
   shell,
 } from "electron";
+import installExtension, {
+  REACT_DEVELOPER_TOOLS,
+  REDUX_DEVTOOLS,
+} from "electron-devtools-installer";
 import { autoUpdater } from "electron-updater";
 import * as fs from "fs";
 import * as os from "os";
@@ -229,7 +233,9 @@ function createMainWindow() {
 }
 
 function resetBrowserZoom() {
-  // https://github.com/electron/electron/issues/10572
+  // Another possible solution:
+  //   https://github.com/electron/electron/issues/10572#issuecomment-944822575
+
   try {
     const prefsFile = path.join(app.getPath("userData"), "Preferences");
     const prefs = JSON.parse(fs.readFileSync(prefsFile, "utf8"));
@@ -240,7 +246,12 @@ function resetBrowserZoom() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // https://github.com/MarshallOfSound/electron-devtools-installer/issues/195#issuecomment-932634933
+  await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS], {
+    loadExtensionOptions: { allowFileAccess: true },
+  });
+
   resetBrowserZoom();
   mainMenu = createMainMenu();
   Menu.setApplicationMenu(mainMenu);
