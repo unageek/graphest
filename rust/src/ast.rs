@@ -356,8 +356,14 @@ impl Expr {
         Self::constant(const_dec_interval!(0.0, 0.0).into())
     }
 
-    pub fn dump_structure(&self) -> impl fmt::Display + '_ {
-        DumpStructure(self)
+    /// Formats the AST in a fashion similar to S-expressions.
+    ///
+    /// If a real constant is convertible to a [`f64`] number with [`TupperIntervalSet::to_f64`],
+    /// it is represented as the number; otherwise, by a symbol `@`.
+    ///
+    /// [`TupperIntervalSet::to_f64`]: crate::interval_set::TupperIntervalSet::to_f64
+    pub fn dump_short(&self) -> impl fmt::Display + '_ {
+        DumpShort(self)
     }
 
     /// Evaluates `self` if it is a real-valued constant expression.
@@ -763,9 +769,9 @@ impl Hash for Expr {
     }
 }
 
-struct DumpStructure<'a>(&'a Expr);
+struct DumpShort<'a>(&'a Expr);
 
-impl<'a> fmt::Display for DumpStructure<'a> {
+impl<'a> fmt::Display for DumpShort<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
             bool_constant!(false) => {
@@ -782,21 +788,15 @@ impl<'a> fmt::Display for DumpStructure<'a> {
                 }
             }
             var!(name) => write!(f, "{}", name),
-            unary!(op, x) => write!(f, "({:?} {})", op, x.dump_structure()),
-            binary!(op, x, y) => write!(
-                f,
-                "({:?} {} {})",
-                op,
-                x.dump_structure(),
-                y.dump_structure()
-            ),
+            unary!(op, x) => write!(f, "({:?} {})", op, x.dump_short()),
+            binary!(op, x, y) => write!(f, "({:?} {} {})", op, x.dump_short(), y.dump_short()),
             ternary!(op, x, y, z) => write!(
                 f,
                 "({:?} {} {} {})",
                 op,
-                x.dump_structure(),
-                y.dump_structure(),
-                z.dump_structure()
+                x.dump_short(),
+                y.dump_short(),
+                z.dump_short()
             ),
             nary!(op, xs) => {
                 write!(
@@ -804,13 +804,13 @@ impl<'a> fmt::Display for DumpStructure<'a> {
                     "({:?} {})",
                     op,
                     xs.iter()
-                        .map(|x| format!("{}", x.dump_structure()))
+                        .map(|x| format!("{}", x.dump_short()))
                         .collect::<Vec<_>>()
                         .join(" ")
                 )
             }
-            pown!(x, n) => write!(f, "(Pown {} {})", x.dump_structure(), n),
-            rootn!(x, n) => write!(f, "(Rootn {} {})", x.dump_structure(), n),
+            pown!(x, n) => write!(f, "(Pown {} {})", x.dump_short(), n),
+            rootn!(x, n) => write!(f, "(Rootn {} {})", x.dump_short(), n),
             uninit!() => panic!(),
         }
     }

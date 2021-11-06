@@ -1792,7 +1792,7 @@ mod tests {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
             NormalizeNotExprs.visit_expr_mut(&mut e);
-            assert_eq!(format!("{}", e.dump_structure()), expected);
+            assert_eq!(format!("{}", e.dump_short()), expected);
         }
 
         test("!(x = y)", "(Not (Eq x y))");
@@ -1807,7 +1807,7 @@ mod tests {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
             PreTransform.visit_expr_mut(&mut e);
-            assert_eq!(format!("{}", e.dump_structure()), expected);
+            assert_eq!(format!("{}", e.dump_short()), expected);
         }
 
         test("-x", "(Times -1 x)");
@@ -1826,7 +1826,7 @@ mod tests {
             PreTransform.visit_expr_mut(&mut e);
             super::expand_complex_functions(&mut e);
             simplify(&mut e);
-            assert_eq!(format!("{}", e.dump_structure()), expected);
+            assert_eq!(format!("{}", e.dump_short()), expected);
         }
 
         test("|x + i y|", "(Pow (Plus (Pow x 2) (Pow y 2)) 0.5)");
@@ -1858,7 +1858,7 @@ mod tests {
             let mut e = parse_expr(input, Context::builtin_context()).unwrap();
             PreTransform.visit_expr_mut(&mut e);
             NormalizeRelationalExprs.visit_expr_mut(&mut e);
-            assert_eq!(format!("{}", e.dump_structure()), expected);
+            assert_eq!(format!("{}", e.dump_short()), expected);
         }
 
         test("x = y", "(Eq (Plus x (Times -1 y)) 0)");
@@ -1875,7 +1875,7 @@ mod tests {
                 parse_expr(&format!("if({}, x, y)", input), Context::builtin_context()).unwrap();
             ExpandBoole.visit_expr_mut(&mut e);
             assert_eq!(
-                format!("{}", e.dump_structure()),
+                format!("{}", e.dump_short()),
                 format!("(IfThenElse {} x y)", expected)
             );
         }
@@ -1897,11 +1897,11 @@ mod tests {
             PreTransform.visit_expr_mut(&mut e);
             UpdateMetadata.visit_expr_mut(&mut e);
             Transform::default().visit_expr_mut(&mut e);
-            let input = format!("{}", e.dump_structure());
+            let input = format!("{}", e.dump_short());
             let mut v = Flatten::default();
             v.visit_expr_mut(&mut e);
-            let output = format!("{}", e.dump_structure());
-            assert_eq!(format!("{}", e.dump_structure()), expected);
+            let output = format!("{}", e.dump_short());
+            assert_eq!(format!("{}", e.dump_short()), expected);
             assert_eq!(v.modified, input != output);
         }
 
@@ -1923,10 +1923,10 @@ mod tests {
             FoldConstant::default().visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
             FoldConstant::default().visit_expr_mut(&mut e);
-            let input = format!("{}", e.dump_structure());
+            let input = format!("{}", e.dump_short());
             let mut v = SortTerms::default();
             v.visit_expr_mut(&mut e);
-            let output = format!("{}", e.dump_structure());
+            let output = format!("{}", e.dump_short());
             assert_eq!(output, expected);
             assert_eq!(v.modified, input != output);
         }
@@ -1960,13 +1960,13 @@ mod tests {
             Flatten::default().visit_expr_mut(&mut e);
             FoldConstant::default().visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
-            let input = format!("{}", e.dump_structure());
+            let input = format!("{}", e.dump_short());
             UpdateMetadata.visit_expr_mut(&mut e);
             let mut v = Transform::default();
             v.visit_expr_mut(&mut e);
             FoldConstant::default().visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
-            let output = format!("{}", e.dump_structure());
+            let output = format!("{}", e.dump_short());
             assert_eq!(output, expected);
             assert_eq!(v.modified, input != output);
         }
@@ -2028,7 +2028,7 @@ mod tests {
             FoldConstant::default().visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
             PostTransform.visit_expr_mut(&mut e);
-            assert_eq!(format!("{}", e.dump_structure()), expected);
+            assert_eq!(format!("{}", e.dump_short()), expected);
         }
 
         test("x^-1", "(Recip x)");
@@ -2055,7 +2055,7 @@ mod tests {
             PreTransform.visit_expr_mut(&mut e);
             PostTransform.visit_expr_mut(&mut e);
             FuseMulAdd.visit_expr_mut(&mut e);
-            assert_eq!(format!("{}", e.dump_structure()), expected);
+            assert_eq!(format!("{}", e.dump_short()), expected);
         }
 
         test("x y + z", "(MulAdd x y z)");

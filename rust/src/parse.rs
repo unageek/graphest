@@ -407,7 +407,7 @@ mod tests {
     fn parse_expr() {
         fn test(input: &str, expected: &str) {
             let f = super::parse_expr(input, Context::builtin_context()).unwrap();
-            assert_eq!(format!("{}", f.dump_structure()), expected);
+            assert_eq!(format!("{}", f.dump_short()), expected);
         }
 
         test("false", "False");
