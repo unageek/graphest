@@ -626,19 +626,22 @@ fn expand_polar_coords(e: &mut Expr) {
     // but much slower since we have to evaluate `atan2` separately for `e1` and `e2`.
     let mut e2 = e.clone();
     let mut v = ReplaceAll::new(|e| match e {
-        var!(x) if x == "r" => Some(Expr::unary(
-            UnaryOp::Neg,
-            box Expr::binary(
-                Pow,
-                box Expr::nary(
-                    Plus,
-                    vec![
-                        Expr::binary(Pow, box Expr::var("x"), box Expr::two()),
-                        Expr::binary(Pow, box Expr::var("y"), box Expr::two()),
-                    ],
+        var!(x) if x == "r" => Some(Expr::nary(
+            Times,
+            vec![
+                Expr::minus_one(),
+                Expr::binary(
+                    Pow,
+                    box Expr::nary(
+                        Plus,
+                        vec![
+                            Expr::binary(Pow, box Expr::var("x"), box Expr::two()),
+                            Expr::binary(Pow, box Expr::var("y"), box Expr::two()),
+                        ],
+                    ),
+                    box Expr::one_half(),
                 ),
-                box Expr::one_half(),
-            ),
+            ],
         )),
         var!(x) if x == "theta" || x == "θ" => Some(Expr::nary(
             Plus,
