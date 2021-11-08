@@ -175,17 +175,16 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
 fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
-    alt((
-        map(
-            separated_pair(
-                primary_expr,
-                delimited(space0, char('^'), space0),
-                cut(unary_expr),
-            ),
-            move |(x, y)| ctx.apply("^", vec![x, y]).unwrap(),
+    map(
+        pair(
+            primary_expr,
+            opt(preceded(delimited(space0, char('^'), space0), unary_expr)),
         ),
-        primary_expr,
-    ))(i)
+        move |(x, y)| match y {
+            Some(y) => ctx.apply("^", vec![x, y]).unwrap(),
+            _ => x,
+        },
+    )(i)
 }
 
 fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
