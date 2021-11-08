@@ -57,7 +57,7 @@ t!(
 // Garfield curve (a = 1)
 t!(
     t_34429ea795494b0593297fdb67e1c823,
-    "r = θ cos(θ) && -2π ≤ θ ≤ 2π",
+    "r = θ cos(θ) ∧ -2π ≤ θ ≤ 2π",
 );
 
 // fourth heart curve (a = 1)
