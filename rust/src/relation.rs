@@ -795,12 +795,6 @@ fn normalize_explicit_relation(
     }
 }
 
-macro_rules! explicit_rel_op {
-    () => {
-        Eq | Ge | Gt | Le | Lt
-    };
-}
-
 fn normalize_explicit_relation_impl(
     e: &mut Expr,
     parts: &mut ExplicitRelationParts,
@@ -808,6 +802,13 @@ fn normalize_explicit_relation_impl(
     x_var: VarSet,
 ) -> bool {
     use BinaryOp::*;
+
+    macro_rules! explicit_rel_op {
+        () => {
+            Eq | Ge | Gt | Le | Lt
+        };
+    }
+
     match e {
         binary!(And, e1, e2) => {
             normalize_explicit_relation_impl(e1, parts, y_var, x_var)
