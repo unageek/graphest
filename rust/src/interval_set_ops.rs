@@ -758,11 +758,12 @@ impl TupperIntervalSet {
         DecInterval::set_dec(const_interval!(1.0, 1.0), x.decoration())
     });
 
-    // For any integer m and any positive odd integer n, we define
+    // For any coprime integers p and q (q > 0), we define
     //
-    //   x^(m/n) = rootn(x, n)^m,
+    //   x^(p/q) = rootn(x, q)^p,
     //
-    // where rootn(x, n) is the real-valued nth root of x.  Therefore, for x < 0,
+    // where rootn(x, q) is the real-valued qth root of x for odd q,
+    // and is the principal qth root of x ≥ 0 for even q. Therefore, for x < 0,
     //
     //         | (-x)^y     if y = (even)/(odd)
     //         |            (x^y is an even function of x),
@@ -770,8 +771,9 @@ impl TupperIntervalSet {
     //         |            (x^y is an odd function of x),
     //         | undefined  otherwise (y = (odd)/(even) or irrational).
     //
-    // We also define 0^0 = 1.  `Interval::pow` is defined neither for x < 0 nor for x = y = 0,
-    // so we extend it here.
+    // We also define 0^0 = 1.
+    //
+    // `Interval::pow` is defined neither for x < 0 nor for x = y = 0, so we extend it here.
     impl_op_cut!(
         #[allow(clippy::many_single_char_names)]
         pow(x, y),

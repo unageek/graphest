@@ -854,30 +854,43 @@ Undefined if any of the numbers is irrational.</p></td>
 </tbody>
 </table>
 <div class="paragraph">
-<p>For real \(x\) and \(y\), \(x^y\) is defined as follows.</p>
+<p>For real \(x\) and \(y\), \(x^y\) is defined as follows:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>For any coprime integers \(p\) and \(q\) \((q &gt; 0)\), \(x^{p/q}\) is defined to be \((\sqrt[q]{x})^p\), where \(\sqrt[q]{x}\) is the real non-negative \(q\)th root of \(x\).</p>
+<p>For any coprime integers \(p\) and \(q\) \((q &gt; 0)\), \(x^{p/q}\) is defined to be \((\sqrt[q]{x})^p\).</p>
 <div class="ulist">
 <ul>
 <li>
-<p>\(x^{p/q}\) is an even (odd) function of \(x\) if \(p\) is even (odd).</p>
+<p>\(\sqrt[q]{x}\) is defined as follows:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>For odd \(q\), \(\sqrt[q]{x}\) is the real-valued \(q\)th root of \(x\). For example, \(\sqrt[3]{8} = 2\) and \(\sqrt[3]{-8} = -2\).</p>
 </li>
 <li>
-<p>For \(x &lt; 0\), \(x^y\) is defined for \(y\) only if \(y\) is a rational number with an odd denominator.</p>
+<p>For even \(q\), \(\sqrt[q]{x}\) is the principal \(q\)th root of \(x ≥ 0\). For example, \(\sqrt{9} = 3\). It is undefined for \(x &lt; 0\).</p>
 </li>
 </ul>
 </div>
+</li>
+<li>
+<p>\(x^{p/q}\) is an even (or odd) function of \(x\) if \(p\) is even (or odd).</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>For irrational \(y\), \(x^y\) is defined to be \(e^{y \ln x}\).</p>
 </li>
 <li>
 <p>\(0^0\) is defined to be 1.</p>
 </li>
-<li>
-<p>Otherwise, \(x^y\) is equal to \(e^{y \ln x}\).</p>
-</li>
 </ul>
+</div>
+<div class="paragraph">
+<p>By above definition, for \(x &lt; 0\), \(x^y\) is defined only if \(y\) is a rational number with an odd denominator.</p>
 </div>
 <div class="paragraph">
 <p>If \(x\) and/or \(y\) are complex, the principal value of \(e^{y \ln x}\) is returned. See the complex <a href="#complex-pow">Exponentiation and Logarithm</a> for details.</p>
@@ -1779,7 +1792,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-11-04 18:13:27 +0900
+Last updated 2021-11-09 21:19:57 +0900
 </div>
 </div>
 

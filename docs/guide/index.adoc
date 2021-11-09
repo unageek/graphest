@@ -183,13 +183,17 @@ Undefined if any of the numbers is irrational.
 |https://functions.wolfram.com/ElementaryFunctions/Log2/[MFS]
 |===
 
-For real stem:[x] and stem:[y], stem:[x^y] is defined as follows.
+For real stem:[x] and stem:[y], stem:[x^y] is defined as follows:
 
-* For any coprime integers stem:[p] and stem:[q] stem:[(q > 0)], stem:[x^{p/q}] is defined to be stem:[(\sqrt[q\]{x})^p], where stem:[\sqrt[q\]{x}] is the real non-negative stem:[q]th root of stem:[x].
-** stem:[x^{p/q}] is an even (odd) function of stem:[x] if stem:[p] is even (odd).
-** For stem:[x < 0], stem:[x^y] is defined for stem:[y] only if stem:[y] is a rational number with an odd denominator.
+* For any coprime integers stem:[p] and stem:[q] stem:[(q > 0)], stem:[x^{p/q}] is defined to be stem:[(\sqrt[q\]{x})^p].
+** stem:[\sqrt[q\]{x}] is defined as follows:
+*** For odd stem:[q], stem:[\sqrt[q\]{x}] is the real-valued stem:[q]th root of stem:[x]. For example, stem:[\sqrt[3\]{8} = 2] and stem:[\sqrt[3\]{-8} = -2].
+*** For even stem:[q], stem:[\sqrt[q\]{x}] is the principal stem:[q]th root of stem:[x ≥ 0]. For example, stem:[\sqrt{9} = 3]. It is undefined for stem:[x < 0].
+** stem:[x^{p/q}] is an even (or odd) function of stem:[x] if stem:[p] is even (or odd).
+* For irrational stem:[y], stem:[x^y] is defined to be stem:[e^{y \ln x}].
 * stem:[0^0] is defined to be 1.
-* Otherwise, stem:[x^y] is equal to stem:[e^{y \ln x}].
+
+By above definition, for stem:[x < 0], stem:[x^y] is defined only if stem:[y] is a rational number with an odd denominator.
 
 If stem:[x] and/or stem:[y] are complex, the principal value of stem:[e^{y \ln x}] is returned. See the complex <<complex-pow>> for details.
 
