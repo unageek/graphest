@@ -337,7 +337,7 @@ impl VisitMut for PreTransform {
 /// Precondition: [`PreTransform`] and then [`UpdateMetadata`] have been applied
 /// to the expression and it has not been modified since then.
 struct ExpandComplexFunctions {
-    binary_ops: HashMap<(BinaryOp, ValueType, ValueType), Expr>,
+    binary_ops: HashMap<BinaryOp, Expr>,
     unary_ops: HashMap<UnaryOp, Expr>,
 }
 
@@ -349,9 +349,9 @@ impl ExpandComplexFunctions {
         }
     }
 
-    fn def_binary(&mut self, op: BinaryOp, t1: ValueType, t2: ValueType, body: &str) {
+    fn def_binary(&mut self, op: BinaryOp, body: &str) {
         let e = self.make_def(vec!["a".into(), "b".into(), "x".into(), "y".into()], body);
-        self.binary_ops.insert((op, t1, t2), e);
+        self.binary_ops.insert(op, e);
     }
 
     fn def_unary(&mut self, op: UnaryOp, body: &str) {
@@ -374,11 +374,7 @@ impl ExpandComplexFunctions {
 
 impl Default for ExpandComplexFunctions {
     fn default() -> Self {
-        use {
-            BinaryOp::*,
-            UnaryOp::*,
-            ValueType::{Complex as ComplexT, *},
-        };
+        use {BinaryOp::*, UnaryOp::*};
 
         let mut v = Self::new();
         // Some of the definitions may depend on previous ones.
@@ -389,21 +385,7 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Ln, "1/2 ln(x^2 + y^2) + i atan2(y, x)");
         v.def_binary(
             Pow,
-            ComplexT,
-            ComplexT,
             "if(a = 0 ∧ b = 0 ∧ x > 0, 0, exp((x + i y) ln(a + i b)))",
-        );
-        v.def_binary(
-            Pow,
-            ComplexT,
-            Real,
-            "if(a = 0 ∧ b = 0 ∧ x > 0, 0, exp(x ln(a + i b)))",
-        );
-        v.def_binary(
-            Pow,
-            Real,
-            ComplexT,
-            "if(a = 0 ∧ x > 0, 0, exp((x + i y) ln(a)))",
         );
         v.def_unary(Recip, "x / (x^2 + y^2) - i y / (x^2 + y^2)");
         v.def_unary(Sin, "sin(x) cosh(y) + i cos(x) sinh(y)");
@@ -426,9 +408,7 @@ impl Default for ExpandComplexFunctions {
         v.def_unary(Atan, "i/2 (ln(1 - i (x + i y)) - ln(1 + i (x + i y)))");
         // http://functions.wolfram.com/01.27.02.0001.01
         v.def_unary(Atanh, "1/2 (ln(1 + (x + i y)) - ln(1 - (x + i y)))");
-        v.def_binary(Log, ComplexT, ComplexT, "ln(x + i y) / ln(a + i b)");
-        v.def_binary(Log, ComplexT, Real, "ln(x) / ln(a + i b)");
-        v.def_binary(Log, Real, ComplexT, "ln(x + i y) / ln(a)");
+        v.def_binary(Log, "ln(x + i y) / ln(a + i b)");
         v
     }
 }
@@ -553,11 +533,12 @@ impl VisitMut for ExpandComplexFunctions {
                     ],
                 );
             }
-            unary!(op @ (Abs | Acos | Acosh | Asin | Asinh | Atan | Atanh | Cos | Cosh | Exp | Ln | Sin | Sinh | Tan | Tanh), binary!(Complex, x, y)) =>
-            {
-                let mut new_e = self.unary_ops[op].clone();
-                Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
-                *e = new_e;
+            unary!(op, binary!(Complex, x, y)) => {
+                if let Some(template) = self.unary_ops.get(op) {
+                    let mut new_e = template.clone();
+                    Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
+                    *e = new_e;
+                }
             }
             binary!(Eq, x, y) if x.ty == ComplexT || y.ty == ComplexT => {
                 *e = match (x, y) {
@@ -589,22 +570,24 @@ impl VisitMut for ExpandComplexFunctions {
                 Substitute::new(vec![take(x), take(y)]).visit_expr_mut(&mut new_e);
                 *e = new_e;
             }
-            binary!(op @ (Log | Pow), x, y) if e.ty == ComplexT => {
-                let mut new_e = self.binary_ops[&(*op, x.ty, y.ty)].clone();
-                let mut subst = match (x, y) {
-                    (binary!(Complex, a, b), binary!(Complex, x, y)) => {
-                        Substitute::new(vec![take(a), take(b), take(x), take(y)])
-                    }
-                    (a, binary!(Complex, x, y)) => {
-                        Substitute::new(vec![take(a), Expr::zero(), take(x), take(y)])
-                    }
-                    (binary!(Complex, a, b), x) => {
-                        Substitute::new(vec![take(a), take(b), take(x), Expr::zero()])
-                    }
-                    _ => panic!(), // `e.ty` is wrong.
-                };
-                subst.visit_expr_mut(&mut new_e);
-                *e = new_e;
+            binary!(op, x, y) if e.ty == ComplexT => {
+                if let Some(template) = self.binary_ops.get(op) {
+                    let mut new_e = template.clone();
+                    let mut subst = match (x, y) {
+                        (binary!(Complex, a, b), binary!(Complex, x, y)) => {
+                            Substitute::new(vec![take(a), take(b), take(x), take(y)])
+                        }
+                        (a, binary!(Complex, x, y)) => {
+                            Substitute::new(vec![take(a), Expr::zero(), take(x), take(y)])
+                        }
+                        (binary!(Complex, a, b), x) => {
+                            Substitute::new(vec![take(a), take(b), take(x), Expr::zero()])
+                        }
+                        _ => panic!(), // `e.ty` is wrong.
+                    };
+                    subst.visit_expr_mut(&mut new_e);
+                    *e = new_e;
+                }
             }
             ternary!(IfThenElse, cond, t, f) if e.ty == ComplexT => {
                 *e = match (t, f) {
@@ -985,8 +968,14 @@ struct Transform {
 
 impl VisitMut for Transform {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, NaryOp::*, TernaryOp::*};
+        use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
         traverse_expr_mut(self, e);
+
+        macro_rules! boole_op {
+            () => {
+                BooleEqZero | BooleLeZero | BooleLtZero
+            };
+        }
 
         match e {
             binary!(And, x @ bool_constant!(_), y) | binary!(And, y, x @ bool_constant!(_)) => {
@@ -995,6 +984,20 @@ impl VisitMut for Transform {
                     bool_constant!(true) => take(y),
                     _ => unreachable!(),
                 };
+                self.modified = true;
+            }
+            binary!(Max, x @ unary!(boole_op!(), _), constant!(y))
+            | binary!(Max, constant!(y), x @ unary!(boole_op!(), _))
+                if y.to_f64() == Some(0.0) =>
+            {
+                *e = take(x);
+                self.modified = true;
+            }
+            binary!(Min, x @ unary!(boole_op!(), _), constant!(y))
+            | binary!(Min, constant!(y), x @ unary!(boole_op!(), _))
+                if y.to_f64() == Some(1.0) =>
+            {
+                *e = take(x);
                 self.modified = true;
             }
             binary!(Or, x @ bool_constant!(_), y) | binary!(Or, y, x @ bool_constant!(_)) => {
