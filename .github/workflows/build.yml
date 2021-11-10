@@ -25,7 +25,7 @@ jobs:
           path: |
             ~/.cache/gmp-mpfr-sys
             ~/.cache/graphest-arb-sys
-          key: ${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('rust/Cargo.lock', 'rust/build.rs') }}
+          key: ${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ secrets.CACHE_VERSION }}-
 
