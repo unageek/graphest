@@ -1,0 +1,46 @@
+name: release
+
+on:
+  push:
+    tags:
+      - v*
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  RUSTDOCFLAGS: -Ctarget-cpu=haswell -Dwarnings
+  RUSTFLAGS: -Ctarget-cpu=haswell -Dwarnings
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "16"
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-x86_64-pc-windows-gnu
+          override: true
+          profile: minimal
+
+      - name: Add MSYS2 to PATH
+        run: |
+          echo "C:\msys64\usr\bin" >> $GITHUB_PATH
+          echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Release
+        run: npm run release:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
