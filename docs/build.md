@@ -42,7 +42,6 @@
 1. Build tools
 
    ```ps
-   pacman -S pacman-mirrors
    pacman -S diffutils git m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
    ```
 
@@ -59,6 +58,8 @@
    ```ps
    rustup set default-host x86_64-pc-windows-gnu
    ```
+
+   See [Windows - The rustup book](https://rust-lang.github.io/rustup/installation/windows.html) for details.
 
 ### Ubuntu
 
