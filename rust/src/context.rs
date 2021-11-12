@@ -268,23 +268,28 @@ impl Context {
 
 #[derive(Clone)]
 pub struct InputWithContext<'a> {
-    pub i: &'a str,
+    pub source: &'a str,
     pub ctx: &'a Context,
+    pub source_range: Range<usize>,
 }
 
 impl<'a> InputWithContext<'a> {
-    pub fn new(i: &'a str, ctx: &'a Context) -> Self {
-        Self { i, ctx }
+    pub fn new(source: &'a str, ctx: &'a Context) -> Self {
+        Self {
+            source,
+            ctx,
+            source_range: 0..source.len(),
+        }
     }
 }
 
 impl<'a> Compare<&str> for InputWithContext<'a> {
     fn compare(&self, t: &str) -> CompareResult {
-        self.i.compare(t)
+        self.source.compare(t)
     }
 
     fn compare_no_case(&self, t: &str) -> CompareResult {
-        self.i.compare_no_case(t)
+        self.source.compare_no_case(t)
     }
 }
 
@@ -294,84 +299,107 @@ impl<'a> InputIter for InputWithContext<'a> {
     type IterElem = Chars<'a>;
 
     fn iter_indices(&self) -> Self::Iter {
-        self.i.iter_indices()
+        self.source.iter_indices()
     }
 
     fn iter_elements(&self) -> Self::IterElem {
-        self.i.iter_elements()
+        self.source.iter_elements()
     }
 
     fn position<P>(&self, predicate: P) -> Option<usize>
     where
         P: Fn(Self::Item) -> bool,
     {
-        self.i.position(predicate)
+        self.source.position(predicate)
     }
 
     fn slice_index(&self, count: usize) -> Result<usize, Needed> {
-        self.i.slice_index(count)
+        self.source.slice_index(count)
     }
 }
 
 impl<'a> InputLength for InputWithContext<'a> {
     fn input_len(&self) -> usize {
-        self.i.input_len()
+        self.source.input_len()
     }
 }
 
 impl<'a> InputTake for InputWithContext<'a> {
     fn take(&self, count: usize) -> Self {
+        let start = self.source_range.start;
+        let end = self.source_range.start + count;
         InputWithContext {
-            i: self.i.take(count),
-            ctx: self.ctx,
+            source: self.source.take(count),
+            source_range: start..end,
+            ..*self
         }
     }
 
     fn take_split(&self, count: usize) -> (Self, Self) {
-        let (i0, i1) = self.i.take_split(count);
-        let ctx = self.ctx;
+        // Beware the order.
+        let (suffix, prefix) = self.source.take_split(count);
+        let start = self.source_range.start;
+        let mid = self.source_range.start + count;
+        let end = self.source_range.end;
         (
-            InputWithContext { i: i0, ctx },
-            InputWithContext { i: i1, ctx },
+            InputWithContext {
+                source: suffix,
+                source_range: mid..end,
+                ..*self
+            },
+            InputWithContext {
+                source: prefix,
+                source_range: start..mid,
+                ..*self
+            },
         )
     }
 }
 
 impl<'a> Offset for InputWithContext<'a> {
     fn offset(&self, second: &Self) -> usize {
-        self.i.offset(second.i)
+        self.source.offset(second.source)
     }
 }
 
 impl<'a> PartialEq for InputWithContext<'a> {
     fn eq(&self, other: &Self) -> bool {
-        self.i == other.i
+        self.source == other.source
     }
 }
 
 impl<'a> Slice<Range<usize>> for InputWithContext<'a> {
     fn slice(&self, range: Range<usize>) -> Self {
+        let start = self.source_range.start + range.start;
+        let end = self.source_range.start + range.end;
         InputWithContext {
-            i: self.i.slice(range),
-            ctx: self.ctx,
+            source: self.source.slice(range),
+            source_range: start..end,
+            ..*self
         }
     }
 }
 
 impl<'a> Slice<RangeFrom<usize>> for InputWithContext<'a> {
     fn slice(&self, range: RangeFrom<usize>) -> Self {
+        let start = self.source_range.start + range.start;
+        let end = self.source_range.end;
         InputWithContext {
-            i: self.i.slice(range),
-            ctx: self.ctx,
+            source: self.source.slice(range),
+            source_range: start..end,
+            ..*self
         }
     }
 }
 
 impl<'a> Slice<RangeTo<usize>> for InputWithContext<'a> {
     fn slice(&self, range: RangeTo<usize>) -> Self {
+        let start = self.source_range.start;
+        let end = self.source_range.start + range.end;
         InputWithContext {
-            i: self.i.slice(range),
-            ctx: self.ctx,
+            source: self.source.slice(range),
+            source_range: start..end,
+            ..*self
         }
     }
 }
@@ -379,8 +407,9 @@ impl<'a> Slice<RangeTo<usize>> for InputWithContext<'a> {
 impl<'a> Slice<RangeFull> for InputWithContext<'a> {
     fn slice(&self, range: RangeFull) -> Self {
         InputWithContext {
-            i: self.i.slice(range),
-            ctx: self.ctx,
+            source: self.source.slice(range),
+            source_range: self.source_range.clone(),
+            ..*self
         }
     }
 }
