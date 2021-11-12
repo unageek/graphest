@@ -125,6 +125,7 @@ pub enum ExprKind {
     Nary(NaryOp, Vec<Expr>),
     Pown(Box<Expr>, i32),
     Rootn(Box<Expr>, u32),
+    Error,
     Uninit,
 }
 
@@ -188,6 +189,17 @@ macro_rules! constant {
     ($a:pat) => {
         $crate::ast::Expr {
             kind: $crate::ast::ExprKind::Constant(box $a),
+            ..
+        }
+    };
+}
+
+/// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Error`].
+#[macro_export]
+macro_rules! error {
+    () => {
+        $crate::ast::Expr {
+            kind: $crate::ast::ExprKind::Error,
             ..
         }
     };
@@ -297,6 +309,11 @@ impl Expr {
     /// Creates a new expression of kind [`ExprKind::Constant`].
     pub fn constant(x: Real) -> Self {
         Self::new(ExprKind::Constant(box x))
+    }
+
+    /// Creates a new expression of kind [`ExprKind::Error`].
+    pub fn error() -> Self {
+        Self::new(ExprKind::Error)
     }
 
     /// Creates a constant node with value -1.
@@ -472,6 +489,7 @@ impl Expr {
             nary!(List | Plus | Times, _) => None,
             pown!(_, _) => None,
             rootn!(_, _) => None,
+            error!() => None,
             uninit!() => panic!(),
         }
     }
@@ -752,6 +770,7 @@ impl Expr {
             binary!(_, x, y) => x.vars | y.vars,
             ternary!(_, x, y, z) => x.vars | y.vars | z.vars,
             nary!(_, xs) => xs.iter().fold(VarSet::EMPTY, |vs, x| vs | x.vars),
+            error!() => VarSet::EMPTY,
             uninit!() => panic!(),
         }
     }
@@ -819,6 +838,7 @@ impl<'a> fmt::Display for DumpShort<'a> {
             }
             pown!(x, n) => write!(f, "(Pown {} {})", x.dump_short(), n),
             rootn!(x, n) => write!(f, "(Rootn {} {})", x.dump_short(), n),
+            error!() => write!(f, "Error"),
             uninit!() => panic!(),
         }
     }

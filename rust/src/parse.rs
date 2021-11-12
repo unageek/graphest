@@ -9,7 +9,7 @@ use nom::{
     bytes::complete::{tag, take, take_while},
     character::complete::{char, digit0, digit1, one_of, satisfy, space0},
     combinator::{
-        all_consuming, consumed, cut, fail, map, map_opt, not, opt, peek, recognize, value,
+        all_consuming, consumed, cut, fail, map, map_opt, not, opt, peek, recognize, value, verify,
     },
     error::{context, ErrorKind, VerboseError, VerboseErrorKind},
     multi::{fold_many0, many0_count},
@@ -47,23 +47,6 @@ fn parse_decimal(mant: &str) -> Option<Rational> {
     Some(Rational::from(i) * ulp)
 }
 
-fn identifier_head(i: InputWithContext) -> ParseResult<char> {
-    satisfy(|c| c.is_alphabetic())(i)
-}
-
-fn identifier_tail(i: InputWithContext) -> ParseResult<&str> {
-    map(
-        recognize(many0_count(satisfy(|c| c.is_alphanumeric() || c == '\''))),
-        |i: InputWithContext| i.source,
-    )(i)
-}
-
-fn identifier(i: InputWithContext) -> ParseResult<&str> {
-    map(recognize(pair(identifier_head, identifier_tail)), |i| {
-        i.source
-    })(i)
-}
-
 fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
     map(
         alt((
@@ -88,10 +71,32 @@ fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
     })(i)
 }
 
+fn identifier_head(i: InputWithContext) -> ParseResult<char> {
+    satisfy(|c| c.is_alphabetic())(i)
+}
+
+fn identifier_tail(i: InputWithContext) -> ParseResult<&str> {
+    map(
+        recognize(many0_count(satisfy(|c| c.is_alphanumeric() || c == '\''))),
+        |i: InputWithContext| i.source,
+    )(i)
+}
+
+fn identifier(i: InputWithContext) -> ParseResult<&str> {
+    map(recognize(pair(identifier_head, identifier_tail)), |i| {
+        i.source
+    })(i)
+}
+
 fn named_constant(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
     map_opt(identifier, move |name| ctx.get_constant(name))(i)
+}
+
+fn function_name(i: InputWithContext) -> ParseResult<&str> {
+    let ctx = i.ctx;
+    verify(identifier, move |name| ctx.is_function(name))(i)
 }
 
 /// Nonempty, comma-separated list of expressions.
@@ -111,11 +116,11 @@ fn expr_list(i: InputWithContext) -> ParseResult<Vec<Expr>> {
 fn function_application(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
-    map_opt(
+    map(
         pair(
-            identifier,
+            function_name,
             delimited(
-                delimited(space0, char('('), space0),
+                delimited(space0, cut(char('(')), space0),
                 cut(expr_list),
                 preceded(space0, cut(char(')'))),
             ),
@@ -171,7 +176,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 ),
                 |xs| Expr::nary(NaryOp::List, xs),
             ),
-            map_opt(
+            map(
                 delimited(
                     delimited(char('|'), peek(not(char('|'))), space0),
                     // Certainly not an OR expression. We can cut when no expression is found.
@@ -180,7 +185,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 ),
                 move |x| ctx.apply("abs", vec![x]),
             ),
-            map_opt(
+            map(
                 delimited(
                     terminated(char('|'), space0),
                     // Possibly an OR expression. We cannot cut when no expression is found.
@@ -189,7 +194,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 ),
                 move |x| ctx.apply("abs", vec![x]),
             ),
-            map_opt(
+            map(
                 delimited(
                     terminated(char('⌈'), space0),
                     cut(expr),
@@ -197,7 +202,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 ),
                 move |x| ctx.apply("ceil", vec![x]),
             ),
-            map_opt(
+            map(
                 delimited(
                     terminated(char('⌊'), space0),
                     cut(expr),
@@ -226,7 +231,7 @@ fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
         move |(x, y)| match y {
             Some(y) => {
                 let range = x.source_range.start..y.source_range.end;
-                ctx.apply("^", vec![x, y]).unwrap().with_source_range(range)
+                ctx.apply("^", vec![x, y]).with_source_range(range)
             }
             _ => x,
         },
@@ -248,11 +253,7 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 space0,
                 cut(unary_expr),
             )),
-            move |(i, (op, x))| {
-                ctx.apply(op, vec![x])
-                    .unwrap()
-                    .with_source_range(i.source_range)
-            },
+            move |(i, (op, x))| ctx.apply(op, vec![x]).with_source_range(i.source_range),
         ),
         power_expr,
     ))(i)
@@ -281,7 +282,7 @@ fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
         move || x.clone(),
         move |xs, (op, y)| {
             let range = xs.source_range.start..y.source_range.end;
-            ctx.apply(op, vec![xs, y]).unwrap().with_source_range(range)
+            ctx.apply(op, vec![xs, y]).with_source_range(range)
         },
     )(i)
 }
@@ -305,7 +306,7 @@ fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
         move || x.clone(),
         move |xs, (op, y)| {
             let range = xs.source_range.start..y.source_range.end;
-            ctx.apply(op, vec![xs, y]).unwrap().with_source_range(range)
+            ctx.apply(op, vec![xs, y]).with_source_range(range)
         },
     )(i)
 }
@@ -347,16 +348,12 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
             } else {
                 let mut it = ops.iter().zip(sides.windows(2)).map(|(op, sides)| {
                     let range = sides[0].source_range.start..sides[1].source_range.end;
-                    ctx.apply(op, sides.to_vec())
-                        .unwrap()
-                        .with_source_range(range)
+                    ctx.apply(op, sides.to_vec()).with_source_range(range)
                 });
                 let x = it.next().unwrap();
                 it.fold(x, |xs, y| {
                     let range = xs.source_range.start..y.source_range.end;
-                    ctx.apply("&&", vec![xs, y])
-                        .unwrap()
-                        .with_source_range(range)
+                    ctx.apply("&&", vec![xs, y]).with_source_range(range)
                 })
             }
         },
@@ -375,9 +372,7 @@ fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
         move || x.clone(),
         move |xs, y| {
             let range = xs.source_range.start..y.source_range.end;
-            ctx.apply("&&", vec![xs, y])
-                .unwrap()
-                .with_source_range(range)
+            ctx.apply("&&", vec![xs, y]).with_source_range(range)
         },
     )(i)
 }
@@ -394,9 +389,7 @@ fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
         move || x.clone(),
         move |xs, y| {
             let range = xs.source_range.start..y.source_range.end;
-            ctx.apply("||", vec![xs, y])
-                .unwrap()
-                .with_source_range(range)
+            ctx.apply("||", vec![xs, y]).with_source_range(range)
         },
     )(i)
 }
@@ -459,7 +452,7 @@ fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> 
     let column_number = line[..line.offset(substring)].chars().count() + 1;
 
     format!(
-        r"relation:{line_number}:{column_number}: error: {message}
+        r"input:{line_number}:{column_number}: error: {message}
   {line}
   {caret:>column_number$}
 ",

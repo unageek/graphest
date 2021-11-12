@@ -11,6 +11,7 @@ use crate::{
     visit::*,
 };
 use inari::{const_interval, interval, DecInterval, Interval};
+use nom::Slice;
 use rug::Integer;
 use std::{
     collections::HashMap,
@@ -504,12 +505,20 @@ impl Relation {
 impl FromStr for Relation {
     type Err = String;
 
-    // TODO: Return a more meaningful error message.
     fn from_str(s: &str) -> Result<Self, String> {
         let mut e = parse_expr(s, Context::builtin_context())?;
         UpdateMetadata.visit_expr_mut(&mut e);
+        if let Some(e) = find_unknown_type_expr(&e) {
+            return Err(format!(
+                "cannot determine the value type of the expression: {}",
+                s.slice(e.source_range.clone())
+            ));
+        }
         if e.ty != ValueType::Boolean {
-            return Err("the relation must be a Boolean-valued expression".into());
+            return Err(format!(
+                "the relation must be a formula, while its type is {:?}",
+                e.ty
+            ));
         }
         NormalizeNotExprs.visit_expr_mut(&mut e);
         PreTransform.visit_expr_mut(&mut e);

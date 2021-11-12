@@ -109,8 +109,21 @@ impl Context {
     }
 
     /// Appends a definition to the context and returns `self`.
+    ///
+    /// Panics if there is already a definition that conflicts with the new one.
     fn def(mut self, name: &str, def: Def) -> Self {
         if let Some(defs) = self.defs.get_mut(name) {
+            for d in defs.iter() {
+                match (&def, d) {
+                    (Def::Constant { .. }, _) | (_, Def::Constant { .. }) => panic!(),
+                    (Def::Function { arity: a1, .. }, Def::Function { arity: a2, .. })
+                        if a1 == a2 =>
+                    {
+                        panic!()
+                    }
+                    _ => (),
+                }
+            }
             defs.push(def);
         } else {
             self.defs.insert(name.into(), vec![def]);
@@ -235,25 +248,24 @@ impl Context {
         &BUILTIN_CONTEXT
     }
 
-    pub fn apply(&self, name: &str, args: Vec<Expr>) -> Option<Expr> {
-        for d in self.defs.get(name)? {
+    /// Precondition: `name` is a function symbol.
+    pub fn apply(&self, name: &str, args: Vec<Expr>) -> Expr {
+        for d in self.defs.get(name).unwrap() {
             match *d {
                 Def::Function { arity, .. } if args.len() == arity => {
-                    let t = d.apply(args);
-                    return Some(t);
+                    return d.apply(args);
                 }
                 Def::Function {
                     left_associative, ..
                 } if left_associative && args.len() >= 2 => {
                     let mut it = args.into_iter();
                     let x0 = it.next().unwrap();
-                    let t = it.fold(x0, |t, x| d.apply(vec![t, x]));
-                    return Some(t);
+                    return it.fold(x0, |t, x| d.apply(vec![t, x]));
                 }
                 _ => (),
             }
         }
-        None
+        Expr::error()
     }
 
     pub fn get_constant(&self, name: &str) -> Option<Expr> {
@@ -263,6 +275,14 @@ impl Context {
             }
         }
         None
+    }
+
+    pub fn is_function(&self, name: &str) -> bool {
+        if let Some(defs) = self.defs.get(name) {
+            defs.iter().any(|d| matches!(d, Def::Function { .. }))
+        } else {
+            false
+        }
     }
 }
 
