@@ -5,6 +5,7 @@ use std::{
     collections::hash_map::DefaultHasher,
     fmt,
     hash::{Hash, Hasher},
+    ops::Range,
 };
 
 pub type ExprId = u32;
@@ -152,6 +153,7 @@ bitflags! {
 pub struct Expr {
     pub id: ExprId,
     pub kind: ExprKind,
+    pub source_range: Range<usize>,
     pub totally_defined: bool,
     pub ty: ValueType,
     pub vars: VarSet,
@@ -274,6 +276,7 @@ impl Expr {
         Self {
             id: UNINIT_EXPR_ID,
             kind,
+            source_range: 0..0,
             totally_defined: false,
             ty: ValueType::Unknown,
             vars: VarSet::EMPTY,
@@ -488,6 +491,11 @@ impl Expr {
             self.kind.hash(&mut hasher);
             hasher.finish()
         }
+    }
+
+    pub fn with_source_range(mut self, range: Range<usize>) -> Self {
+        self.source_range = range;
+        self
     }
 
     /// Returns `true` if the expression is real-valued and is defined on the entire domain.

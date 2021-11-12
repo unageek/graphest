@@ -8,15 +8,15 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{char, digit0, digit1, one_of, satisfy, space0},
-    combinator::{all_consuming, cut, map, map_opt, not, opt, peek, recognize, value},
-    error::VerboseError,
+    combinator::{all_consuming, consumed, cut, map, map_opt, not, opt, peek, recognize, value},
+    error::Error,
     multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
     Err as NomErr, IResult,
 };
 use rug::{Integer, Rational};
 
-type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
+type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, Error<InputWithContext<'a>>>;
 
 // Based on `inari::parse::parse_dec_float`.
 fn parse_decimal(mant: &str) -> Option<Rational> {
@@ -52,12 +52,14 @@ fn identifier_head(i: InputWithContext) -> ParseResult<char> {
 fn identifier_tail(i: InputWithContext) -> ParseResult<&str> {
     map(
         recognize(many0_count(satisfy(|c| c.is_alphanumeric() || c == '\''))),
-        |s: InputWithContext| s.i,
+        |i: InputWithContext| i.source,
     )(i)
 }
 
 fn identifier(i: InputWithContext) -> ParseResult<&str> {
-    map(recognize(pair(identifier_head, identifier_tail)), |s| s.i)(i)
+    map(recognize(pair(identifier_head, identifier_tail)), |i| {
+        i.source
+    })(i)
 }
 
 fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
@@ -68,17 +70,17 @@ fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
             // ".3"
             recognize(pair(char('.'), digit1)),
         )),
-        |s: InputWithContext| s.i,
+        |i: InputWithContext| i.source,
     )(i)
 }
 
 fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
     map(decimal_literal, |s| {
-        let interval_lit = ["[", s, "]"].concat();
         let x = if let Some(x_q) = parse_decimal(s) {
             Real::from(x_q)
         } else {
-            Real::from(dec_interval!(&interval_lit).unwrap())
+            let interval_literal = ["[", s, "]"].concat();
+            Real::from(dec_interval!(&interval_literal).unwrap())
         };
         Expr::constant(x)
     })(i)
@@ -86,7 +88,8 @@ fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
 
 fn named_constant(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
-    map_opt(identifier, move |s| ctx.get_constant(s))(i)
+
+    map_opt(identifier, move |name| ctx.get_constant(name))(i)
 }
 
 /// Nonempty, comma-separated list of expressions.
@@ -115,7 +118,7 @@ fn function_application(i: InputWithContext) -> ParseResult<Expr> {
                 preceded(space0, cut(char(')'))),
             ),
         ),
-        move |(s, args)| ctx.apply(s, args),
+        move |(name, args)| ctx.apply(name, args),
     )(i)
 }
 
@@ -126,49 +129,52 @@ fn variable(i: InputWithContext) -> ParseResult<Expr> {
 fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
-    alt((
-        decimal_constant,
-        named_constant,
-        function_application,
-        variable,
-        delimited(
-            terminated(char('('), space0),
-            expr,
-            preceded(space0, cut(char(')'))),
-        ),
-        map(
+    map(
+        consumed(alt((
+            decimal_constant,
+            named_constant,
+            function_application,
+            variable,
             delimited(
-                terminated(char('['), space0),
-                expr_list,
-                preceded(space0, cut(char(']'))),
-            ),
-            |xs| Expr::nary(NaryOp::List, xs),
-        ),
-        map_opt(
-            delimited(
-                terminated(terminated(char('|'), not(peek(char('|')))), space0),
+                terminated(char('('), space0),
                 expr,
-                preceded(space0, char('|')),
+                preceded(space0, cut(char(')'))),
             ),
-            move |x| ctx.apply("abs", vec![x]),
-        ),
-        map_opt(
-            delimited(
-                terminated(char('⌈'), space0),
-                expr,
-                preceded(space0, cut(char('⌉'))),
+            map(
+                delimited(
+                    terminated(char('['), space0),
+                    expr_list,
+                    preceded(space0, cut(char(']'))),
+                ),
+                |xs| Expr::nary(NaryOp::List, xs),
             ),
-            move |x| ctx.apply("ceil", vec![x]),
-        ),
-        map_opt(
-            delimited(
-                terminated(char('⌊'), space0),
-                expr,
-                preceded(space0, cut(char('⌋'))),
+            map_opt(
+                delimited(
+                    terminated(terminated(char('|'), not(peek(char('|')))), space0),
+                    expr,
+                    preceded(space0, char('|')),
+                ),
+                move |x| ctx.apply("abs", vec![x]),
             ),
-            move |x| ctx.apply("floor", vec![x]),
-        ),
-    ))(i)
+            map_opt(
+                delimited(
+                    terminated(char('⌈'), space0),
+                    expr,
+                    preceded(space0, cut(char('⌉'))),
+                ),
+                move |x| ctx.apply("ceil", vec![x]),
+            ),
+            map_opt(
+                delimited(
+                    terminated(char('⌊'), space0),
+                    expr,
+                    preceded(space0, cut(char('⌋'))),
+                ),
+                move |x| ctx.apply("floor", vec![x]),
+            ),
+        ))),
+        |(i, x)| x.with_source_range(i.source_range),
+    )(i)
 }
 
 // ^ is right-associative; x^y^z is the same as x^(y^z).
@@ -181,7 +187,10 @@ fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
             opt(preceded(delimited(space0, char('^'), space0), unary_expr)),
         ),
         move |(x, y)| match y {
-            Some(y) => ctx.apply("^", vec![x, y]).unwrap(),
+            Some(y) => {
+                let range = x.source_range.start..y.source_range.end;
+                ctx.apply("^", vec![x, y]).unwrap().with_source_range(range)
+            }
             _ => x,
         },
     )(i)
@@ -193,7 +202,7 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
     alt((
         preceded(pair(char('+'), space0), cut(unary_expr)),
         map(
-            separated_pair(
+            consumed(separated_pair(
                 alt((
                     value("~", char('~')),
                     value("-", one_of("-−")), // a hyphen-minus or a minus sign
@@ -201,8 +210,12 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 )),
                 space0,
                 cut(unary_expr),
-            ),
-            move |(op, x)| ctx.apply(op, vec![x]).unwrap(),
+            )),
+            move |(i, (op, x))| {
+                ctx.apply(op, vec![x])
+                    .unwrap()
+                    .with_source_range(i.source_range)
+            },
         ),
         power_expr,
     ))(i)
@@ -229,7 +242,10 @@ fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
             pair(value("*", space0), power_expr),
         )),
         move || x.clone(),
-        move |xs, (op, y)| ctx.apply(op, vec![xs, y]).unwrap(),
+        move |xs, (op, y)| {
+            let range = xs.source_range.start..y.source_range.end;
+            ctx.apply(op, vec![xs, y]).unwrap().with_source_range(range)
+        },
     )(i)
 }
 
@@ -250,14 +266,19 @@ fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
             cut(multiplicative_expr),
         ),
         move || x.clone(),
-        move |xs, (op, y)| ctx.apply(op, vec![xs, y]).unwrap(),
+        move |xs, (op, y)| {
+            let range = xs.source_range.start..y.source_range.end;
+            ctx.apply(op, vec![xs, y]).unwrap().with_source_range(range)
+        },
     )(i)
 }
 
-// Relational operators can be chained: x < y < z is the same as x < y && y < z.
+// Relational operators can be chained: x op1 y op2 z is equivalent to x op1 y ∧ y op2 z.
 fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
-    let (i, (ops, xs)) = map(additive_expr, |x| (vec![], vec![x]))(i)?;
+    let (i, side) = additive_expr(i)?;
+    let ops = vec![];
+    let sides = vec![side];
 
     map(
         fold_many0(
@@ -275,30 +296,31 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
                 ),
                 cut(additive_expr),
             ),
-            move || (ops.clone(), xs.clone()),
-            |(mut ops, mut xs), (op, y)| {
+            move || (ops.clone(), sides.clone()),
+            |(mut ops, mut sides), (op, side)| {
                 ops.push(op);
-                xs.push(y);
-                (ops, xs)
+                sides.push(side);
+                (ops, sides)
             },
         ),
-        move |(ops, xs)| {
-            assert_eq!(xs.len(), ops.len() + 1);
-            if ops.is_empty() {
-                xs[0].clone()
+        move |(ops, sides)| {
+            assert_eq!(sides.len(), ops.len() + 1);
+            if sides.len() == 1 {
+                sides[0].clone()
             } else {
-                let op = ops[0];
-                let x = xs[0].clone();
-                let y = xs[1].clone();
-                let mut t = ctx.apply(op, vec![x, y]).unwrap();
-                for i in 1..ops.len() {
-                    let op = ops[i];
-                    let x = xs[i].clone();
-                    let y = xs[i + 1].clone();
-                    let t2 = ctx.apply(op, vec![x, y]).unwrap();
-                    t = ctx.apply("&&", vec![t, t2]).unwrap();
-                }
-                t
+                let mut it = ops.iter().zip(sides.windows(2)).map(|(op, sides)| {
+                    let range = sides[0].source_range.start..sides[1].source_range.end;
+                    ctx.apply(op, sides.to_vec())
+                        .unwrap()
+                        .with_source_range(range)
+                });
+                let x = it.next().unwrap();
+                it.fold(x, |xs, y| {
+                    let range = xs.source_range.start..y.source_range.end;
+                    ctx.apply("&&", vec![xs, y])
+                        .unwrap()
+                        .with_source_range(range)
+                })
             }
         },
     )(i)
@@ -314,7 +336,12 @@ fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
             cut(relational_expr),
         ),
         move || x.clone(),
-        move |xs, y| ctx.apply("&&", vec![xs, y]).unwrap(),
+        move |xs, y| {
+            let range = xs.source_range.start..y.source_range.end;
+            ctx.apply("&&", vec![xs, y])
+                .unwrap()
+                .with_source_range(range)
+        },
     )(i)
 }
 
@@ -328,7 +355,12 @@ fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
             cut(and_expr),
         ),
         move || x.clone(),
-        move |xs, y| ctx.apply("||", vec![xs, y]).unwrap(),
+        move |xs, y| {
+            let range = xs.source_range.start..y.source_range.end;
+            ctx.apply("||", vec![xs, y])
+                .unwrap()
+                .with_source_range(range)
+        },
     )(i)
 }
 
@@ -337,10 +369,10 @@ fn expr(i: InputWithContext) -> ParseResult<Expr> {
 }
 
 /// Parses an expression.
-pub fn parse_expr(i: &str, ctx: &Context) -> Result<Expr, String> {
-    let i = InputWithContext::new(i, ctx);
+pub fn parse_expr(source: &str, ctx: &Context) -> Result<Expr, String> {
+    let i = InputWithContext::new(source, ctx);
     match all_consuming(delimited(space0, expr, space0))(i.clone()) {
-        Ok((InputWithContext { i: "", ctx: _ }, x)) => Ok(x),
+        Ok((InputWithContext { source: "", .. }, x)) => Ok(x),
         Err(NomErr::Error(e) | NomErr::Failure(e)) => Err(convert_error(i, e)),
         _ => unreachable!(),
     }
@@ -348,11 +380,11 @@ pub fn parse_expr(i: &str, ctx: &Context) -> Result<Expr, String> {
 
 // Based on `nom::error::convert_error`.
 #[allow(clippy::naive_bytecount)]
-fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> String {
+fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String {
     use nom::Offset;
 
-    let input = input.i;
-    let substring = e.errors.first().unwrap().0.i;
+    let input = input.source;
+    let substring = e.input.source;
     // Skip leading spaces for readability.
     let ws_chars = &[' ', '\t'][..];
     let substring = substring.trim_start_matches(ws_chars);
