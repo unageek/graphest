@@ -6,9 +6,9 @@ use crate::{
 use inari::dec_interval;
 use nom::{
     branch::alt,
-    bytes::complete::tag,
+    bytes::complete::{tag, take_till1},
     character::complete::{char, digit0, digit1, one_of, satisfy, space0},
-    combinator::{all_consuming, consumed, cut, map, map_opt, not, opt, peek, recognize, value},
+    combinator::{all_consuming, consumed, map, map_opt, map_parser, opt, recognize, value},
     error::Error,
     multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
@@ -115,7 +115,7 @@ fn function_application(i: InputWithContext) -> ParseResult<Expr> {
             delimited(
                 delimited(space0, char('('), space0),
                 expr_list,
-                preceded(space0, cut(char(')'))),
+                preceded(space0, char(')')),
             ),
         ),
         move |(name, args)| ctx.apply(name, args),
@@ -138,20 +138,23 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
             delimited(
                 terminated(char('('), space0),
                 expr,
-                preceded(space0, cut(char(')'))),
+                preceded(space0, char(')')),
             ),
             map(
                 delimited(
                     terminated(char('['), space0),
                     expr_list,
-                    preceded(space0, cut(char(']'))),
+                    preceded(space0, char(']')),
                 ),
                 |xs| Expr::nary(NaryOp::List, xs),
             ),
             map_opt(
                 delimited(
-                    terminated(terminated(char('|'), not(peek(char('|')))), space0),
-                    expr,
+                    terminated(char('|'), space0),
+                    alt((
+                        map_parser(take_till1(|c| c == '|'), all_consuming(expr)),
+                        expr,
+                    )),
                     preceded(space0, char('|')),
                 ),
                 move |x| ctx.apply("abs", vec![x]),
@@ -160,7 +163,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 delimited(
                     terminated(char('⌈'), space0),
                     expr,
-                    preceded(space0, cut(char('⌉'))),
+                    preceded(space0, char('⌉')),
                 ),
                 move |x| ctx.apply("ceil", vec![x]),
             ),
@@ -168,7 +171,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 delimited(
                     terminated(char('⌊'), space0),
                     expr,
-                    preceded(space0, cut(char('⌋'))),
+                    preceded(space0, char('⌋')),
                 ),
                 move |x| ctx.apply("floor", vec![x]),
             ),
@@ -200,7 +203,7 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
     alt((
-        preceded(pair(char('+'), space0), cut(unary_expr)),
+        preceded(pair(char('+'), space0), unary_expr),
         map(
             consumed(separated_pair(
                 alt((
@@ -209,7 +212,7 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
                     value("!", one_of("!¬")),
                 )),
                 space0,
-                cut(unary_expr),
+                unary_expr,
             )),
             move |(i, (op, x))| {
                 ctx.apply(op, vec![x])
@@ -235,7 +238,7 @@ fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
                     alt((value("*", char('*')), value("/", char('/')))),
                     space0,
                 ),
-                cut(unary_expr),
+                unary_expr,
             ),
             // 2x
             // x y
@@ -263,7 +266,7 @@ fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
                 )),
                 space0,
             ),
-            cut(multiplicative_expr),
+            multiplicative_expr,
         ),
         move || x.clone(),
         move |xs, (op, y)| {
@@ -294,7 +297,7 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
                     )),
                     space0,
                 ),
-                cut(additive_expr),
+                additive_expr,
             ),
             move || (ops.clone(), sides.clone()),
             |(mut ops, mut sides), (op, side)| {
@@ -333,7 +336,7 @@ fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
     fold_many0(
         preceded(
             delimited(space0, alt((tag("&&"), tag("∧"))), space0),
-            cut(relational_expr),
+            relational_expr,
         ),
         move || x.clone(),
         move |xs, y| {
@@ -352,7 +355,7 @@ fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
     fold_many0(
         preceded(
             delimited(space0, alt((tag("||"), tag("∨"))), space0),
-            cut(and_expr),
+            and_expr,
         ),
         move || x.clone(),
         move |xs, y| {
@@ -450,7 +453,8 @@ mod tests {
         test("i", "(Complex 0 1)");
         test("[x, y, z]", "(List x y z)");
         test("|x|", "(Abs x)");
-        test("|(|x| + y)|", "(Abs (Add (Abs x) y))");
+        test("||x| + y|", "(Abs (Add (Abs x) y))");
+        test("|x + |y||", "(Abs (Add x (Abs y)))");
         test("⌈x⌉", "(Ceil x)");
         test("⌊x⌋", "(Floor x)");
         test("abs(x)", "(Abs x)");
