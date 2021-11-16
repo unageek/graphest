@@ -12,7 +12,7 @@ use nom::{
     error::Error,
     multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
-    Err as NomErr, IResult,
+    Finish, IResult,
 };
 use rug::{Integer, Rational};
 
@@ -371,10 +371,9 @@ fn expr(i: InputWithContext) -> ParseResult<Expr> {
 /// Parses an expression.
 pub fn parse_expr(source: &str, ctx: &Context) -> Result<Expr, String> {
     let i = InputWithContext::new(source, ctx);
-    match all_consuming(delimited(space0, expr, space0))(i.clone()) {
-        Ok((InputWithContext { source: "", .. }, x)) => Ok(x),
-        Err(NomErr::Error(e) | NomErr::Failure(e)) => Err(convert_error(i, e)),
-        _ => unreachable!(),
+    match all_consuming(delimited(space0, expr, space0))(i.clone()).finish() {
+        Ok((_, x)) => Ok(x),
+        Err(e) => Err(convert_error(i, e)),
     }
 }
 
