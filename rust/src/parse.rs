@@ -6,29 +6,17 @@ use crate::{
 use inari::dec_interval;
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_till1},
+    bytes::complete::{tag, take, take_while},
     character::complete::{char, digit0, digit1, one_of, satisfy, space0},
-    combinator::{all_consuming, consumed, cut, map, map_opt, map_parser, opt, recognize, value},
+    combinator::{all_consuming, consumed, cut, map, map_opt, opt, recognize, value},
     error::Error,
     multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
-    Finish, IResult,
+    Finish, IResult, InputLength,
 };
 use rug::{Integer, Rational};
 
 type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, Error<InputWithContext<'a>>>;
-
-/// Transforms [`nom::Err::Failure`] back to [`nom::Err::Error`].
-fn decut<I, O, E, F>(mut parser: F) -> impl FnMut(I) -> IResult<I, O, E>
-where
-    E: nom::error::ParseError<I>,
-    F: nom::Parser<I, O, E>,
-{
-    move |i: I| match parser.parse(i) {
-        Err(nom::Err::Failure(e)) => Err(nom::Err::Error(e)),
-        rest => rest,
-    }
-}
 
 // Based on `inari::parse::parse_dec_float`.
 fn parse_decimal(mant: &str) -> Option<Rational> {
@@ -138,6 +126,24 @@ fn variable(i: InputWithContext) -> ParseResult<Expr> {
     map(identifier, Expr::var)(i)
 }
 
+fn shortest_expr_within_bars(i: InputWithContext) -> ParseResult<Expr> {
+    let mut min_len = 0;
+
+    loop {
+        // In kth iteration, the next line tries to take the longest input
+        // that contains exactly 2(k - 1) bars.
+        let (rest, taken) = recognize(pair(take(min_len), take_while(|c| c != '|')))(i.clone())?;
+        min_len = taken.input_len() + 1;
+
+        if let Ok((_, x)) = all_consuming(expr)(taken) {
+            return Ok((rest, x));
+        }
+
+        let (_, taken) = recognize(pair(take(min_len), take_while(|c| c != '|')))(i.clone())?;
+        min_len = taken.input_len() + 1;
+    }
+}
+
 fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
@@ -163,11 +169,8 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
             map_opt(
                 delimited(
                     terminated(char('|'), space0),
-                    alt((
-                        map_parser(take_till1(|c| c == '|'), decut(all_consuming(expr))),
-                        expr,
-                    )),
-                    preceded(space0, char('|')),
+                    shortest_expr_within_bars,
+                    preceded(space0, cut(char('|'))),
                 ),
                 move |x| ctx.apply("abs", vec![x]),
             ),
@@ -467,6 +470,10 @@ mod tests {
         test("|x|", "(Abs x)");
         test("||x| + y|", "(Abs (Add (Abs x) y))");
         test("|x + |y||", "(Abs (Add x (Abs y)))");
+        test(
+            "y = ||x|| || |||x|| + |||y|||| = y",
+            "(Or (Eq y (Abs (Abs x))) (Eq (Abs (Add (Abs (Abs x)) (Abs (Abs (Abs y))))) y))",
+        );
         test("⌈x⌉", "(Ceil x)");
         test("⌊x⌋", "(Floor x)");
         test("abs(x)", "(Abs x)");
