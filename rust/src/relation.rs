@@ -392,8 +392,6 @@ impl Relation {
     }
 
     fn eval_with_cache(&mut self, args: &RelationArgs, cache: &mut EvalCache) -> EvalResult {
-        use StaticTermKind::*;
-
         let x = args.x;
         let y = args.y;
 
@@ -424,12 +422,16 @@ impl Relation {
 
         for t in terms {
             match t.kind {
-                Var if t.vars == VarSet::X => t.put(ts, DecInterval::new(x).into()),
-                Var if t.vars == VarSet::Y => t.put(ts, DecInterval::new(y).into()),
-                Var if t.vars == VarSet::N_THETA => {
-                    t.put(ts, DecInterval::new(args.n_theta).into())
+                StaticTermKind::Var => {
+                    let x = match t.vars {
+                        VarSet::X => x,
+                        VarSet::Y => y,
+                        VarSet::N_THETA => args.n_theta,
+                        VarSet::T => args.t,
+                        _ => panic!(),
+                    };
+                    t.put(ts, DecInterval::new(x).into());
                 }
-                Var if t.vars == VarSet::T => t.put(ts, DecInterval::new(args.t).into()),
                 _ if t.vars == VarSet::EMPTY
                     || t.vars == VarSet::X && mx_ts_is_cached
                     || t.vars == VarSet::Y && my_ts_is_cached =>
@@ -459,18 +461,20 @@ impl Relation {
     }
 
     fn eval_without_cache(&mut self, args: &RelationArgs) -> EvalResult {
-        use StaticTermKind::*;
-
         let ts = &mut self.ts;
         let terms = &self.terms;
         for t in terms {
             match t.kind {
-                Var if t.vars == VarSet::X => t.put(ts, DecInterval::new(args.x).into()),
-                Var if t.vars == VarSet::Y => t.put(ts, DecInterval::new(args.y).into()),
-                Var if t.vars == VarSet::N_THETA => {
-                    t.put(ts, DecInterval::new(args.n_theta).into())
+                StaticTermKind::Var => {
+                    let x = match t.vars {
+                        VarSet::X => args.x,
+                        VarSet::Y => args.y,
+                        VarSet::N_THETA => args.n_theta,
+                        VarSet::T => args.t,
+                        _ => panic!(),
+                    };
+                    t.put(ts, DecInterval::new(x).into());
                 }
-                Var if t.vars == VarSet::T => t.put(ts, DecInterval::new(args.t).into()),
                 _ if t.vars == VarSet::EMPTY => {
                     // `t` is constant.
                 }
