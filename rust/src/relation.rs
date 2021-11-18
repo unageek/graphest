@@ -392,6 +392,8 @@ impl Relation {
     }
 
     fn eval_with_cache(&mut self, args: &RelationArgs, cache: &mut EvalCache) -> EvalResult {
+        use StaticTermKind::*;
+
         let x = args.x;
         let y = args.y;
 
@@ -422,15 +424,17 @@ impl Relation {
 
         for t in terms {
             match t.kind {
-                StaticTermKind::X => t.put(ts, DecInterval::new(x).into()),
-                StaticTermKind::Y => t.put(ts, DecInterval::new(y).into()),
-                StaticTermKind::NTheta => t.put(ts, DecInterval::new(args.n_theta).into()),
-                StaticTermKind::T => t.put(ts, DecInterval::new(args.t).into()),
+                Var if t.vars == VarSet::X => t.put(ts, DecInterval::new(x).into()),
+                Var if t.vars == VarSet::Y => t.put(ts, DecInterval::new(y).into()),
+                Var if t.vars == VarSet::N_THETA => {
+                    t.put(ts, DecInterval::new(args.n_theta).into())
+                }
+                Var if t.vars == VarSet::T => t.put(ts, DecInterval::new(args.t).into()),
                 _ if t.vars == VarSet::EMPTY
                     || t.vars == VarSet::X && mx_ts_is_cached
                     || t.vars == VarSet::Y && my_ts_is_cached =>
                 {
-                    // Constant or cached subexpression.
+                    // `t` is constant or cached.
                 }
                 _ => t.put_eval(ts),
             }
@@ -455,16 +459,20 @@ impl Relation {
     }
 
     fn eval_without_cache(&mut self, args: &RelationArgs) -> EvalResult {
+        use StaticTermKind::*;
+
         let ts = &mut self.ts;
         let terms = &self.terms;
         for t in terms {
             match t.kind {
-                StaticTermKind::X => t.put(ts, DecInterval::new(args.x).into()),
-                StaticTermKind::Y => t.put(ts, DecInterval::new(args.y).into()),
-                StaticTermKind::NTheta => t.put(ts, DecInterval::new(args.n_theta).into()),
-                StaticTermKind::T => t.put(ts, DecInterval::new(args.t).into()),
+                Var if t.vars == VarSet::X => t.put(ts, DecInterval::new(args.x).into()),
+                Var if t.vars == VarSet::Y => t.put(ts, DecInterval::new(args.y).into()),
+                Var if t.vars == VarSet::N_THETA => {
+                    t.put(ts, DecInterval::new(args.n_theta).into())
+                }
+                Var if t.vars == VarSet::T => t.put(ts, DecInterval::new(args.t).into()),
                 _ if t.vars == VarSet::EMPTY => {
-                    // Constant subexpression.
+                    // `t` is constant.
                 }
                 _ => t.put_eval(ts),
             }

@@ -133,10 +133,7 @@ pub enum RelOp {
 #[derive(Clone, Debug)]
 pub enum StaticTermKind {
     Constant(Box<TupperIntervalSet>),
-    X,
-    Y,
-    NTheta,
-    T,
+    Var,
     Unary(ScalarUnaryOp, StoreIndex),
     Binary(ScalarBinaryOp, StoreIndex, StoreIndex),
     Ternary(ScalarTernaryOp, StoreIndex, StoreIndex, StoreIndex),
@@ -164,8 +161,7 @@ impl StaticTerm {
 
     /// Evaluates the term and puts the result in the value store.
     ///
-    /// Panics if the term is of the kind [`StaticTermKind::X`], [`StaticTermKind::Y`]
-    /// or [`StaticTermKind::NTheta`].
+    /// Panics if the term is of the kind [`StaticTermKind::Var`].
     pub fn put_eval(&self, ts: &mut ValueStore<TupperIntervalSet>) {
         use {
             RankedMinMaxOp::*, ScalarBinaryOp::*, ScalarTernaryOp::*, ScalarUnaryOp::*,
@@ -266,7 +262,7 @@ impl StaticTerm {
                     ),
                 );
             }
-            X | Y | NTheta | T => panic!("this term cannot be evaluated"),
+            Var => panic!("variables cannot be evaluated"),
         }
     }
 }

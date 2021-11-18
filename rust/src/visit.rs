@@ -1489,11 +1489,7 @@ impl CollectStatic {
             let k = match &*t {
                 bool_constant!(_) => None,
                 constant!(x) => Some(StaticTermKind::Constant(box x.interval().clone())),
-                var!(x) if x == "x" => Some(StaticTermKind::X),
-                var!(x) if x == "y" => Some(StaticTermKind::Y),
-                var!(x) if x == "<n-theta>" => Some(StaticTermKind::NTheta),
-                var!(x) if x == "t" => Some(StaticTermKind::T),
-                var!(_) => panic!(),
+                var!(_) => Some(StaticTermKind::Var),
                 unary!(op, x) => (|| {
                     Some(match op {
                         Abs => ScalarUnaryOp::Abs,
