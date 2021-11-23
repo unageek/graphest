@@ -8,15 +8,17 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take, take_while},
     character::complete::{char, digit0, digit1, one_of, satisfy, space0},
-    combinator::{all_consuming, consumed, cut, map, map_opt, opt, recognize, value},
-    error::Error,
+    combinator::{
+        all_consuming, consumed, cut, fail, map, map_opt, not, opt, peek, recognize, value,
+    },
+    error::{context, ErrorKind, VerboseError, VerboseErrorKind},
     multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
     Finish, IResult, InputLength,
 };
 use rug::{Integer, Rational};
 
-type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, Error<InputWithContext<'a>>>;
+type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
 
 // Based on `inari::parse::parse_dec_float`.
 fn parse_decimal(mant: &str) -> Option<Rational> {
@@ -97,7 +99,7 @@ fn expr_list(i: InputWithContext) -> ParseResult<Vec<Expr>> {
     let (i, x) = expr(i)?;
 
     fold_many0(
-        preceded(delimited(space0, char(','), space0), expr),
+        preceded(delimited(space0, char(','), space0), cut(expr)),
         move || vec![x.clone()],
         |mut xs, x| {
             xs.push(x);
@@ -114,7 +116,7 @@ fn function_application(i: InputWithContext) -> ParseResult<Expr> {
             identifier,
             delimited(
                 delimited(space0, char('('), space0),
-                expr_list,
+                cut(expr_list),
                 preceded(space0, cut(char(')'))),
             ),
         ),
@@ -135,8 +137,11 @@ fn shortest_expr_within_bars(i: InputWithContext) -> ParseResult<Expr> {
         let (rest, taken) = recognize(pair(take(min_len), take_while(|c| c != '|')))(i.clone())?;
         min_len = taken.input_len() + 1;
 
-        if let Ok((_, x)) = all_consuming(expr)(taken) {
+        if let Ok((_, x)) = all_consuming(expr)(taken.clone()) {
             return Ok((rest, x));
+        } else if rest.input_len() == 0 {
+            // Reached the end of input. All we can do is return a meaningful error.
+            return expr(taken);
         }
 
         let (_, taken) = recognize(pair(take(min_len), take_while(|c| c != '|')))(i.clone())?;
@@ -155,20 +160,30 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
             variable,
             delimited(
                 terminated(char('('), space0),
-                expr,
+                cut(expr),
                 preceded(space0, cut(char(')'))),
             ),
             map(
                 delimited(
                     terminated(char('['), space0),
-                    expr_list,
+                    cut(expr_list),
                     preceded(space0, cut(char(']'))),
                 ),
                 |xs| Expr::nary(NaryOp::List, xs),
             ),
             map_opt(
                 delimited(
+                    delimited(char('|'), peek(not(char('|'))), space0),
+                    // Certainly not an OR expression. We can cut when no expression is found.
+                    cut(shortest_expr_within_bars),
+                    preceded(space0, cut(char('|'))),
+                ),
+                move |x| ctx.apply("abs", vec![x]),
+            ),
+            map_opt(
+                delimited(
                     terminated(char('|'), space0),
+                    // Possibly an OR expression. We cannot cut when no expression is found.
                     shortest_expr_within_bars,
                     preceded(space0, cut(char('|'))),
                 ),
@@ -177,7 +192,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
             map_opt(
                 delimited(
                     terminated(char('⌈'), space0),
-                    expr,
+                    cut(expr),
                     preceded(space0, cut(char('⌉'))),
                 ),
                 move |x| ctx.apply("ceil", vec![x]),
@@ -185,24 +200,28 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
             map_opt(
                 delimited(
                     terminated(char('⌊'), space0),
-                    expr,
+                    cut(expr),
                     preceded(space0, cut(char('⌋'))),
                 ),
                 move |x| ctx.apply("floor", vec![x]),
             ),
+            context("expected an expression", fail),
         ))),
         |(i, x)| x.with_source_range(i.source_range),
     )(i)
 }
 
-// ^ is right-associative; x^y^z is the same as x^(y^z).
+// ^ is right-associative; x^y^z is equivalent to x^(y^z).
 fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
     let ctx = i.ctx;
 
     map(
         pair(
             primary_expr,
-            opt(preceded(delimited(space0, char('^'), space0), unary_expr)),
+            opt(preceded(
+                delimited(space0, char('^'), space0),
+                cut(unary_expr),
+            )),
         ),
         move |(x, y)| match y {
             Some(y) => {
@@ -397,18 +416,24 @@ pub fn parse_expr(source: &str, ctx: &Context) -> Result<Expr, String> {
 
 // Based on `nom::error::convert_error`.
 #[allow(clippy::naive_bytecount)]
-fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String {
+fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> String {
     use nom::Offset;
 
-    let input = input.source;
-    let substring = e.input.source;
-    // Skip leading spaces for readability.
-    let ws_chars = &[' ', '\t'][..];
-    let substring = substring.trim_start_matches(ws_chars);
-    let message = match substring.split(ws_chars).next() {
-        Some(word) if !word.is_empty() => format!("unexpected input around '{}'", word),
-        _ => "unexpected end of input".into(),
+    let error = e
+        .errors
+        .iter()
+        .find(|e| matches!(e.1, VerboseErrorKind::Context(_)))
+        .or_else(|| e.errors.first())
+        .unwrap();
+    let message = match error.1 {
+        VerboseErrorKind::Context(message) => message.to_owned(),
+        VerboseErrorKind::Char(c) => format!("expected '{}'", c),
+        VerboseErrorKind::Nom(ErrorKind::Eof) => "expected end of input".to_owned(),
+        _ => panic!(),
     };
+
+    let input = input.source;
+    let substring = error.0.source;
     let offset = input.offset(substring);
 
     let prefix = &input.as_bytes()[..offset];
@@ -420,8 +445,7 @@ fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String 
     // Find the *last* newline before the substring starts
     let line_begin = prefix
         .iter()
-        .rev()
-        .position(|&b| b == b'\n')
+        .rposition(|&b| b == b'\n')
         .map(|pos| offset - pos)
         .unwrap_or(0);
 
@@ -429,21 +453,17 @@ fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String 
     let line = input[line_begin..]
         .lines()
         .next()
-        .unwrap_or(&input[line_begin..])
-        .trim_end();
+        .unwrap_or(&input[line_begin..]);
 
     // The (1-indexed) column number is the offset of our substring into that line
     let column_number = line[..line.offset(substring)].chars().count() + 1;
 
     format!(
-        "{message} at line {line_number}:\n\
-               {line}\n\
-               {caret:>column$}\n\n",
-        message = message,
-        line_number = line_number,
-        line = line,
+        r"relation:{line_number}:{column_number}: error: {message}
+  {line}
+  {caret:>column_number$}
+",
         caret = '^',
-        column = column_number,
     )
 }
 
