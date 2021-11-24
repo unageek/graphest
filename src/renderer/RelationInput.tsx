@@ -1,13 +1,37 @@
-import { ITextField, TextField } from "@fluentui/react";
+import { debounce } from "lodash";
 import * as React from "react";
 import {
   RefObject,
+  useCallback,
   useEffect,
   useImperativeHandle,
-  useRef,
+  useMemo,
   useState,
 } from "react";
-import * as ipc from "../common/ipc";
+import {
+  BaseEditor,
+  createEditor,
+  Descendant,
+  Editor,
+  Node,
+  NodeEntry,
+  Range,
+  Text,
+  Transforms,
+} from "slate";
+import { withHistory } from "slate-history";
+import {
+  Editable,
+  ReactEditor,
+  RenderLeafProps,
+  Slate,
+  withReact,
+} from "slate-react";
+import {
+  normalizeRelation,
+  syntaxHighlight,
+  validateRelation,
+} from "./relationUtils";
 
 export interface RelationInputActions {
   insertSymbol: (symbol: string) => void;
@@ -23,139 +47,192 @@ export interface RelationInputProps {
   relationInputByUser: boolean;
 }
 
-interface Selection {
-  start: number;
-  end: number;
+type CustomElement = { children: CustomText[] };
+type CustomText = { text: string; error: boolean; highlight: boolean };
+
+declare module "slate" {
+  interface CustomTypes {
+    Editor: BaseEditor & ReactEditor;
+    Element: CustomElement;
+    Text: CustomText;
+  }
 }
 
-export const RelationInput = (props: RelationInputProps): JSX.Element => {
-  const [rawRelation, setRawRelation] = useState(props.relation);
-  const [hasError, setHasError] = useState(false);
-  const textFieldRef = useRef<ITextField>(null);
+type DecorateRange = Range & { error: boolean; highlight: boolean };
 
-  useEffect(() => {
-    if (!props.relationInputByUser) {
-      setRawRelation(props.relation);
+const withRelationNormalization = (editor: Editor) => {
+  const { normalizeNode } = editor;
+  editor.normalizeNode = (entry) => {
+    const [node, path] = entry;
+
+    if (Text.isText(node)) {
+      const t = normalizeRelation(node.text);
+      if (t !== node.text) {
+        const lastSel = editor.selection;
+        // `path` refers to the entire `Text` node, so this replaces the text.
+        Transforms.insertText(editor, t, { at: path });
+        if (lastSel) {
+          Transforms.setSelection(editor, lastSel);
+        }
+      }
+      return;
     }
-  }, [props.relation]);
+
+    normalizeNode(entry);
+  };
+
+  return editor;
+};
+
+const renderLeaf = (props: RenderLeafProps) => {
+  const { attributes, leaf } = props;
+  let { children } = props;
+
+  if (leaf.error) {
+    children = <span className="error">{children}</span>;
+  }
+  if (leaf.highlight) {
+    children = <span className="highlight">{children}</span>;
+  }
+
+  return <span {...attributes}>{children}</span>;
+};
+
+export const RelationInput = (props: RelationInputProps) => {
+  const editor = useMemo(
+    () => withRelationNormalization(withHistory(withReact(createEditor()))),
+    []
+  );
+  const [value, setValue] = useState<Descendant[]>([
+    {
+      children: [{ text: props.relation, error: false, highlight: false }],
+    },
+  ]);
+  const validate = useCallback(
+    debounce(async (rel: string) => {
+      const valid = await validateRelation(rel);
+      if (valid) {
+        props.onRelationChanged(rel);
+      }
+    }, 200),
+    [editor]
+  );
+
+  function decorate(entry: NodeEntry): Range[] {
+    const [node, path] = entry;
+    const ranges: DecorateRange[] = [];
+    if (!Text.isText(node)) return ranges;
+
+    const sel = editor.selection;
+    if (!sel) return ranges;
+
+    const rel = Editor.string(editor, path);
+    const decs = syntaxHighlight(rel, [
+      Range.start(sel).offset,
+      Range.end(sel).offset,
+    ]);
+    for (const pos of decs.error) {
+      ranges.push({
+        anchor: { path, offset: pos },
+        focus: { path, offset: pos + 1 },
+        error: true,
+        highlight: false,
+      });
+    }
+    for (const pos of decs.highlight) {
+      ranges.push({
+        anchor: { path, offset: pos },
+        focus: { path, offset: pos + 1 },
+        error: false,
+        highlight: true,
+      });
+    }
+
+    return ranges;
+  }
+
+  function moveCursorToTheEnd() {
+    Transforms.select(editor, {
+      anchor: Editor.end(editor, [editor.children.length - 1]),
+      focus: Editor.end(editor, [editor.children.length - 1]),
+    });
+  }
 
   useEffect(() => {
-    textFieldRef.current?.focus();
-  }, [textFieldRef]);
+    ReactEditor.focus(editor);
+    moveCursorToTheEnd();
+  }, [editor]);
+
+  useEffect(() => {
+    if (props.relationInputByUser) return;
+
+    Editor.withoutNormalizing(editor, () => {
+      Transforms.delete(editor, {
+        at: {
+          anchor: Editor.start(editor, [0]),
+          focus: Editor.end(editor, [editor.children.length - 1]),
+        },
+      });
+      Transforms.insertText(editor, props.relation, {
+        at: Editor.start(editor, [0]),
+      });
+      moveCursorToTheEnd();
+    });
+  }, [props.relation]);
 
   useImperativeHandle(props.actionsRef, () => ({
     insertSymbol: (symbol: string) => {
-      const s = getSelection();
-      if (!s) return;
-
-      const r = rawRelation;
-      setRawRelation(r.slice(0, s.start) + symbol + r.slice(s.end));
-
-      const start = s.start + symbol.length;
-      const end = start;
-      setSelectionDeferred({ start, end });
+      Transforms.insertText(editor, symbol);
     },
     insertSymbolPair: (first: string, second: string) => {
-      const s = getSelection();
-      if (!s) return;
+      Editor.withoutNormalizing(editor, () => {
+        // Do not read `editor.selection` after any transformation.
+        // See https://github.com/ianstormtaylor/slate/issues/4541
+        const sel = editor.selection;
+        if (!sel) return;
 
-      const r = rawRelation;
-      setRawRelation(
-        r.slice(0, s.start) +
-          first +
-          r.slice(s.start, s.end) +
-          second +
-          r.slice(s.end)
-      );
+        const selRef = Editor.rangeRef(editor, sel);
+        if (!selRef.current) return;
 
-      const [start, end] =
-        s.start === s.end
-          ? [s.start + first.length, s.start + first.length]
-          : [
-              s.start,
-              s.start + (first.length + (s.end - s.start) + second.length),
-            ];
-      setSelectionDeferred({ start, end });
+        Transforms.insertText(editor, first, {
+          at: Editor.start(editor, selRef.current),
+        });
+
+        const lastSel = selRef.current;
+        Transforms.insertText(editor, second, {
+          at: Editor.end(editor, lastSel),
+        });
+        // Revert the move of the end cursor by `Transforms.insertText`.
+        Transforms.setSelection(editor, lastSel);
+
+        selRef.unref();
+      });
     },
   }));
 
-  async function getErrorMessage(relation: string): Promise<string> {
-    const { error } = await window.ipcRenderer.invoke<ipc.ValidateRelation>(
-      ipc.validateRelation,
-      relation
-    );
-    if (error !== undefined) {
-      setHasError(true);
-      return "invalid relation";
-    } else {
-      setHasError(false);
-      props.onRelationChanged(relation);
-      return "";
-    }
-  }
-
-  function getSelection(): Selection | undefined {
-    const start = textFieldRef.current?.selectionStart ?? null;
-    const end = textFieldRef.current?.selectionEnd ?? null;
-    return start === null || start === -1 || end === null || end === -1
-      ? undefined
-      : { start, end };
-  }
-
-  function normalizeRelation(relation: string): string {
-    // Replace every hyphen-minus with a minus sign.
-    return relation.replaceAll("-", "−");
-  }
-
-  function setSelectionDeferred(selection: Selection) {
-    window.setTimeout(() => {
-      textFieldRef.current?.setSelectionRange(selection.start, selection.end);
-    }, 0);
-  }
-
   return (
-    <TextField
-      borderless={!hasError}
-      componentRef={textFieldRef}
-      onChange={(_, relation) => {
-        if (relation === undefined) {
-          return;
-        }
-        const s = getSelection();
-        setHasError(false);
-        setRawRelation(normalizeRelation(relation));
-        if (s) {
-          setSelectionDeferred(s);
-        }
+    <Slate
+      editor={editor}
+      onChange={(newValue) => {
+        setValue(newValue);
+        validate(Node.string(editor));
       }}
-      onGetErrorMessage={getErrorMessage}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          props.onEnterKeyPressed();
-        }
-      }}
-      styles={(p) => {
-        return {
-          root: {
-            flexGrow: props.grow ? 1 : undefined,
-          },
-          wrapper: {
-            height: "100%",
-          },
-          fieldGroup: {
-            height: "100%",
-            background: p.focused ? undefined : "transparent",
-          },
-          field: {
-            height: "100%",
-            fontSize: "18px",
-          },
-          errorMessage: {
-            display: "none",
-          },
-        };
-      }}
-      value={rawRelation}
-    />
+      value={value}
+    >
+      <Editable
+        className="relation-input"
+        decorate={decorate}
+        onKeyDown={(e: KeyboardEvent) => {
+          if (e.key === "Enter") {
+            props.onEnterKeyPressed();
+            e.preventDefault();
+          }
+        }}
+        renderLeaf={renderLeaf}
+        style={{
+          flexGrow: props.grow ? 1 : undefined,
+        }}
+      />
+    </Slate>
   );
 };

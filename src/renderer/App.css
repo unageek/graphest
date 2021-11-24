@@ -26,3 +26,18 @@ a:not([draggable]) {
   filter: blur(0.5px);
   opacity: 0.5;
 }
+
+.relation-input {
+  align-items: center;
+  display: flex;
+  font-size: 18px;
+  padding: 0px 8px;
+}
+
+.relation-input span.error {
+  color: #dd3ed4;
+}
+
+.relation-input:focus span.highlight {
+  background-color: #a7ff35;
+}
