@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, TernaryOp, UnaryOp},
+    ast::{BinaryOp, Expr, TernaryOp, UnaryOp, ValueType, VarSet},
     real::Real,
     visit::{Substitute, VisitMut},
 };
@@ -17,7 +17,7 @@ use std::{
 
 /// A definition of a constant or a function in terms of the AST.
 #[derive(Clone, Debug)]
-enum Def {
+pub enum Def {
     Constant {
         body: Expr,
     },
@@ -26,6 +26,23 @@ enum Def {
         body: Expr,
         left_associative: bool,
     },
+}
+
+#[derive(Clone, Debug)]
+pub struct VarProps {
+    pub totally_defined: bool,
+    pub ty: ValueType,
+    pub vars: VarSet,
+}
+
+impl Default for VarProps {
+    fn default() -> Self {
+        Self {
+            totally_defined: false,
+            ty: ValueType::Unknown,
+            vars: VarSet::EMPTY,
+        }
+    }
 }
 
 impl Def {
@@ -41,6 +58,15 @@ impl Def {
         Self::Constant {
             body: Expr::constant(x),
         }
+    }
+
+    /// Creates a definition of a variable.
+    pub fn var(name: &str, props: VarProps) -> Self {
+        let mut e = Expr::var(name);
+        e.totally_defined = props.totally_defined;
+        e.ty = props.ty;
+        e.vars = props.vars;
+        Self::Constant { body: e }
     }
 
     /// Creates a definition of a unary function.
@@ -102,7 +128,7 @@ pub struct Context {
 
 impl Context {
     /// Creates an empty context.
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             defs: HashMap::new(),
         }
@@ -111,7 +137,7 @@ impl Context {
     /// Appends a definition to the context and returns `self`.
     ///
     /// Panics if there is already a definition that conflicts with the new one.
-    fn def(mut self, name: &str, def: Def) -> Self {
+    pub fn def(mut self, name: &str, def: Def) -> Self {
         if let Some(defs) = self.defs.get_mut(name) {
             for d in defs.iter() {
                 match (&def, d) {
@@ -150,6 +176,85 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
             Def::Constant {
                 body: Expr::binary(Complex, box Expr::zero(), box Expr::one()),
             },
+        )
+        .def(
+            "r",
+            Def::var(
+                "r",
+                VarProps {
+                    totally_defined: true,
+                    ty: ValueType::Real,
+                    vars: VarSet::X | VarSet::Y,
+                },
+            ),
+        )
+        .def(
+            "t",
+            Def::var(
+                "t",
+                VarProps {
+                    totally_defined: true,
+                    ty: ValueType::Real,
+                    vars: VarSet::T,
+                },
+            ),
+        )
+        // `theta` will be expanded to an expression that contains [`BinaryOp::Atan2`],
+        // which is not totally defined.
+        .def(
+            "theta",
+            Def::var(
+                "theta",
+                VarProps {
+                    totally_defined: false,
+                    ty: ValueType::Real,
+                    vars: VarSet::X | VarSet::Y | VarSet::N_THETA,
+                },
+            ),
+        )
+        .def(
+            "θ",
+            Def::var(
+                "theta",
+                VarProps {
+                    totally_defined: false,
+                    ty: ValueType::Real,
+                    vars: VarSet::X | VarSet::Y | VarSet::N_THETA,
+                },
+            ),
+        )
+        .def(
+            "x",
+            Def::var(
+                "x",
+                VarProps {
+                    totally_defined: true,
+                    ty: ValueType::Real,
+                    vars: VarSet::X,
+                },
+            ),
+        )
+        .def(
+            "y",
+            Def::var(
+                "y",
+                VarProps {
+                    totally_defined: true,
+                    ty: ValueType::Real,
+                    vars: VarSet::Y,
+                },
+            ),
+        )
+        .def(
+            "<n-theta>",
+            Def::var(
+                "<n-theta>",
+                VarProps {
+                    totally_defined: true,
+                    ty: ValueType::Real,
+                    vars: VarSet::N_THETA,
+                },
+            ),
         )
         .def("abs", Def::unary(Abs))
         .def("acos", Def::unary(Acos))
@@ -244,7 +349,7 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
 
 impl Context {
     /// Returns the context with the builtin definitions.
-    pub fn builtin_context() -> &'static Self {
+    pub fn builtin() -> &'static Self {
         &BUILTIN_CONTEXT
     }
 
@@ -277,9 +382,13 @@ impl Context {
         None
     }
 
+    pub fn has(&self, name: &str) -> bool {
+        self.defs.get(name).is_some()
+    }
+
     pub fn is_function(&self, name: &str) -> bool {
         if let Some(defs) = self.defs.get(name) {
-            defs.iter().any(|d| matches!(d, Def::Function { .. }))
+            matches!(defs.first().unwrap(), Def::Function { .. })
         } else {
             false
         }
@@ -289,15 +398,15 @@ impl Context {
 #[derive(Clone)]
 pub struct InputWithContext<'a> {
     pub source: &'a str,
-    pub ctx: &'a Context,
+    pub context_stack: &'a [&'a Context],
     pub source_range: Range<usize>,
 }
 
 impl<'a> InputWithContext<'a> {
-    pub fn new(source: &'a str, ctx: &'a Context) -> Self {
+    pub fn new(source: &'a str, context_stack: &'a [&'a Context]) -> Self {
         Self {
             source,
-            ctx,
+            context_stack,
             source_range: 0..source.len(),
         }
     }
