@@ -2,6 +2,7 @@ use crate::{
     ast::{BinaryOp, Expr, ExprId, NaryOp, TernaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
     binary, bool_constant, constant,
     context::Context,
+    error,
     interval_set::Site,
     nary,
     ops::{
@@ -52,7 +53,7 @@ fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
         }
         pown!(x, _) => v.visit_expr(x),
         rootn!(x, _) => v.visit_expr(x),
-        bool_constant!(_) | constant!(_) | var!(_) => (),
+        bool_constant!(_) | constant!(_) | var!(_) | error!() => (),
         uninit!() => panic!(),
     };
 }
@@ -87,7 +88,7 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
         }
         pown!(x, _) => v.visit_expr_mut(x),
         rootn!(x, _) => v.visit_expr_mut(x),
-        bool_constant!(_) | constant!(_) | var!(_) => (),
+        bool_constant!(_) | constant!(_) | var!(_) | error!() => (),
         uninit!() => panic!(),
     };
 }
@@ -1354,6 +1355,23 @@ impl VisitMut for FuseMulAdd {
     }
 }
 
+/// Precondition: [`UpdateMetadata`] have been applied to the expression
+/// and it has not been modified since then.
+#[derive(Default)]
+struct FindUnknownTypeExpr<'a> {
+    e: Option<&'a Expr>,
+}
+
+impl<'a> Visit<'a> for FindUnknownTypeExpr<'a> {
+    fn visit_expr(&mut self, e: &'a Expr) {
+        traverse_expr(self, e);
+
+        if self.e.is_none() && e.ty == ValueType::Unknown {
+            self.e = Some(e);
+        }
+    }
+}
+
 /// Updates metadata of the expression recursively.
 pub struct UpdateMetadata;
 
@@ -1594,6 +1612,7 @@ impl CollectStatic {
                 nary!(List | Plus | Times, _) => None,
                 pown!(x, n) => Some(StaticTermKind::Pown(self.store_index(x), *n)),
                 rootn!(x, n) => Some(StaticTermKind::Rootn(self.store_index(x), *n)),
+                error!() => panic!(),
                 uninit!() => panic!(),
             };
             if let Some(k) = k {
@@ -1761,6 +1780,12 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms {
 pub fn expand_complex_functions(e: &mut Expr) {
     UpdateMetadata.visit_expr_mut(e);
     ExpandComplexFunctions::default().visit_expr_mut(e);
+}
+
+pub fn find_unknown_type_expr(e: &Expr) -> Option<&Expr> {
+    let mut v = FindUnknownTypeExpr::default();
+    v.visit_expr(e);
+    v.e
 }
 
 /// Precondition: [`PreTransform`] has been applied to the expression.
