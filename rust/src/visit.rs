@@ -1,7 +1,7 @@
 use crate::{
     ast::{BinaryOp, Expr, ExprId, NaryOp, TernaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
     binary, bool_constant, constant,
-    context::Context,
+    context::{Context, Def, VarProps},
     error,
     interval_set::Site,
     nary,
@@ -338,6 +338,7 @@ impl VisitMut for PreTransform {
 /// Precondition: [`PreTransform`] and then [`UpdateMetadata`] have been applied
 /// to the expression and it has not been modified since then.
 struct ExpandComplexFunctions {
+    ctx: Context,
     binary_ops: HashMap<BinaryOp, Expr>,
     unary_ops: HashMap<UnaryOp, Expr>,
 }
@@ -345,6 +346,29 @@ struct ExpandComplexFunctions {
 impl ExpandComplexFunctions {
     fn new() -> Self {
         Self {
+            ctx: Context::new()
+                .def(
+                    "a",
+                    Def::var(
+                        "a",
+                        VarProps {
+                            totally_defined: true,
+                            ty: ValueType::Real,
+                            ..Default::default()
+                        },
+                    ),
+                )
+                .def(
+                    "b",
+                    Def::var(
+                        "b",
+                        VarProps {
+                            totally_defined: true,
+                            ty: ValueType::Real,
+                            ..Default::default()
+                        },
+                    ),
+                ),
             binary_ops: HashMap::new(),
             unary_ops: HashMap::new(),
         }
@@ -361,7 +385,7 @@ impl ExpandComplexFunctions {
     }
 
     fn make_def(&mut self, params: Vec<String>, body: &str) -> Expr {
-        let mut e = parse_expr(body, Context::builtin_context()).unwrap();
+        let mut e = parse_expr(body, &[Context::builtin(), &self.ctx]).unwrap();
         PreTransform.visit_expr_mut(&mut e);
         NormalizeRelationalExprs.visit_expr_mut(&mut e);
         ExpandBoole.visit_expr_mut(&mut e);
@@ -1809,15 +1833,22 @@ pub fn simplify(e: &mut Expr) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{context::Context, parse::parse_expr};
+    use crate::{
+        context::{Context, VarProps},
+        parse::parse_expr,
+    };
 
     #[test]
     fn normalize_not_exprs() {
-        fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+        let ctx = Context::new()
+            .def("z", Def::var("z", VarProps::default()))
+            .def("w", Def::var("w", VarProps::default()));
+
+        let test = |input, expected| {
+            let mut e = parse_expr(input, &[Context::builtin(), &ctx]).unwrap();
             NormalizeNotExprs.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_short()), expected);
-        }
+        };
 
         test("!(x = y)", "(Not (Eq x y))");
         test("!!(x = y)", "(Eq x y)");
@@ -1829,7 +1860,7 @@ mod tests {
     #[test]
     fn pre_transform() {
         fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            let mut e = parse_expr(input, &[Context::builtin()]).unwrap();
             PreTransform.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_short()), expected);
         }
@@ -1845,13 +1876,37 @@ mod tests {
 
     #[test]
     fn expand_complex_functions() {
-        fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+        let ctx = Context::new()
+            .def(
+                "a",
+                Def::var(
+                    "a",
+                    VarProps {
+                        totally_defined: true,
+                        ty: ValueType::Real,
+                        ..Default::default()
+                    },
+                ),
+            )
+            .def(
+                "b",
+                Def::var(
+                    "b",
+                    VarProps {
+                        totally_defined: true,
+                        ty: ValueType::Real,
+                        ..Default::default()
+                    },
+                ),
+            );
+
+        let test = |input, expected| {
+            let mut e = parse_expr(input, &[Context::builtin(), &ctx]).unwrap();
             PreTransform.visit_expr_mut(&mut e);
             super::expand_complex_functions(&mut e);
             simplify(&mut e);
             assert_eq!(format!("{}", e.dump_short()), expected);
-        }
+        };
 
         test("|x + i y|", "(Pow (Plus (Pow x 2) (Pow y 2)) 0.5)");
         test("arg(x + i y)", "(Atan2 y x)");
@@ -1879,7 +1934,7 @@ mod tests {
     #[test]
     fn normalize_relational_exprs() {
         fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            let mut e = parse_expr(input, &[Context::builtin()]).unwrap();
             PreTransform.visit_expr_mut(&mut e);
             NormalizeRelationalExprs.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_short()), expected);
@@ -1895,8 +1950,7 @@ mod tests {
     #[test]
     fn expand_boole() {
         fn test(input: &str, expected: &str) {
-            let mut e =
-                parse_expr(&format!("if({}, x, y)", input), Context::builtin_context()).unwrap();
+            let mut e = parse_expr(&format!("if({}, x, y)", input), &[Context::builtin()]).unwrap();
             ExpandBoole.visit_expr_mut(&mut e);
             assert_eq!(
                 format!("{}", e.dump_short()),
@@ -1916,8 +1970,10 @@ mod tests {
 
     #[test]
     fn flatten() {
-        fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+        let ctx = Context::new().def("z", Def::var("z", VarProps::default()));
+
+        let test = |input, expected| {
+            let mut e = parse_expr(input, &[Context::builtin(), &ctx]).unwrap();
             PreTransform.visit_expr_mut(&mut e);
             UpdateMetadata.visit_expr_mut(&mut e);
             Transform::default().visit_expr_mut(&mut e);
@@ -1927,7 +1983,7 @@ mod tests {
             let output = format!("{}", e.dump_short());
             assert_eq!(format!("{}", e.dump_short()), expected);
             assert_eq!(v.modified, input != output);
-        }
+        };
 
         test("x + y + z", "(Plus x y z)");
         test("(x + y) + z", "(Plus x y z)");
@@ -1941,8 +1997,10 @@ mod tests {
 
     #[test]
     fn sort_terms() {
-        fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+        let ctx = Context::new().def("z", Def::var("z", VarProps::default()));
+
+        let test = |input, expected| {
+            let mut e = parse_expr(input, &[Context::builtin(), &ctx]).unwrap();
             PreTransform.visit_expr_mut(&mut e);
             FoldConstant::default().visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
@@ -1953,7 +2011,7 @@ mod tests {
             let output = format!("{}", e.dump_short());
             assert_eq!(output, expected);
             assert_eq!(v.modified, input != output);
-        }
+        };
 
         test("1 + x", "(Plus 1 x)");
         test("x + 1", "(Plus 1 x)");
@@ -1978,7 +2036,7 @@ mod tests {
     #[test]
     fn transform() {
         fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+            let mut e = parse_expr(input, &[Context::builtin()]).unwrap();
             PreTransform.visit_expr_mut(&mut e);
             ExpandBoole.visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
@@ -2045,15 +2103,17 @@ mod tests {
 
     #[test]
     fn post_transform() {
-        fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+        let ctx = Context::new().def("z", Def::var("z", VarProps::default()));
+
+        let test = |input, expected| {
+            let mut e = parse_expr(input, &[Context::builtin(), &ctx]).unwrap();
             PreTransform.visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
             FoldConstant::default().visit_expr_mut(&mut e);
             Flatten::default().visit_expr_mut(&mut e);
             PostTransform.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_short()), expected);
-        }
+        };
 
         test("x^-1", "(Recip x)");
         test("x^0", "(One x)");
@@ -2074,13 +2134,15 @@ mod tests {
 
     #[test]
     fn fuse_mul_add() {
-        fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, Context::builtin_context()).unwrap();
+        let ctx = Context::new().def("z", Def::var("z", VarProps::default()));
+
+        let test = |input, expected| {
+            let mut e = parse_expr(input, &[Context::builtin(), &ctx]).unwrap();
             PreTransform.visit_expr_mut(&mut e);
             PostTransform.visit_expr_mut(&mut e);
             FuseMulAdd.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_short()), expected);
-        }
+        };
 
         test("x y + z", "(MulAdd x y z)");
         test("z + x y", "(MulAdd x y z)");

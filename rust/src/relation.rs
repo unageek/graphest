@@ -506,7 +506,7 @@ impl FromStr for Relation {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, String> {
-        let mut e = parse_expr(s, Context::builtin_context())?;
+        let mut e = parse_expr(s, &[Context::builtin()])?;
         UpdateMetadata.visit_expr_mut(&mut e);
         if let Some(e) = find_unknown_type_expr(&e) {
             return Err(format!(
@@ -611,6 +611,7 @@ impl FromStr for Relation {
 /// Precondition: `e` has been pre-transformed and simplified.
 fn expand_polar_coords(e: &mut Expr) {
     use {BinaryOp::*, NaryOp::*};
+    let ctx = Context::builtin();
 
     // e1 = e /. {r → sqrt(x^2 + y^2), θ → atan2(y, x) + 2π n_θ}.
     let mut e1 = e.clone();
@@ -620,17 +621,24 @@ fn expand_polar_coords(e: &mut Expr) {
             box Expr::nary(
                 Plus,
                 vec![
-                    Expr::binary(Pow, box Expr::var("x"), box Expr::two()),
-                    Expr::binary(Pow, box Expr::var("y"), box Expr::two()),
+                    Expr::binary(Pow, box ctx.get_constant("x").unwrap(), box Expr::two()),
+                    Expr::binary(Pow, box ctx.get_constant("y").unwrap(), box Expr::two()),
                 ],
             ),
             box Expr::one_half(),
         )),
-        var!(x) if x == "theta" || x == "θ" => Some(Expr::nary(
+        var!(x) if x == "theta" => Some(Expr::nary(
             Plus,
             vec![
-                Expr::binary(Atan2, box Expr::var("y"), box Expr::var("x")),
-                Expr::nary(Times, vec![Expr::tau(), Expr::var("<n-theta>")]),
+                Expr::binary(
+                    Atan2,
+                    box ctx.get_constant("y").unwrap(),
+                    box ctx.get_constant("x").unwrap(),
+                ),
+                Expr::nary(
+                    Times,
+                    vec![Expr::tau(), ctx.get_constant("<n-theta>").unwrap()],
+                ),
             ],
         )),
         _ => None,
@@ -656,23 +664,30 @@ fn expand_polar_coords(e: &mut Expr) {
                     box Expr::nary(
                         Plus,
                         vec![
-                            Expr::binary(Pow, box Expr::var("x"), box Expr::two()),
-                            Expr::binary(Pow, box Expr::var("y"), box Expr::two()),
+                            Expr::binary(Pow, box ctx.get_constant("x").unwrap(), box Expr::two()),
+                            Expr::binary(Pow, box ctx.get_constant("y").unwrap(), box Expr::two()),
                         ],
                     ),
                     box Expr::one_half(),
                 ),
             ],
         )),
-        var!(x) if x == "theta" || x == "θ" => Some(Expr::nary(
+        var!(x) if x == "theta" => Some(Expr::nary(
             Plus,
             vec![
-                Expr::binary(Atan2, box Expr::var("y"), box Expr::var("x")),
+                Expr::binary(
+                    Atan2,
+                    box ctx.get_constant("y").unwrap(),
+                    box ctx.get_constant("x").unwrap(),
+                ),
                 Expr::nary(
                     Times,
                     vec![
                         Expr::tau(),
-                        Expr::nary(Plus, vec![Expr::one_half(), Expr::var("<n-theta>")]),
+                        Expr::nary(
+                            Plus,
+                            vec![Expr::one_half(), ctx.get_constant("<n-theta>").unwrap()],
+                        ),
                     ],
                 ),
             ],

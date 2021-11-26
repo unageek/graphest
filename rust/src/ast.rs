@@ -528,8 +528,7 @@ impl Expr {
         // NOTE: Mathematica's `FunctionDomain` would be useful when the same definition is used.
         match self {
             constant!(a) if a.interval().decoration() >= Decoration::Def => true,
-            // `theta` will be expanded to an expression that contains [`BinaryOp::Atan2`].
-            var!(x) if x != "theta" && x != "θ" => true,
+            var!(_) => self.totally_defined,
             unary!(
                 Abs | AiryAi
                     | AiryAiPrime
@@ -661,7 +660,7 @@ impl Expr {
                 ComplexT
             }
             // Real
-            constant!(_) | var!(_) => Real,
+            constant!(_) => Real,
             unary!(Boole, x) if boolean(x) => Real,
             unary!(Abs | Arg | Im | Re, x) if complex(x) => Real,
             unary!(
@@ -746,6 +745,7 @@ impl Expr {
             // RealVector
             nary!(List, xs) if xs.iter().all(real) => RealVector,
             // Others
+            var!(_) => self.ty,
             uninit!() => panic!(),
             _ => Unknown,
         }
@@ -757,15 +757,7 @@ impl Expr {
     fn variables(&self) -> VarSet {
         match self {
             bool_constant!(_) | constant!(_) => VarSet::EMPTY,
-            var!(name) if name == "r" => VarSet::X | VarSet::Y,
-            var!(name) if name == "t" => VarSet::T,
-            var!(name) if name == "theta" || name == "θ" => {
-                VarSet::X | VarSet::Y | VarSet::N_THETA
-            }
-            var!(name) if name == "x" => VarSet::X,
-            var!(name) if name == "y" => VarSet::Y,
-            var!(name) if name == "<n-theta>" => VarSet::N_THETA,
-            var!(_) => VarSet::EMPTY,
+            var!(_) => self.vars,
             unary!(_, x) | pown!(x, _) | rootn!(x, _) => x.vars,
             binary!(_, x, y) => x.vars | y.vars,
             ternary!(_, x, y, z) => x.vars | y.vars | z.vars,

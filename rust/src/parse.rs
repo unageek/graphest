@@ -88,15 +88,23 @@ fn identifier(i: InputWithContext) -> ParseResult<&str> {
     })(i)
 }
 
-fn named_constant(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
+fn name_in_context(i: InputWithContext) -> ParseResult<(&Context, &str)> {
+    let context_stack = i.context_stack;
 
-    map_opt(identifier, move |name| ctx.get_constant(name))(i)
+    map_opt(identifier, move |name| {
+        context_stack
+            .iter()
+            .rfind(|c| c.has(name))
+            .map(|&c| (c, name))
+    })(i)
 }
 
-fn function_name(i: InputWithContext) -> ParseResult<&str> {
-    let ctx = i.ctx;
-    verify(identifier, move |name| ctx.is_function(name))(i)
+fn named_constant(i: InputWithContext) -> ParseResult<Expr> {
+    map_opt(name_in_context, |(ctx, name)| ctx.get_constant(name))(i)
+}
+
+fn function_name(i: InputWithContext) -> ParseResult<(&Context, &str)> {
+    verify(name_in_context, |(ctx, name)| ctx.is_function(name))(i)
 }
 
 /// Nonempty, comma-separated list of expressions.
@@ -114,8 +122,6 @@ fn expr_list(i: InputWithContext) -> ParseResult<Vec<Expr>> {
 }
 
 fn function_application(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
-
     map(
         pair(
             function_name,
@@ -125,12 +131,8 @@ fn function_application(i: InputWithContext) -> ParseResult<Expr> {
                 preceded(space0, cut(char(')'))),
             ),
         ),
-        move |(name, args)| ctx.apply(name, args),
+        |((ctx, name), args)| ctx.apply(name, args),
     )(i)
-}
-
-fn variable(i: InputWithContext) -> ParseResult<Expr> {
-    map(identifier, Expr::var)(i)
 }
 
 fn shortest_expr_within_bars(i: InputWithContext) -> ParseResult<Expr> {
@@ -155,14 +157,14 @@ fn shortest_expr_within_bars(i: InputWithContext) -> ParseResult<Expr> {
 }
 
 fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
+    let builtin = i.context_stack.first().unwrap();
 
     map(
         consumed(alt((
             decimal_constant,
             named_constant,
             function_application,
-            variable,
+            map(identifier, |_| Expr::error()),
             delimited(
                 terminated(char('('), space0),
                 cut(expr),
@@ -183,7 +185,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                     cut(shortest_expr_within_bars),
                     preceded(space0, cut(char('|'))),
                 ),
-                move |x| ctx.apply("abs", vec![x]),
+                move |x| builtin.apply("abs", vec![x]),
             ),
             map(
                 delimited(
@@ -192,7 +194,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                     shortest_expr_within_bars,
                     preceded(space0, cut(char('|'))),
                 ),
-                move |x| ctx.apply("abs", vec![x]),
+                move |x| builtin.apply("abs", vec![x]),
             ),
             map(
                 delimited(
@@ -200,7 +202,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                     cut(expr),
                     preceded(space0, cut(char('⌉'))),
                 ),
-                move |x| ctx.apply("ceil", vec![x]),
+                move |x| builtin.apply("ceil", vec![x]),
             ),
             map(
                 delimited(
@@ -208,7 +210,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                     cut(expr),
                     preceded(space0, cut(char('⌋'))),
                 ),
-                move |x| ctx.apply("floor", vec![x]),
+                move |x| builtin.apply("floor", vec![x]),
             ),
             context("expected an expression", fail),
         ))),
@@ -218,7 +220,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
 
 // ^ is right-associative; x^y^z is equivalent to x^(y^z).
 fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
+    let builtin = i.context_stack.first().unwrap();
 
     map(
         pair(
@@ -231,7 +233,7 @@ fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
         move |(x, y)| match y {
             Some(y) => {
                 let range = x.source_range.start..y.source_range.end;
-                ctx.apply("^", vec![x, y]).with_source_range(range)
+                builtin.apply("^", vec![x, y]).with_source_range(range)
             }
             _ => x,
         },
@@ -239,7 +241,7 @@ fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
 }
 
 fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
+    let builtin = i.context_stack.first().unwrap();
 
     alt((
         preceded(pair(char('+'), space0), cut(unary_expr)),
@@ -253,14 +255,14 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 space0,
                 cut(unary_expr),
             )),
-            move |(i, (op, x))| ctx.apply(op, vec![x]).with_source_range(i.source_range),
+            move |(i, (op, x))| builtin.apply(op, vec![x]).with_source_range(i.source_range),
         ),
         power_expr,
     ))(i)
 }
 
 fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
+    let builtin = i.context_stack.first().unwrap();
     let (i, x) = unary_expr(i)?;
 
     fold_many0(
@@ -282,13 +284,13 @@ fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
         move || x.clone(),
         move |xs, (op, y)| {
             let range = xs.source_range.start..y.source_range.end;
-            ctx.apply(op, vec![xs, y]).with_source_range(range)
+            builtin.apply(op, vec![xs, y]).with_source_range(range)
         },
     )(i)
 }
 
 fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
+    let builtin = i.context_stack.first().unwrap();
     let (i, x) = multiplicative_expr(i)?;
 
     fold_many0(
@@ -306,14 +308,14 @@ fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
         move || x.clone(),
         move |xs, (op, y)| {
             let range = xs.source_range.start..y.source_range.end;
-            ctx.apply(op, vec![xs, y]).with_source_range(range)
+            builtin.apply(op, vec![xs, y]).with_source_range(range)
         },
     )(i)
 }
 
 // Relational operators can be chained: x op1 y op2 z is equivalent to x op1 y ∧ y op2 z.
 fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
+    let builtin = i.context_stack.first().unwrap();
     let (i, side) = additive_expr(i)?;
     let ops = vec![];
     let sides = vec![side];
@@ -348,12 +350,12 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
             } else {
                 let mut it = ops.iter().zip(sides.windows(2)).map(|(op, sides)| {
                     let range = sides[0].source_range.start..sides[1].source_range.end;
-                    ctx.apply(op, sides.to_vec()).with_source_range(range)
+                    builtin.apply(op, sides.to_vec()).with_source_range(range)
                 });
                 let x = it.next().unwrap();
                 it.fold(x, |xs, y| {
                     let range = xs.source_range.start..y.source_range.end;
-                    ctx.apply("&&", vec![xs, y]).with_source_range(range)
+                    builtin.apply("&&", vec![xs, y]).with_source_range(range)
                 })
             }
         },
@@ -361,7 +363,7 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
 }
 
 fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
+    let builtin = i.context_stack.first().unwrap();
     let (i, x) = relational_expr(i)?;
 
     fold_many0(
@@ -372,13 +374,13 @@ fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
         move || x.clone(),
         move |xs, y| {
             let range = xs.source_range.start..y.source_range.end;
-            ctx.apply("&&", vec![xs, y]).with_source_range(range)
+            builtin.apply("&&", vec![xs, y]).with_source_range(range)
         },
     )(i)
 }
 
 fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
-    let ctx = i.ctx;
+    let builtin = i.context_stack.first().unwrap();
     let (i, x) = and_expr(i)?;
 
     fold_many0(
@@ -389,7 +391,7 @@ fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
         move || x.clone(),
         move |xs, y| {
             let range = xs.source_range.start..y.source_range.end;
-            ctx.apply("||", vec![xs, y]).with_source_range(range)
+            builtin.apply("||", vec![xs, y]).with_source_range(range)
         },
     )(i)
 }
@@ -399,8 +401,8 @@ fn expr(i: InputWithContext) -> ParseResult<Expr> {
 }
 
 /// Parses an expression.
-pub fn parse_expr(source: &str, ctx: &Context) -> Result<Expr, String> {
-    let i = InputWithContext::new(source, ctx);
+pub fn parse_expr(source: &str, context_stack: &[&Context]) -> Result<Expr, String> {
+    let i = InputWithContext::new(source, context_stack);
     match all_consuming(delimited(space0, expr, space0))(i.clone()).finish() {
         Ok((_, x)) => Ok(x),
         Err(e) => Err(convert_error(i, e)),
@@ -463,13 +465,21 @@ fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::context::{Def, VarProps};
 
     #[test]
     fn parse_expr() {
-        fn test(input: &str, expected: &str) {
-            let f = super::parse_expr(input, Context::builtin_context()).unwrap();
+        let ctx = Context::new()
+            .def("a", Def::var("a", VarProps::default()))
+            .def("b", Def::var("b", VarProps::default()))
+            .def("k", Def::var("k", VarProps::default()))
+            .def("n", Def::var("n", VarProps::default()))
+            .def("z", Def::var("z", VarProps::default()));
+
+        let test = |input, expected| {
+            let f = super::parse_expr(input, &[Context::builtin(), &ctx]).unwrap();
             assert_eq!(format!("{}", f.dump_short()), expected);
-        }
+        };
 
         test("false", "False");
         test("true", "True");
