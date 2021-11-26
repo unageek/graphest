@@ -127,7 +127,7 @@
 |https://functions.wolfram.com/ComplexComponents/Abs/[MFS]
 
 |`mod(x, y)`
-|stem:[x \mod y = x - y \left⌊ \dfrac{x}{y} \right⌋]
+|stem:[x \bmod y = x - y \left⌊ \dfrac{x}{y} \right⌋]
 |The remainder of stem:[x/y] (https://en.wikipedia.org/wiki/Modulo_operation[modulo operation]). +
 Undefined for stem:[y = 0]. +
 The range for a fixed stem:[y] is stem:[\begin{cases}
