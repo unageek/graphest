@@ -17,6 +17,7 @@ use nom::{
     Finish, IResult, InputLength,
 };
 use rug::{Integer, Rational};
+use std::ops::Range;
 
 type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
 
@@ -212,7 +213,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 ),
                 move |x| builtin.apply("floor", vec![x]),
             ),
-            context("expected an expression", fail),
+            context("an expression", fail),
         ))),
         |(i, x)| x.with_source_range(i.source_range),
     )(i)
@@ -409,8 +410,40 @@ pub fn parse_expr(source: &str, context_stack: &[&Context]) -> Result<Expr, Stri
     }
 }
 
-// Based on `nom::error::convert_error`.
-#[allow(clippy::naive_bytecount)]
+pub fn format_error(source: &str, range: Range<usize>, message: &str) -> String {
+    assert!(range.start <= range.end && range.end <= source.len());
+
+    let offset = |substr: &str| {
+        use nom::Offset;
+        source.offset(substr)
+    };
+
+    let (line, source_line) = source
+        .split('\n') // Do not use `.lines()` which ignores a final line ending.
+        .enumerate()
+        .take_while(|(_, line)| offset(*line) <= range.start)
+        .last()
+        .unwrap();
+    let start_in_line = range.start - offset(source_line);
+    let end_in_line = (range.end - offset(source_line)).min(source_line.len());
+    let col = source_line[..start_in_line].chars().count();
+    let n_cols = source_line[start_in_line..end_in_line].chars().count();
+
+    format!(
+        r"
+input:{}:{}: error: {}
+{}
+{:col$}{}
+",
+        line + 1,
+        col + 1,
+        message,
+        source_line,
+        "",
+        "^".repeat(n_cols.max(1)),
+    )
+}
+
 fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> String {
     use nom::Offset;
 
@@ -421,45 +454,16 @@ fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> 
         .or_else(|| e.errors.first())
         .unwrap();
     let message = match error.1 {
-        VerboseErrorKind::Context(message) => message.to_owned(),
+        VerboseErrorKind::Context(what) => format!("expected {}", what),
         VerboseErrorKind::Char(c) => format!("expected '{}'", c),
         VerboseErrorKind::Nom(ErrorKind::Eof) => "expected end of input".to_owned(),
         _ => panic!(),
     };
 
-    let input = input.source;
+    let source = input.source;
     let substring = error.0.source;
-    let offset = input.offset(substring);
-
-    let prefix = &input.as_bytes()[..offset];
-
-    // Count the number of newlines in the first `offset` bytes of input
-    let line_number = prefix.iter().filter(|&&b| b == b'\n').count() + 1;
-
-    // Find the line that includes the subslice:
-    // Find the *last* newline before the substring starts
-    let line_begin = prefix
-        .iter()
-        .rposition(|&b| b == b'\n')
-        .map(|pos| offset - pos)
-        .unwrap_or(0);
-
-    // Find the full line after that newline
-    let line = input[line_begin..]
-        .lines()
-        .next()
-        .unwrap_or(&input[line_begin..]);
-
-    // The (1-indexed) column number is the offset of our substring into that line
-    let column_number = line[..line.offset(substring)].chars().count() + 1;
-
-    format!(
-        r"input:{line_number}:{column_number}: error: {message}
-  {line}
-  {caret:>column_number$}
-",
-        caret = '^',
-    )
+    let offset = source.offset(substring);
+    format_error(source, offset..offset, &message)
 }
 
 #[cfg(test)]

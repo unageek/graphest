@@ -6,12 +6,11 @@ use crate::{
     interval_set::TupperIntervalSet,
     nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
-    parse::parse_expr,
+    parse::{format_error, parse_expr},
     ternary, unary, var,
     visit::*,
 };
 use inari::{const_interval, interval, DecInterval, Interval};
-use nom::Slice;
 use rug::Integer;
 use std::{
     collections::HashMap,
@@ -509,15 +508,21 @@ impl FromStr for Relation {
         let mut e = parse_expr(s, &[Context::builtin()])?;
         UpdateMetadata.visit_expr_mut(&mut e);
         if let Some(e) = find_unknown_type_expr(&e) {
-            return Err(format!(
-                "cannot determine the value type of the expression: {}",
-                s.slice(e.source_range.clone())
+            return Err(format_error(
+                s,
+                e.source_range.clone(),
+                "cannot interpret the expression",
             ));
         }
         if e.ty != ValueType::Boolean {
-            return Err(format!(
-                "the relation must be a formula, while its type is {:?}",
-                e.ty
+            return Err(format_error(
+                s,
+                e.source_range.clone(),
+                &format!(
+                    "relation must be of type `{}` but not `{}`",
+                    ValueType::Boolean,
+                    e.ty
+                ),
             ));
         }
         NormalizeNotExprs.visit_expr_mut(&mut e);

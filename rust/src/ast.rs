@@ -138,6 +138,19 @@ pub enum ValueType {
     Unknown,
 }
 
+impl fmt::Display for ValueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ValueType::*;
+        match self {
+            Boolean => write!(f, "boolean"),
+            Complex => write!(f, "complex"),
+            Real => write!(f, "real"),
+            RealVector => write!(f, "real vector"),
+            Unknown => write!(f, "unknown"),
+        }
+    }
+}
+
 bitflags! {
     /// A set of free variables; a subset of {x, y, n_θ, t}.
     pub struct VarSet: u8 {

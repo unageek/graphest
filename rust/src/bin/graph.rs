@@ -45,12 +45,7 @@ fn to_interval(s: &str) -> Interval {
 fn main() {
     let matches = App::new("graph")
         .about("Plots the graph of a mathematical relation to an image.")
-        .arg(
-            Arg::new("relation")
-                .index(1)
-                .forbid_empty_values(true)
-                .about("Relation to plot."),
-        )
+        .arg(Arg::new("relation").index(1).about("Relation to plot."))
         .arg(
             Arg::new("bounds")
                 .short('b')
