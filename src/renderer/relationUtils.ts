@@ -1,47 +1,69 @@
 import * as ipc from "../common/ipc";
 
-export function normalizeRelation(rel: string): string {
-  return rel.replaceAll("-", "−"); // a hyphen-minus → a minus sign
+export interface Range {
+  start: number;
+  end: number;
 }
 
-const openOp = new Map([
+const leftBracketKind = new Map([
   [")", "("],
   ["]", "["],
   ["⌉", "⌈"],
   ["⌋", "⌊"],
 ]);
 
-export function syntaxHighlight(
+export function getHighlights(
   rel: string,
   selection: [number, number]
-): { error: number[]; highlight: number[] } {
-  const openOps: { op: string; pos: number }[] = [];
-  const errors: number[] = [];
-  const highlights: number[] = [];
+): { errors: Range[]; highlights: Range[] } {
+  const errors: Range[] = [];
+  const highlights: Range[] = [];
+  const leftBrackets: { kind: string; pos: number }[] = [];
 
-  for (let i = 0; i < rel.length; i++) {
-    const c = rel[i];
-    switch (c) {
+  for (let pos = 0; pos < rel.length; pos++) {
+    const kind = rel[pos];
+    switch (kind) {
       case "(":
       case "[":
       case "⌈":
       case "⌊":
-        openOps.push({ op: c, pos: i });
+        leftBrackets.push({ kind, pos });
         break;
       case ")":
       case "]":
       case "⌉":
       case "⌋": {
-        const open = openOps.pop();
-        if (!open || open.op !== openOp.get(c)) {
-          errors.splice(-1, 0, ...openOps.map((o) => o.pos));
-          if (open) errors.push(open.pos);
-          errors.push(i);
-          openOps.length = 0;
+        const left = leftBrackets.pop();
+        if (!left || left.kind !== leftBracketKind.get(kind)) {
+          errors.splice(
+            -1,
+            0,
+            ...leftBrackets.map((l) => ({
+              start: l.pos,
+              end: l.pos + 1,
+            }))
+          );
+          if (left) {
+            errors.push({
+              start: left.pos,
+              end: left.pos + 1,
+            });
+          }
+          errors.push({
+            start: pos,
+            end: pos + 1,
+          });
+          leftBrackets.length = 0;
         } else if (highlights.length === 0) {
-          if (open.pos < selection[0] && selection[1] <= i) {
-            highlights.push(open.pos);
-            highlights.push(i);
+          if (left.pos < selection[0] && selection[1] <= pos) {
+            highlights.push({
+              start: left.pos,
+              end: left.pos + 1,
+            });
+            highlights.push({
+              start: pos,
+              end: pos + 1,
+            });
           }
         }
         break;
@@ -49,9 +71,20 @@ export function syntaxHighlight(
     }
   }
 
-  errors.splice(-1, 0, ...openOps.map((o) => o.pos));
+  errors.splice(
+    -1,
+    0,
+    ...leftBrackets.map((l) => ({
+      start: l.pos,
+      end: l.pos + 1,
+    }))
+  );
 
-  return { error: errors, highlight: highlights };
+  return { errors, highlights };
+}
+
+export function normalizeRelation(rel: string): string {
+  return rel.replaceAll("-", "−"); // a hyphen-minus → a minus sign
 }
 
 export async function validateRelation(rel: string): Promise<boolean> {

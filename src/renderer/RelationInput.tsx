@@ -28,8 +28,8 @@ import {
   withReact,
 } from "slate-react";
 import {
+  getHighlights,
   normalizeRelation,
-  syntaxHighlight,
   validateRelation,
 } from "./relationUtils";
 
@@ -48,7 +48,11 @@ export interface RelationInputProps {
 }
 
 type CustomElement = { children: CustomText[] };
-type CustomText = { text: string; error: boolean; highlight: boolean };
+type CustomText = {
+  text: string;
+  error: boolean;
+  highlight: boolean;
+};
 
 declare module "slate" {
   interface CustomTypes {
@@ -58,7 +62,10 @@ declare module "slate" {
   }
 }
 
-type DecorateRange = Range & { error: boolean; highlight: boolean };
+type DecorateRange = Range & {
+  error: boolean;
+  highlight: boolean;
+};
 
 const withRelationNormalization = (editor: Editor) => {
   const { normalizeNode } = editor;
@@ -105,7 +112,13 @@ export const RelationInput = (props: RelationInputProps) => {
   );
   const [value, setValue] = useState<Descendant[]>([
     {
-      children: [{ text: props.relation, error: false, highlight: false }],
+      children: [
+        {
+          text: props.relation,
+          error: false,
+          highlight: false,
+        },
+      ],
     },
   ]);
   const validate = useCallback(
@@ -127,22 +140,22 @@ export const RelationInput = (props: RelationInputProps) => {
     if (!sel) return ranges;
 
     const rel = Editor.string(editor, path);
-    const decs = syntaxHighlight(rel, [
+    const decs = getHighlights(rel, [
       Range.start(sel).offset,
       Range.end(sel).offset,
     ]);
-    for (const pos of decs.error) {
+    for (const r of decs.errors) {
       ranges.push({
-        anchor: { path, offset: pos },
-        focus: { path, offset: pos + 1 },
+        anchor: { path, offset: r.start },
+        focus: { path, offset: r.end },
         error: true,
         highlight: false,
       });
     }
-    for (const pos of decs.highlight) {
+    for (const r of decs.highlights) {
       ranges.push({
-        anchor: { path, offset: pos },
-        focus: { path, offset: pos + 1 },
+        anchor: { path, offset: r.start },
+        focus: { path, offset: r.end },
         error: false,
         highlight: true,
       });
