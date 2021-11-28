@@ -9,17 +9,73 @@ use nom::{
     bytes::complete::{tag, take, take_while},
     character::complete::{char, digit0, digit1, one_of, satisfy, space0},
     combinator::{
-        all_consuming, consumed, cut, fail, map, map_opt, not, opt, peek, recognize, value, verify,
+        all_consuming, consumed, cut, map, map_opt, not, opt, peek, recognize, value, verify,
     },
-    error::{context, ErrorKind, VerboseError, VerboseErrorKind},
+    error::{ErrorKind as NomErrorKind, ParseError},
     multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
-    Finish, IResult, InputLength,
+    Err, Finish, IResult, InputLength,
 };
 use rug::{Integer, Rational};
 use std::ops::Range;
 
-type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, VerboseError<InputWithContext<'a>>>;
+#[derive(Clone, Debug)]
+enum ErrorKind<'a> {
+    ExpectedChar(char),
+    ExpectedEof,
+    ExpectedExpr,
+    UnknownIdentifier(&'a str),
+    /// Errors reported by nom's combinators that should not be exposed.
+    OtherNomError,
+}
+
+#[derive(Clone, Debug)]
+struct Error<'a, I> {
+    input: I,
+    kind: ErrorKind<'a>,
+}
+
+impl<'a, I> Error<'a, I> {
+    fn expected_expr(input: I) -> Self {
+        Self {
+            input,
+            kind: ErrorKind::ExpectedExpr,
+        }
+    }
+
+    fn unknown_identifier(input: I, name: &'a str) -> Self {
+        Self {
+            input,
+            kind: ErrorKind::UnknownIdentifier(name),
+        }
+    }
+}
+
+impl<'a, I> ParseError<I> for Error<'a, I> {
+    fn append(_: I, _: NomErrorKind, other: Self) -> Self {
+        // Only keep the first error.
+        other
+    }
+
+    fn from_char(input: I, c: char) -> Self {
+        Self {
+            input,
+            kind: ErrorKind::ExpectedChar(c),
+        }
+    }
+
+    fn from_error_kind(input: I, kind: NomErrorKind) -> Self {
+        Self {
+            input,
+            kind: match kind {
+                NomErrorKind::Eof => ErrorKind::ExpectedEof,
+                _ => ErrorKind::OtherNomError,
+            },
+        }
+    }
+}
+
+type ParseResult<'a, O> = IResult<InputWithContext<'a>, O, Error<'a, InputWithContext<'a>>>;
 
 // Based on `inari::parse::parse_dec_float`.
 fn parse_decimal(mant: &str) -> Option<Rational> {
@@ -136,6 +192,20 @@ fn function_application(i: InputWithContext) -> ParseResult<Expr> {
     )(i)
 }
 
+/// If an identifier is found, [`cut`]s with [`ErrorKind::UnknownIdentifier`]
+/// (the position where the identifier is found is reported);
+/// otherwise, fails in the same manner as [`identifier`].
+fn fail_unknown_identifier(i: InputWithContext) -> ParseResult<Expr> {
+    let (i, name) = peek(identifier)(i)?;
+
+    Err(Err::Failure(Error::unknown_identifier(i, name)))
+}
+
+/// Fails with [`ErrorKind::ExpectedExpr`].
+fn fail_expr(i: InputWithContext) -> ParseResult<Expr> {
+    Err(Err::Error(Error::expected_expr(i)))
+}
+
 fn shortest_expr_within_bars(i: InputWithContext) -> ParseResult<Expr> {
     let mut min_len = 0;
 
@@ -165,7 +235,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
             decimal_constant,
             named_constant,
             function_application,
-            map(identifier, |_| Expr::error()),
+            fail_unknown_identifier,
             delimited(
                 terminated(char('('), space0),
                 cut(expr),
@@ -213,7 +283,7 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                 ),
                 move |x| builtin.apply("floor", vec![x]),
             ),
-            context("an expression", fail),
+            fail_expr,
         ))),
         |(i, x)| x.with_source_range(i.source_range),
     )(i)
@@ -448,24 +518,19 @@ input:{}:{}: error: {}
     )
 }
 
-fn convert_error(input: InputWithContext, e: VerboseError<InputWithContext>) -> String {
+fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String {
     use nom::Offset;
 
-    let error = e
-        .errors
-        .iter()
-        .find(|e| matches!(e.1, VerboseErrorKind::Context(_)))
-        .or_else(|| e.errors.first())
-        .unwrap();
-    let message = match error.1 {
-        VerboseErrorKind::Context(what) => format!("expected {}", what),
-        VerboseErrorKind::Char(c) => format!("expected '{}'", c),
-        VerboseErrorKind::Nom(ErrorKind::Eof) => "expected end of input".to_owned(),
-        _ => panic!(),
+    let message = match e.kind {
+        ErrorKind::ExpectedChar(c) => format!("expected '{}'", c),
+        ErrorKind::ExpectedEof => "expected end of input".to_owned(),
+        ErrorKind::ExpectedExpr => "expected expression".to_owned(),
+        ErrorKind::UnknownIdentifier(name) => format!("unknown identifier: '{}'", name),
+        _ => panic!("unexpected error kind"),
     };
 
     let source = input.source;
-    let substring = error.0.source;
+    let substring = e.input.source;
     let offset = source.offset(substring);
     format_error(source, offset..offset, &message)
 }
