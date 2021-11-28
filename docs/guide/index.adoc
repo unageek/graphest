@@ -16,7 +16,7 @@
 * Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, stem:[(x, y) = (1, 0)] is identical to stem:[(r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …]
 ** You can restrict the range of `r` or `θ` as in `r = θ ∧ 0 ≤ θ < 2π`.
 * You can make a parametric relation by using a real parameter `t` as in `x = cos(t) ∧ y = sin(t)`, `x + i y = exp(i t)`, or `x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π`.
-** Any relation that contains `t` is implicitly interpreted as stem:[∃t ∈ 𝐑[…\]].
+** Any relation that contains `t` is implicitly interpreted as stem:[∃t ∈ ℝ[…\]].
 
 == Definitions Reference
 
@@ -92,63 +92,50 @@
 
 ==== Arithmetic
 
-[cols="a,,,0"]
+[cols="a,,"]
 |===
-|Input |Interpreted as |Notes |Links
+|Input |Interpreted as |Notes
 
 |`−x`
 |stem:[−x]
-|
 |
 
 |`x + y`
 |stem:[x + y]
 |
-|
 
 |`x − y`
 |stem:[x − y]
-|
 |
 
 |`x y` or `x * y`
 |stem:[xy = x ⋅ y]
 |
-|
 
 |`x / y`
 |stem:[\dfrac{x}{y}]
 |Undefined for stem:[y = 0].
-|
+|===
+
+==== Number Parts
+
+[cols="a,,,0"]
+|===
+|Input |Interpreted as |Notes |Links
 
 |`abs(x)` or `\|x\|`
 |stem:[\|x\|]
 |The absolute value of stem:[x].
 |https://functions.wolfram.com/ComplexComponents/Abs/[MFS]
 
-|`mod(x, y)`
-|stem:[x \bmod y = x - y \left⌊ \dfrac{x}{y} \right⌋]
-|The remainder of stem:[x/y] (https://en.wikipedia.org/wiki/Modulo_operation[modulo operation]). +
-Undefined for stem:[y = 0]. +
-The range for a fixed stem:[y] is stem:[\begin{cases}
-  (y, 0\] & \if y < 0, \\
-  [0, y)  & \if y > 0.
+|`sign(x)` or `sgn(x)`
+|stem:[\sgn x = \begin{cases}
+  -1 & \if x < 0, \\
+  0  & \if x = 0, \\
+  1  & \if x > 0
  \end{cases}]
-|https://functions.wolfram.com/IntegerFunctions/Mod/[MFS]
-
-|`gcd(x~1~, …, x~n~)`
-|stem:[\gcd \set{x_1, …, x_n}]
-|The https://en.wikipedia.org/wiki/Greatest_common_divisor[greatest common divisor] of the numbers in the set stem:[\set{x_1, …, x_n}]. +
-stem:[\gcd \set{x, 0}] is defined to be stem:[\|x\|] for any rational number stem:[x]. +
-Undefined if any of the numbers is irrational.
-|https://functions.wolfram.com/IntegerFunctions/GCD/[MFS]
-
-|`lcm(x~1~, …, x~n~)`
-|stem:[\lcm \set{x_1, …, x_n}]
-|The https://en.wikipedia.org/wiki/Least_common_multiple[least common multiple] of the numbers in the set stem:[\set{x_1, …, x_n}]. +
-stem:[\lcm \set{x, 0}] is defined to be 0 for any rational number stem:[x]. +
-Undefined if any of the numbers is irrational.
-|https://functions.wolfram.com/IntegerFunctions/LCM/[MFS]
+|The https://en.wikipedia.org/wiki/Sign_function[sign function].
+|https://functions.wolfram.com/ComplexComponents/Sign/[MFS]
 |===
 
 ==== Exponentiation and Logarithm
@@ -275,6 +262,37 @@ The range is stem:[(−π, π\]].
 |https://functions.wolfram.com/ElementaryFunctions/ArcTanh/[MFS]
 |===
 
+==== Divisibility
+
+[cols="a,,,0"]
+|===
+|Input |Interpreted as |Notes |Links
+
+|`mod(x, y)`
+|stem:[x \bmod y = x - y \left⌊ \dfrac{x}{y} \right⌋]
+|The remainder of stem:[x/y] (https://en.wikipedia.org/wiki/Modulo_operation[modulo operation]). +
+Undefined for stem:[y = 0]. +
+The range for a fixed stem:[y] is stem:[\begin{cases}
+  (y, 0\] & \if y < 0, \\
+  [0, y)  & \if y > 0.
+ \end{cases}]
+|https://functions.wolfram.com/IntegerFunctions/Mod/[MFS]
+
+|`gcd(x~1~, …, x~n~)`
+|stem:[\gcd \set{x_1, …, x_n}]
+|The https://en.wikipedia.org/wiki/Greatest_common_divisor[greatest common divisor] of the numbers in the set stem:[\set{x_1, …, x_n}]. +
+stem:[\gcd \set{x, 0}] is defined to be stem:[\|x\|] for any rational number stem:[x]. +
+Undefined if any of the numbers is irrational.
+|https://functions.wolfram.com/IntegerFunctions/GCD/[MFS]
+
+|`lcm(x~1~, …, x~n~)`
+|stem:[\lcm \set{x_1, …, x_n}]
+|The https://en.wikipedia.org/wiki/Least_common_multiple[least common multiple] of the numbers in the set stem:[\set{x_1, …, x_n}]. +
+stem:[\lcm \set{x, 0}] is defined to be 0 for any rational number stem:[x]. +
+Undefined if any of the numbers is irrational.
+|https://functions.wolfram.com/IntegerFunctions/LCM/[MFS]
+|===
+
 ==== Ordering
 
 [cols="a,,,0"]
@@ -311,15 +329,6 @@ https://functions.wolfram.com/ElementaryFunctions/Min/[MFS]
 |stem:[⌈x⌉]
 |The https://en.wikipedia.org/wiki/Floor_and_ceiling_functions[ceiling function].
 |https://functions.wolfram.com/IntegerFunctions/Ceiling/[MFS]
-
-|`sign(x)` or `sgn(x)`
-|stem:[\sgn x = \begin{cases}
-  -1 & \if x < 0, \\
-  0  & \if x = 0, \\
-  1  & \if x > 0
- \end{cases}]
-|The https://en.wikipedia.org/wiki/Sign_function[sign function].
-|https://functions.wolfram.com/ComplexComponents/Sign/[MFS]
 |===
 
 === Complex Functions
@@ -353,7 +362,7 @@ To use a complex function when all arguments are real, add a dummy imaginary par
 |Undefined for stem:[w = 0].
 |===
 
-==== Complex Components
+==== Number Parts
 
 [cols="a,,,0"]
 |===
@@ -543,20 +552,20 @@ Branch cuts for a fixed stem:[z]: stem:[(−∞, 0)], continuous from above.
 |===
 |Input |Interpreted as |Notes
 
-|`X && Y` or `X ∧ Y`
-|stem:[X ∧ Y]
+|`P && Q` or `P ∧ Q`
+|stem:[P ∧ Q]
 |https://en.wikipedia.org/wiki/Logical_conjunction[Logical conjunction] (logical AND).
 
-|`X \|\| Y` or `X ∨ Y`
-|stem:[X ∨ Y]
+|`P \|\| Q` or `P ∨ Q`
+|stem:[P ∨ Q]
 |https://en.wikipedia.org/wiki/Logical_disjunction[Logical disjunction] (logical OR).
 
-|`!X` or `¬X`
-|stem:[¬X]
+|`!P` or `¬P`
+|stem:[¬P]
 |https://en.wikipedia.org/wiki/Negation[Negation] (logical NOT).
 |===
 
-In all definitions, `X` and `Y` must be formulae.
+stem:[P] and stem:[Q] must be formulae.
 
 === Conditional Expressions
 
@@ -564,13 +573,13 @@ In all definitions, `X` and `Y` must be formulae.
 |===
 |Input |Interpreted as |Notes
 
-|`if(COND, t, f)`
+|`if(P, x, y)`
 |stem:[\begin{cases}
-  t & \if \mathrm{COND}, \\
-  f & \otherwise
+  x & \if P, \\
+  y & \otherwise
  \end{cases}]
-|stem:[\mathrm{COND}] must be a formula. +
-stem:[t] and/or stem:[f] can be either real or complex.
+|stem:[P] must be a formula. +
+stem:[x] and/or stem:[y] can be either real or complex.
 |===
 
 === Special Functions

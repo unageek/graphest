@@ -542,7 +542,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="ulist">
 <ul>
 <li>
-<p>Any relation that contains <code>t</code> is implicitly interpreted as \(∃t ∈ 𝐑[…]\).</p>
+<p>Any relation that contains <code>t</code> is implicitly interpreted as \(∃t ∈ ℝ[…]\).</p>
 </li>
 </ul>
 </div>
@@ -696,6 +696,60 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <colgroup>
 <col style="width: 33.3333%;">
 <col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Input</th>
+<th class="tableblock halign-left valign-top">Interpreted as</th>
+<th class="tableblock halign-left valign-top">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>−x</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(−x\)</p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>x + y</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(x + y\)</p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>x − y</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(x − y\)</p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>x y</code> or <code>x * y</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(xy = x ⋅ y\)</p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>x / y</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(\dfrac{x}{y}\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Undefined for \(y = 0\).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_number_parts"><a class="anchor" href="#_number_parts"></a><a class="link" href="#_number_parts">Number Parts</a></h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
 <col style="width: 33.3333%;">
 <col style="width: 0.0001%;">
 </colgroup>
@@ -710,46 +764,6 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>−x</code></p>
-</div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(−x\)</p></td>
-<td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>x + y</code></p>
-</div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(x + y\)</p></td>
-<td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>x − y</code></p>
-</div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(x − y\)</p></td>
-<td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>x y</code> or <code>x * y</code></p>
-</div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(xy = x ⋅ y\)</p></td>
-<td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>x / y</code></p>
-</div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(\dfrac{x}{y}\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Undefined for \(y = 0\).</p></td>
-<td class="tableblock halign-left valign-top"></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p><code>abs(x)</code> or <code>|x|</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(|x|\)</p></td>
@@ -758,36 +772,15 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>mod(x, y)</code></p>
+<p><code>sign(x)</code> or <code>sgn(x)</code></p>
 </div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(x \bmod y = x - y \left⌊ \dfrac{x}{y} \right⌋\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The remainder of \(x/y\) (<a href="https://en.wikipedia.org/wiki/Modulo_operation">modulo operation</a>).<br>
-Undefined for \(y = 0\).<br>
-The range for a fixed \(y\) is \(\begin{cases}
-  (y, 0] &amp; \if y &lt; 0, \\
-  [0, y)  &amp; \if y &gt; 0.
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(\sgn x = \begin{cases}
+  -1 &amp; \if x &lt; 0, \\
+  0  &amp; \if x = 0, \\
+  1  &amp; \if x &gt; 0
  \end{cases}\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Mod/">MFS</a></p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>gcd(x<sub>1</sub>, …, x<sub>n</sub>)</code></p>
-</div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(\gcd \set{x_1, …, x_n}\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Greatest_common_divisor">greatest common divisor</a> of the numbers in the set \(\set{x_1, …, x_n}\).<br>
-\(\gcd \set{x, 0}\) is defined to be \(|x|\) for any rational number \(x\).<br>
-Undefined if any of the numbers is irrational.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/GCD/">MFS</a></p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>lcm(x<sub>1</sub>, …, x<sub>n</sub>)</code></p>
-</div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(\lcm \set{x_1, …, x_n}\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Least_common_multiple">least common multiple</a> of the numbers in the set \(\set{x_1, …, x_n}\).<br>
-\(\lcm \set{x, 0}\) is defined to be 0 for any rational number \(x\).<br>
-Undefined if any of the numbers is irrational.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/LCM/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Sign_function">sign function</a>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Sign/">MFS</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -1035,6 +1028,60 @@ The range is \((−π, π]\).</p></td>
 </table>
 </div>
 <div class="sect3">
+<h4 id="_divisibility"><a class="anchor" href="#_divisibility"></a><a class="link" href="#_divisibility">Divisibility</a></h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 0.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Input</th>
+<th class="tableblock halign-left valign-top">Interpreted as</th>
+<th class="tableblock halign-left valign-top">Notes</th>
+<th class="tableblock halign-left valign-top">Links</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>mod(x, y)</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(x \bmod y = x - y \left⌊ \dfrac{x}{y} \right⌋\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The remainder of \(x/y\) (<a href="https://en.wikipedia.org/wiki/Modulo_operation">modulo operation</a>).<br>
+Undefined for \(y = 0\).<br>
+The range for a fixed \(y\) is \(\begin{cases}
+  (y, 0] &amp; \if y &lt; 0, \\
+  [0, y)  &amp; \if y &gt; 0.
+ \end{cases}\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Mod/">MFS</a></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>gcd(x<sub>1</sub>, …, x<sub>n</sub>)</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(\gcd \set{x_1, …, x_n}\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Greatest_common_divisor">greatest common divisor</a> of the numbers in the set \(\set{x_1, …, x_n}\).<br>
+\(\gcd \set{x, 0}\) is defined to be \(|x|\) for any rational number \(x\).<br>
+Undefined if any of the numbers is irrational.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/GCD/">MFS</a></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>lcm(x<sub>1</sub>, …, x<sub>n</sub>)</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(\lcm \set{x_1, …, x_n}\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Least_common_multiple">least common multiple</a> of the numbers in the set \(\set{x_1, …, x_n}\).<br>
+\(\lcm \set{x, 0}\) is defined to be 0 for any rational number \(x\).<br>
+Undefined if any of the numbers is irrational.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/LCM/">MFS</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
 <h4 id="_ordering"><a class="anchor" href="#_ordering"></a><a class="link" href="#_ordering">Ordering</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -1109,18 +1156,6 @@ The range is \((−π, π]\).</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Floor_and_ceiling_functions">ceiling function</a>.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Ceiling/">MFS</a></p></td>
 </tr>
-<tr>
-<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>sign(x)</code> or <code>sgn(x)</code></p>
-</div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(\sgn x = \begin{cases}
-  -1 &amp; \if x &lt; 0, \\
-  0  &amp; \if x = 0, \\
-  1  &amp; \if x &gt; 0
- \end{cases}\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Sign_function">sign function</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Sign/">MFS</a></p></td>
-</tr>
 </tbody>
 </table>
 </div>
@@ -1185,7 +1220,7 @@ The range is \((−π, π]\).</p></td>
 </table>
 </div>
 <div class="sect3">
-<h4 id="_complex_components"><a class="anchor" href="#_complex_components"></a><a class="link" href="#_complex_components">Complex Components</a></h4>
+<h4 id="_number_parts_2"><a class="anchor" href="#_number_parts_2"></a><a class="link" href="#_number_parts_2">Number Parts</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
 <col style="width: 33.3333%;">
@@ -1535,29 +1570,29 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>X &amp;&amp; Y</code> or <code>X ∧ Y</code></p>
+<p><code>P &amp;&amp; Q</code> or <code>P ∧ Q</code></p>
 </div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(X ∧ Y\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(P ∧ Q\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://en.wikipedia.org/wiki/Logical_conjunction">Logical conjunction</a> (logical AND).</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>X || Y</code> or <code>X ∨ Y</code></p>
+<p><code>P || Q</code> or <code>P ∨ Q</code></p>
 </div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(X ∨ Y\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(P ∨ Q\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://en.wikipedia.org/wiki/Logical_disjunction">Logical disjunction</a> (logical OR).</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>!X</code> or <code>¬X</code></p>
+<p><code>!P</code> or <code>¬P</code></p>
 </div></div></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(¬X\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(¬P\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://en.wikipedia.org/wiki/Negation">Negation</a> (logical NOT).</p></td>
 </tr>
 </tbody>
 </table>
 <div class="paragraph">
-<p>In all definitions, <code>X</code> and <code>Y</code> must be formulae.</p>
+<p>\(P\) and \(Q\) must be formulae.</p>
 </div>
 </div>
 </div>
@@ -1579,14 +1614,14 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p><code>if(COND, t, f)</code></p>
+<p><code>if(P, x, y)</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\begin{cases}
-  t &amp; \if \mathrm{COND}, \\
-  f &amp; \otherwise
+  x &amp; \if P, \\
+  y &amp; \otherwise
  \end{cases}\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">\(\mathrm{COND}\) must be a formula.<br>
-\(t\) and/or \(f\) can be either real or complex.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(P\) must be a formula.<br>
+\(x\) and/or \(y\) can be either real or complex.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1791,7 +1826,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-11-26 17:54:43 +0900
+Last updated 2021-11-28 17:25:13 +0900
 </div>
 </div>
 
