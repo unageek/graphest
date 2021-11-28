@@ -428,6 +428,10 @@ pub fn format_error(source: &str, range: Range<usize>, message: &str) -> String 
     let end_in_line = (range.end - offset(source_line)).min(source_line.len());
     let col = source_line[..start_in_line].chars().count();
     let n_cols = source_line[start_in_line..end_in_line].chars().count();
+    let decoration = match n_cols {
+        0 => "^".to_owned(),
+        _ => "~".repeat(n_cols),
+    };
 
     format!(
         r"
@@ -440,7 +444,7 @@ input:{}:{}: error: {}
         message,
         source_line,
         "",
-        "^".repeat(n_cols.max(1)),
+        decoration
     )
 }
 
