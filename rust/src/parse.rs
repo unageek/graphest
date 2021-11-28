@@ -521,6 +521,13 @@ input:{}:{}: error: {}
 fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String {
     use nom::Offset;
 
+    let source = input.source;
+    let offset = source.offset(e.input.source);
+    let len = match e.kind {
+        ErrorKind::UnknownIdentifier(name) => name.len(),
+        _ => 0,
+    };
+
     let message = match e.kind {
         ErrorKind::ExpectedChar(c) => format!("expected '{}'", c),
         ErrorKind::ExpectedEof => "expected end of input".to_owned(),
@@ -529,10 +536,7 @@ fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String 
         _ => panic!("unexpected error kind"),
     };
 
-    let source = input.source;
-    let substring = e.input.source;
-    let offset = source.offset(substring);
-    format_error(source, offset..offset, &message)
+    format_error(source, offset..offset + len, &message)
 }
 
 #[cfg(test)]
