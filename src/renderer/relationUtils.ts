@@ -1,8 +1,7 @@
 import * as ipc from "../common/ipc";
 
-export interface Range {
-  start: number;
-  end: number;
+export class Range {
+  constructor(readonly start: number, readonly end: number) {}
 }
 
 const leftBracketKind = new Map([
@@ -14,7 +13,7 @@ const leftBracketKind = new Map([
 
 export function getHighlights(
   rel: string,
-  selection: [number, number]
+  selection: Range
 ): { errors: Range[]; highlights: Range[] } {
   const errors: Range[] = [];
   const highlights: Range[] = [];
@@ -35,35 +34,16 @@ export function getHighlights(
       case "⌋": {
         const left = leftBrackets.pop();
         if (!left || left.kind !== leftBracketKind.get(kind)) {
-          errors.splice(
-            -1,
-            0,
-            ...leftBrackets.map((l) => ({
-              start: l.pos,
-              end: l.pos + 1,
-            }))
-          );
+          errors.push(...leftBrackets.map((l) => new Range(l.pos, l.pos + 1)));
           if (left) {
-            errors.push({
-              start: left.pos,
-              end: left.pos + 1,
-            });
+            errors.push(new Range(left.pos, left.pos + 1));
           }
-          errors.push({
-            start: pos,
-            end: pos + 1,
-          });
+          errors.push(new Range(pos, pos + 1));
           leftBrackets.length = 0;
         } else if (highlights.length === 0) {
-          if (left.pos < selection[0] && selection[1] <= pos) {
-            highlights.push({
-              start: left.pos,
-              end: left.pos + 1,
-            });
-            highlights.push({
-              start: pos,
-              end: pos + 1,
-            });
+          if (left.pos < selection.start && selection.end <= pos) {
+            highlights.push(new Range(left.pos, left.pos + 1));
+            highlights.push(new Range(pos, pos + 1));
           }
         }
         break;
@@ -71,14 +51,7 @@ export function getHighlights(
     }
   }
 
-  errors.splice(
-    -1,
-    0,
-    ...leftBrackets.map((l) => ({
-      start: l.pos,
-      end: l.pos + 1,
-    }))
-  );
+  errors.push(...leftBrackets.map((l) => new Range(l.pos, l.pos + 1)));
 
   return { errors, highlights };
 }

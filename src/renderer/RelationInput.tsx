@@ -8,17 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import {
-  BaseEditor,
-  createEditor,
-  Descendant,
-  Editor,
-  Node,
-  NodeEntry,
-  Range,
-  Text,
-  Transforms,
-} from "slate";
+import * as S from "slate";
 import { withHistory } from "slate-history";
 import {
   Editable,
@@ -30,6 +20,7 @@ import {
 import {
   getHighlights,
   normalizeRelation,
+  Range,
   validateRelation,
 } from "./relationUtils";
 
@@ -47,7 +38,10 @@ export interface RelationInputProps {
   relationInputByUser: boolean;
 }
 
-type CustomElement = { children: CustomText[] };
+type CustomElement = {
+  children: CustomText[];
+};
+
 type CustomText = {
   text: string;
   error: boolean;
@@ -56,30 +50,30 @@ type CustomText = {
 
 declare module "slate" {
   interface CustomTypes {
-    Editor: BaseEditor & ReactEditor;
+    Editor: S.BaseEditor & ReactEditor;
     Element: CustomElement;
     Text: CustomText;
   }
 }
 
-type DecorateRange = Range & {
+type DecorateRange = S.Range & {
   error: boolean;
   highlight: boolean;
 };
 
-const withRelationNormalization = (editor: Editor) => {
+const withRelationNormalization = (editor: S.Editor) => {
   const { normalizeNode } = editor;
   editor.normalizeNode = (entry) => {
     const [node, path] = entry;
 
-    if (Text.isText(node)) {
+    if (S.Text.isText(node)) {
       const t = normalizeRelation(node.text);
       if (t !== node.text) {
         const lastSel = editor.selection;
         // `path` refers to the entire `Text` node, so this replaces the text.
-        Transforms.insertText(editor, t, { at: path });
+        S.Transforms.insertText(editor, t, { at: path });
         if (lastSel) {
-          Transforms.setSelection(editor, lastSel);
+          S.Transforms.setSelection(editor, lastSel);
         }
       }
       return;
@@ -93,24 +87,29 @@ const withRelationNormalization = (editor: Editor) => {
 
 const renderLeaf = (props: RenderLeafProps) => {
   const { attributes, leaf } = props;
-  let { children } = props;
+  const { children } = props;
 
+  const classNames = [];
   if (leaf.error) {
-    children = <span className="error">{children}</span>;
+    classNames.push("error");
   }
   if (leaf.highlight) {
-    children = <span className="highlight">{children}</span>;
+    classNames.push("highlight");
   }
 
-  return <span {...attributes}>{children}</span>;
+  return (
+    <span className={classNames.join(" ")} {...attributes}>
+      {children}
+    </span>
+  );
 };
 
 export const RelationInput = (props: RelationInputProps) => {
   const editor = useMemo(
-    () => withRelationNormalization(withHistory(withReact(createEditor()))),
+    () => withRelationNormalization(withHistory(withReact(S.createEditor()))),
     []
   );
-  const [value, setValue] = useState<Descendant[]>([
+  const [value, setValue] = useState<S.Descendant[]>([
     {
       children: [
         {
@@ -131,19 +130,19 @@ export const RelationInput = (props: RelationInputProps) => {
     [editor]
   );
 
-  function decorate(entry: NodeEntry): Range[] {
+  function decorate(entry: S.NodeEntry): S.Range[] {
     const [node, path] = entry;
     const ranges: DecorateRange[] = [];
-    if (!Text.isText(node)) return ranges;
+    if (!S.Text.isText(node)) return ranges;
 
     const sel = editor.selection;
     if (!sel) return ranges;
 
-    const rel = Editor.string(editor, path);
-    const decs = getHighlights(rel, [
-      Range.start(sel).offset,
-      Range.end(sel).offset,
-    ]);
+    const rel = S.Editor.string(editor, path);
+    const decs = getHighlights(
+      rel,
+      new Range(S.Range.start(sel).offset, S.Range.end(sel).offset)
+    );
     for (const r of decs.errors) {
       ranges.push({
         anchor: { path, offset: r.start },
@@ -165,9 +164,9 @@ export const RelationInput = (props: RelationInputProps) => {
   }
 
   function moveCursorToTheEnd() {
-    Transforms.select(editor, {
-      anchor: Editor.end(editor, [editor.children.length - 1]),
-      focus: Editor.end(editor, [editor.children.length - 1]),
+    S.Transforms.select(editor, {
+      anchor: S.Editor.end(editor, [editor.children.length - 1]),
+      focus: S.Editor.end(editor, [editor.children.length - 1]),
     });
   }
 
@@ -179,15 +178,15 @@ export const RelationInput = (props: RelationInputProps) => {
   useEffect(() => {
     if (props.relationInputByUser) return;
 
-    Editor.withoutNormalizing(editor, () => {
-      Transforms.delete(editor, {
+    S.Editor.withoutNormalizing(editor, () => {
+      S.Transforms.delete(editor, {
         at: {
-          anchor: Editor.start(editor, [0]),
-          focus: Editor.end(editor, [editor.children.length - 1]),
+          anchor: S.Editor.start(editor, [0]),
+          focus: S.Editor.end(editor, [editor.children.length - 1]),
         },
       });
-      Transforms.insertText(editor, props.relation, {
-        at: Editor.start(editor, [0]),
+      S.Transforms.insertText(editor, props.relation, {
+        at: S.Editor.start(editor, [0]),
       });
       moveCursorToTheEnd();
     });
@@ -195,28 +194,28 @@ export const RelationInput = (props: RelationInputProps) => {
 
   useImperativeHandle(props.actionsRef, () => ({
     insertSymbol: (symbol: string) => {
-      Transforms.insertText(editor, symbol);
+      S.Transforms.insertText(editor, symbol);
     },
     insertSymbolPair: (first: string, second: string) => {
-      Editor.withoutNormalizing(editor, () => {
+      S.Editor.withoutNormalizing(editor, () => {
         // Do not read `editor.selection` after any transformation.
         // See https://github.com/ianstormtaylor/slate/issues/4541
         const sel = editor.selection;
         if (!sel) return;
 
-        const selRef = Editor.rangeRef(editor, sel);
+        const selRef = S.Editor.rangeRef(editor, sel);
         if (!selRef.current) return;
 
-        Transforms.insertText(editor, first, {
-          at: Editor.start(editor, selRef.current),
+        S.Transforms.insertText(editor, first, {
+          at: S.Editor.start(editor, selRef.current),
         });
 
         const lastSel = selRef.current;
-        Transforms.insertText(editor, second, {
-          at: Editor.end(editor, lastSel),
+        S.Transforms.insertText(editor, second, {
+          at: S.Editor.end(editor, lastSel),
         });
         // Revert the move of the end cursor by `Transforms.insertText`.
-        Transforms.setSelection(editor, lastSel);
+        S.Transforms.setSelection(editor, lastSel);
 
         selRef.unref();
       });
@@ -228,7 +227,7 @@ export const RelationInput = (props: RelationInputProps) => {
       editor={editor}
       onChange={(newValue) => {
         setValue(newValue);
-        validate(Node.string(editor));
+        validate(S.Node.string(editor));
       }}
       value={value}
     >
