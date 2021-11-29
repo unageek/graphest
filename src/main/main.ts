@@ -18,6 +18,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { pathToFileURL } from "url";
+import * as util from "util";
 import { bignum } from "../common/BigNumber";
 import {
   BASE_ZOOM_LEVEL,
@@ -27,6 +28,8 @@ import {
 } from "../common/constants";
 import * as ipc from "../common/ipc";
 import { MenuItem } from "../common/MenuItem";
+import { Range } from "../common/range";
+import { ValidationResult } from "../common/validationResult";
 
 const fsPromises = fs.promises;
 
@@ -369,10 +372,28 @@ ipcMain.handle(ipc.requestTile, async (_, relId, tileId, coords) => {
   }
 });
 
-ipcMain.handle(ipc.validateRelation, async (_, rel) => {
-  const error = await makePromise(execFile(graphExec, ["--parse", "--", rel]));
-  return { error };
-});
+ipcMain.handle(
+  ipc.validateRelation,
+  async (_, rel): Promise<ValidationResult> => {
+    try {
+      await util.promisify(execFile)(graphExec, ["--parse", "--", rel]);
+    } catch ({ stderr }) {
+      if (typeof stderr === "string") {
+        const lines = stderr.split("\n");
+        const start =
+          parseInt((lines[1].match(/^.*:\d+:(\d+)/) as RegExpMatchArray)[1]) -
+          1;
+        const len = (lines[3].match(/~+/) as RegExpMatchArray)[0].length;
+        const message = (lines[1].match(/error: (.*)$/) as RegExpMatchArray)[1];
+        return {
+          range: new Range(start, start + len),
+          message,
+        };
+      }
+    }
+    return null;
+  }
+);
 
 function abortJobs(filter: JobFilter = () => true) {
   const jobsToAbort = queuedJobs
@@ -427,19 +448,6 @@ function deprioritize(job: Job) {
   assert(nBefore === nAfter);
 
   updateQueue();
-}
-
-function makePromise(proc: ChildProcess): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    proc.once("exit", (code) => {
-      if (code === 0) {
-        resolve(undefined);
-      } else {
-        // TODO: Return a meaningful error message.
-        resolve("");
-      }
-    });
-  });
 }
 
 function notifyGraphingStatusChanged(relId: string, processing: boolean) {

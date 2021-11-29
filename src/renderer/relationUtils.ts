@@ -1,8 +1,6 @@
 import * as ipc from "../common/ipc";
-
-export class Range {
-  constructor(readonly start: number, readonly end: number) {}
-}
+import { Range } from "../common/range";
+import { ValidationResult } from "../common/validationResult";
 
 const leftBracketKind = new Map([
   [")", "("],
@@ -60,10 +58,9 @@ export function normalizeRelation(rel: string): string {
   return rel.replaceAll("-", "−"); // a hyphen-minus → a minus sign
 }
 
-export async function validateRelation(rel: string): Promise<boolean> {
-  const { error } = await window.ipcRenderer.invoke<ipc.ValidateRelation>(
+export async function validateRelation(rel: string): Promise<ValidationResult> {
+  return await window.ipcRenderer.invoke<ipc.ValidateRelation>(
     ipc.validateRelation,
     rel
   );
-  return error === undefined;
 }
