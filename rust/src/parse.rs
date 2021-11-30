@@ -14,7 +14,7 @@ use nom::{
     error::{ErrorKind as NomErrorKind, ParseError},
     multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
-    Err, Finish, IResult, InputLength,
+    Err, Finish, IResult, InputLength, Parser,
 };
 use rug::{Integer, Rational};
 use std::ops::Range;
@@ -206,24 +206,33 @@ fn fail_expr(i: InputWithContext) -> ParseResult<Expr> {
     Err(Err::Error(Error::expected_expr(i)))
 }
 
-fn shortest_expr_within_bars(i: InputWithContext) -> ParseResult<Expr> {
-    let mut min_len = 0;
-
+fn expr_within_bars(i: InputWithContext) -> ParseResult<Expr> {
+    let mut o = recognize(take_while(|c| c != '|'))(i.clone())?;
+    let mut even_bars_taken = true;
     loop {
-        // In kth iteration, the next line tries to take the longest input
-        // that contains exactly 2(k - 1) bars.
-        let (rest, taken) = recognize(pair(take(min_len), take_while(|c| c != '|')))(i.clone())?;
-        min_len = taken.input_len() + 1;
-
-        if let Ok((_, x)) = all_consuming(expr)(taken.clone()) {
-            return Ok((rest, x));
-        } else if rest.input_len() == 0 {
+        let (rest, taken) = o;
+        if even_bars_taken {
+            if let Ok((_, x)) = all_consuming(expr)(taken.clone()) {
+                return Ok((rest, x));
+            }
+        }
+        if rest.input_len() == 0 {
             // Reached the end of input. All we can do is return a meaningful error.
             return expr(taken);
         }
+        o = recognize(pair(take(taken.input_len() + 1), take_while(|c| c != '|')))(i.clone())?;
+        even_bars_taken = !even_bars_taken;
+    }
+}
 
-        let (_, taken) = recognize(pair(take(min_len), take_while(|c| c != '|')))(i.clone())?;
-        min_len = taken.input_len() + 1;
+/// The inverse operation of [`cut`]; converts [`Err::Failure`] back to [`Err::Error`].
+fn decut<I, O, E: ParseError<I>, F>(mut parser: F) -> impl FnMut(I) -> IResult<I, O, E>
+where
+    F: Parser<I, O, E>,
+{
+    move |input: I| match parser.parse(input) {
+        Err(Err::Failure(e)) => Err(Err::Error(e)),
+        rest => rest,
     }
 }
 
@@ -252,8 +261,9 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
             map(
                 delimited(
                     delimited(char('|'), peek(not(char('|'))), space0),
-                    // Certainly not an OR expression. We can cut when no expression is found.
-                    cut(shortest_expr_within_bars),
+                    // Not an OR expression (unless it's called from the case below).
+                    // So we can cut when no expression is found.
+                    cut(expr_within_bars),
                     preceded(space0, cut(char('|'))),
                 ),
                 move |x| builtin.apply("abs", vec![x]),
@@ -261,8 +271,9 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
             map(
                 delimited(
                     terminated(char('|'), space0),
-                    // Possibly an OR expression. We cannot cut when no expression is found.
-                    shortest_expr_within_bars,
+                    // Possibly an OR expression. We must not cut when no expression is found.
+                    // The above case is called recursively, so we also need to cancel cut.
+                    decut(expr_within_bars),
                     preceded(space0, cut(char('|'))),
                 ),
                 move |x| builtin.apply("abs", vec![x]),
