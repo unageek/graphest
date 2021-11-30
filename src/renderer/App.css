@@ -49,6 +49,10 @@ a:not([draggable]) {
   background-color: #a7ff35;
 }
 
+.relation-input:focus span.error.highlight {
+  background-color: #a7e42d; /* multiplied color */
+}
+
 .relation-input span.syntax-error {
   color: #dd3ed4;
 }
