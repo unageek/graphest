@@ -53,6 +53,7 @@
   },
   "dependencies": {
     "@fluentui/react": "^8.44.0",
+    "@fontsource/dejavu-mono": "^4.5.1",
     "@fontsource/noto-sans": "^4.5.1",
     "@reduxjs/toolkit": "^1.6.2",
     "bignumber.js": "^9.0.1",

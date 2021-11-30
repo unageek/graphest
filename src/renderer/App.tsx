@@ -1,5 +1,6 @@
 import { initializeIcons } from "@fluentui/font-icons-mdl2";
 import { Stack, ThemeProvider, useTheme } from "@fluentui/react";
+import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
 import * as React from "react";
 import { useRef } from "react";

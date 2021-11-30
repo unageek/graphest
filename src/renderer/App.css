@@ -30,12 +30,19 @@ a:not([draggable]) {
 .relation-input {
   align-items: center;
   display: flex;
-  font-size: 18px;
-  padding: 0px 8px;
+  font-family: "DejaVu Mono";
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 4px 8px;
+  word-spacing: -0.25ch;
 }
 
 .relation-input span.error {
   background-color: mistyrose;
+}
+
+.relation-input span.error-after {
+  border-right: 1ch solid mistyrose;
 }
 
 .relation-input:focus span.highlight {

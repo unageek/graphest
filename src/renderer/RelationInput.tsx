@@ -46,6 +46,7 @@ type CustomElement = {
 type CustomText = {
   text: string;
   error: boolean;
+  errorAfter: boolean;
   highlight: boolean;
   syntaxError: boolean;
 };
@@ -59,9 +60,10 @@ declare module "slate" {
 }
 
 type DecorateRange = S.Range & {
-  error: boolean;
-  highlight: boolean;
-  syntaxError: boolean;
+  error?: boolean;
+  errorAfter?: boolean;
+  highlight?: boolean;
+  syntaxError?: boolean;
 };
 
 const withRelationNormalization = (editor: S.Editor) => {
@@ -96,6 +98,9 @@ const renderLeaf = (props: RenderLeafProps) => {
   if (leaf.error) {
     classNames.push("error");
   }
+  if (leaf.errorAfter) {
+    classNames.push("error-after");
+  }
   if (leaf.highlight) {
     classNames.push("highlight");
   }
@@ -125,6 +130,7 @@ export const RelationInput = (props: RelationInputProps) => {
         {
           text: props.relation,
           error: false,
+          errorAfter: false,
           highlight: false,
           syntaxError: false,
         },
@@ -161,8 +167,6 @@ export const RelationInput = (props: RelationInputProps) => {
         ranges.push({
           anchor: { path, offset: r.start },
           focus: { path, offset: r.end },
-          error: false,
-          highlight: false,
           syntaxError: true,
         });
       }
@@ -170,19 +174,31 @@ export const RelationInput = (props: RelationInputProps) => {
         ranges.push({
           anchor: { path, offset: r.start },
           focus: { path, offset: r.end },
-          error: false,
           highlight: true,
-          syntaxError: false,
         });
       }
       if (validationResult !== null) {
-        ranges.push({
-          anchor: { path, offset: validationResult.range.start },
-          focus: { path, offset: validationResult.range.end },
-          error: true,
-          highlight: false,
-          syntaxError: false,
-        });
+        const r = validationResult.range;
+        const editorEnd = S.Editor.end(editor, [editor.children.length - 1]);
+        if (r.start === editorEnd.offset) {
+          ranges.push({
+            anchor: { path, offset: r.start - 1 },
+            focus: editorEnd,
+            errorAfter: true,
+          });
+        } else if (r.start === r.end) {
+          ranges.push({
+            anchor: { path, offset: r.start },
+            focus: editorEnd,
+            error: true,
+          });
+        } else {
+          ranges.push({
+            anchor: { path, offset: r.start },
+            focus: { path, offset: r.end },
+            error: true,
+          });
+        }
       }
 
       return ranges;
@@ -275,6 +291,7 @@ export const RelationInput = (props: RelationInputProps) => {
         style={{
           flexGrow: props.grow ? 1 : undefined,
         }}
+        title={validationResult?.message}
       />
     </Slate>
   );
