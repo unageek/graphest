@@ -35,9 +35,13 @@ a:not([draggable]) {
 }
 
 .relation-input span.error {
-  color: #dd3ed4;
+  background-color: mistyrose;
 }
 
 .relation-input:focus span.highlight {
   background-color: #a7ff35;
+}
+
+.relation-input span.syntax-error {
+  color: #dd3ed4;
 }

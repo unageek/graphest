@@ -1,5 +1,6 @@
 import { IpcRendererEvent } from "electron";
 import { MenuItem } from "./MenuItem";
+import { ValidationResult } from "./validationResult";
 
 export interface MessageToMain {
   channel: string;
@@ -39,7 +40,7 @@ export const validateRelation = "validate-relation";
 export interface ValidateRelation extends MessageToMain {
   channel: typeof validateRelation;
   args: [rel: string];
-  result: { error?: string };
+  result: ValidationResult;
 }
 
 export interface MessageToRenderer {

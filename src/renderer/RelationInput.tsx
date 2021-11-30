@@ -17,10 +17,11 @@ import {
   Slate,
   withReact,
 } from "slate-react";
+import { Range } from "../common/range";
+import { ValidationResult } from "../common/validationResult";
 import {
   getHighlights,
   normalizeRelation,
-  Range,
   validateRelation,
 } from "./relationUtils";
 
@@ -46,6 +47,7 @@ type CustomText = {
   text: string;
   error: boolean;
   highlight: boolean;
+  syntaxError: boolean;
 };
 
 declare module "slate" {
@@ -59,6 +61,7 @@ declare module "slate" {
 type DecorateRange = S.Range & {
   error: boolean;
   highlight: boolean;
+  syntaxError: boolean;
 };
 
 const withRelationNormalization = (editor: S.Editor) => {
@@ -96,6 +99,9 @@ const renderLeaf = (props: RenderLeafProps) => {
   if (leaf.highlight) {
     classNames.push("highlight");
   }
+  if (leaf.syntaxError) {
+    classNames.push("syntax-error");
+  }
 
   return (
     <span className={classNames.join(" ")} {...attributes}>
@@ -109,6 +115,10 @@ export const RelationInput = (props: RelationInputProps) => {
     () => withRelationNormalization(withHistory(withReact(S.createEditor()))),
     []
   );
+
+  const [validationResult, setValidationResult] =
+    useState<ValidationResult>(null);
+
   const [value, setValue] = useState<S.Descendant[]>([
     {
       children: [
@@ -116,52 +126,69 @@ export const RelationInput = (props: RelationInputProps) => {
           text: props.relation,
           error: false,
           highlight: false,
+          syntaxError: false,
         },
       ],
     },
   ]);
+
   const validate = useCallback(
     debounce(async (rel: string) => {
-      const valid = await validateRelation(rel);
-      if (valid) {
+      const result = await validateRelation(rel);
+      if (result === null) {
         props.onRelationChanged(rel);
       }
+      setValidationResult(result);
     }, 200),
     [editor]
   );
 
-  function decorate(entry: S.NodeEntry): S.Range[] {
-    const [node, path] = entry;
-    const ranges: DecorateRange[] = [];
-    if (!S.Text.isText(node)) return ranges;
+  const decorate = useCallback(
+    (entry: S.NodeEntry): S.Range[] => {
+      const [node, path] = entry;
+      const ranges: DecorateRange[] = [];
+      if (!S.Text.isText(node)) return ranges;
 
-    const sel = editor.selection;
-    if (!sel) return ranges;
+      const sel = editor.selection;
+      if (!sel) return ranges;
 
-    const rel = S.Editor.string(editor, path);
-    const decs = getHighlights(
-      rel,
-      new Range(S.Range.start(sel).offset, S.Range.end(sel).offset)
-    );
-    for (const r of decs.errors) {
-      ranges.push({
-        anchor: { path, offset: r.start },
-        focus: { path, offset: r.end },
-        error: true,
-        highlight: false,
-      });
-    }
-    for (const r of decs.highlights) {
-      ranges.push({
-        anchor: { path, offset: r.start },
-        focus: { path, offset: r.end },
-        error: false,
-        highlight: true,
-      });
-    }
+      const rel = S.Editor.string(editor, path);
+      const decs = getHighlights(
+        rel,
+        new Range(S.Range.start(sel).offset, S.Range.end(sel).offset)
+      );
+      for (const r of decs.errors) {
+        ranges.push({
+          anchor: { path, offset: r.start },
+          focus: { path, offset: r.end },
+          error: false,
+          highlight: false,
+          syntaxError: true,
+        });
+      }
+      for (const r of decs.highlights) {
+        ranges.push({
+          anchor: { path, offset: r.start },
+          focus: { path, offset: r.end },
+          error: false,
+          highlight: true,
+          syntaxError: false,
+        });
+      }
+      if (validationResult !== null) {
+        ranges.push({
+          anchor: { path, offset: validationResult.range.start },
+          focus: { path, offset: validationResult.range.end },
+          error: true,
+          highlight: false,
+          syntaxError: false,
+        });
+      }
 
-    return ranges;
-  }
+      return ranges;
+    },
+    [validationResult]
+  );
 
   function moveCursorToTheEnd() {
     S.Transforms.select(editor, {
@@ -225,9 +252,13 @@ export const RelationInput = (props: RelationInputProps) => {
   return (
     <Slate
       editor={editor}
-      onChange={(newValue) => {
-        setValue(newValue);
-        validate(S.Node.string(editor));
+      onChange={(value) => {
+        // https://github.com/ianstormtaylor/slate/issues/4687#issuecomment-977911063
+        if (editor.operations.some((op) => op.type !== "set_selection")) {
+          setValue(value);
+          setValidationResult(null);
+          validate(S.Node.string(editor));
+        }
       }}
       value={value}
     >
