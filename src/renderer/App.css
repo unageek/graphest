@@ -32,7 +32,7 @@ a:not([draggable]) {
   display: flex;
   font-family: "DejaVu Mono";
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.75;
   padding: 4px 8px;
   word-spacing: -0.25ch;
 }
@@ -46,13 +46,13 @@ a:not([draggable]) {
 }
 
 .relation-input:focus span.highlight {
-  background-color: #a7ff35;
+  background-color: greenyellow;
 }
 
 .relation-input:focus span.error.highlight {
-  background-color: #a7e42d; /* multiplied color */
+  background-color: #ade428; /* multiplied color */
 }
 
 .relation-input span.syntax-error {
-  color: #dd3ed4;
+  color: tomato;
 }
