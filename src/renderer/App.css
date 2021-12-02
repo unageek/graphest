@@ -41,16 +41,28 @@ a:not([draggable]) {
   background-color: mistyrose;
 }
 
-.relation-input span.error-after {
-  border-right: 1ch solid mistyrose;
+.relation-input span.error-after::after {
+  background-color: mistyrose;
+  content: " ";
+  word-spacing: normal;
 }
 
-.relation-input:focus span.highlight {
+.relation-input:focus span.highlight-left::before {
   background-color: greenyellow;
+  border-radius: 0.5ch 0 0 0.5ch;
+  content: " ";
+  margin-right: -1ch;
+  mix-blend-mode: multiply;
+  word-spacing: normal;
 }
 
-.relation-input:focus span.error.highlight {
-  background-color: #ade428; /* multiplied color */
+.relation-input:focus span.highlight-right::before {
+  background-color: greenyellow;
+  border-radius: 0 0.5ch 0.5ch 0;
+  content: " ";
+  margin-right: -1ch;
+  mix-blend-mode: multiply;
+  word-spacing: normal;
 }
 
 .relation-input span.syntax-error {

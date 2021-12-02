@@ -12,9 +12,10 @@ const leftBracketKind = new Map([
 export function getHighlights(
   rel: string,
   selection: Range
-): { errors: Range[]; highlights: Range[] } {
+): { errors: Range[]; highlightsLeft: Range[]; highlightsRight: Range[] } {
   const errors: Range[] = [];
-  const highlights: Range[] = [];
+  const highlightsLeft: Range[] = [];
+  const highlightsRight: Range[] = [];
   const leftBrackets: { kind: string; pos: number }[] = [];
 
   for (let pos = 0; pos < rel.length; pos++) {
@@ -38,10 +39,10 @@ export function getHighlights(
           }
           errors.push(new Range(pos, pos + 1));
           leftBrackets.length = 0;
-        } else if (highlights.length === 0) {
+        } else if (highlightsLeft.length === 0) {
           if (left.pos < selection.start && selection.end <= pos) {
-            highlights.push(new Range(left.pos, left.pos + 1));
-            highlights.push(new Range(pos, pos + 1));
+            highlightsLeft.push(new Range(left.pos, left.pos + 1));
+            highlightsRight.push(new Range(pos, pos + 1));
           }
         }
         break;
@@ -51,7 +52,7 @@ export function getHighlights(
 
   errors.push(...leftBrackets.map((l) => new Range(l.pos, l.pos + 1)));
 
-  return { errors, highlights };
+  return { errors, highlightsLeft, highlightsRight };
 }
 
 export function normalizeRelation(rel: string): string {

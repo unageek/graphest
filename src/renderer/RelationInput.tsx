@@ -47,7 +47,8 @@ type CustomText = {
   text: string;
   error: boolean;
   errorAfter: boolean;
-  highlight: boolean;
+  highlightLeft: boolean;
+  highlightRight: boolean;
   syntaxError: boolean;
 };
 
@@ -62,7 +63,8 @@ declare module "slate" {
 type DecorateRange = S.Range & {
   error?: boolean;
   errorAfter?: boolean;
-  highlight?: boolean;
+  highlightLeft?: boolean;
+  highlightRight?: boolean;
   syntaxError?: boolean;
 };
 
@@ -101,8 +103,11 @@ const renderLeaf = (props: RenderLeafProps) => {
   if (leaf.errorAfter) {
     classNames.push("error-after");
   }
-  if (leaf.highlight) {
-    classNames.push("highlight");
+  if (leaf.highlightLeft) {
+    classNames.push("highlight-left");
+  }
+  if (leaf.highlightRight) {
+    classNames.push("highlight-right");
   }
   if (leaf.syntaxError) {
     classNames.push("syntax-error");
@@ -131,7 +136,8 @@ export const RelationInput = (props: RelationInputProps) => {
           text: props.relation,
           error: false,
           errorAfter: false,
-          highlight: false,
+          highlightLeft: false,
+          highlightRight: false,
           syntaxError: false,
         },
       ],
@@ -170,11 +176,18 @@ export const RelationInput = (props: RelationInputProps) => {
           syntaxError: true,
         });
       }
-      for (const r of decs.highlights) {
+      for (const r of decs.highlightsLeft) {
         ranges.push({
           anchor: { path, offset: r.start },
           focus: { path, offset: r.end },
-          highlight: true,
+          highlightLeft: true,
+        });
+      }
+      for (const r of decs.highlightsRight) {
+        ranges.push({
+          anchor: { path, offset: r.start },
+          focus: { path, offset: r.end },
+          highlightRight: true,
         });
       }
       if (validationResult !== null) {
