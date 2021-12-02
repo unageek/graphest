@@ -1,15 +1,10 @@
-import {
-  CommandBarButton,
-  Icon,
-  Spinner,
-  SpinnerSize,
-  useTheme,
-} from "@fluentui/react";
+import { Icon, useTheme } from "@fluentui/react";
 import * as React from "react";
 import { useRef } from "react";
 import { DraggableProvidedDragHandleProps } from "react-beautiful-dnd";
 import { useDispatch } from "react-redux";
 import { Bar } from "./Bar";
+import { BarIconButton } from "./BarIconButton";
 import { ColorButton } from "./ColorButton";
 import { removeGraph, useSelector } from "./models/app";
 import { setGraphColor, setGraphRelation } from "./models/graph";
@@ -32,16 +27,16 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
     <Bar>
       <div
         style={{
+          alignItems: "center",
           color: theme.semanticColors.disabledBodyText,
-          display: "grid",
+          display: "flex",
+          justifyContent: "center",
           minWidth: "32px",
         }}
         {...props.dragHandleProps}
+        title="Drag to move"
       >
-        <Icon
-          iconName="GripperDotsVertical"
-          styles={{ root: { margin: "auto" } }}
-        />
+        <Icon iconName="GripperDotsVertical" />
       </div>
       <ColorButton
         color={graph.color}
@@ -54,10 +49,10 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
         onRelationChanged={(r) =>
           dispatch(setGraphRelation(props.graphId, r, true))
         }
+        processing={graph.isProcessing}
         relation={graph.relation}
         relationInputByUser={graph.relationInputByUser}
       />
-      {graph.isProcessing && <Spinner size={SpinnerSize.small} />}
       <SymbolsButton
         onSymbolChosen={(symbol: string) =>
           relationInputActionsRef.current?.insertSymbol(symbol)
@@ -66,7 +61,7 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
           relationInputActionsRef.current?.insertSymbolPair(first, second)
         }
       />
-      <CommandBarButton
+      <BarIconButton
         iconProps={{ iconName: "More" }}
         menuProps={{
           items: [
@@ -82,6 +77,9 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
         }}
         styles={{
           menuIcon: { display: "none" },
+          root: {
+            marginRight: "8px",
+          },
         }}
         title="Actions"
       />

@@ -1,6 +1,5 @@
 import {
   ColorPicker,
-  CommandBarButton,
   IColorCellProps,
   Pivot,
   PivotItem,
@@ -9,6 +8,7 @@ import {
 import { SharedColors } from "@fluentui/theme";
 import * as Color from "color";
 import * as React from "react";
+import { BarIconButton } from "./BarIconButton";
 
 export interface ColorButtonProps {
   color: string;
@@ -17,24 +17,24 @@ export interface ColorButtonProps {
 
 export const ColorButton = (props: ColorButtonProps): JSX.Element => {
   return (
-    <CommandBarButton
-      styles={{
-        menuIcon: { display: "none" },
-      }}
-      title="Color"
+    <BarIconButton
       menuProps={{
         items: [{ key: "colors" }],
         onRenderMenuList: () => renderMenuList(),
       }}
+      styles={{
+        menuIcon: { display: "none" },
+      }}
+      title="Color"
     >
       <div
         style={{
-          width: "16px",
-          height: "16px",
           backgroundColor: props.color,
+          height: "16px",
+          width: "16px",
         }}
       />
-    </CommandBarButton>
+    </BarIconButton>
   );
 
   function renderMenuList(): JSX.Element {

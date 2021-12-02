@@ -32,9 +32,23 @@ a:not([draggable]) {
   display: flex;
   font-family: "DejaVu Mono";
   font-size: 16px;
-  line-height: 1.75;
-  padding: 4px 8px;
+  line-height: 1.5;
+  padding: 2px 8px 2px 12px;
   word-spacing: -0.25ch;
+}
+
+.relation-input::before {
+  bottom: 2px;
+  content: "";
+  left: 0;
+  position: absolute;
+  top: 2px;
+  transition: background-color 200ms;
+  width: 4px;
+}
+
+.relation-input-processing::before {
+  background-color: #0078d4;
 }
 
 .relation-input span.error {

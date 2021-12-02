@@ -1,8 +1,9 @@
-import { Callout, CommandBarButton, FocusZone, Stack } from "@fluentui/react";
+import { Callout, FocusZone, Stack } from "@fluentui/react";
 import { useId } from "@fluentui/react-hooks";
 import * as React from "react";
 import { useState } from "react";
 import { Bar } from "./Bar";
+import { BarIconButton } from "./BarIconButton";
 
 export interface SymbolsButtonProps {
   onSymbolChosen: (symbol: string) => void;
@@ -34,7 +35,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
   }
 
   return (
-    <CommandBarButton
+    <BarIconButton
       iconProps={{ iconName: "Variable" }}
       id={symbolsButtonId}
       onClick={() => open()}
@@ -52,6 +53,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
         }, DISMISS_DELAY);
         setDismissTimer(timer);
       }}
+      title="Symbols"
     >
       {showCallout ? (
         <Callout
@@ -63,81 +65,81 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
           <FocusZone>
             <Stack>
               <Bar>
-                <CommandBarButton
+                <BarIconButton
                   onClick={() => {
                     props.onSymbolChosen("π");
                     dismiss();
                   }}
                 >
                   π
-                </CommandBarButton>
-                <CommandBarButton
+                </BarIconButton>
+                <BarIconButton
                   onClick={() => {
                     props.onSymbolChosen("θ");
                     dismiss();
                   }}
                 >
                   θ
-                </CommandBarButton>
+                </BarIconButton>
               </Bar>
               <Bar>
-                <CommandBarButton
+                <BarIconButton
                   onClick={() => {
                     props.onSymbolPairChosen("⌊", "⌋");
                     dismiss();
                   }}
                 >
                   ⌊ ⌋
-                </CommandBarButton>
-                <CommandBarButton
+                </BarIconButton>
+                <BarIconButton
                   onClick={() => {
                     props.onSymbolPairChosen("⌈", "⌉");
                     dismiss();
                   }}
                 >
                   ⌈ ⌉
-                </CommandBarButton>
+                </BarIconButton>
               </Bar>
               <Bar>
-                <CommandBarButton
+                <BarIconButton
                   onClick={() => {
                     props.onSymbolChosen("≤");
                     dismiss();
                   }}
                 >
                   ≤
-                </CommandBarButton>
-                <CommandBarButton
+                </BarIconButton>
+                <BarIconButton
                   onClick={() => {
                     props.onSymbolChosen("≥");
                     dismiss();
                   }}
                 >
                   ≥
-                </CommandBarButton>
+                </BarIconButton>
               </Bar>
               <Bar>
-                <CommandBarButton
+                <BarIconButton
                   onClick={() => {
                     props.onSymbolChosen("∧");
                     dismiss();
                   }}
                 >
                   ∧
-                </CommandBarButton>
-                <CommandBarButton
+                </BarIconButton>
+                <BarIconButton
                   onClick={() => {
                     props.onSymbolChosen("∨");
                     dismiss();
                   }}
                 >
                   ∨
-                </CommandBarButton>
+                </BarIconButton>
               </Bar>
             </Stack>
           </FocusZone>
         </Callout>
       ) : null}
-    </CommandBarButton>
+    </BarIconButton>
   );
 };

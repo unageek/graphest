@@ -97,7 +97,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       L.easyButton(
         "<div id='reset-view-button' style='font-size: 16px'></div>",
         resetView,
-        "Reset View"
+        "Reset view"
       ).addTo(map);
       ReactDOM.render(
         <Icon iconName="HomeSolid" />,

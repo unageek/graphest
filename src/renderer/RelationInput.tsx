@@ -35,6 +35,7 @@ export interface RelationInputProps {
   grow?: boolean;
   onEnterKeyPressed: () => void;
   onRelationChanged: (relation: string) => void;
+  processing: boolean;
   relation: string;
   relationInputByUser: boolean;
 }
@@ -292,7 +293,9 @@ export const RelationInput = (props: RelationInputProps) => {
       value={value}
     >
       <Editable
-        className="relation-input"
+        className={`relation-input ${
+          props.processing ? "relation-input-processing" : ""
+        }`}
         decorate={decorate}
         onKeyDown={(e: KeyboardEvent) => {
           if (e.key === "Enter") {
