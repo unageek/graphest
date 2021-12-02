@@ -55,6 +55,14 @@ a:not([draggable]) {
   background-color: mistyrose;
 }
 
+.relation-input span.error-after > span[data-slate-zero-width="n"] > br {
+  /*
+   * Hide the <br> in:
+   * https://github.com/ianstormtaylor/slate/blob/fece5c157099b5ddef9f6dc8d070f2fdb3724b90/packages/slate-react/src/components/string.tsx#L91
+   */
+  display: none;
+}
+
 .relation-input span.error-after::after {
   background-color: mistyrose;
   content: " ";
@@ -64,7 +72,8 @@ a:not([draggable]) {
 .relation-input:focus span.highlight-left::before {
   background-color: greenyellow;
   border-radius: 0.5ch 0 0 0.5ch;
-  content: " ";
+  /* Prevent line break right after the pseudo-element. */
+  content: "\a0";
   margin-right: -1ch;
   mix-blend-mode: multiply;
   word-spacing: normal;
@@ -73,7 +82,7 @@ a:not([draggable]) {
 .relation-input:focus span.highlight-right::before {
   background-color: greenyellow;
   border-radius: 0 0.5ch 0.5ch 0;
-  content: " ";
+  content: "\a0";
   margin-right: -1ch;
   mix-blend-mode: multiply;
   word-spacing: normal;
