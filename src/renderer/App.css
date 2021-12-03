@@ -38,11 +38,12 @@ a:not([draggable]) {
 }
 
 .relation-input::before {
-  bottom: 2px;
+  border-radius: 2px;
+  bottom: 4px;
   content: "";
   left: 0;
   position: absolute;
-  top: 2px;
+  top: 4px;
   transition: background-color 200ms;
   width: 4px;
 }
