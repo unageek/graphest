@@ -2,6 +2,12 @@ import * as ipc from "../common/ipc";
 import { Range } from "../common/range";
 import { ValidationResult } from "../common/validationResult";
 
+export const NormalizationRules: [string, string][] = [
+  ["-", "−"], // hyphen-minus → minus sign
+  ["<=", "≤"],
+  [">=", "≥"],
+];
+
 const leftBracketKind = new Map([
   [")", "("],
   ["]", "["],
@@ -53,10 +59,6 @@ export function getHighlights(
   errors.push(...leftBrackets.map((l) => new Range(l.pos, l.pos + 1)));
 
   return { errors, highlightsLeft, highlightsRight };
-}
-
-export function normalizeRelation(rel: string): string {
-  return rel.replaceAll("-", "−"); // a hyphen-minus → a minus sign
 }
 
 export async function validateRelation(rel: string): Promise<ValidationResult> {

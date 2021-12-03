@@ -103,24 +103,6 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
               <Bar>
                 <BarIconButton
                   onClick={() => {
-                    props.onSymbolChosen("≤");
-                    dismiss();
-                  }}
-                >
-                  ≤
-                </BarIconButton>
-                <BarIconButton
-                  onClick={() => {
-                    props.onSymbolChosen("≥");
-                    dismiss();
-                  }}
-                >
-                  ≥
-                </BarIconButton>
-              </Bar>
-              <Bar>
-                <BarIconButton
-                  onClick={() => {
                     props.onSymbolChosen("∧");
                     dismiss();
                   }}

@@ -21,7 +21,7 @@ import { Range } from "../common/range";
 import { ValidationResult } from "../common/validationResult";
 import {
   getHighlights,
-  normalizeRelation,
+  NormalizationRules,
   validateRelation,
 } from "./relationUtils";
 
@@ -75,19 +75,29 @@ const withRelationNormalization = (editor: S.Editor) => {
     const [node, path] = entry;
 
     if (S.Text.isText(node)) {
-      const t = normalizeRelation(node.text);
-      if (t !== node.text) {
-        const lastSel = editor.selection;
-        // `path` refers to the entire `Text` node, so this replaces the text.
-        S.Transforms.insertText(editor, t, { at: path });
-        if (lastSel) {
-          S.Transforms.setSelection(editor, lastSel);
+      let text = node.text;
+      for (const [pat, replace] of NormalizationRules) {
+        for (;;) {
+          const offset = text.search(pat);
+          if (offset === -1) break;
+
+          S.Transforms.delete(editor, {
+            at: {
+              anchor: { path, offset },
+              focus: { path, offset: offset + pat.length },
+            },
+          });
+          S.Transforms.insertText(editor, replace, {
+            at: { path, offset },
+          });
+
+          text =
+            text.slice(0, offset) + replace + text.slice(offset + pat.length);
         }
       }
-      return;
+    } else {
+      normalizeNode(entry);
     }
-
-    normalizeNode(entry);
   };
 
   return editor;
