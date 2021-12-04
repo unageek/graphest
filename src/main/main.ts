@@ -223,12 +223,14 @@ function createMainMenu(): Menu {
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
     height: 600,
+    minHeight: 200,
+    minWidth: 200,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       spellcheck: false,
     },
+    width: 800,
   }).on("closed", () => {
     mainWindow = undefined;
   });
