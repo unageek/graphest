@@ -541,7 +541,7 @@ fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String 
 
     let message = match e.kind {
         ErrorKind::ExpectedChar(c) => format!("expected '{}'", c),
-        ErrorKind::ExpectedEof => "expected end of input".to_owned(),
+        ErrorKind::ExpectedEof => "unexpected input".to_owned(),
         ErrorKind::ExpectedExpr => "expected expression".to_owned(),
         ErrorKind::UnknownIdentifier(name) => format!("'{}' is not defined", name),
         _ => panic!("unexpected error kind"),
