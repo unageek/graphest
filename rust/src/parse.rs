@@ -543,7 +543,7 @@ fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String 
         ErrorKind::ExpectedChar(c) => format!("expected '{}'", c),
         ErrorKind::ExpectedEof => "expected end of input".to_owned(),
         ErrorKind::ExpectedExpr => "expected expression".to_owned(),
-        ErrorKind::UnknownIdentifier(name) => format!("unknown identifier: '{}'", name),
+        ErrorKind::UnknownIdentifier(name) => format!("'{}' is not defined", name),
         _ => panic!("unexpected error kind"),
     };
 
