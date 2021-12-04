@@ -70,23 +70,23 @@ a:not([draggable]) {
   word-spacing: normal;
 }
 
-.relation-input:focus span.highlight-left::before {
+.relation-input:focus span.highlight-left::before,
+.relation-input:focus span.highlight-right::before {
   background-color: greenyellow;
-  border-radius: 0.5ch 0 0 0.5ch;
-  /* Prevent line break right after the pseudo-element. */
-  content: "\a0";
+  color: transparent;
   margin-right: -1ch;
   mix-blend-mode: multiply;
-  word-spacing: normal;
+}
+
+.relation-input:focus span.highlight-left::before {
+  border-radius: 0.5ch 0 0 0.5ch;
+  /* Prevent the pseudo-element from affecting line break. */
+  content: "(\2060";
 }
 
 .relation-input:focus span.highlight-right::before {
-  background-color: greenyellow;
   border-radius: 0 0.5ch 0.5ch 0;
-  content: "\a0";
-  margin-right: -1ch;
-  mix-blend-mode: multiply;
-  word-spacing: normal;
+  content: ")\2060";
 }
 
 .relation-input span.syntax-error {
