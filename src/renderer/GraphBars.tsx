@@ -21,7 +21,7 @@ export const GraphBars = (props: GraphBarsProps): JSX.Element => {
 
   function onDragEnd(result: DropResult) {
     if (
-      result.destination !== undefined &&
+      result.destination &&
       result.destination.index !== result.source.index
     ) {
       dispatch(reorderGraph(result.source.index, result.destination.index));
