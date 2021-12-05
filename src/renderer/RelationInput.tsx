@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useState,
 } from "react";
 import * as S from "slate";
@@ -132,9 +131,8 @@ const renderLeaf = (props: RenderLeafProps) => {
 };
 
 export const RelationInput = (props: RelationInputProps) => {
-  const editor = useMemo(
-    () => withRelationNormalization(withHistory(withReact(S.createEditor()))),
-    []
+  const [editor] = useState(
+    withRelationNormalization(withHistory(withReact(S.createEditor())))
   );
 
   const [validationResult, setValidationResult] =
@@ -163,7 +161,7 @@ export const RelationInput = (props: RelationInputProps) => {
       }
       setValidationResult(result);
     }, 200),
-    [editor]
+    []
   );
 
   const decorate = useCallback(
@@ -302,23 +300,31 @@ export const RelationInput = (props: RelationInputProps) => {
       }}
       value={value}
     >
-      <Editable
-        className={`relation-input ${
-          props.processing ? "relation-input-processing" : ""
+      <div
+        className={`relation-input-outer ${
+          props.processing ? "processing" : ""
         }`}
-        decorate={decorate}
-        onKeyDown={(e: KeyboardEvent) => {
-          if (e.key === "Enter") {
-            props.onEnterKeyPressed();
-            e.preventDefault();
-          }
-        }}
-        renderLeaf={renderLeaf}
         style={{
           flexGrow: props.grow ? 1 : undefined,
         }}
-        title={validationResult?.message}
-      />
+      >
+        <Editable
+          className="relation-input"
+          decorate={decorate}
+          onKeyDown={(e: KeyboardEvent) => {
+            if (e.key === "Enter") {
+              props.onEnterKeyPressed();
+              e.preventDefault();
+            }
+          }}
+          renderLeaf={renderLeaf}
+        />
+        {validationResult && (
+          <div className="relation-input-error-message">
+            Error: {validationResult?.message}
+          </div>
+        )}
+      </div>
     </Slate>
   );
 };

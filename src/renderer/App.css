@@ -27,17 +27,16 @@ a:not([draggable]) {
   opacity: 0.5;
 }
 
-.relation-input {
-  align-items: center;
+.relation-input-outer {
+  align-items: stretch;
   display: flex;
-  font-family: "DejaVu Mono";
-  font-size: 16px;
-  line-height: 1.5;
+  flex-direction: column;
+  justify-content: center;
   padding: 2px 8px 2px 12px;
-  word-spacing: -0.25ch;
+  position: relative;
 }
 
-.relation-input::before {
+.relation-input-outer::before {
   border-radius: 2px;
   bottom: 4px;
   content: "";
@@ -48,8 +47,15 @@ a:not([draggable]) {
   width: 4px;
 }
 
-.relation-input-processing::before {
+.relation-input-outer.processing::before {
   background-color: #0078d4;
+}
+
+.relation-input {
+  font-family: "DejaVu Mono";
+  font-size: 16px;
+  line-height: 1.5;
+  word-spacing: -0.25ch;
 }
 
 .relation-input span.error {
@@ -90,5 +96,10 @@ a:not([draggable]) {
 }
 
 .relation-input span.syntax-error {
-  color: tomato;
+  color: #d13438; /* theme.palette.red */
+}
+
+.relation-input-error-message {
+  color: #d13438; /* theme.palette.red */
+  font-size: 14px;
 }
