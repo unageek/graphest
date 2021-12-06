@@ -43,13 +43,16 @@ type CustomElement = {
   children: CustomText[];
 };
 
-type CustomText = {
-  text: string;
+type Decoration = {
   error: boolean;
   errorAfter: boolean;
   highlightLeft: boolean;
   highlightRight: boolean;
   syntaxError: boolean;
+};
+
+type CustomText = Decoration & {
+  text: string;
 };
 
 declare module "slate" {
@@ -60,13 +63,7 @@ declare module "slate" {
   }
 }
 
-type DecorateRange = S.Range & {
-  error?: boolean;
-  errorAfter?: boolean;
-  highlightLeft?: boolean;
-  highlightRight?: boolean;
-  syntaxError?: boolean;
-};
+type DecoratedRange = S.Range & Partial<Decoration>;
 
 const withRelationNormalization = (editor: S.Editor) => {
   const { normalizeNode } = editor;
@@ -172,7 +169,7 @@ export const RelationInput = (props: RelationInputProps) => {
   const decorate = useCallback(
     (entry: S.NodeEntry): S.Range[] => {
       const [node, path] = entry;
-      const ranges: DecorateRange[] = [];
+      const ranges: DecoratedRange[] = [];
       if (!S.Text.isText(node)) return ranges;
 
       const sel = editor.selection;
