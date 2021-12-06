@@ -156,12 +156,15 @@ export const RelationInput = (props: RelationInputProps) => {
   ]);
 
   const validate = useCallback(
-    debounce(async (rel: string) => {
+    debounce(async (): Promise<ValidationResult> => {
+      const rel = S.Node.string(editor);
       const result = await validateRelation(rel);
       if (result === null) {
         props.onRelationChanged(rel);
       }
       setValidationResult(result);
+      // For immediate use of the result.
+      return result;
     }, 200),
     []
   );
@@ -298,7 +301,7 @@ export const RelationInput = (props: RelationInputProps) => {
           setShowErrorMessage(false);
           setValidationResult(null);
           setValue(value);
-          validate(S.Node.string(editor));
+          validate();
         }
       }}
       value={value}
@@ -314,15 +317,20 @@ export const RelationInput = (props: RelationInputProps) => {
         <Editable
           className="relation-input"
           decorate={decorate}
-          onKeyDown={async (e: KeyboardEvent) => {
+          // Do not make the handler async, since a return type other than `void` or `boolean`
+          // can break the criteria for invoking the default handler:
+          // https://github.com/ianstormtaylor/slate/blob/8bc6a464600d6820d85f55fdaf71e9ea01702eb5/packages/slate-react/src/components/editable.tsx#L1431
+          onKeyDown={(e: KeyboardEvent) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              await validate(S.Node.string(editor));
-              if (validationResult) {
-                setShowErrorMessage(true);
-              } else {
-                props.onEnterKeyPressed();
-              }
+              validate();
+              validate.flush()?.then((result) => {
+                if (result !== null) {
+                  setShowErrorMessage(true);
+                } else {
+                  props.onEnterKeyPressed();
+                }
+              });
             }
           }}
           renderLeaf={renderLeaf}
