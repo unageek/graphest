@@ -85,13 +85,13 @@ a:not([draggable]) {
 }
 
 .relation-input:focus span.highlight-left::before {
-  border-radius: 0.5ch 0 0 0.5ch;
+  border-radius: 0.5ch 0 0 0.5ch / 50% 0 0 50%;
   /* Prevent the pseudo-element from affecting line break. */
   content: "(\2060";
 }
 
 .relation-input:focus span.highlight-right::before {
-  border-radius: 0 0.5ch 0.5ch 0;
+  border-radius: 0 0.5ch 0.5ch 0 / 0 50% 50% 0;
   content: ")\2060";
 }
 
