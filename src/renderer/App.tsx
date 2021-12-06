@@ -16,7 +16,7 @@ import { setHighRes, setShowAxes, setShowGrid } from "./models/app";
 import { store } from "./models/store";
 
 const App = () => {
-  const graphViewRef = useRef<HTMLDivElement | null>(null);
+  const graphViewRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
 
   function focusGraphView() {

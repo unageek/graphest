@@ -11,7 +11,7 @@ export interface SymbolsButtonProps {
 }
 
 export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
-  const buttonRef = useRef<HTMLElement | null>(null);
+  const buttonRef = useRef<HTMLElement>(null);
   const [showCallout, setShowCallout] = useState(false);
 
   const setShowCalloutDebounced = useCallback(
