@@ -131,12 +131,8 @@ export const RelationInput = (props: RelationInputProps) => {
   const [editor] = useState(
     withRelationNormalization(withHistory(withReact(S.createEditor())))
   );
-
-  const [showErrorMessage, setShowErrorMessage] = useState(false);
-
-  const [validationResult, setValidationResult] =
-    useState<ValidationResult>(null);
-
+  const [error, setError] = useState<ValidationResult>(null);
+  const [showError, setShowError] = useState(false);
   const [value, setValue] = useState<S.Descendant[]>([
     {
       children: [
@@ -151,20 +147,6 @@ export const RelationInput = (props: RelationInputProps) => {
       ],
     },
   ]);
-
-  const validate = useCallback(
-    debounce(async (): Promise<ValidationResult> => {
-      const rel = S.Node.string(editor);
-      const result = await validateRelation(rel);
-      if (result === null) {
-        props.onRelationChanged(rel);
-      }
-      setValidationResult(result);
-      // For immediate use of the result.
-      return result;
-    }, 200),
-    []
-  );
 
   const decorate = useCallback(
     (entry: S.NodeEntry): S.Range[] => {
@@ -201,8 +183,8 @@ export const RelationInput = (props: RelationInputProps) => {
           highlightRight: true,
         });
       }
-      if (validationResult !== null) {
-        const r = validationResult.range;
+      if (error && showError) {
+        const r = error.range;
         const editorEnd = S.Editor.end(editor, [editor.children.length - 1]);
         if (r.start === editorEnd.offset) {
           ranges.push({
@@ -227,7 +209,23 @@ export const RelationInput = (props: RelationInputProps) => {
 
       return ranges;
     },
-    [validationResult]
+    [error, showError]
+  );
+
+  const updateRelation = useCallback(
+    debounce(async (): Promise<ValidationResult> => {
+      const rel = S.Node.string(editor);
+      const error = await validateRelation(rel);
+      if (!error) {
+        props.onRelationChanged(rel);
+      } else {
+        props.onRelationChanged("false");
+      }
+      setError(error);
+      // For immediate use of the result.
+      return error;
+    }, 200),
+    []
   );
 
   function moveCursorToTheEnd() {
@@ -295,17 +293,17 @@ export const RelationInput = (props: RelationInputProps) => {
       onChange={(value) => {
         // https://github.com/ianstormtaylor/slate/issues/4687#issuecomment-977911063
         if (editor.operations.some((op) => op.type !== "set_selection")) {
-          setShowErrorMessage(false);
-          setValidationResult(null);
+          setError(null);
+          setShowError(false);
           setValue(value);
-          validate();
+          updateRelation();
         }
       }}
       value={value}
     >
       <div
-        className={`relation-input-outer ${
-          props.processing ? "processing" : ""
+        className={`relation-input-outer ${error ? "has-error" : ""} ${
+          !error && props.processing ? "processing" : ""
         }`}
         style={{
           flexGrow: props.grow ? 1 : undefined,
@@ -320,10 +318,10 @@ export const RelationInput = (props: RelationInputProps) => {
           onKeyDown={(e: KeyboardEvent) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              validate();
-              validate.flush()?.then((result) => {
-                if (result !== null) {
-                  setShowErrorMessage(true);
+              updateRelation();
+              updateRelation.flush()?.then((error) => {
+                if (error) {
+                  setShowError(true);
                 } else {
                   props.onEnterKeyPressed();
                 }
@@ -332,9 +330,9 @@ export const RelationInput = (props: RelationInputProps) => {
           }}
           renderLeaf={renderLeaf}
         />
-        {showErrorMessage && validationResult && (
+        {error && showError && (
           <div className="relation-input-error-message">
-            Error: {validationResult.message}
+            Error: {error.message}
           </div>
         )}
       </div>

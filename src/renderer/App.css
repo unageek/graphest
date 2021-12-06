@@ -28,27 +28,32 @@ a:not([draggable]) {
 }
 
 .relation-input-outer {
+  --indicator-width: 3px;
   align-items: stretch;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 2px 8px 2px 12px;
+  padding: 2px 8px 2px calc(8px + var(--indicator-width));
   position: relative;
 }
 
 .relation-input-outer::before {
-  border-radius: 2px;
+  border-radius: calc(var(--indicator-width) / 2);
   bottom: 4px;
   content: "";
   left: 0;
   position: absolute;
   top: 4px;
-  transition: background-color 200ms;
-  width: 4px;
+  transition: background-color 50ms;
+  width: var(--indicator-width);
+}
+
+.relation-input-outer.has-error::before {
+  background-color: #d13438; /* theme.palette.red */
 }
 
 .relation-input-outer.processing::before {
-  background-color: #0078d4;
+  background-color: #0078d4; /* theme.palette.blue */
 }
 
 .relation-input {
@@ -96,7 +101,7 @@ a:not([draggable]) {
 }
 
 .relation-input span.syntax-error {
-  color: #d13438; /* theme.palette.red */
+  color: #b4009e; /* theme.palette.magenta */
 }
 
 .relation-input-error-message {
