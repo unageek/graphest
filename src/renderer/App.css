@@ -49,11 +49,20 @@ a:not([draggable]) {
 }
 
 .relation-input-outer.has-error::before {
-  background-color: #d13438; /* theme.palette.red */
+  background-color: #a4262c; /* theme.palette.redDark */
+}
+
+@keyframes processing {
+  from {
+    background-color: #c7e0f4; /* themeLight */
+  }
+  to {
+    background-color: #0078d4; /* theme.palette.blue */
+  }
 }
 
 .relation-input-outer.processing::before {
-  background-color: #0078d4; /* theme.palette.blue */
+  animation: processing 1s infinite alternate linear;
 }
 
 .relation-input {
@@ -105,6 +114,5 @@ a:not([draggable]) {
 }
 
 .relation-input-error-message {
-  color: #d13438; /* theme.palette.red */
-  font-size: 14px;
+  color: #a4262c; /* theme.palette.redDark */
 }
