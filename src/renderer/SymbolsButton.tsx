@@ -1,7 +1,7 @@
 import { Callout, FocusZone, Stack } from "@fluentui/react";
-import { useId } from "@fluentui/react-hooks";
+import { debounce } from "lodash";
 import * as React from "react";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Bar } from "./Bar";
 import { BarIconButton } from "./BarIconButton";
 
@@ -10,57 +10,50 @@ export interface SymbolsButtonProps {
   onSymbolPairChosen: (first: string, second: string) => void;
 }
 
-const DISMISS_DELAY = 200;
-const OPEN_DELAY = 200;
-
 export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
-  const [dismissTimer, setDismissTimer] = useState<number>();
-  const [openTimer, setOpenTimer] = useState<number>();
+  const buttonRef = useRef<HTMLElement | null>(null);
   const [showCallout, setShowCallout] = useState(false);
-  const symbolsButtonId = useId("symbols-button");
 
-  function clearTimers() {
-    window.clearTimeout(dismissTimer);
-    window.clearTimeout(openTimer);
-  }
+  const setShowCalloutDebounced = useCallback(
+    debounce((show: boolean) => {
+      setShowCallout(show);
+    }, 200),
+    []
+  );
 
   function dismiss() {
+    setShowCalloutDebounced.cancel();
     setShowCallout(false);
-    clearTimers();
+  }
+
+  function dismissDebounced() {
+    setShowCalloutDebounced(false);
   }
 
   function open() {
+    setShowCalloutDebounced.cancel();
     setShowCallout(true);
-    clearTimers();
+  }
+
+  function openDebounced() {
+    setShowCalloutDebounced(true);
   }
 
   return (
     <BarIconButton
+      elementRef={buttonRef}
       iconProps={{ iconName: "Variable" }}
-      id={symbolsButtonId}
-      onClick={() => open()}
-      onMouseEnter={() => {
-        clearTimers();
-        const timer = window.setTimeout(() => {
-          setShowCallout(true);
-        }, OPEN_DELAY);
-        setOpenTimer(timer);
-      }}
-      onMouseLeave={() => {
-        clearTimers();
-        const timer = window.setTimeout(() => {
-          setShowCallout(false);
-        }, DISMISS_DELAY);
-        setDismissTimer(timer);
-      }}
+      onClick={open}
+      onMouseEnter={openDebounced}
+      onMouseLeave={dismissDebounced}
       title="Symbols"
     >
       {showCallout ? (
         <Callout
           gapSpace={0}
           isBeakVisible={false}
-          onDismiss={() => dismiss()}
-          target={`#${symbolsButtonId}`}
+          onDismiss={dismiss}
+          target={buttonRef}
         >
           <FocusZone>
             <Stack>
