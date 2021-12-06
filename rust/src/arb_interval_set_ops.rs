@@ -7,35 +7,35 @@ use itertools::Itertools;
 
 macro_rules! ge {
     ($x:expr, $y:expr) => {{
-        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        const _: () = assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
         Ternary::from(($x.inf() >= $y, $x.sup() >= $y))
     }};
 }
 
 macro_rules! gt {
     ($x:expr, $y:expr) => {{
-        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        const _: () = assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
         Ternary::from(($x.inf() > $y, $x.sup() > $y))
     }};
 }
 
 macro_rules! le {
     ($x:expr, $y:expr) => {{
-        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        const _: () = assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
         Ternary::from(($x.sup() <= $y, $x.inf() <= $y))
     }};
 }
 
 macro_rules! lt {
     ($x:expr, $y:expr) => {{
-        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        const _: () = assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
         Ternary::from(($x.sup() < $y, $x.inf() < $y))
     }};
 }
 
 macro_rules! ne {
     ($x:expr, $y:expr) => {{
-        static_assertions::const_assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
+        const _: () = assert!(f64::NEG_INFINITY < $y && $y < f64::INFINITY);
         Ternary::from((!$x.contains($y), $x != const_interval!($y, $y)))
     }};
 }
