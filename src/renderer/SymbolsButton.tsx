@@ -1,4 +1,4 @@
-import { Callout, FocusZone, Stack } from "@fluentui/react";
+import { Callout, FocusZone, Stack, useTheme } from "@fluentui/react";
 import { debounce } from "lodash";
 import * as React from "react";
 import { useCallback, useRef, useState } from "react";
@@ -13,6 +13,7 @@ export interface SymbolsButtonProps {
 export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
   const buttonRef = useRef<HTMLElement>(null);
   const [showCallout, setShowCallout] = useState(false);
+  const theme = useTheme();
 
   const setShowCalloutDebounced = useCallback(
     debounce((show: boolean) => {
@@ -48,11 +49,17 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
       onMouseLeave={dismissDebounced}
       title="Symbols"
     >
-      {showCallout ? (
+      {showCallout && (
         <Callout
           gapSpace={0}
           isBeakVisible={false}
           onDismiss={dismiss}
+          setInitialFocus
+          styles={{
+            root: {
+              boxShadow: theme.effects.elevation8,
+            },
+          }}
           target={buttonRef}
         >
           <FocusZone>
@@ -114,7 +121,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
             </Stack>
           </FocusZone>
         </Callout>
-      ) : null}
+      )}
     </BarIconButton>
   );
 };
