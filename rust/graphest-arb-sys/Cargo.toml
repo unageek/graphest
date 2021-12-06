@@ -2,7 +2,7 @@
 name = "graphest-arb-sys"
 version = "0.2.0"
 authors = ["Masashi Mizuno"]
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/unageek/graphest"
 license = "MIT"
 publish = false
