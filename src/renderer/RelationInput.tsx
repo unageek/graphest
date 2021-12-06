@@ -135,6 +135,8 @@ export const RelationInput = (props: RelationInputProps) => {
     withRelationNormalization(withHistory(withReact(S.createEditor())))
   );
 
+  const [showErrorMessage, setShowErrorMessage] = useState(false);
+
   const [validationResult, setValidationResult] =
     useState<ValidationResult>(null);
 
@@ -293,8 +295,9 @@ export const RelationInput = (props: RelationInputProps) => {
       onChange={(value) => {
         // https://github.com/ianstormtaylor/slate/issues/4687#issuecomment-977911063
         if (editor.operations.some((op) => op.type !== "set_selection")) {
-          setValue(value);
+          setShowErrorMessage(false);
           setValidationResult(null);
+          setValue(value);
           validate(S.Node.string(editor));
         }
       }}
@@ -311,17 +314,22 @@ export const RelationInput = (props: RelationInputProps) => {
         <Editable
           className="relation-input"
           decorate={decorate}
-          onKeyDown={(e: KeyboardEvent) => {
+          onKeyDown={async (e: KeyboardEvent) => {
             if (e.key === "Enter") {
-              props.onEnterKeyPressed();
               e.preventDefault();
+              await validate(S.Node.string(editor));
+              if (validationResult) {
+                setShowErrorMessage(true);
+              } else {
+                props.onEnterKeyPressed();
+              }
             }
           }}
           renderLeaf={renderLeaf}
         />
-        {validationResult && (
+        {showErrorMessage && validationResult && (
           <div className="relation-input-error-message">
-            Error: {validationResult?.message}
+            Error: {validationResult.message}
           </div>
         )}
       </div>
