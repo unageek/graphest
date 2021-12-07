@@ -212,6 +212,14 @@ function createMainMenu(): Menu {
             );
           },
         },
+        {
+          label: "Example Relations",
+          click: async () => {
+            await shell.openExternal(
+              "https://github.com/unageek/graphest/blob/master/Examples.md"
+            );
+          },
+        },
         { type: "separator" },
         { role: "toggleDevTools" },
         { type: "separator" },

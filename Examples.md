@@ -1,4 +1,4 @@
-# Examples
+# Example Relations
 
 🐌: Takes a long time to terminate.
 
