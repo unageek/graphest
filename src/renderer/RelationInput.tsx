@@ -307,13 +307,16 @@ export const RelationInput = (props: RelationInputProps) => {
         style={{
           flexGrow: props.grow ? 1 : undefined,
         }}
+        title={
+          error && !showError
+            ? "Press the Enter key to see the details of the error."
+            : undefined
+        }
       >
         <Editable
           className="relation-input"
           decorate={decorate}
-          // Do not make the handler async, since a return type other than `void` or `boolean`
-          // can break the criteria for invoking the default handler:
-          // https://github.com/ianstormtaylor/slate/blob/8bc6a464600d6820d85f55fdaf71e9ea01702eb5/packages/slate-react/src/components/editable.tsx#L1431
+          // https://github.com/ianstormtaylor/slate/issues/4721
           onKeyDown={(e: KeyboardEvent) => {
             if (e.key === "Enter") {
               e.preventDefault();
