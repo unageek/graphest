@@ -268,15 +268,14 @@ dependencies = [
 
 [[package]]
 name = "inari"
-version = "0.10.9"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1825e6898b3411974d8e6cacf3e7ea0721c1e155fafd01d7b70e8048653dafa"
+checksum = "0a440cd757591269bb9ee4b101bf8ea97185d59923ffa97c1eb2388809ff28fa"
 dependencies = [
  "cfg-if",
  "gmp-mpfr-sys",
  "nom",
  "rug",
- "static_assertions",
 ]
 
 [[package]]
