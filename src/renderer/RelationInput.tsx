@@ -293,7 +293,6 @@ export const RelationInput = (props: RelationInputProps) => {
       onChange={(value) => {
         // https://github.com/ianstormtaylor/slate/issues/4687#issuecomment-977911063
         if (editor.operations.some((op) => op.type !== "set_selection")) {
-          setError(null);
           setShowError(false);
           setValue(value);
           updateRelation();
