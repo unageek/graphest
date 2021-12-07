@@ -17,7 +17,6 @@ inari = "0.11"
 itertools = "0.10"
 nom = "7.1"
 smallvec = "1.7"
-static_assertions = "1.1"
 
 [dependencies.clap]
 version = "3.0.0-beta.5"
