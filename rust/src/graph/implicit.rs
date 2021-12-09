@@ -1,4 +1,5 @@
 use crate::{
+    ast::VarSet,
     block::{
         Block, BlockQueue, BlockQueueOptions, Coordinate, IntegerParameter, RealParameter,
         SubdivisionDir,
@@ -25,6 +26,7 @@ use std::{
 /// The graphing algorithm for implicit relations.
 pub struct Implicit {
     rel: Relation,
+    vars: VarSet,
     im: Image<PixelState>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
@@ -47,10 +49,12 @@ impl Implicit {
     ) -> Self {
         assert_eq!(rel.relation_type(), RelationType::Implicit);
 
-        let has_n_theta = rel.has_n_theta();
-        let has_t = rel.has_t();
+        let vars = rel.vars();
+        let has_n_theta = vars.contains(VarSet::N_THETA);
+        let has_t = vars.contains(VarSet::T);
         let mut g = Self {
             rel,
+            vars,
             im: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(BlockQueueOptions {
                 store_xy: true,
@@ -83,10 +87,10 @@ impl Implicit {
             },
             mem_limit,
             cache_eval_on_region: EvalCache::new(EvalCacheLevel::PerAxis),
-            cache_eval_on_point: if has_n_theta || has_t {
-                EvalCache::new(EvalCacheLevel::PerAxis)
-            } else {
+            cache_eval_on_point: if (VarSet::X | VarSet::Y).contains(vars) {
                 EvalCache::new(EvalCacheLevel::Full)
+            } else {
+                EvalCache::new(EvalCacheLevel::PerAxis)
             },
         };
 
@@ -99,7 +103,7 @@ impl Implicit {
             ..Block::default()
         }];
 
-        if g.rel.has_n_theta() {
+        if has_n_theta {
             let n_theta_range = g.rel.n_theta_range();
             bs = IntegerParameter::initial_subdivision(n_theta_range)
                 .into_iter()
@@ -141,7 +145,9 @@ impl Implicit {
                 let complete = if !sub_b.x.is_subpixel() {
                     self.process_block(&sub_b)
                 } else {
-                    if self.rel.has_n_theta() && !sub_b.n_theta.interval().is_singleton() {
+                    if self.vars.contains(VarSet::N_THETA)
+                        && !sub_b.n_theta.interval().is_singleton()
+                    {
                         // Try finding a solution earlier.
                         let n_theta = IntegerParameter::new(point_interval(simple_fraction(
                             sub_b.n_theta.interval(),
@@ -168,10 +174,12 @@ impl Implicit {
             } else {
                 // Subdivide in other direction.
                 match b.next_dir {
-                    SubdivisionDir::XY if self.rel.has_n_theta() => SubdivisionDir::NTheta,
-                    SubdivisionDir::XY if self.rel.has_t() => SubdivisionDir::T,
+                    SubdivisionDir::XY if self.vars.contains(VarSet::N_THETA) => {
+                        SubdivisionDir::NTheta
+                    }
+                    SubdivisionDir::XY if self.vars.contains(VarSet::T) => SubdivisionDir::T,
                     SubdivisionDir::XY => SubdivisionDir::XY,
-                    SubdivisionDir::NTheta if self.rel.has_t() => SubdivisionDir::T,
+                    SubdivisionDir::NTheta if self.vars.contains(VarSet::T) => SubdivisionDir::T,
                     SubdivisionDir::NTheta => SubdivisionDir::XY,
                     SubdivisionDir::T => SubdivisionDir::XY,
                 }
@@ -185,9 +193,9 @@ impl Implicit {
                     preferred_next_dir
                 } else if sub_b.x.is_subdivisible() {
                     SubdivisionDir::XY
-                } else if self.rel.has_n_theta() && sub_b.n_theta.is_subdivisible() {
+                } else if self.vars.contains(VarSet::N_THETA) && sub_b.n_theta.is_subdivisible() {
                     SubdivisionDir::NTheta
-                } else if self.rel.has_t() && sub_b.t.is_subdivisible() {
+                } else if self.vars.contains(VarSet::T) && sub_b.t.is_subdivisible() {
                     SubdivisionDir::T
                 } else {
                     // Cannot subdivide in any direction.

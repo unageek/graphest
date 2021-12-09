@@ -237,11 +237,10 @@ pub struct Relation {
     y_explicit: Option<StoreIndex>,
     mx: Vec<StoreIndex>,
     my: Vec<StoreIndex>,
-    has_n_theta: bool,
-    has_t: bool,
     n_theta_range: Interval,
     t_range: Interval,
     relation_type: RelationType,
+    vars: VarSet,
 }
 
 impl Relation {
@@ -320,16 +319,6 @@ impl Relation {
         &self.forms
     }
 
-    /// Returns `true` if the relation contains n_θ.
-    pub fn has_n_theta(&self) -> bool {
-        self.has_n_theta
-    }
-
-    /// Returns `true` if the relation contains t.
-    pub fn has_t(&self) -> bool {
-        self.has_t
-    }
-
     /// Returns the range of n_θ that needs to be covered to plot the graph of the relation.
     ///
     /// Each of the bounds is either an integer or ±∞.
@@ -345,6 +334,11 @@ impl Relation {
     /// Returns the range of t that needs to be covered to plot the graph of the relation.
     pub fn t_range(&self) -> Interval {
         self.t_range
+    }
+
+    /// Returns the set of variables that appear in the relation.
+    pub fn vars(&self) -> VarSet {
+        self.vars
     }
 
     fn eval_explicit_without_cache(&mut self, x: Interval) -> EvalExplicitResult {
@@ -598,11 +592,10 @@ impl FromStr for Relation {
             y_explicit,
             mx,
             my,
-            has_n_theta: e.vars.contains(VarSet::N_THETA),
-            has_t: e.vars.contains(VarSet::T),
             n_theta_range,
             t_range,
             relation_type,
+            vars: e.vars,
         };
         slf.initialize();
         Ok(slf)
@@ -972,26 +965,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn has_n_theta() {
-        fn f(rel: &str) -> bool {
-            rel.parse::<Relation>().unwrap().has_n_theta()
-        }
-
-        assert!(!f("x y r t = 0"));
-        assert!(f("θ = 0"));
-    }
-
-    #[test]
-    fn has_t() {
-        fn f(rel: &str) -> bool {
-            rel.parse::<Relation>().unwrap().has_t()
-        }
-
-        assert!(!f("x y r θ = 0"));
-        assert!(f("t = 0"));
-    }
-
-    #[test]
     fn n_theta_range() {
         fn f(rel: &str) -> Interval {
             rel.parse::<Relation>().unwrap().n_theta_range()
@@ -1084,5 +1057,18 @@ mod tests {
             f("sin(3/5t) = 0"),
             interval!(0.0, (const_interval!(5.0, 5.0) * Interval::TAU).sup()).unwrap()
         );
+    }
+
+    #[test]
+    fn vars() {
+        fn f(rel: &str) -> VarSet {
+            rel.parse::<Relation>().unwrap().vars()
+        }
+
+        assert_eq!(f("x = 0"), VarSet::X);
+        assert_eq!(f("y = 0"), VarSet::Y);
+        assert_eq!(f("r = 0"), VarSet::X | VarSet::Y);
+        assert_eq!(f("θ = 0"), VarSet::X | VarSet::Y | VarSet::N_THETA);
+        assert_eq!(f("t = 0"), VarSet::T);
     }
 }
