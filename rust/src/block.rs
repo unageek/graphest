@@ -289,10 +289,10 @@ impl Block {
 impl Default for Block {
     fn default() -> Self {
         Self {
-            x: Coordinate { i: 0, k: 0 },
-            y: Coordinate { i: 0, k: 0 },
-            n_theta: IntegerParameter(Interval::ENTIRE),
-            t: RealParameter(Interval::ENTIRE),
+            x: Coordinate::new(0, 0),
+            y: Coordinate::new(0, 0),
+            n_theta: IntegerParameter::new(Interval::ENTIRE),
+            t: RealParameter::new(Interval::ENTIRE),
             next_dir: SubdivisionDir::XY,
         }
     }
