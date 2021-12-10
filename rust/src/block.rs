@@ -4,10 +4,10 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping};
 
-/// Represents a subset of an axis of an [`Image`].
+/// A component of a [`Block`] that corresponds to the horizontal or vertical axis of an [`Image`].
 ///
 /// A [`Coordinate`] with index `i` and level `k` represents the interval `[i 2^k, (i + 1) 2^k]`,
-/// where the endpoints represent pixel coordinates.
+/// where the endpoints are in pixel coordinates.
 ///
 /// [`Image`]: crate::image::Image
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -17,7 +17,7 @@ pub struct Coordinate {
 }
 
 impl Coordinate {
-    /// The smallest level of horizontal/vertical subdivision.
+    /// The smallest level of blocks.
     ///
     /// A smaller value can be used, as long as the following condition is met:
     ///
@@ -26,8 +26,11 @@ impl Coordinate {
     /// which is required for keeping `block_to_region` operations exact.
     ///
     /// [`Image::MAX_WIDTH`]: crate::image::Image::MAX_WIDTH
-    const MIN_LEVEL: i8 = -32;
+    pub const MIN_LEVEL: i8 = -32;
 
+    /// Creates a new [`Coordinate`].
+    ///
+    /// Panics if `level` is less than [`Self::MIN_LEVEL`].
     pub fn new(index: u64, level: i8) -> Self {
         assert!(level >= Self::MIN_LEVEL);
         Self { i: index, k: level }
@@ -38,30 +41,30 @@ impl Coordinate {
         self.i
     }
 
-    /// Returns `true` if the block is a subpixel.
+    /// Returns `true` if `self.level() < 0`, i.e., the block width is smaller than the pixel width.
     pub fn is_subpixel(&self) -> bool {
         self.k < 0
     }
 
-    /// Returns `true` if the block is a superpixel.
+    /// Returns `true` if `self.level() > 0`, i.e., the block width is larger than the pixel width.
     pub fn is_superpixel(&self) -> bool {
         self.k > 0
     }
 
-    /// Returns `true` if the block can be subdivided both horizontally and vertically.
+    /// Returns `true` if the block can be subdivided.
     pub fn is_subdivisible(&self) -> bool {
         self.k > Self::MIN_LEVEL
     }
 
+    /// Returns the level of the block.
     #[allow(dead_code)]
-    /// Returns the subdivision level of the block.
     pub fn level(&self) -> i8 {
         self.k
     }
 
-    /// Returns the width of a pixel divided by the block's width.
+    /// Returns the pixel width divided by the block width.
     ///
-    /// Panics if `self.k > 0`.
+    /// Panics if `self.level() > 0`.
     pub fn pixel_align(&self) -> u64 {
         assert!(self.k <= 0);
         1u64 << -self.k
@@ -77,6 +80,11 @@ impl Coordinate {
         }
     }
 
+    /// Returns the subdivided blocks.
+    ///
+    /// Two blocks are returned.
+    ///
+    /// Precondition: [`self.is_subdivisible()`] is `true`.
     pub fn subdivide(&self) -> [Self; 2] {
         let i0 = 2 * self.i;
         let i1 = i0 + 1;
@@ -84,15 +92,15 @@ impl Coordinate {
         [Self { i: i0, k }, Self { i: i1, k }]
     }
 
-    /// Returns the width of the block in pixels.
+    /// Returns the block width in pixels.
     ///
-    /// Panics if `self.k < 0`.
+    /// Panics if `self.level() < 0`.
     pub fn width(&self) -> u32 {
         assert!(self.k >= 0);
         1u32 << self.k
     }
 
-    /// Returns the width of the block in pixels.
+    /// Returns the block width in pixels.
     pub fn widthf(&self) -> f64 {
         Self::exp2(self.k)
     }
@@ -103,6 +111,7 @@ impl Coordinate {
     }
 }
 
+/// A component of a [`Block`] that corresponds to a integer parameter.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct IntegerParameter(Interval);
 
@@ -120,21 +129,31 @@ impl IntegerParameter {
             .collect()
     }
 
+    /// Creates a new [`IntegerParameter`].
+    ///
+    /// Panics if `x` is empty or an endpoint of `x` is a finite non-integer number.
     pub fn new(x: Interval) -> Self {
         assert!(!x.is_empty() && x == x.trunc());
         Self(x)
     }
 
+    /// Returns the interval that the block spans.
     pub fn interval(&self) -> Interval {
         self.0
     }
 
+    /// Returns `true` if the block can be subdivided.
     pub fn is_subdivisible(&self) -> bool {
         let x = self.0;
         let mid = x.mid().round();
         x.inf() != mid && x.sup() != mid
     }
 
+    /// Returns the subdivided blocks.
+    ///
+    /// Three blocks are returned at most.
+    ///
+    /// Precondition: [`self.is_subdivisible()`] is `true`.
     pub fn subdivide(&self) -> SmallVec<[Self; 3]> {
         let x = self.0;
         let a = x.inf();
@@ -160,25 +179,36 @@ impl IntegerParameter {
     }
 }
 
+/// A component of a [`Block`] that corresponds to a real parameter.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RealParameter(Interval);
 
 impl RealParameter {
+    /// Creates a new [`RealParameter`].
+    ///
+    /// Panics if `x` is empty.
     pub fn new(x: Interval) -> Self {
         assert!(!x.is_empty());
         Self(x)
     }
 
+    /// Returns the interval that the block spans.
     pub fn interval(&self) -> Interval {
         self.0
     }
 
+    /// Returns `true` if the block can be subdivided.
     pub fn is_subdivisible(&self) -> bool {
         let x = self.0;
         let mid = x.mid();
         x.inf() != mid && x.sup() != mid
     }
 
+    /// Returns the subdivided blocks.
+    ///
+    /// Two blocks are returned at most.
+    ///
+    /// Precondition: [`self.is_subdivisible()`] is `true`.
     pub fn subdivide(&self) -> SmallVec<[Self; 2]> {
         let x = self.0;
         let a = x.inf();
