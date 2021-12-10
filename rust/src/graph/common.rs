@@ -132,25 +132,27 @@ pub fn simple_fraction(x: Interval) -> f64 {
 ///
 /// Precondition: the block is a subpixel.
 pub fn subpixel_outer(r: &Box2D, b: &Block) -> Region {
-    let mask_x = b.pixel_align_x() - 1;
-    let mask_y = b.pixel_align_y() - 1;
+    let x = b.x.index();
+    let y = b.y.index();
+    let mask_x = b.x.pixel_align() - 1;
+    let mask_y = b.y.pixel_align() - 1;
 
-    let left = if b.x & mask_x == 0 {
+    let left = if x & mask_x == 0 {
         r.left().inf()
     } else {
         r.left().mid()
     };
-    let right = if (b.x + 1) & mask_x == 0 {
+    let right = if (x + 1) & mask_x == 0 {
         r.right().sup()
     } else {
         r.right().mid()
     };
-    let bottom = if b.y & mask_y == 0 {
+    let bottom = if y & mask_y == 0 {
         r.bottom().inf()
     } else {
         r.bottom().mid()
     };
-    let top = if (b.y + 1) & mask_y == 0 {
+    let top = if (y + 1) & mask_y == 0 {
         r.top().sup()
     } else {
         r.top().mid()
@@ -164,14 +166,15 @@ pub fn subpixel_outer(r: &Box2D, b: &Block) -> Region {
 
 /// One-dimensional version of [`subpixel_outer`].
 pub fn subpixel_outer_x(r: &Box1D, b: &Block) -> Interval {
-    let mask_x = b.pixel_align_x() - 1;
+    let x = b.x.index();
+    let mask_x = b.x.pixel_align() - 1;
 
-    let left = if b.x & mask_x == 0 {
+    let left = if x & mask_x == 0 {
         r.left().inf()
     } else {
         r.left().mid()
     };
-    let right = if (b.x + 1) & mask_x == 0 {
+    let right = if (x + 1) & mask_x == 0 {
         r.right().sup()
     } else {
         r.right().mid()
@@ -182,6 +185,8 @@ pub fn subpixel_outer_x(r: &Box1D, b: &Block) -> Interval {
 
 #[cfg(test)]
 mod tests {
+    use crate::block::Coordinate;
+
     use super::*;
     use inari::const_interval;
 
@@ -190,14 +195,20 @@ mod tests {
         let r = Box1D::new(const_interval!(0.33, 0.34), const_interval!(0.66, 0.67));
 
         // The left side is pixel boundary.
-        let b = Block::new(4, 0, -2, 0, Interval::ENTIRE, Interval::ENTIRE);
+        let b = Block {
+            x: Coordinate::new(4, -2),
+            ..Block::default()
+        };
         assert_eq!(
             subpixel_outer_x(&r, &b),
             interval!(r.left().inf(), r.right().mid()).unwrap()
         );
 
         // The right side is pixel boundary.
-        let b = Block::new(b.x + 3, 0, -2, 0, Interval::ENTIRE, Interval::ENTIRE);
+        let b = Block {
+            x: Coordinate::new(b.x.index() + 3, b.x.level()),
+            ..Block::default()
+        };
         assert_eq!(
             subpixel_outer_x(&r, &b),
             interval!(r.left().mid(), r.right().sup()).unwrap(),

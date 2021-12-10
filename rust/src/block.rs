@@ -1,17 +1,244 @@
 use crate::image::PixelIndex;
-use inari::Interval;
+use inari::{interval, Interval};
+use itertools::Itertools;
+use smallvec::SmallVec;
 use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping};
 
-/// The smallest level of horizontal/vertical subdivision.
+/// A component of a [`Block`] that corresponds to the horizontal or vertical axis of an [`Image`].
 ///
-/// A smaller value can be used, as long as the following condition is met:
+/// A [`Coordinate`] with index `i` and level `k` represents the interval `[i 2^k, (i + 1) 2^k]`,
+/// where the endpoints are in pixel coordinates.
 ///
-/// - [`MAX_IMAGE_WIDTH`]` / 2^`[`MIN_K`]` ≤ 2^53`,
-///
-/// which is required for keeping `block_to_region` operations exact.
-///
-/// [`MAX_IMAGE_WIDTH`]: crate::image::MAX_IMAGE_WIDTH
-const MIN_K: i8 = -32;
+/// [`Image`]: crate::image::Image
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Coordinate {
+    i: u64,
+    k: i8,
+}
+
+impl Coordinate {
+    /// The smallest level of blocks.
+    ///
+    /// A smaller value can be used, as long as the following condition is met:
+    ///
+    /// - [`Image::MAX_WIDTH`]` / 2^`[`Self::MIN_LEVEL`]` ≤ 2^53`,
+    ///
+    /// which is required for keeping `block_to_region` operations exact.
+    ///
+    /// [`Image::MAX_WIDTH`]: crate::image::Image::MAX_WIDTH
+    pub const MIN_LEVEL: i8 = -32;
+
+    /// Creates a new [`Coordinate`].
+    ///
+    /// Panics if `level` is less than [`Self::MIN_LEVEL`].
+    pub fn new(index: u64, level: i8) -> Self {
+        assert!(level >= Self::MIN_LEVEL);
+        Self { i: index, k: level }
+    }
+
+    /// Returns the index of the block in multiples of the block width.
+    pub fn index(&self) -> u64 {
+        self.i
+    }
+
+    /// Returns `true` if `self.level() < 0`, i.e., the block width is smaller than the pixel width.
+    pub fn is_subpixel(&self) -> bool {
+        self.k < 0
+    }
+
+    /// Returns `true` if `self.level() > 0`, i.e., the block width is larger than the pixel width.
+    pub fn is_superpixel(&self) -> bool {
+        self.k > 0
+    }
+
+    /// Returns `true` if the block can be subdivided.
+    pub fn is_subdivisible(&self) -> bool {
+        self.k > Self::MIN_LEVEL
+    }
+
+    /// Returns the level of the block.
+    #[allow(dead_code)]
+    pub fn level(&self) -> i8 {
+        self.k
+    }
+
+    /// Returns the pixel width divided by the block width.
+    ///
+    /// Panics if `self.level() > 0`.
+    pub fn pixel_align(&self) -> u64 {
+        assert!(self.k <= 0);
+        1u64 << -self.k
+    }
+
+    /// Returns the index of the pixel that contains the block.
+    /// If the block spans multiple pixels, the least index is returned.
+    pub fn pixel_index(&self) -> u32 {
+        if self.k >= 0 {
+            (self.i << self.k) as u32
+        } else {
+            (self.i >> -self.k) as u32
+        }
+    }
+
+    /// Returns the subdivided blocks.
+    ///
+    /// Two blocks are returned.
+    ///
+    /// Precondition: [`self.is_subdivisible()`] is `true`.
+    pub fn subdivide(&self) -> [Self; 2] {
+        let i0 = 2 * self.i;
+        let i1 = i0 + 1;
+        let k = self.k - 1;
+        [Self { i: i0, k }, Self { i: i1, k }]
+    }
+
+    /// Returns the block width in pixels.
+    ///
+    /// Panics if `self.level() < 0`.
+    pub fn width(&self) -> u32 {
+        assert!(self.k >= 0);
+        1u32 << self.k
+    }
+
+    /// Returns the block width in pixels.
+    pub fn widthf(&self) -> f64 {
+        Self::exp2(self.k)
+    }
+
+    /// Returns `2^k`.
+    fn exp2(k: i8) -> f64 {
+        f64::from_bits(((1023 + k as i32) as u64) << 52)
+    }
+}
+
+/// A component of a [`Block`] that corresponds to a integer parameter.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct IntegerParameter(Interval);
+
+impl IntegerParameter {
+    pub fn initial_subdivision(x: Interval) -> Vec<Self> {
+        assert!(!x.is_empty() && x == x.trunc());
+        let a = x.inf();
+        let b = x.sup();
+        [interval!(a, a), interval!(a, b), interval!(b, b)]
+            .into_iter()
+            .filter_map(|x| x.ok()) // Remove invalid constructions, namely, [-∞, -∞] and [+∞, +∞].
+            .filter(|x| x.wid() != 1.0)
+            .dedup()
+            .map(Self::new)
+            .collect()
+    }
+
+    /// Creates a new [`IntegerParameter`].
+    ///
+    /// Panics if `x` is empty or an endpoint of `x` is a finite non-integer number.
+    pub fn new(x: Interval) -> Self {
+        assert!(!x.is_empty() && x == x.trunc());
+        Self(x)
+    }
+
+    /// Returns the interval that the block spans.
+    pub fn interval(&self) -> Interval {
+        self.0
+    }
+
+    /// Returns `true` if the block can be subdivided.
+    pub fn is_subdivisible(&self) -> bool {
+        let x = self.0;
+        let mid = x.mid().round();
+        x.inf() != mid && x.sup() != mid
+    }
+
+    /// Returns the subdivided blocks.
+    ///
+    /// Three blocks are returned at most.
+    ///
+    /// Precondition: [`self.is_subdivisible()`] is `true`.
+    pub fn subdivide(&self) -> SmallVec<[Self; 3]> {
+        let x = self.0;
+        let a = x.inf();
+        let b = x.sup();
+        let mid = if a == f64::NEG_INFINITY {
+            (2.0 * b).max(f64::MIN).min(-1.0)
+        } else if b == f64::INFINITY {
+            (2.0 * a).max(1.0).min(f64::MAX)
+        } else {
+            x.mid().round()
+        };
+        [
+            interval!(a, mid).unwrap(),
+            interval!(mid, mid).unwrap(),
+            interval!(mid, b).unwrap(),
+        ]
+        .into_iter()
+        // Any interval with width 1 can be discarded since its endpoints are already processed
+        // as point intervals and there are no integers in between them.
+        .filter(|x| x.wid() != 1.0)
+        .map(Self)
+        .collect()
+    }
+}
+
+/// A component of a [`Block`] that corresponds to a real parameter.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RealParameter(Interval);
+
+impl RealParameter {
+    /// Creates a new [`RealParameter`].
+    ///
+    /// Panics if `x` is empty.
+    pub fn new(x: Interval) -> Self {
+        assert!(!x.is_empty());
+        Self(x)
+    }
+
+    /// Returns the interval that the block spans.
+    pub fn interval(&self) -> Interval {
+        self.0
+    }
+
+    /// Returns `true` if the block can be subdivided.
+    pub fn is_subdivisible(&self) -> bool {
+        let x = self.0;
+        let mid = x.mid();
+        x.inf() != mid && x.sup() != mid
+    }
+
+    /// Returns the subdivided blocks.
+    ///
+    /// Two blocks are returned at most.
+    ///
+    /// Precondition: [`self.is_subdivisible()`] is `true`.
+    pub fn subdivide(&self) -> SmallVec<[Self; 2]> {
+        let x = self.0;
+        let a = x.inf();
+        let b = x.sup();
+        let mid = if a == f64::NEG_INFINITY {
+            if b < 0.0 {
+                (2.0 * b).max(f64::MIN)
+            } else if b == 0.0 {
+                -1.0
+            } else {
+                0.0
+            }
+        } else if b == f64::INFINITY {
+            if a < 0.0 {
+                0.0
+            } else if a == 0.0 {
+                1.0
+            } else {
+                (2.0 * a).min(f64::MAX)
+            }
+        } else {
+            x.mid()
+        };
+        [interval!(a, mid).unwrap(), interval!(mid, b).unwrap()]
+            .into_iter()
+            .filter(|x| !x.is_singleton())
+            .map(Self)
+            .collect()
+    }
+}
 
 /// The direction of subdivision.
 #[repr(u8)]
@@ -23,125 +250,31 @@ pub enum SubdivisionDir {
 }
 
 /// A subset of the domain of a relation.
-///
-/// The fields `x`, `y`, `kx` and `ky` determines a rectangular region of an [`Image`](crate::image::Image):
-/// `[x 2^kx, (x + 1) 2^kx] × [y 2^ky, (y + 1) 2^ky]`, where coordinates are in pixels.
-///
-/// A block is said to be:
-///
-/// - a *superpixel* iff `∀k ∈ K : k ≥ 0 ∧ ∃k ∈ K : k > 0`,
-/// - a *pixel* iff `∀k ∈ K : k = 0`,
-/// - a *subpixel* iff `∀k ∈ K : k ≤ 0 ∧ ∃k ∈ K : k < 0`,
-///
-/// where `K = {kx, ky}`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Block {
-    /// The horizontal index of the block in multiples of the block width.
-    pub x: u64,
-    /// The vertical index of the block in multiples of the block height.
-    pub y: u64,
-    /// The horizontal subdivision level.
-    pub kx: i8,
-    /// The vertical subdivision level.
-    pub ky: i8,
+    /// The horizontal coordinate.
+    pub x: Coordinate,
+    /// The vertical coordinate.
+    pub y: Coordinate,
     /// The parameter n_θ for polar coordinates.
-    pub n_theta: Interval,
+    pub n_theta: IntegerParameter,
     /// The parameter t.
-    pub t: Interval,
+    pub t: RealParameter,
     /// The direction that should be chosen when subdividing this block.
     // TODO: It is awkward that a block has this field.
     pub next_dir: SubdivisionDir,
 }
 
 impl Block {
-    /// Creates a new block.
-    pub fn new(x: u64, y: u64, kx: i8, ky: i8, n_theta: Interval, t: Interval) -> Self {
-        assert!(
-            (kx >= 0 && ky >= 0 || kx <= 0 && ky <= 0)
-                && !n_theta.is_empty()
-                && n_theta == n_theta.trunc()
-                && !t.is_empty()
-        );
-        Self {
-            x,
-            y,
-            kx,
-            ky,
-            n_theta,
-            t,
-            next_dir: SubdivisionDir::XY,
-        }
-    }
-
-    /// Returns the height of the block in pixels.
-    ///
-    /// Panics if `self.ky < 0`.
-    pub fn height(&self) -> u32 {
-        assert!(self.ky >= 0);
-        1u32 << self.ky
-    }
-
-    /// Returns the height of the block in pixels.
-    pub fn heightf(&self) -> f64 {
-        Self::exp2(self.ky)
-    }
-
-    /// Returns `true` if [`self.n_theta`] can be subdivided.
-    pub fn is_n_theta_subdivisible(&self) -> bool {
-        let n = self.n_theta;
-        let mid = n.mid().round();
-        n.inf() != mid && n.sup() != mid
-    }
-
-    /// Returns `true` if the block is a subpixel.
-    pub fn is_subpixel(&self) -> bool {
-        self.kx < 0 || self.ky < 0
-    }
-
-    /// Returns `true` if the block is a superpixel.
-    pub fn is_superpixel(&self) -> bool {
-        self.kx > 0 || self.ky > 0
-    }
-
-    /// Returns `true` if [`self.t`] can be subdivided.
-    pub fn is_t_subdivisible(&self) -> bool {
-        let t = self.t;
-        let mid = t.mid();
-        t.inf() != mid && t.sup() != mid
-    }
-
-    /// Returns `true` if the block can be subdivided both horizontally and vertically.
-    pub fn is_xy_subdivisible(&self) -> bool {
-        self.kx > MIN_K && self.ky > MIN_K
-    }
-
-    /// Returns the width of a pixel divided by the block's width.
-    ///
-    /// Panics if `self.kx > 0`.
-    pub fn pixel_align_x(&self) -> u64 {
-        assert!(self.kx <= 0);
-        1u64 << -self.kx
-    }
-
-    /// Returns the height of a pixel divided by the block's height.
-    ///
-    /// Panics if `self.ky > 0`.
-    pub fn pixel_align_y(&self) -> u64 {
-        assert!(self.ky <= 0);
-        1u64 << -self.ky
-    }
-
     /// Returns the pixel-level block that contains the given block.
     ///
     /// Panics if `self` is a superpixel.
     pub fn pixel_block(&self) -> Self {
-        assert!(!self.is_superpixel());
+        assert!(!self.x.is_superpixel() && !self.y.is_superpixel());
         let pixel = self.pixel_index();
         Self {
-            x: pixel.x as u64,
-            y: pixel.y as u64,
-            kx: 0,
-            ky: 0,
+            x: Coordinate::new(pixel.x as u64, 0),
+            y: Coordinate::new(pixel.y as u64, 0),
             ..*self
         }
     }
@@ -149,36 +282,19 @@ impl Block {
     /// Returns the index of the pixel that contains the block.
     /// If the block spans multiple pixels, the least index is returned.
     pub fn pixel_index(&self) -> PixelIndex {
-        PixelIndex::new(
-            if self.kx >= 0 {
-                (self.x << self.kx) as u32
-            } else {
-                (self.x >> -self.kx) as u32
-            },
-            if self.ky >= 0 {
-                (self.y << self.ky) as u32
-            } else {
-                (self.y >> -self.ky) as u32
-            },
-        )
+        PixelIndex::new(self.x.pixel_index(), self.y.pixel_index())
     }
+}
 
-    /// Returns the width of the block in pixels.
-    ///
-    /// Panics if `self.kx < 0`.
-    pub fn width(&self) -> u32 {
-        assert!(self.kx >= 0);
-        1u32 << self.kx
-    }
-
-    /// Returns the width of the block in pixels.
-    pub fn widthf(&self) -> f64 {
-        Self::exp2(self.kx)
-    }
-
-    /// Returns `2^k`.
-    fn exp2(k: i8) -> f64 {
-        f64::from_bits(((1023 + k as i32) as u64) << 52)
+impl Default for Block {
+    fn default() -> Self {
+        Self {
+            x: Coordinate::new(0, 0),
+            y: Coordinate::new(0, 0),
+            n_theta: IntegerParameter::new(Interval::ENTIRE),
+            t: RealParameter::new(Interval::ENTIRE),
+            next_dir: SubdivisionDir::XY,
+        }
     }
 }
 
@@ -260,7 +376,7 @@ impl BlockQueue {
     /// Removes the first block from the queue and returns it.
     /// [`None`] is returned if the queue is empty.
     pub fn pop_front(&mut self) -> Option<Block> {
-        let (x, y, kx, ky) = if self.opts.store_xy {
+        let (x, y) = if self.opts.store_xy {
             let x = self.x_front ^ self.pop_small_u64()?;
             self.x_front = x;
 
@@ -270,28 +386,24 @@ impl BlockQueue {
             let kx = self.pop_i8()?;
             let ky = self.pop_i8()?;
 
-            (x, y, kx, ky)
+            (Coordinate { i: x, k: kx }, Coordinate { i: y, k: ky })
         } else {
-            (0, 0, 0, 0)
+            (Coordinate { i: 0, k: 0 }, Coordinate { i: 0, k: 0 })
         };
 
-        let n_theta = if self.opts.store_n_theta {
-            if let Some(n_theta) = self.pop_opt_interval()? {
-                self.n_theta_front = n_theta;
-            }
+        let n_theta = IntegerParameter(if self.opts.store_n_theta {
+            self.n_theta_front = self.pop_interval(self.n_theta_front)?;
             self.n_theta_front
         } else {
             Interval::ENTIRE
-        };
+        });
 
-        let t = if self.opts.store_t {
-            if let Some(t) = self.pop_opt_interval()? {
-                self.t_front = t;
-            }
+        let t = RealParameter(if self.opts.store_t {
+            self.t_front = self.pop_interval(self.t_front)?;
             self.t_front
         } else {
             Interval::ENTIRE
-        };
+        });
 
         let next_dir = if self.opts.store_next_dir {
             self.pop_subdivision_dir()?
@@ -304,8 +416,6 @@ impl BlockQueue {
         Some(Block {
             x,
             y,
-            kx,
-            ky,
             n_theta,
             t,
             next_dir,
@@ -315,32 +425,26 @@ impl BlockQueue {
     /// Appends the block to the back of the queue.
     pub fn push_back(&mut self, b: Block) {
         if self.opts.store_xy {
-            self.push_small_u64(b.x ^ self.x_back);
-            self.x_back = b.x;
+            self.push_small_u64(b.x.i ^ self.x_back);
+            self.x_back = b.x.i;
 
-            self.push_small_u64(b.y ^ self.y_back);
-            self.y_back = b.y;
+            self.push_small_u64(b.y.i ^ self.y_back);
+            self.y_back = b.y.i;
 
-            self.push_i8(b.kx);
-            self.push_i8(b.ky);
+            self.push_i8(b.x.k);
+            self.push_i8(b.y.k);
         }
 
         if self.opts.store_n_theta {
-            if b.n_theta == self.n_theta_back {
-                self.push_opt_interval(None);
-            } else {
-                self.push_opt_interval(Some(b.n_theta));
-                self.n_theta_back = b.n_theta;
-            }
+            let n_theta = b.n_theta.interval();
+            self.push_interval(n_theta, self.n_theta_back);
+            self.n_theta_back = n_theta;
         }
 
         if self.opts.store_t {
-            if b.t == self.t_back {
-                self.push_opt_interval(None);
-            } else {
-                self.push_opt_interval(Some(b.t));
-                self.t_back = b.t;
-            }
+            let t = b.t.interval();
+            self.push_interval(t, self.t_back);
+            self.t_back = t;
         }
 
         if self.opts.store_next_dir {
@@ -359,7 +463,7 @@ impl BlockQueue {
         Some(self.seq.pop_front()? as i8)
     }
 
-    fn pop_opt_interval(&mut self) -> Option<Option<Interval>> {
+    fn pop_interval(&mut self, front: Interval) -> Option<Interval> {
         if self.seq.is_empty() {
             return None;
         }
@@ -372,9 +476,9 @@ impl BlockQueue {
             for (src, dst) in self.seq.drain(..14).zip(bytes.iter_mut().skip(2)) {
                 *dst = src;
             }
-            Some(Some(Interval::try_from_be_bytes(bytes).unwrap()))
+            Some(Interval::try_from_be_bytes(bytes).unwrap())
         } else {
-            Some(None)
+            Some(front)
         }
     }
 
@@ -445,8 +549,8 @@ impl BlockQueue {
         self.seq.push_back(x as u8);
     }
 
-    fn push_opt_interval(&mut self, x: Option<Interval>) {
-        if let Some(x) = x {
+    fn push_interval(&mut self, x: Interval, back: Interval) {
+        if x != back {
             self.seq.extend(x.to_be_bytes());
         } else {
             // A `f64` datum that starts with 0xffff is NaN, which never appears in interval bounds.
@@ -493,39 +597,61 @@ mod tests {
 
     #[test]
     fn block() {
-        let b = Block::new(42, 42, 3, 5, Interval::ENTIRE, Interval::ENTIRE);
-        assert_eq!(b.width(), 8);
-        assert_eq!(b.height(), 32);
-        assert_eq!(b.widthf(), 8.0);
-        assert_eq!(b.heightf(), 32.0);
+        let b = Block {
+            x: Coordinate::new(42, 3),
+            y: Coordinate::new(42, 5),
+            ..Block::default()
+        };
+        assert_eq!(b.x.width(), 8);
+        assert_eq!(b.y.width(), 32);
+        assert_eq!(b.x.widthf(), 8.0);
+        assert_eq!(b.y.widthf(), 32.0);
         assert_eq!(b.pixel_index(), PixelIndex::new(336, 1344));
-        assert!(b.is_superpixel());
-        assert!(!b.is_subpixel());
+        assert!(b.x.is_superpixel());
+        assert!(b.y.is_superpixel());
+        assert!(!b.x.is_subpixel());
+        assert!(!b.y.is_subpixel());
 
-        let b = Block::new(42, 42, 0, 0, Interval::ENTIRE, Interval::ENTIRE);
-        assert_eq!(b.width(), 1);
-        assert_eq!(b.height(), 1);
-        assert_eq!(b.widthf(), 1.0);
-        assert_eq!(b.heightf(), 1.0);
-        assert_eq!(b.pixel_align_x(), 1);
-        assert_eq!(b.pixel_align_y(), 1);
+        let b = Block {
+            x: Coordinate::new(42, 0),
+            y: Coordinate::new(42, 0),
+            ..Block::default()
+        };
+        assert_eq!(b.x.width(), 1);
+        assert_eq!(b.y.width(), 1);
+        assert_eq!(b.x.widthf(), 1.0);
+        assert_eq!(b.y.widthf(), 1.0);
+        assert_eq!(b.x.pixel_align(), 1);
+        assert_eq!(b.y.pixel_align(), 1);
         assert_eq!(b.pixel_block(), b);
         assert_eq!(b.pixel_index(), PixelIndex::new(42, 42));
-        assert!(!b.is_superpixel());
-        assert!(!b.is_subpixel());
+        assert!(!b.x.is_superpixel());
+        assert!(!b.y.is_superpixel());
+        assert!(!b.x.is_subpixel());
+        assert!(!b.y.is_subpixel());
 
-        let b = Block::new(42, 42, -3, -5, Interval::ENTIRE, Interval::ENTIRE);
-        assert_eq!(b.widthf(), 0.125);
-        assert_eq!(b.heightf(), 0.03125);
-        assert_eq!(b.pixel_align_x(), 8);
-        assert_eq!(b.pixel_align_y(), 32);
+        let b = Block {
+            x: Coordinate::new(42, -3),
+            y: Coordinate::new(42, -5),
+            ..Block::default()
+        };
+        assert_eq!(b.x.widthf(), 0.125);
+        assert_eq!(b.y.widthf(), 0.03125);
+        assert_eq!(b.x.pixel_align(), 8);
+        assert_eq!(b.y.pixel_align(), 32);
         assert_eq!(
             b.pixel_block(),
-            Block::new(5, 1, 0, 0, Interval::ENTIRE, Interval::ENTIRE)
+            Block {
+                x: Coordinate::new(5, 0),
+                y: Coordinate::new(1, 0),
+                ..Block::default()
+            }
         );
         assert_eq!(b.pixel_index(), PixelIndex::new(5, 1));
-        assert!(!b.is_superpixel());
-        assert!(b.is_subpixel());
+        assert!(!b.x.is_superpixel());
+        assert!(!b.y.is_superpixel());
+        assert!(b.x.is_subpixel());
+        assert!(b.y.is_subpixel());
     }
 
     #[test]
@@ -535,134 +661,86 @@ mod tests {
             ..Default::default()
         });
         let blocks = [
-            Block::new(
-                0,
-                0xffffffffffffff,
-                -128,
-                -64,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x7f,
-                0x2000000000000,
-                -32,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x80,
-                0x1ffffffffffff,
-                0,
-                32,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x3fff,
-                0x40000000000,
-                64,
-                127,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x4000,
-                0x3ffffffffff,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x1fffff,
-                0x800000000,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x200000,
-                0x7ffffffff,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0xfffffff,
-                0x10000000,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x10000000,
-                0xfffffff,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x7ffffffff,
-                0x200000,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x800000000,
-                0x1fffff,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x3ffffffffff,
-                0x4000,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x40000000000,
-                0x3fff,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x1ffffffffffff,
-                0x80,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0x2000000000000,
-                0x7f,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
-            Block::new(
-                0xffffffffffffff,
-                0,
-                0,
-                0,
-                Interval::ENTIRE,
-                Interval::ENTIRE,
-            ),
+            Block {
+                x: Coordinate::new(0, -32),
+                y: Coordinate::new(0xffffffffffffff, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x7f, 64),
+                y: Coordinate::new(0x2000000000000, 127),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x80, 0),
+                y: Coordinate::new(0x1ffffffffffff, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x3fff, 0),
+                y: Coordinate::new(0x40000000000, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x4000, 0),
+                y: Coordinate::new(0x3ffffffffff, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x1fffff, 0),
+                y: Coordinate::new(0x800000000, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x200000, 0),
+                y: Coordinate::new(0x7ffffffff, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0xfffffff, 0),
+                y: Coordinate::new(0x10000000, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x10000000, 0),
+                y: Coordinate::new(0xfffffff, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x7ffffffff, 0),
+                y: Coordinate::new(0x200000, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x800000000, 0),
+                y: Coordinate::new(0x1fffff, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x3ffffffffff, 0),
+                y: Coordinate::new(0x4000, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x40000000000, 0),
+                y: Coordinate::new(0x3fff, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x1ffffffffffff, 0),
+                y: Coordinate::new(0x80, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0x2000000000000, 0),
+                y: Coordinate::new(0x7f, 0),
+                ..Block::default()
+            },
+            Block {
+                x: Coordinate::new(0xffffffffffffff, 0),
+                y: Coordinate::new(0, 0),
+                ..Block::default()
+            },
         ];
         assert_eq!(queue.begin_index(), 0);
         assert_eq!(queue.end_index(), 0);
@@ -686,7 +764,10 @@ mod tests {
             store_next_dir: true,
             ..Default::default()
         });
-        let b1 = Block::new(0, 0, 0, 0, const_interval!(-2.0, 3.0), Interval::ENTIRE);
+        let b1 = Block {
+            n_theta: IntegerParameter::new(const_interval!(-2.0, 3.0)),
+            ..Block::default()
+        };
         let b2 = Block {
             next_dir: SubdivisionDir::NTheta,
             ..b1
@@ -702,7 +783,10 @@ mod tests {
             store_next_dir: true,
             ..Default::default()
         });
-        let b1 = Block::new(0, 0, 0, 0, Interval::ENTIRE, const_interval!(-2.0, 3.0));
+        let b1 = Block {
+            t: RealParameter::new(const_interval!(-2.0, 3.0)),
+            ..Block::default()
+        };
         let b2 = Block {
             next_dir: SubdivisionDir::T,
             ..b1

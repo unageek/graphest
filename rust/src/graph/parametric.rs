@@ -1,5 +1,5 @@
 use crate::{
-    block::{Block, BlockQueue, BlockQueueOptions},
+    block::{Block, BlockQueue, BlockQueueOptions, RealParameter},
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
         common::{point_interval, point_interval_possibly_infinite, PixelState, QueuedBlockIndex},
@@ -84,8 +84,10 @@ impl Parametric {
         };
 
         let t_range = g.rel.t_range();
-        g.block_queue
-            .push_back(Block::new(0, 0, 0, 0, Interval::ENTIRE, t_range));
+        g.block_queue.push_back(Block {
+            t: RealParameter::new(t_range),
+            ..Block::default()
+        });
 
         g
     }
@@ -98,7 +100,7 @@ impl Parametric {
             let incomplete_pixels = self.process_block(&b);
 
             if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
-                if b.is_t_subdivisible() {
+                if b.t.is_subdivisible() {
                     Self::subdivide_t(&mut sub_bs, &b);
                     self.block_queue.extend(sub_bs.drain(..));
                     let last_bi = self.block_queue.end_index() - 1;
@@ -145,7 +147,7 @@ impl Parametric {
     /// Tries to prove or disprove the existence of a solution in the block
     /// and if it is unsuccessful, returns pixels that possibly contain solutions.
     fn process_block(&mut self, block: &Block) -> Vec<PixelRange> {
-        let (xs, ys, cond) = self.rel.eval_parametric(block.t, None);
+        let (xs, ys, cond) = self.rel.eval_parametric(block.t.interval(), None);
         let rs = self
             .im_regions(&xs, &ys)
             .into_iter()
@@ -167,14 +169,14 @@ impl Parametric {
             } else if dec >= Decoration::Dac && (r.x().wid() == 1.0 || r.y().wid() == 1.0) {
                 assert_eq!(rs.len(), 1);
                 let r1 = {
-                    let t = point_interval_possibly_infinite(block.t.inf());
+                    let t = point_interval_possibly_infinite(block.t.interval().inf());
                     let (xs, ys, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
                 let r2 = {
-                    let t = point_interval_possibly_infinite(block.t.sup());
+                    let t = point_interval_possibly_infinite(block.t.interval().sup());
                     let (xs, ys, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
@@ -317,39 +319,9 @@ impl Parametric {
     /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
     /// Two sub-blocks are created.
     ///
-    /// Precondition: `b.is_t_subdivisible()` is `true`.
+    /// Precondition: `b.t.is_subdivisible()` is `true`.
     fn subdivide_t(sub_bs: &mut Vec<Block>, b: &Block) {
-        fn bisect(x: Interval) -> (Interval, Interval) {
-            let a = x.inf();
-            let b = x.sup();
-            let mid = if a == f64::NEG_INFINITY {
-                if b < 0.0 {
-                    (2.0 * b).max(f64::MIN)
-                } else if b == 0.0 {
-                    -1.0
-                } else {
-                    0.0
-                }
-            } else if b == f64::INFINITY {
-                if a < 0.0 {
-                    0.0
-                } else if a == 0.0 {
-                    1.0
-                } else {
-                    (2.0 * a).min(f64::MAX)
-                }
-            } else {
-                x.mid()
-            };
-            (interval!(a, mid).unwrap(), interval!(mid, b).unwrap())
-        }
-
-        let (t1, t2) = bisect(b.t);
-        sub_bs.extend(
-            [t1, t2]
-                .iter()
-                .map(|&t| Block::new(0, 0, 0, 0, Interval::ENTIRE, t)),
-        );
+        sub_bs.extend(b.t.subdivide().into_iter().map(|t| Block { t, ..*b }));
     }
 }
 

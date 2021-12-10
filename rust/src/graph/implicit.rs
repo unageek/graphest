@@ -1,5 +1,8 @@
 use crate::{
-    block::{Block, BlockQueue, BlockQueueOptions, SubdivisionDir},
+    block::{
+        Block, BlockQueue, BlockQueueOptions, Coordinate, IntegerParameter, RealParameter,
+        SubdivisionDir,
+    },
     eval_result::EvalResult,
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
@@ -11,8 +14,9 @@ use crate::{
     region::Region,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
 };
-use inari::{interval, Decoration, Interval};
+use inari::{Decoration, Interval};
 use itertools::Itertools;
+use smallvec::smallvec;
 use std::{
     convert::TryFrom,
     time::{Duration, Instant},
@@ -88,32 +92,27 @@ impl Implicit {
 
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
         let t_range = g.rel.t_range();
-        let mut bs = vec![Block::new(0, 0, k, k, Interval::ENTIRE, t_range)];
+        let mut bs = vec![Block {
+            x: Coordinate::new(0, k),
+            y: Coordinate::new(0, k),
+            t: RealParameter::new(t_range),
+            ..Block::default()
+        }];
 
         if g.rel.has_n_theta() {
             let n_theta_range = g.rel.n_theta_range();
-            bs = {
-                let a = n_theta_range.inf();
-                let b = n_theta_range.sup();
-                let mid = n_theta_range.mid().round();
-                vec![
-                    interval!(a, a),
-                    interval!(a, mid),
-                    interval!(mid, mid),
-                    interval!(mid, b),
-                    interval!(b, b),
-                ]
-            }
-            .into_iter()
-            .filter_map(|n| n.ok()) // Remove invalid constructions, namely, [-∞, -∞] and [+∞, +∞].
-            .filter(|n| n.wid() != 1.0)
-            .dedup()
-            .flat_map(|n| {
-                bs.iter()
-                    .map(|b| Block::new(b.x, b.y, b.kx, b.ky, n, b.t))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+            bs = IntegerParameter::initial_subdivision(n_theta_range)
+                .into_iter()
+                .flat_map(|n| {
+                    if n.is_subdivisible() {
+                        n.subdivide()
+                    } else {
+                        smallvec![n]
+                    }
+                })
+                .cartesian_product(bs.into_iter())
+                .map(|(n, b)| Block { n_theta: n, ..b })
+                .collect::<Vec<_>>();
         }
 
         let last_block = bs.len() - 1;
@@ -139,15 +138,15 @@ impl Implicit {
 
             let n_sub_bs = sub_bs.len();
             for sub_b in sub_bs.drain(..) {
-                let complete = if !sub_b.is_subpixel() {
+                let complete = if !sub_b.x.is_subpixel() {
                     self.process_block(&sub_b)
                 } else {
-                    if self.rel.has_n_theta() && !sub_b.n_theta.is_singleton() {
+                    if self.rel.has_n_theta() && !sub_b.n_theta.interval().is_singleton() {
                         // Try finding a solution earlier.
-                        let n_theta = point_interval(simple_fraction(sub_b.n_theta));
-                        self.process_subpixel_block(&Block::new(
-                            sub_b.x, sub_b.y, sub_b.kx, sub_b.ky, n_theta, sub_b.t,
-                        ));
+                        let n_theta = IntegerParameter::new(point_interval(simple_fraction(
+                            sub_b.n_theta.interval(),
+                        )));
+                        self.process_subpixel_block(&Block { n_theta, ..sub_b });
                     }
                     self.process_subpixel_block(&sub_b)
                 };
@@ -180,19 +179,19 @@ impl Implicit {
 
             for mut sub_b in incomplete_sub_bs.drain(..) {
                 sub_b.next_dir = if preferred_next_dir == SubdivisionDir::NTheta
-                    && sub_b.is_n_theta_subdivisible()
-                    || preferred_next_dir == SubdivisionDir::T && sub_b.is_t_subdivisible()
+                    && sub_b.n_theta.is_subdivisible()
+                    || preferred_next_dir == SubdivisionDir::T && sub_b.t.is_subdivisible()
                 {
                     preferred_next_dir
-                } else if sub_b.is_xy_subdivisible() {
+                } else if sub_b.x.is_subdivisible() {
                     SubdivisionDir::XY
-                } else if self.rel.has_n_theta() && sub_b.is_n_theta_subdivisible() {
+                } else if self.rel.has_n_theta() && sub_b.n_theta.is_subdivisible() {
                     SubdivisionDir::NTheta
-                } else if self.rel.has_t() && sub_b.is_t_subdivisible() {
+                } else if self.rel.has_t() && sub_b.t.is_subdivisible() {
                     SubdivisionDir::T
                 } else {
                     // Cannot subdivide in any direction.
-                    assert!(sub_b.is_subpixel());
+                    assert!(sub_b.x.is_subpixel());
                     for p in &self.pixels_in_image(&b) {
                         self.im[p] = PixelState::Uncertain(None);
                     }
@@ -254,8 +253,8 @@ impl Implicit {
         let r_u_up = Self::eval_on_region(
             &mut self.rel,
             &u_up,
-            b.n_theta,
-            b.t,
+            b.n_theta.interval(),
+            b.t.interval(),
             Some(&mut self.cache_eval_on_region),
         );
 
@@ -286,8 +285,8 @@ impl Implicit {
         let r_u_up = Self::eval_on_region(
             &mut self.rel,
             &u_up,
-            b.n_theta,
-            b.t,
+            b.n_theta.interval(),
+            b.t.interval(),
             Some(&mut self.cache_eval_on_region),
         );
 
@@ -351,8 +350,8 @@ impl Implicit {
                 &mut self.rel,
                 point.0,
                 point.1,
-                b.n_theta,
-                b.t,
+                b.n_theta.interval(),
+                b.t.interval(),
                 Some(&mut self.cache_eval_on_point),
             );
 
@@ -380,10 +379,10 @@ impl Implicit {
 
     /// Returns the region that corresponds to a subpixel block `b`.
     fn block_to_region(&self, b: &Block) -> Box2D {
-        let pw = b.widthf();
-        let ph = b.heightf();
-        let px = b.x as f64 * pw;
-        let py = b.y as f64 * ph;
+        let pw = b.x.widthf();
+        let ph = b.y.widthf();
+        let px = b.x.index() as f64 * pw;
+        let py = b.y.index() as f64 * ph;
         Box2D::new(
             point_interval(px),
             point_interval(px + pw),
@@ -395,10 +394,10 @@ impl Implicit {
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
     fn block_to_region_clipped(&self, b: &Block) -> Box2D {
-        let pw = b.widthf();
-        let ph = b.heightf();
-        let px = b.x as f64 * pw;
-        let py = b.y as f64 * ph;
+        let pw = b.x.widthf();
+        let ph = b.y.widthf();
+        let px = b.x.index() as f64 * pw;
+        let py = b.y.index() as f64 * ph;
         Box2D::new(
             point_interval(px),
             point_interval((px + pw).min(self.im.width() as f64)),
@@ -448,10 +447,10 @@ impl Implicit {
     /// Returns the pixels that are contained in both the block and the image.
     fn pixels_in_image(&self, b: &Block) -> PixelRange {
         let begin = b.pixel_index();
-        let end = if b.is_superpixel() {
+        let end = if b.x.is_superpixel() {
             PixelIndex::new(
-                (begin.x + b.width()).min(self.im.width()),
-                (begin.y + b.height()).min(self.im.height()),
+                (begin.x + b.x.width()).min(self.im.width()),
+                (begin.y + b.y.width()).min(self.im.height()),
             )
         } else {
             PixelIndex::new(
@@ -490,107 +489,62 @@ impl Implicit {
     /// Subdivides `b.n_theta` and appends the sub-blocks to `sub_bs`.
     /// Three sub-blocks are created at most.
     ///
-    /// Preconditions:
-    ///
-    /// - `b.is_n_theta_subdivisible()` is `true`.
-    /// - `b.n_theta` is a subset of either \[-∞, 0\] or \[0, +∞\].
+    /// Precondition: `b.n_theta.is_subdivisible()` is `true`.
     fn subdivide_n_theta(sub_bs: &mut Vec<Block>, b: &Block) {
-        const MULT: f64 = 2.0; // The optimal value may depend on the relation.
-        let n = b.n_theta;
-        let na = n.inf();
-        let nb = n.sup();
-        let mid = if na == f64::NEG_INFINITY {
-            (MULT * nb).max(f64::MIN).min(-1.0)
-        } else if nb == f64::INFINITY {
-            (MULT * na).max(1.0).min(f64::MAX)
-        } else {
-            n.mid().round()
-        };
-        let ns = [
-            interval!(na, mid).unwrap(),
-            interval!(mid, mid).unwrap(),
-            interval!(mid, nb).unwrap(),
-        ];
-        // Any interval with width 1 can be discarded since its endpoints are already processed
-        // as point intervals and there are no integers in between them.
         sub_bs.extend(
-            ns.iter()
-                .filter(|n| n.wid() != 1.0)
-                .map(|&n| Block::new(b.x, b.y, b.kx, b.ky, n, b.t)),
+            b.n_theta
+                .subdivide()
+                .into_iter()
+                .map(|n| Block { n_theta: n, ..*b }),
         );
     }
 
     /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
     /// Four sub-blocks are created at most.
     ///
-    /// Precondition: `b.is_t_subdivisible()` is `true`.
+    /// Precondition: `b.t.is_subdivisible()` is `true`.
     fn subdivide_t(sub_bs: &mut Vec<Block>, b: &Block) {
-        fn bisect(x: Interval) -> (Interval, Interval) {
-            let a = x.inf();
-            let b = x.sup();
-            let mid = if a == f64::NEG_INFINITY {
-                if b < 0.0 {
-                    (2.0 * b).max(f64::MIN)
-                } else if b == 0.0 {
-                    -1.0
-                } else {
-                    0.0
-                }
-            } else if b == f64::INFINITY {
-                if a < 0.0 {
-                    0.0
-                } else if a == 0.0 {
-                    1.0
-                } else {
-                    (2.0 * a).min(f64::MAX)
-                }
-            } else {
-                x.mid()
-            };
-            (interval!(a, mid).unwrap(), interval!(mid, b).unwrap())
-        }
-
-        let (t1, t2) = bisect(b.t);
-        let ((t1, t2), (t3, t4)) = (bisect(t1), bisect(t2));
         sub_bs.extend(
-            [t1, t2, t3, t4]
-                .iter()
-                .filter(|t| !t.is_singleton())
-                .map(|&t| Block::new(b.x, b.y, b.kx, b.ky, b.n_theta, t)),
+            b.t.subdivide()
+                .into_iter()
+                .flat_map(|t| {
+                    if t.is_subdivisible() {
+                        t.subdivide()
+                    } else {
+                        smallvec![t]
+                    }
+                })
+                .map(|t| Block { t, ..*b }),
         );
     }
 
     /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
     /// Four sub-blocks are created at most.
     ///
-    /// Precondition: `b.is_xy_subdivisible()` is `true`.
+    /// Precondition: Both `b.x.is_subdivisible()` and `b.y.is_subdivisible()` are `true`.
     fn subdivide_xy(&self, sub_bs: &mut Vec<Block>, b: &Block) {
-        let x0 = 2 * b.x;
-        let y0 = 2 * b.y;
-        let x1 = x0 + 1;
-        let y1 = y0 + 1;
-        let kx = b.kx - 1;
-        let ky = b.ky - 1;
-        if b.is_superpixel() {
-            let b00 = Block::new(x0, y0, kx, ky, b.n_theta, b.t);
-            let b00_width = b00.width() as u64;
-            let b00_height = b00.height() as u64;
-            sub_bs.push(b00);
-            if y1 * b00_height < self.im.height() as u64 {
-                sub_bs.push(Block::new(x0, y1, kx, ky, b.n_theta, b.t));
+        let [x0, x1] = b.x.subdivide();
+        let [y0, y1] = b.y.subdivide();
+        if b.x.is_superpixel() {
+            let push_x1 = x1.pixel_index() < self.im.width();
+            let push_y1 = y1.pixel_index() < self.im.height();
+            sub_bs.push(Block { x: x0, y: y0, ..*b });
+            if push_x1 {
+                sub_bs.push(Block { x: x1, y: y0, ..*b });
             }
-            if x1 * b00_width < self.im.width() as u64 {
-                sub_bs.push(Block::new(x1, y0, kx, ky, b.n_theta, b.t));
+            if push_y1 {
+                sub_bs.push(Block { x: x0, y: y1, ..*b });
             }
-            if x1 * b00_width < self.im.width() as u64 && y1 * b00_height < self.im.height() as u64
-            {
-                sub_bs.push(Block::new(x1, y1, kx, ky, b.n_theta, b.t));
+            if push_x1 && push_y1 {
+                sub_bs.push(Block { x: x1, y: y1, ..*b });
             }
         } else {
-            sub_bs.push(Block::new(x0, y0, kx, ky, b.n_theta, b.t));
-            sub_bs.push(Block::new(x1, y0, kx, ky, b.n_theta, b.t));
-            sub_bs.push(Block::new(x0, y1, kx, ky, b.n_theta, b.t));
-            sub_bs.push(Block::new(x1, y1, kx, ky, b.n_theta, b.t));
+            sub_bs.extend([
+                Block { x: x0, y: y0, ..*b },
+                Block { x: x1, y: y0, ..*b },
+                Block { x: x0, y: y1, ..*b },
+                Block { x: x1, y: y1, ..*b },
+            ]);
         }
     }
 }
