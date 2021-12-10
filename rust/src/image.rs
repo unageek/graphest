@@ -4,9 +4,6 @@ use std::{
     slice::{Iter, IterMut},
 };
 
-/// The maximum limit of the width/height of an [`Image`] in pixels.
-pub const MAX_IMAGE_WIDTH: u32 = 32768;
-
 /// A two-dimensional image with a generic pixel type.
 #[derive(Debug)]
 pub struct Image<T: Clone + Copy + Default> {
@@ -16,9 +13,12 @@ pub struct Image<T: Clone + Copy + Default> {
 }
 
 impl<T: Clone + Copy + Default> Image<T> {
+    /// The maximum limit of the width/height of an [`Image`] in pixels.
+    pub const MAX_WIDTH: u32 = 32768;
+
     /// Creates a new [`Image`] with all pixels set to the default value of the type.
     pub fn new(width: u32, height: u32) -> Self {
-        assert!(width > 0 && width <= MAX_IMAGE_WIDTH && height > 0 && height <= MAX_IMAGE_WIDTH);
+        assert!(width > 0 && width <= Self::MAX_WIDTH && height > 0 && height <= Self::MAX_WIDTH);
         Self {
             width,
             height,

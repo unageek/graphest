@@ -1,5 +1,5 @@
 use crate::{
-    block::{Block, BlockQueue, BlockQueueOptions},
+    block::{Block, BlockQueue, BlockQueueOptions, Coordinate},
     eval_result::EvalResult,
     geom::{Box1D, Box2D, Transform1D, TransformMode},
     graph::{
@@ -115,7 +115,10 @@ impl Explicit {
         };
 
         let kx = (im_width as f64).log2().ceil() as i8;
-        let b = Block::new(0, 0, kx, 0, Interval::ENTIRE, Interval::ENTIRE);
+        let b = Block {
+            x: Coordinate::new(0, kx),
+            ..Block::default()
+        };
         g.block_queue.push_back(b);
 
         g
@@ -126,14 +129,14 @@ impl Explicit {
         while let Some(b) = self.block_queue.pop_front() {
             let bi = self.block_queue.begin_index() - 1;
 
-            let incomplete_pixels = if !b.is_subpixel() {
+            let incomplete_pixels = if !b.x.is_subpixel() {
                 self.process_block(&b)
             } else {
                 self.process_subpixel_block(&b)
             };
 
             if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
-                if b.is_xy_subdivisible() {
+                if b.x.is_subdivisible() {
                     self.subdivide_on_x(&mut sub_bs, &b);
                     self.block_queue.extend(sub_bs.drain(..));
                     let last_bi = self.block_queue.end_index() - 1;
@@ -187,7 +190,7 @@ impl Explicit {
 
         let px = {
             let begin = b.pixel_index().x;
-            let end = (begin + b.width()).min(self.im_width());
+            let end = (begin + b.x.width()).min(self.im_width());
             interval!(begin as f64, end as f64).unwrap()
         };
         let im_ys = self.im_intervals(&ys);
@@ -326,15 +329,15 @@ impl Explicit {
 
     /// Returns the region that corresponds to a subpixel block `b`.
     fn block_to_region(&self, b: &Block) -> Box1D {
-        let pw = b.widthf();
-        let px = b.x as f64 * pw;
+        let pw = b.x.widthf();
+        let px = b.x.index() as f64 * pw;
         Box1D::new(point_interval(px), point_interval(px + pw)).transform(&self.im_to_real_x)
     }
 
     /// Returns the region that corresponds to a pixel or superpixel block `b`.
     fn block_to_region_clipped(&self, b: &Block) -> Box1D {
-        let pw = b.widthf();
-        let px = b.x as f64 * pw;
+        let pw = b.x.widthf();
+        let px = b.x.index() as f64 * pw;
         Box1D::new(
             point_interval(px),
             point_interval((px + pw).min(self.im_width() as f64)),
@@ -480,21 +483,16 @@ impl Explicit {
     /// Subdivides the block and appends the sub-blocks to `sub_bs`.
     /// Two sub-blocks are created at most.
     ///
-    /// Precondition: `b.subdivide_on_xy()` is `true`.
+    /// Precondition: `b.x.is_subdivisible()` is `true`.
     fn subdivide_on_x(&self, sub_bs: &mut Vec<Block>, b: &Block) {
-        let x0 = 2 * b.x;
-        let x1 = x0 + 1;
-        let kx = b.kx - 1;
-        if b.is_superpixel() {
-            let b0 = Block::new(x0, 0, kx, 0, b.n_theta, b.t);
-            let b0_width = b0.width() as u64;
-            sub_bs.push(b0);
-            if x1 * b0_width < self.im_width() as u64 {
-                sub_bs.push(Block::new(x1, 0, kx, 0, b.n_theta, b.t));
+        let [x0, x1] = b.x.subdivide();
+        if b.x.is_superpixel() {
+            sub_bs.push(Block { x: x0, ..*b });
+            if x1.pixel_index() < self.im_width() {
+                sub_bs.push(Block { x: x1, ..*b });
             }
         } else {
-            sub_bs.push(Block::new(x0, 0, kx, 0, b.n_theta, b.t));
-            sub_bs.push(Block::new(x1, 0, kx, 0, b.n_theta, b.t));
+            sub_bs.extend([Block { x: x0, ..*b }, Block { x: x1, ..*b }]);
         }
     }
 
