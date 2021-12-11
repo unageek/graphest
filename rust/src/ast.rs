@@ -1,5 +1,4 @@
-use crate::real::Real;
-use bitflags::*;
+use crate::{real::Real, vars::VarSet};
 use inari::{const_dec_interval, DecInterval, Decoration};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -148,17 +147,6 @@ impl fmt::Display for ValueType {
             RealVector => write!(f, "real vector"),
             Unknown => write!(f, "unknown"),
         }
-    }
-}
-
-bitflags! {
-    /// A set of free variables; a subset of {x, y, n_θ, t}.
-    pub struct VarSet: u8 {
-        const EMPTY = 0;
-        const X = 1;
-        const Y = 2;
-        const N_THETA = 4;
-        const T = 8;
     }
 }
 

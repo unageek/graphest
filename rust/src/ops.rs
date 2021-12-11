@@ -1,6 +1,6 @@
 use crate::{
-    ast::VarSet,
     interval_set::{DecSignSet, Site, TupperIntervalSet},
+    vars::VarSet,
 };
 use std::ops::{Index, IndexMut};
 

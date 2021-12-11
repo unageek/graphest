@@ -1,6 +1,7 @@
 use crate::{
-    ast::{BinaryOp, Expr, TernaryOp, UnaryOp, ValueType, VarSet},
+    ast::{BinaryOp, Expr, TernaryOp, UnaryOp, ValueType},
     real::Real,
+    vars::VarSet,
     visit::{Substitute, VisitMut},
 };
 use inari::{const_dec_interval, DecInterval};

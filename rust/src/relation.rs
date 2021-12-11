@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType, VarSet},
+    ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType},
     binary, bool_constant, constant,
     context::Context,
     eval_result::EvalResult,
@@ -8,6 +8,7 @@ use crate::{
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
     parse::{format_error, parse_expr},
     ternary, unary, var,
+    vars::VarSet,
     visit::*,
 };
 use inari::{const_interval, interval, DecInterval, Interval};
