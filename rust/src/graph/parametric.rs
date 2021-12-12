@@ -83,9 +83,8 @@ impl Parametric {
             cache: Default::default(),
         };
 
-        let t_range = g.rel.t_range();
         g.block_queue.push_back(Block {
-            t: RealParameter::new(t_range),
+            t: RealParameter::new(g.rel.t_range()),
             ..Block::default()
         });
 

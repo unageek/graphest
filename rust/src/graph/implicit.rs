@@ -95,11 +95,10 @@ impl Implicit {
         };
 
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
-        let t_range = g.rel.t_range();
         let mut bs = vec![Block {
             x: Coordinate::new(0, k),
             y: Coordinate::new(0, k),
-            t: RealParameter::new(t_range),
+            t: RealParameter::new(g.rel.t_range()),
             ..Block::default()
         }];
 
@@ -145,14 +144,16 @@ impl Implicit {
                 let complete = if !sub_b.x.is_subpixel() {
                     self.process_block(&sub_b)
                 } else {
-                    if self.vars.contains(VarSet::N_THETA)
-                        && !sub_b.n_theta.interval().is_singleton()
-                    {
-                        // Try finding a solution earlier.
-                        let n_theta = IntegerParameter::new(point_interval(simple_fraction(
-                            sub_b.n_theta.interval(),
-                        )));
-                        self.process_subpixel_block(&Block { n_theta, ..sub_b });
+                    if self.vars.contains(VarSet::N_THETA) {
+                        let n = sub_b.n_theta.interval();
+                        let n_simple = simple_fraction(n);
+                        if n.inf() != n_simple && n.sup() != n_simple {
+                            // Try finding a solution earlier.
+                            self.process_subpixel_block(&Block {
+                                n_theta: IntegerParameter::new(point_interval(n_simple)),
+                                ..sub_b
+                            });
+                        }
                     }
                     self.process_subpixel_block(&sub_b)
                 };
