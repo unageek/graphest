@@ -523,10 +523,10 @@ impl Implicit {
         );
     }
 
-    /// Subdivides the block both horizontally and vertically and appends the sub-blocks to `sub_bs`.
+    /// Subdivides both `b.x` and `b.y` and appends the sub-blocks to `sub_bs`.
     /// Four sub-blocks are created at most.
     ///
-    /// Precondition: Both `b.x.is_subdivisible()` and `b.y.is_subdivisible()` are `true`.
+    /// Precondition: both `b.x.is_subdivisible()` and `b.y.is_subdivisible()` are `true`.
     fn subdivide_xy(&self, sub_bs: &mut Vec<Block>, b: &Block) {
         let [x0, x1] = b.x.subdivide();
         let [y0, y1] = b.y.subdivide();

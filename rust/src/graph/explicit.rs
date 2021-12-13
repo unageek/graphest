@@ -135,7 +135,7 @@ impl Explicit {
 
             if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
                 if b.x.is_subdivisible() {
-                    self.subdivide_on_x(&mut sub_bs, &b);
+                    self.subdivide_x(&mut sub_bs, &b);
                     self.block_queue.extend(sub_bs.drain(..));
                     let last_bi = self.block_queue.end_index() - 1;
                     self.set_last_queued_block(&incomplete_pixels, last_bi, bi)?;
@@ -478,11 +478,11 @@ impl Explicit {
         }
     }
 
-    /// Subdivides the block and appends the sub-blocks to `sub_bs`.
+    /// Subdivides `b.x` and appends the sub-blocks to `sub_bs`.
     /// Two sub-blocks are created at most.
     ///
     /// Precondition: `b.x.is_subdivisible()` is `true`.
-    fn subdivide_on_x(&self, sub_bs: &mut Vec<Block>, b: &Block) {
+    fn subdivide_x(&self, sub_bs: &mut Vec<Block>, b: &Block) {
         let [x0, x1] = b.x.subdivide();
         if b.x.is_superpixel() {
             sub_bs.push(Block { x: x0, ..*b });
