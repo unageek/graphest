@@ -192,16 +192,15 @@ impl Implicit {
                             || d == VarSet::T && sub_b.t.is_subdivisible()
                     });
 
-                match next_dir {
-                    Some(d) => sub_b.next_dir = d,
-                    _ => {
-                        // Cannot subdivide in any direction.
-                        assert!(sub_b.x.is_subpixel());
-                        for p in &self.pixels_in_image(&b) {
-                            self.im[p] = PixelState::Uncertain(None);
-                        }
-                        continue;
+                if let Some(d) = next_dir {
+                    sub_b.next_dir = d;
+                } else {
+                    // Cannot subdivide in any direction.
+                    assert!(sub_b.x.is_subpixel());
+                    for p in &self.pixels_in_image(&b) {
+                        self.im[p] = PixelState::Uncertain(None);
                     }
+                    continue;
                 }
 
                 self.bs_to_subdivide.push_back(sub_b.clone());
