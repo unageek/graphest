@@ -261,6 +261,8 @@ pub struct Block {
     pub y: Coordinate,
     /// The parameter n_θ for polar coordinates.
     pub n_theta: IntegerParameter,
+    /// The parameter n.
+    pub n: IntegerParameter,
     /// The parameter t.
     pub t: RealParameter,
     /// The component(s) of the block that should be subdivided next.
@@ -303,6 +305,8 @@ pub struct BlockQueue {
     y_back: u64,
     n_theta_front: Interval,
     n_theta_back: Interval,
+    n_front: Interval,
+    n_back: Interval,
     t_front: Interval,
     t_back: Interval,
 }
@@ -321,6 +325,8 @@ impl BlockQueue {
             y_back: 0,
             n_theta_front: Interval::ENTIRE,
             n_theta_back: Interval::ENTIRE,
+            n_front: Interval::ENTIRE,
+            n_back: Interval::ENTIRE,
             t_front: Interval::ENTIRE,
             t_back: Interval::ENTIRE,
         }
@@ -384,6 +390,13 @@ impl BlockQueue {
             IntegerParameter::default()
         };
 
+        let n = if self.store_vars.contains(VarSet::N) {
+            self.n_front = self.pop_interval(self.n_front)?;
+            IntegerParameter(self.n_front)
+        } else {
+            IntegerParameter::default()
+        };
+
         let t = if self.store_vars.contains(VarSet::T) {
             self.t_front = self.pop_interval(self.t_front)?;
             RealParameter(self.t_front)
@@ -399,6 +412,7 @@ impl BlockQueue {
             x,
             y,
             n_theta,
+            n,
             t,
             next_dir,
         })
@@ -422,6 +436,12 @@ impl BlockQueue {
             let n_theta = b.n_theta.interval();
             self.push_interval(n_theta, self.n_theta_back);
             self.n_theta_back = n_theta;
+        }
+
+        if self.store_vars.contains(VarSet::N) {
+            let n = b.n.interval();
+            self.push_interval(n, self.n_back);
+            self.n_back = n;
         }
 
         if self.store_vars.contains(VarSet::T) {
@@ -733,31 +753,33 @@ mod tests {
         assert_eq!(queue.end_index(), blocks.len());
 
         let mut queue = BlockQueue::new(VarSet::N_THETA);
-        let b1 = Block {
+        let b = Block {
             n_theta: IntegerParameter::new(const_interval!(-2.0, 3.0)),
             ..Block::default()
         };
-        let b2 = Block {
-            next_dir: VarSet::N_THETA,
-            ..b1
+        queue.push_back(b.clone());
+        queue.push_back(b.clone());
+        assert_eq!(queue.pop_front(), Some(b.clone()));
+        assert_eq!(queue.pop_front(), Some(b));
+
+        let mut queue = BlockQueue::new(VarSet::N);
+        let b = Block {
+            n: IntegerParameter::new(const_interval!(-2.0, 3.0)),
+            ..Block::default()
         };
-        queue.push_back(b1.clone());
-        queue.push_back(b2.clone());
-        assert_eq!(queue.pop_front(), Some(b1));
-        assert_eq!(queue.pop_front(), Some(b2));
+        queue.push_back(b.clone());
+        queue.push_back(b.clone());
+        assert_eq!(queue.pop_front(), Some(b.clone()));
+        assert_eq!(queue.pop_front(), Some(b));
 
         let mut queue = BlockQueue::new(VarSet::T);
-        let b1 = Block {
+        let b = Block {
             t: RealParameter::new(const_interval!(-2.0, 3.0)),
             ..Block::default()
         };
-        let b2 = Block {
-            next_dir: VarSet::T,
-            ..b1
-        };
-        queue.push_back(b1.clone());
-        queue.push_back(b2.clone());
-        assert_eq!(queue.pop_front(), Some(b1));
-        assert_eq!(queue.pop_front(), Some(b2));
+        queue.push_back(b.clone());
+        queue.push_back(b.clone());
+        assert_eq!(queue.pop_front(), Some(b.clone()));
+        assert_eq!(queue.pop_front(), Some(b));
     }
 }

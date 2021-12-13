@@ -52,7 +52,7 @@ impl Implicit {
         assert_eq!(rel.relation_type(), RelationType::Implicit);
 
         let vars = rel.vars();
-        let dirs = [XY, VarSet::N_THETA, VarSet::T]
+        let dirs = [XY, VarSet::N_THETA, VarSet::N, VarSet::T]
             .into_iter()
             .filter(|&d| (XY | vars).contains(d))
             .collect();
@@ -138,6 +138,7 @@ impl Implicit {
             match b.next_dir {
                 XY => self.subdivide_xy(&mut sub_bs, &b),
                 VarSet::N_THETA => Self::subdivide_n_theta(&mut sub_bs, &b),
+                VarSet::N => Self::subdivide_n(&mut sub_bs, &b),
                 VarSet::T => Self::subdivide_t(&mut sub_bs, &b),
                 _ => panic!(),
             }
@@ -168,6 +169,7 @@ impl Implicit {
             let n_max = match b.next_dir {
                 XY => 4,
                 VarSet::N_THETA => 3,
+                VarSet::N => 3,
                 // Many bisection steps are performed to refine t.
                 // So we deprioritize it.
                 VarSet::T => usize::MAX,
@@ -189,6 +191,7 @@ impl Implicit {
                     .find(|&d| {
                         d == XY && sub_b.x.is_subdivisible()
                             || d == VarSet::N_THETA && sub_b.n_theta.is_subdivisible()
+                            || d == VarSet::N && sub_b.n.is_subdivisible()
                             || d == VarSet::T && sub_b.t.is_subdivisible()
                     });
 
@@ -259,6 +262,7 @@ impl Implicit {
             &mut self.rel,
             &u_up,
             b.n_theta.interval(),
+            b.n.interval(),
             b.t.interval(),
             Some(&mut self.cache_eval_on_region),
         );
@@ -291,6 +295,7 @@ impl Implicit {
             &mut self.rel,
             &u_up,
             b.n_theta.interval(),
+            b.n.interval(),
             b.t.interval(),
             Some(&mut self.cache_eval_on_region),
         );
@@ -356,6 +361,7 @@ impl Implicit {
                 point.0,
                 point.1,
                 b.n_theta.interval(),
+                b.n.interval(),
                 b.t.interval(),
                 Some(&mut self.cache_eval_on_point),
             );
@@ -417,6 +423,7 @@ impl Implicit {
         x: f64,
         y: f64,
         n_theta: Interval,
+        n: Interval,
         t: Interval,
         cache: Option<&mut EvalCache>,
     ) -> EvalResult {
@@ -425,6 +432,7 @@ impl Implicit {
                 x: point_interval(x),
                 y: point_interval(y),
                 n_theta,
+                n,
                 t,
             },
             cache,
@@ -435,6 +443,7 @@ impl Implicit {
         rel: &mut Relation,
         r: &Region,
         n_theta: Interval,
+        n: Interval,
         t: Interval,
         cache: Option<&mut EvalCache>,
     ) -> EvalResult {
@@ -443,6 +452,7 @@ impl Implicit {
                 x: r.x(),
                 y: r.y(),
                 n_theta,
+                n,
                 t,
             },
             cache,
@@ -489,6 +499,14 @@ impl Implicit {
                 kind: GraphingErrorKind::BlockIndexOverflow,
             })
         }
+    }
+
+    /// Subdivides `b.n` and appends the sub-blocks to `sub_bs`.
+    /// Three sub-blocks are created at most.
+    ///
+    /// Precondition: `b.n.is_subdivisible()` is `true`.
+    fn subdivide_n(sub_bs: &mut Vec<Block>, b: &Block) {
+        sub_bs.extend(b.n.subdivide().into_iter().map(|n| Block { n, ..*b }));
     }
 
     /// Subdivides `b.n_theta` and appends the sub-blocks to `sub_bs`.
