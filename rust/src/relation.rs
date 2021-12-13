@@ -212,6 +212,7 @@ pub struct RelationArgs {
     pub x: Interval,
     pub y: Interval,
     pub n_theta: Interval,
+    pub n: Interval,
     pub t: Interval,
 }
 
@@ -221,6 +222,7 @@ impl Default for RelationArgs {
             x: Interval::ENTIRE,
             y: Interval::ENTIRE,
             n_theta: Interval::ENTIRE,
+            n: Interval::ENTIRE,
             t: Interval::ENTIRE,
         }
     }
@@ -422,6 +424,7 @@ impl Relation {
                         VarSet::X => x,
                         VarSet::Y => y,
                         VarSet::N_THETA => args.n_theta,
+                        VarSet::N => args.n,
                         VarSet::T => args.t,
                         _ => panic!(),
                     };
@@ -465,6 +468,7 @@ impl Relation {
                         VarSet::X => args.x,
                         VarSet::Y => args.y,
                         VarSet::N_THETA => args.n_theta,
+                        VarSet::N => args.n,
                         VarSet::T => args.t,
                         _ => panic!(),
                     };
@@ -1070,6 +1074,7 @@ mod tests {
         assert_eq!(f("y = 0"), VarSet::Y);
         assert_eq!(f("r = 0"), VarSet::X | VarSet::Y);
         assert_eq!(f("θ = 0"), VarSet::X | VarSet::Y | VarSet::N_THETA);
+        assert_eq!(f("n = 0"), VarSet::N);
         assert_eq!(f("t = 0"), VarSet::T);
     }
 }
