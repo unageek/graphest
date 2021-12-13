@@ -1,5 +1,5 @@
 use crate::{
-    block::{Block, BlockQueue, BlockQueueOptions, RealParameter},
+    block::{Block, BlockQueue, RealParameter},
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
         common::{point_interval, point_interval_possibly_infinite, PixelState, QueuedBlockIndex},
@@ -9,6 +9,7 @@ use crate::{
     interval_set::TupperIntervalSet,
     region::Region,
     relation::{EvalParametricCache, Relation, RelationType},
+    vars::VarSet,
 };
 use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
@@ -48,10 +49,7 @@ impl Parametric {
         let mut g = Self {
             rel,
             im: Image::new(im_width, im_height),
-            block_queue: BlockQueue::new(BlockQueueOptions {
-                store_t: true,
-                ..Default::default()
-            }),
+            block_queue: BlockQueue::new(VarSet::T),
             im_region: Region::new(
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),

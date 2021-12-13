@@ -1,4 +1,4 @@
-use crate::image::PixelIndex;
+use crate::{image::PixelIndex, vars::VarSet};
 use inari::{interval, Interval};
 use itertools::Itertools;
 use smallvec::SmallVec;
@@ -10,7 +10,7 @@ use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping};
 /// where the endpoints are in pixel coordinates.
 ///
 /// [`Image`]: crate::image::Image
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Coordinate {
     i: u64,
     k: i8,
@@ -179,6 +179,12 @@ impl IntegerParameter {
     }
 }
 
+impl Default for IntegerParameter {
+    fn default() -> Self {
+        Self(Interval::ENTIRE)
+    }
+}
+
 /// A component of a [`Block`] that corresponds to a real parameter.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RealParameter(Interval);
@@ -240,17 +246,14 @@ impl RealParameter {
     }
 }
 
-/// The direction of subdivision.
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum SubdivisionDir {
-    XY = 0,
-    NTheta = 1,
-    T = 2,
+impl Default for RealParameter {
+    fn default() -> Self {
+        Self(Interval::ENTIRE)
+    }
 }
 
 /// A subset of the domain of a relation.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Block {
     /// The horizontal coordinate.
     pub x: Coordinate,
@@ -260,9 +263,9 @@ pub struct Block {
     pub n_theta: IntegerParameter,
     /// The parameter t.
     pub t: RealParameter,
-    /// The direction that should be chosen when subdividing this block.
-    // TODO: It is awkward that a block has this field.
-    pub next_dir: SubdivisionDir,
+    /// The component(s) of the block that should be subdivided next.
+    // TODO: It is awkward that blocks have this field.
+    pub next_dir: VarSet,
 }
 
 impl Block {
@@ -286,34 +289,13 @@ impl Block {
     }
 }
 
-impl Default for Block {
-    fn default() -> Self {
-        Self {
-            x: Coordinate::new(0, 0),
-            y: Coordinate::new(0, 0),
-            n_theta: IntegerParameter::new(Interval::ENTIRE),
-            t: RealParameter::new(Interval::ENTIRE),
-            next_dir: SubdivisionDir::XY,
-        }
-    }
-}
-
-/// Specifies which fields of [`Block`]s should be stored in a [`BlockQueue`].
-#[derive(Clone, Debug, Default)]
-pub struct BlockQueueOptions {
-    pub store_xy: bool,
-    pub store_n_theta: bool,
-    pub store_t: bool,
-    pub store_next_dir: bool,
-}
-
 /// A queue that stores [`Block`]s.
 ///
 /// The [`Block`]s are entropy-encoded internally so that the closer the indices of consecutive
 /// blocks are (which is expected by using the Morton order), the less memory it consumes.
 pub struct BlockQueue {
-    opts: BlockQueueOptions,
     seq: VecDeque<u8>,
+    store_vars: VarSet,
     begin_index: usize,
     end_index: usize,
     x_front: u64,
@@ -328,10 +310,10 @@ pub struct BlockQueue {
 
 impl BlockQueue {
     /// Creates an empty queue.
-    pub fn new(opts: BlockQueueOptions) -> Self {
+    pub fn new(store_vars: VarSet) -> Self {
         Self {
-            opts,
             seq: VecDeque::new(),
+            store_vars,
             begin_index: 0,
             end_index: 0,
             x_front: 0,
@@ -376,40 +358,41 @@ impl BlockQueue {
     /// Removes the first block from the queue and returns it.
     /// [`None`] is returned if the queue is empty.
     pub fn pop_front(&mut self) -> Option<Block> {
-        let (x, y) = if self.opts.store_xy {
-            let x = self.x_front ^ self.pop_small_u64()?;
-            self.x_front = x;
-
-            let y = self.y_front ^ self.pop_small_u64()?;
-            self.y_front = y;
-
-            let kx = self.pop_i8()?;
-            let ky = self.pop_i8()?;
-
-            (Coordinate { i: x, k: kx }, Coordinate { i: y, k: ky })
+        let x = if self.store_vars.contains(VarSet::X) {
+            self.x_front ^= self.pop_small_u64()?;
+            Coordinate {
+                i: self.x_front,
+                k: self.pop_i8()?,
+            }
         } else {
-            (Coordinate { i: 0, k: 0 }, Coordinate { i: 0, k: 0 })
+            Coordinate::default()
         };
 
-        let n_theta = IntegerParameter(if self.opts.store_n_theta {
+        let y = if self.store_vars.contains(VarSet::Y) {
+            self.y_front ^= self.pop_small_u64()?;
+            Coordinate {
+                i: self.y_front,
+                k: self.pop_i8()?,
+            }
+        } else {
+            Coordinate::default()
+        };
+
+        let n_theta = if self.store_vars.contains(VarSet::N_THETA) {
             self.n_theta_front = self.pop_interval(self.n_theta_front)?;
-            self.n_theta_front
+            IntegerParameter(self.n_theta_front)
         } else {
-            Interval::ENTIRE
-        });
-
-        let t = RealParameter(if self.opts.store_t {
-            self.t_front = self.pop_interval(self.t_front)?;
-            self.t_front
-        } else {
-            Interval::ENTIRE
-        });
-
-        let next_dir = if self.opts.store_next_dir {
-            self.pop_subdivision_dir()?
-        } else {
-            SubdivisionDir::XY
+            IntegerParameter::default()
         };
+
+        let t = if self.store_vars.contains(VarSet::T) {
+            self.t_front = self.pop_interval(self.t_front)?;
+            RealParameter(self.t_front)
+        } else {
+            RealParameter::default()
+        };
+
+        let next_dir = self.pop_vars()?;
 
         self.begin_index += 1;
 
@@ -424,32 +407,31 @@ impl BlockQueue {
 
     /// Appends the block to the back of the queue.
     pub fn push_back(&mut self, b: Block) {
-        if self.opts.store_xy {
+        if self.store_vars.contains(VarSet::X) {
             self.push_small_u64(b.x.i ^ self.x_back);
-            self.x_back = b.x.i;
-
-            self.push_small_u64(b.y.i ^ self.y_back);
-            self.y_back = b.y.i;
-
             self.push_i8(b.x.k);
-            self.push_i8(b.y.k);
+            self.x_back = b.x.i;
         }
 
-        if self.opts.store_n_theta {
+        if self.store_vars.contains(VarSet::Y) {
+            self.push_small_u64(b.y.i ^ self.y_back);
+            self.push_i8(b.y.k);
+            self.y_back = b.y.i;
+        }
+
+        if self.store_vars.contains(VarSet::N_THETA) {
             let n_theta = b.n_theta.interval();
             self.push_interval(n_theta, self.n_theta_back);
             self.n_theta_back = n_theta;
         }
 
-        if self.opts.store_t {
+        if self.store_vars.contains(VarSet::T) {
             let t = b.t.interval();
             self.push_interval(t, self.t_back);
             self.t_back = t;
         }
 
-        if self.opts.store_next_dir {
-            self.push_subdivision_dir(b.next_dir);
-        }
+        self.push_vars(b.next_dir);
 
         self.end_index += 1;
     }
@@ -535,14 +517,10 @@ impl BlockQueue {
         Some(x | y)
     }
 
-    fn pop_subdivision_dir(&mut self) -> Option<SubdivisionDir> {
-        let axis = match self.seq.pop_front()? {
-            0 => SubdivisionDir::XY,
-            1 => SubdivisionDir::NTheta,
-            2 => SubdivisionDir::T,
-            _ => panic!(),
-        };
-        Some(axis)
+    fn pop_vars(&mut self) -> Option<VarSet> {
+        let bits = self.seq.pop_front()?;
+        let vars = unsafe { VarSet::from_bits_unchecked(bits) };
+        Some(vars)
     }
 
     fn push_i8(&mut self, x: i8) {
@@ -577,8 +555,8 @@ impl BlockQueue {
         self.seq.extend(y.to_le_bytes()[..tail_len].iter());
     }
 
-    fn push_subdivision_dir(&mut self, axis: SubdivisionDir) {
-        self.seq.push_back(axis as u8);
+    fn push_vars(&mut self, vars: VarSet) {
+        self.seq.push_back(vars.bits());
     }
 }
 
@@ -656,10 +634,7 @@ mod tests {
 
     #[test]
     fn block_queue() {
-        let mut queue = BlockQueue::new(BlockQueueOptions {
-            store_xy: true,
-            ..Default::default()
-        });
+        let mut queue = BlockQueue::new(VarSet::X | VarSet::Y);
         let blocks = [
             Block {
                 x: Coordinate::new(0, -32),
@@ -758,18 +733,13 @@ mod tests {
         assert_eq!(queue.begin_index(), blocks.len());
         assert_eq!(queue.end_index(), blocks.len());
 
-        let mut queue = BlockQueue::new(BlockQueueOptions {
-            store_xy: true,
-            store_n_theta: true,
-            store_next_dir: true,
-            ..Default::default()
-        });
+        let mut queue = BlockQueue::new(VarSet::N_THETA);
         let b1 = Block {
             n_theta: IntegerParameter::new(const_interval!(-2.0, 3.0)),
             ..Block::default()
         };
         let b2 = Block {
-            next_dir: SubdivisionDir::NTheta,
+            next_dir: VarSet::N_THETA,
             ..b1
         };
         queue.push_back(b1.clone());
@@ -777,18 +747,13 @@ mod tests {
         assert_eq!(queue.pop_front(), Some(b1));
         assert_eq!(queue.pop_front(), Some(b2));
 
-        let mut queue = BlockQueue::new(BlockQueueOptions {
-            store_xy: true,
-            store_t: true,
-            store_next_dir: true,
-            ..Default::default()
-        });
+        let mut queue = BlockQueue::new(VarSet::T);
         let b1 = Block {
             t: RealParameter::new(const_interval!(-2.0, 3.0)),
             ..Block::default()
         };
         let b2 = Block {
-            next_dir: SubdivisionDir::T,
+            next_dir: VarSet::T,
             ..b1
         };
         queue.push_back(b1.clone());

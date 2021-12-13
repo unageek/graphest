@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, ExprId, NaryOp, TernaryOp, UnaryOp, ValueType, VarSet, UNINIT_EXPR_ID},
+    ast::{BinaryOp, Expr, ExprId, NaryOp, TernaryOp, UnaryOp, ValueType, UNINIT_EXPR_ID},
     binary, bool_constant, constant,
     context::{Context, Def, VarProps},
     error,
@@ -11,6 +11,7 @@ use crate::{
     },
     parse::parse_expr,
     pown, rootn, ternary, unary, uninit, var,
+    vars::VarSet,
 };
 use inari::Decoration;
 use rug::Rational;

@@ -1,5 +1,5 @@
 use crate::{
-    block::{Block, BlockQueue, BlockQueueOptions, Coordinate},
+    block::{Block, BlockQueue, Coordinate},
     eval_result::EvalResult,
     geom::{Box1D, Box2D, Transform1D, TransformMode},
     graph::{
@@ -13,6 +13,7 @@ use crate::{
     interval_set::TupperIntervalSet,
     region::Region,
     relation::{EvalExplicitCache, ExplicitRelationOp, Relation, RelationType},
+    vars::VarSet,
 };
 use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
@@ -80,10 +81,7 @@ impl Explicit {
             op,
             transpose,
             im,
-            block_queue: BlockQueue::new(BlockQueueOptions {
-                store_xy: true,
-                ..Default::default()
-            }),
+            block_queue: BlockQueue::new(VarSet::X),
             im_region: Region::new(
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),

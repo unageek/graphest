@@ -1,9 +1,5 @@
 use crate::{
-    ast::VarSet,
-    block::{
-        Block, BlockQueue, BlockQueueOptions, Coordinate, IntegerParameter, RealParameter,
-        SubdivisionDir,
-    },
+    block::{Block, BlockQueue, Coordinate, IntegerParameter, RealParameter},
     eval_result::EvalResult,
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
@@ -14,6 +10,7 @@ use crate::{
     interval_set::{DecSignSet, SignSet},
     region::Region,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
+    vars::VarSet,
 };
 use inari::{Decoration, Interval};
 use itertools::Itertools;
@@ -22,6 +19,9 @@ use std::{
     convert::TryFrom,
     time::{Duration, Instant},
 };
+
+// https://github.com/bitflags/bitflags/issues/180
+const XY: VarSet = VarSet::from_bits_truncate(VarSet::X.bits() | VarSet::Y.bits());
 
 /// The graphing algorithm for implicit relations.
 pub struct Implicit {
@@ -50,18 +50,11 @@ impl Implicit {
         assert_eq!(rel.relation_type(), RelationType::Implicit);
 
         let vars = rel.vars();
-        let has_n_theta = vars.contains(VarSet::N_THETA);
-        let has_t = vars.contains(VarSet::T);
         let mut g = Self {
             rel,
             vars,
             im: Image::new(im_width, im_height),
-            bs_to_subdivide: BlockQueue::new(BlockQueueOptions {
-                store_xy: true,
-                store_n_theta: has_n_theta,
-                store_t: has_t,
-                store_next_dir: has_n_theta || has_t,
-            }),
+            bs_to_subdivide: BlockQueue::new(XY | vars),
             im_to_real: Transform2D::new(
                 [
                     Region::new(
@@ -99,10 +92,11 @@ impl Implicit {
             x: Coordinate::new(0, k),
             y: Coordinate::new(0, k),
             t: RealParameter::new(g.rel.t_range()),
+            next_dir: XY,
             ..Block::default()
         }];
 
-        if has_n_theta {
+        if vars.contains(VarSet::N_THETA) {
             let n_theta_range = g.rel.n_theta_range();
             bs = IntegerParameter::initial_subdivision(n_theta_range)
                 .into_iter()
@@ -134,9 +128,10 @@ impl Implicit {
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
-                SubdivisionDir::XY => self.subdivide_xy(&mut sub_bs, &b),
-                SubdivisionDir::NTheta => Self::subdivide_n_theta(&mut sub_bs, &b),
-                SubdivisionDir::T => Self::subdivide_t(&mut sub_bs, &b),
+                XY => self.subdivide_xy(&mut sub_bs, &b),
+                VarSet::N_THETA => Self::subdivide_n_theta(&mut sub_bs, &b),
+                VarSet::T => Self::subdivide_t(&mut sub_bs, &b),
+                _ => panic!(),
             }
 
             let n_sub_bs = sub_bs.len();
@@ -163,11 +158,12 @@ impl Implicit {
             }
 
             let n_max = match b.next_dir {
-                SubdivisionDir::XY => 4,
-                SubdivisionDir::NTheta => 3,
+                XY => 4,
+                VarSet::N_THETA => 3,
                 // Many bisection steps are performed to refine t.
                 // So we deprioritize it.
-                SubdivisionDir::T => usize::MAX,
+                VarSet::T => usize::MAX,
+                _ => panic!(),
             };
             let preferred_next_dir = if n_max * incomplete_sub_bs.len() <= n_sub_bs {
                 // Subdivide in the same direction again.
@@ -175,29 +171,28 @@ impl Implicit {
             } else {
                 // Subdivide in other direction.
                 match b.next_dir {
-                    SubdivisionDir::XY if self.vars.contains(VarSet::N_THETA) => {
-                        SubdivisionDir::NTheta
-                    }
-                    SubdivisionDir::XY if self.vars.contains(VarSet::T) => SubdivisionDir::T,
-                    SubdivisionDir::XY => SubdivisionDir::XY,
-                    SubdivisionDir::NTheta if self.vars.contains(VarSet::T) => SubdivisionDir::T,
-                    SubdivisionDir::NTheta => SubdivisionDir::XY,
-                    SubdivisionDir::T => SubdivisionDir::XY,
+                    XY if self.vars.contains(VarSet::N_THETA) => VarSet::N_THETA,
+                    XY if self.vars.contains(VarSet::T) => VarSet::T,
+                    XY => XY,
+                    VarSet::N_THETA if self.vars.contains(VarSet::T) => VarSet::T,
+                    VarSet::N_THETA => XY,
+                    VarSet::T => XY,
+                    _ => panic!(),
                 }
             };
 
             for mut sub_b in incomplete_sub_bs.drain(..) {
-                sub_b.next_dir = if preferred_next_dir == SubdivisionDir::NTheta
+                sub_b.next_dir = if preferred_next_dir == VarSet::N_THETA
                     && sub_b.n_theta.is_subdivisible()
-                    || preferred_next_dir == SubdivisionDir::T && sub_b.t.is_subdivisible()
+                    || preferred_next_dir == VarSet::T && sub_b.t.is_subdivisible()
                 {
                     preferred_next_dir
                 } else if sub_b.x.is_subdivisible() {
-                    SubdivisionDir::XY
+                    XY
                 } else if self.vars.contains(VarSet::N_THETA) && sub_b.n_theta.is_subdivisible() {
-                    SubdivisionDir::NTheta
+                    VarSet::N_THETA
                 } else if self.vars.contains(VarSet::T) && sub_b.t.is_subdivisible() {
-                    SubdivisionDir::T
+                    VarSet::T
                 } else {
                     // Cannot subdivide in any direction.
                     assert!(sub_b.x.is_subpixel());
