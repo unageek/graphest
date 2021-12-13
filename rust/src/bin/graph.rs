@@ -17,14 +17,18 @@ fn print_statistics_header() {
 }
 
 fn print_statistics(cur: &GraphingStatistics, prev: &GraphingStatistics) {
-    fn make_interval(x: f64) -> Interval {
+    fn point_interval(x: f64) -> Interval {
         interval!(x, x).unwrap()
     }
 
-    let i100 = const_interval!(100.0, 100.0);
-    let ipx = make_interval(cur.pixels as f64);
-    let area = i100 * make_interval(cur.pixels_proven as f64) / ipx;
-    let delta_area = i100 * make_interval((cur.pixels_proven - prev.pixels_proven) as f64) / ipx;
+    fn to_percent(x: Interval) -> Interval {
+        const_interval!(100.0, 100.0) * x
+    }
+
+    let pixels = point_interval(cur.pixels as f64);
+    let area = to_percent(point_interval(cur.pixels_complete as f64) / pixels);
+    let delta_area =
+        to_percent(point_interval((cur.pixels_complete - prev.pixels_complete) as f64) / pixels);
 
     println!(
         "  {:>14.3}  {:>11}  (+ {:>7})  {:>13}  (+ {:>9})",

@@ -26,7 +26,7 @@ impl Constant {
             stats: GraphingStatistics {
                 eval_count: 0,
                 pixels: im_width as usize * im_height as usize,
-                pixels_proven: 0,
+                pixels_complete: 0,
                 time_elapsed: Duration::ZERO,
             },
         }
@@ -63,7 +63,7 @@ impl Graph for Constant {
     fn get_statistics(&self) -> GraphingStatistics {
         GraphingStatistics {
             eval_count: self.rel.eval_count(),
-            pixels_proven: match self.result {
+            pixels_complete: match self.result {
                 Some(Ternary::False | Ternary::True) => self.stats.pixels,
                 _ => 0,
             },

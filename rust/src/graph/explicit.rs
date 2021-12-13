@@ -107,7 +107,7 @@ impl Explicit {
             stats: GraphingStatistics {
                 eval_count: 0,
                 pixels: im_width as usize * im_height as usize,
-                pixels_proven: 0,
+                pixels_complete: 0,
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
@@ -543,11 +543,10 @@ impl Graph for Explicit {
     fn get_statistics(&self) -> GraphingStatistics {
         GraphingStatistics {
             eval_count: self.rel.eval_count(),
-            pixels_proven: self
+            pixels_complete: self
                 .im
                 .pixels()
-                .copied()
-                .filter(|&s| !s.is_uncertain(self.block_queue.begin_index()))
+                .filter(|s| !s.is_uncertain(self.block_queue.begin_index()))
                 .count(),
             ..self.stats
         }
