@@ -133,6 +133,7 @@ impl Implicit {
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
         let mut incomplete_sub_bs = vec![];
+        let mut next_dir_candidates = vec![];
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
@@ -170,12 +171,10 @@ impl Implicit {
                 XY => 4,
                 VarSet::N_THETA => 3,
                 VarSet::N => 3,
-                // Many bisection steps are performed to refine t.
-                // So we deprioritize it.
-                VarSet::T => usize::MAX,
+                VarSet::T => 1000, // Avoid repeated subdivision of t.
                 _ => panic!(),
             };
-            let preferred_next_dir = if n_max * incomplete_sub_bs.len() <= n_sub_bs {
+            let next_dir_suggestion = if n_max * incomplete_sub_bs.len() <= n_sub_bs {
                 // Subdivide in the same direction again.
                 b.next_dir
             } else {
@@ -185,15 +184,23 @@ impl Implicit {
                 it.next().unwrap()
             };
 
+            next_dir_candidates.splice(
+                ..,
+                once(next_dir_suggestion).chain(
+                    self.dirs
+                        .iter()
+                        .copied()
+                        .filter(|&d| d != next_dir_suggestion),
+                ),
+            );
+
             for mut sub_b in incomplete_sub_bs.drain(..) {
-                let next_dir = once(preferred_next_dir)
-                    .chain(self.dirs.iter().copied())
-                    .find(|&d| {
-                        d == XY && sub_b.x.is_subdivisible()
-                            || d == VarSet::N_THETA && sub_b.n_theta.is_subdivisible()
-                            || d == VarSet::N && sub_b.n.is_subdivisible()
-                            || d == VarSet::T && sub_b.t.is_subdivisible()
-                    });
+                let next_dir = next_dir_candidates.iter().copied().find(|&d| {
+                    d == XY && sub_b.x.is_subdivisible()
+                        || d == VarSet::N_THETA && sub_b.n_theta.is_subdivisible()
+                        || d == VarSet::N && sub_b.n.is_subdivisible()
+                        || d == VarSet::T && sub_b.t.is_subdivisible()
+                });
 
                 if let Some(d) = next_dir {
                     sub_b.next_dir = d;
