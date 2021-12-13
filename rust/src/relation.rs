@@ -7,7 +7,7 @@ use crate::{
     nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
     parse::{format_error, parse_expr},
-    ternary, unary, var,
+    ternary, unary, var, vars,
     vars::VarSet,
     visit::*,
 };
@@ -19,6 +19,29 @@ use std::{
     mem::{size_of, take},
     str::FromStr,
 };
+
+enum MultiKeyHashMap<K, V> {
+    One(HashMap<[K; 1], V>),
+    Two(HashMap<[K; 2], V>),
+}
+
+impl<K, V> MultiKeyHashMap<K, V> {
+    fn new(n: usize) -> Self {
+        match n {
+            1 => MultiKeyHashMap::One(HashMap::new()),
+            2 => MultiKeyHashMap::Two(HashMap::new()),
+            _ => panic!(),
+        }
+    }
+
+    fn size_in_heap(&self) -> usize {
+        let (capacity, key_size) = match self {
+            Self::One(m) => (m.capacity(), size_of::<[K; 1]>()),
+            Self::Two(m) => (m.capacity(), size_of::<[K; 2]>()),
+        };
+        capacity * (size_of::<u64>() + key_size + size_of::<V>())
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EvalCacheLevel {
@@ -150,36 +173,96 @@ impl EvalExplicitCache {
 
 type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, EvalResult);
 
-/// A cache for memoizing evaluation of a parametric relation.
 #[derive(Default)]
+struct KeyIndices {
+    n: Option<usize>,
+    t: Option<usize>,
+}
+
+/// A cache for memoizing evaluation of a parametric relation.
 pub struct EvalParametricCache {
-    ct: HashMap<Interval, EvalParametricResult>,
-    size_of_ct: usize,
+    n_vars: usize,
+    key_indices: KeyIndices,
+    c: MultiKeyHashMap<Interval, EvalParametricResult>,
+    size_of_c: usize,
     size_of_values_in_heap: usize,
 }
 
 impl EvalParametricCache {
+    pub fn new(vars: VarSet) -> Self {
+        let n_vars = vars.bits().count_ones() as usize;
+        let mut key_indices = KeyIndices::default();
+
+        for (i, v) in [VarSet::N, VarSet::T]
+            .into_iter()
+            .filter(|&v| vars.contains(v))
+            .enumerate()
+        {
+            match v {
+                VarSet::N => key_indices.n = Some(i),
+                VarSet::T => key_indices.t = Some(i),
+                _ => panic!("unexpected variable"),
+            }
+        }
+
+        Self {
+            n_vars,
+            key_indices,
+            c: MultiKeyHashMap::new(n_vars),
+            size_of_c: 0,
+            size_of_values_in_heap: 0,
+        }
+    }
+
     /// Clears the cache and releases the allocated memory.
     pub fn clear(&mut self) {
-        self.ct = HashMap::new();
-        self.size_of_ct = 0;
+        self.c = MultiKeyHashMap::new(self.n_vars);
+        self.size_of_c = 0;
         self.size_of_values_in_heap = 0;
     }
 
-    pub fn get(&self, t: Interval) -> Option<&EvalParametricResult> {
-        self.ct.get(&(t))
+    pub fn get(&self, args: &RelationArgs) -> Option<&EvalParametricResult> {
+        match &self.c {
+            MultiKeyHashMap::One(c) => {
+                let k = Self::make_key::<1>(&self.key_indices, args);
+                c.get(&k)
+            }
+            MultiKeyHashMap::Two(c) => {
+                let k = Self::make_key::<2>(&self.key_indices, args);
+                c.get(&k)
+            }
+        }
     }
 
-    pub fn insert(&mut self, t: Interval, r: EvalParametricResult) {
+    pub fn insert(&mut self, args: &RelationArgs, r: EvalParametricResult) {
         self.size_of_values_in_heap += r.0.size_in_heap() + r.1.size_in_heap() + r.2.size_in_heap();
-        self.ct.insert(t, r);
-        self.size_of_ct = self.ct.capacity()
-            * (size_of::<u64>() + size_of::<Interval>() + size_of::<EvalParametricResult>());
+        match &mut self.c {
+            MultiKeyHashMap::One(c) => {
+                let k = Self::make_key::<1>(&self.key_indices, args);
+                c.insert(k, r);
+            }
+            MultiKeyHashMap::Two(c) => {
+                let k = Self::make_key::<2>(&self.key_indices, args);
+                c.insert(k, r);
+            }
+        }
+        self.size_of_c = self.c.size_in_heap();
     }
 
     /// Returns the approximate size allocated by the [`EvalParametricCache`] in bytes.
     pub fn size_in_heap(&self) -> usize {
-        self.size_of_ct + self.size_of_values_in_heap
+        self.size_of_c + self.size_of_values_in_heap
+    }
+
+    fn make_key<const N: usize>(key_indices: &KeyIndices, args: &RelationArgs) -> [Interval; N] {
+        let mut k = [Interval::ENTIRE; N];
+        if let Some(i) = key_indices.n {
+            k[i] = args.n;
+        }
+        if let Some(i) = key_indices.t {
+            k[i] = args.t;
+        }
+        k
     }
 }
 
@@ -203,8 +286,8 @@ pub enum RelationType {
     ExplicitFunctionOfY(ExplicitRelationOp),
     /// The relation is of a general form.
     Implicit,
-    /// The relation is of the form x = f(t) ∧ y = g(t) ∧ P(t),
-    /// where P(t) is an optional constraint on t.
+    /// The relation is of the form x = f(n, t) ∧ y = g(n, t) ∧ P(n, t),
+    /// where P(n, t) is an optional constraint on the parameters.
     Parametric,
 }
 
@@ -294,28 +377,29 @@ impl Relation {
         }
     }
 
-    /// Evaluates the parametric relation x = f(t) ∧ y = g(t) ∧ P(t) and returns (f(t), g(t), P(t)).
+    /// Evaluates the parametric relation x = f(n, t) ∧ y = g(n, t) ∧ P(n, t)
+    /// and returns (f(n, t), g(n, t), P(n, t)).
     ///
-    /// If P(t) is absent, its value is assumed to be always true.
+    /// If P(n, t) is absent, its value is assumed to be always true.
     ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_parametric(
         &mut self,
-        t: Interval,
+        args: &RelationArgs,
         cache: Option<&mut EvalParametricCache>,
     ) -> EvalParametricResult {
         assert_eq!(self.relation_type, RelationType::Parametric);
 
         match cache {
-            Some(cache) => match cache.get(t) {
+            Some(cache) => match cache.get(args) {
                 Some(r) => r.clone(),
                 _ => {
-                    let r = self.eval_parametric_without_cache(t);
-                    cache.insert(t, r.clone());
+                    let r = self.eval_parametric_without_cache(args);
+                    cache.insert(args, r.clone());
                     r
                 }
             },
-            _ => self.eval_parametric_without_cache(t),
+            _ => self.eval_parametric_without_cache(args),
         }
     }
 
@@ -381,14 +465,8 @@ impl Relation {
         }
     }
 
-    fn eval_parametric_without_cache(&mut self, t: Interval) -> EvalParametricResult {
-        let p = self.eval(
-            &RelationArgs {
-                t,
-                ..Default::default()
-            },
-            None,
-        );
+    fn eval_parametric_without_cache(&mut self, args: &RelationArgs) -> EvalParametricResult {
+        let p = self.eval(args, None);
 
         (
             self.ts[self.x_explicit.unwrap()].clone(),
@@ -887,9 +965,9 @@ fn normalize_explicit_relation_impl(
 }
 
 struct ParametricRelationParts {
-    xt: Option<Expr>, // x = f(t)
-    yt: Option<Expr>, // y = f(t)
-    pt: Vec<Expr>,    // P(t)
+    xt: Option<Expr>, // x = f(n, t)
+    yt: Option<Expr>, // y = f(n, t)
+    pt: Vec<Expr>,    // P(n, t)
 }
 
 /// Tries to identify `e` as a parametric relation.
@@ -920,13 +998,16 @@ fn normalize_parametric_relation(e: &mut Expr) -> bool {
 
 fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelationParts) -> bool {
     use BinaryOp::*;
+
+    const PARAMS: VarSet = vars!(VarSet::N | VarSet::T);
+
     match e {
         binary!(And, e1, e2) => {
             normalize_parametric_relation_impl(e1, parts)
                 && normalize_parametric_relation_impl(e2, parts)
         }
         binary!(Eq, x @ var!(_), e) | binary!(Eq, e, x @ var!(_))
-            if x.vars == VarSet::X && VarSet::T.contains(e.vars) =>
+            if x.vars == VarSet::X && PARAMS.contains(e.vars) =>
         {
             parts.xt.is_none() && {
                 parts.xt = Some(Expr::binary(ExplicitRel, box take(x), box take(e)));
@@ -934,14 +1015,14 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
             }
         }
         binary!(Eq, y @ var!(_), e) | binary!(Eq, e, y @ var!(_))
-            if y.vars == VarSet::Y && VarSet::T.contains(e.vars) =>
+            if y.vars == VarSet::Y && PARAMS.contains(e.vars) =>
         {
             parts.yt.is_none() && {
                 parts.yt = Some(Expr::binary(ExplicitRel, box take(y), box take(e)));
                 true
             }
         }
-        e if VarSet::T.contains(e.vars) => {
+        e if PARAMS.contains(e.vars) => {
             parts.pt.push(take(e));
             true
         }
@@ -1042,6 +1123,9 @@ mod tests {
         assert_eq!(f("r = 1"), Implicit);
         assert_eq!(f("x = θ"), Implicit);
         assert_eq!(f("x = theta"), Implicit);
+        assert_eq!(f("x = n"), Implicit);
+        assert_eq!(f("x = 1 && y = n"), Parametric);
+        assert_eq!(f("x = n && y = 1"), Parametric);
         assert_eq!(f("x = 1 && y = sin(t)"), Parametric);
         assert_eq!(f("x = cos(t) && y = 1"), Parametric);
         assert_eq!(f("x = cos(t) && y = sin(t)"), Parametric);
