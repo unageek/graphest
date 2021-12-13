@@ -139,7 +139,6 @@ checksum = "967965e82fc46fee1a88147a7a977a66d615ed5f83eb95b18577b342c08f90ff"
 dependencies = [
  "bitflags",
  "indexmap",
- "lazy_static",
  "os_str_bytes",
  "textwrap 0.14.2",
 ]

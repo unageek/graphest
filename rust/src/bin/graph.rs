@@ -45,7 +45,7 @@ fn to_interval(s: &str) -> Interval {
 fn main() {
     let matches = App::new("graph")
         .about("Plots the graph of a mathematical relation to an image.")
-        .arg(Arg::new("relation").index(1).about("Relation to plot."))
+        .arg(Arg::new("relation").index(1).help("Relation to plot."))
         .arg(
             Arg::new("bounds")
                 .short('b')
@@ -55,7 +55,7 @@ fn main() {
                 .default_values(&["-10", "10", "-10", "10"])
                 .forbid_empty_values(true)
                 .value_names(&["xmin", "xmax", "ymin", "ymax"])
-                .about("Bounds of the region to plot over."),
+                .help("Bounds of the region over which the relation is plotted."),
         )
         .arg(
             Arg::new("dilate")
@@ -75,7 +75,7 @@ fn main() {
                 .default_value("1024")
                 .forbid_empty_values(true)
                 .value_name("mbytes")
-                .about("Approximate maximum amount of memory in MiB that the program can use."),
+                .help("Approximate maximum amount of memory in MiB that the program can use."),
         )
         .arg(
             Arg::new("output")
@@ -84,7 +84,7 @@ fn main() {
                 .default_value("graph.png")
                 .forbid_empty_values(true)
                 .value_name("file")
-                .about("Path to the output image. It must end with '.png'."),
+                .help("Path to the output image. It must end with '.png'."),
         )
         .arg(
             Arg::new("padding-bottom")
@@ -117,7 +117,7 @@ fn main() {
         .arg(
             Arg::new("parse")
                 .long("parse")
-                .about("Only parse the relation and exit with 0 iff it is valid."),
+                .help("Only validate the relation and exit without plotting."),
         )
         .arg(
             Arg::new("pause-per-output")
@@ -132,7 +132,7 @@ fn main() {
                 .default_values(&["1024", "1024"])
                 .forbid_empty_values(true)
                 .value_names(&["width", "height"])
-                .about("Dimensions of the output image in pixels."),
+                .help("Dimensions of the output image in pixels."),
         )
         .arg(
             Arg::new("timeout")
@@ -140,7 +140,7 @@ fn main() {
                 .takes_value(true)
                 .forbid_empty_values(true)
                 .value_name("msecs")
-                .about("Maximum limit of evaluation time in milliseconds."),
+                .help("Maximum limit of evaluation time in milliseconds."),
         )
         .get_matches();
 
