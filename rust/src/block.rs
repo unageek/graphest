@@ -264,7 +264,6 @@ pub struct Block {
     /// The parameter t.
     pub t: RealParameter,
     /// The component(s) of the block that should be subdivided next.
-    // TODO: It is awkward that blocks have this field.
     pub next_dir: VarSet,
 }
 

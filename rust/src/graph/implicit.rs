@@ -17,6 +17,7 @@ use itertools::Itertools;
 use smallvec::smallvec;
 use std::{
     convert::TryFrom,
+    iter::once,
     time::{Duration, Instant},
 };
 
@@ -27,6 +28,7 @@ const XY: VarSet = VarSet::from_bits_truncate(VarSet::X.bits() | VarSet::Y.bits(
 pub struct Implicit {
     rel: Relation,
     vars: VarSet,
+    dirs: Vec<VarSet>,
     im: Image<PixelState>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
@@ -50,9 +52,15 @@ impl Implicit {
         assert_eq!(rel.relation_type(), RelationType::Implicit);
 
         let vars = rel.vars();
+        let dirs = [XY, VarSet::N_THETA, VarSet::T]
+            .into_iter()
+            .filter(|&d| (XY | vars).contains(d))
+            .collect();
+
         let mut g = Self {
             rel,
             vars,
+            dirs,
             im: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(XY | vars),
             im_to_real: Transform2D::new(
@@ -92,7 +100,7 @@ impl Implicit {
             x: Coordinate::new(0, k),
             y: Coordinate::new(0, k),
             t: RealParameter::new(g.rel.t_range()),
-            next_dir: XY,
+            next_dir: g.dirs[0],
             ..Block::default()
         }];
 
@@ -170,37 +178,31 @@ impl Implicit {
                 b.next_dir
             } else {
                 // Subdivide in other direction.
-                match b.next_dir {
-                    XY if self.vars.contains(VarSet::N_THETA) => VarSet::N_THETA,
-                    XY if self.vars.contains(VarSet::T) => VarSet::T,
-                    XY => XY,
-                    VarSet::N_THETA if self.vars.contains(VarSet::T) => VarSet::T,
-                    VarSet::N_THETA => XY,
-                    VarSet::T => XY,
-                    _ => panic!(),
-                }
+                let mut it = self.dirs.iter().copied().cycle();
+                it.find(|&d| d == b.next_dir);
+                it.next().unwrap()
             };
 
             for mut sub_b in incomplete_sub_bs.drain(..) {
-                sub_b.next_dir = if preferred_next_dir == VarSet::N_THETA
-                    && sub_b.n_theta.is_subdivisible()
-                    || preferred_next_dir == VarSet::T && sub_b.t.is_subdivisible()
-                {
-                    preferred_next_dir
-                } else if sub_b.x.is_subdivisible() {
-                    XY
-                } else if self.vars.contains(VarSet::N_THETA) && sub_b.n_theta.is_subdivisible() {
-                    VarSet::N_THETA
-                } else if self.vars.contains(VarSet::T) && sub_b.t.is_subdivisible() {
-                    VarSet::T
-                } else {
-                    // Cannot subdivide in any direction.
-                    assert!(sub_b.x.is_subpixel());
-                    for p in &self.pixels_in_image(&b) {
-                        self.im[p] = PixelState::Uncertain(None);
+                let next_dir = once(preferred_next_dir)
+                    .chain(self.dirs.iter().copied())
+                    .find(|&d| {
+                        d == XY && sub_b.x.is_subdivisible()
+                            || d == VarSet::N_THETA && sub_b.n_theta.is_subdivisible()
+                            || d == VarSet::T && sub_b.t.is_subdivisible()
+                    });
+
+                match next_dir {
+                    Some(d) => sub_b.next_dir = d,
+                    _ => {
+                        // Cannot subdivide in any direction.
+                        assert!(sub_b.x.is_subpixel());
+                        for p in &self.pixels_in_image(&b) {
+                            self.im[p] = PixelState::Uncertain(None);
+                        }
+                        continue;
                     }
-                    continue;
-                };
+                }
 
                 self.bs_to_subdivide.push_back(sub_b.clone());
                 let last_bi = self.bs_to_subdivide.end_index() - 1;
