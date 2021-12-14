@@ -10,6 +10,7 @@ use crate::{
     interval_set::{DecSignSet, SignSet},
     region::Region,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
+    vars,
     vars::VarSet,
 };
 use inari::{Decoration, Interval};
@@ -21,8 +22,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-// https://github.com/bitflags/bitflags/issues/180
-const XY: VarSet = VarSet::from_bits_truncate(VarSet::X.bits() | VarSet::Y.bits());
+const XY: VarSet = vars!(VarSet::X | VarSet::Y);
 
 /// The graphing algorithm for implicit relations.
 pub struct Implicit {
@@ -88,7 +88,7 @@ impl Implicit {
             },
             mem_limit,
             cache_eval_on_region: EvalCache::new(EvalCacheLevel::PerAxis),
-            cache_eval_on_point: if (VarSet::X | VarSet::Y).contains(vars) {
+            cache_eval_on_point: if XY.contains(vars) {
                 EvalCache::new(EvalCacheLevel::Full)
             } else {
                 EvalCache::new(EvalCacheLevel::PerAxis)
