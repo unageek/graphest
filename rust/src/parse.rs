@@ -428,17 +428,19 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
         move |(ops, sides)| {
             assert_eq!(sides.len(), ops.len() + 1);
             if sides.len() == 1 {
-                sides[0].clone()
+                sides.into_iter().next().unwrap()
             } else {
-                let mut it = ops.iter().zip(sides.windows(2)).map(|(op, sides)| {
-                    let range = sides[0].source_range.start..sides[1].source_range.end;
-                    builtin.apply(op, sides.to_vec()).with_source_range(range)
-                });
-                let x = it.next().unwrap();
-                it.fold(x, |xs, y| {
-                    let range = xs.source_range.start..y.source_range.end;
-                    builtin.apply("&&", vec![xs, y]).with_source_range(range)
-                })
+                ops.iter()
+                    .zip(sides.windows(2))
+                    .map(|(op, sides)| {
+                        let range = sides[0].source_range.start..sides[1].source_range.end;
+                        builtin.apply(op, sides.to_vec()).with_source_range(range)
+                    })
+                    .reduce(|xs, y| {
+                        let range = xs.source_range.start..y.source_range.end;
+                        builtin.apply("&&", vec![xs, y]).with_source_range(range)
+                    })
+                    .unwrap()
             }
         },
     )(i)

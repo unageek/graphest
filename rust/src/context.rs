@@ -375,9 +375,10 @@ impl Context {
                 Def::Function {
                     left_associative, ..
                 } if left_associative && args.len() >= 2 => {
-                    let mut it = args.into_iter();
-                    let x0 = it.next().unwrap();
-                    return it.fold(x0, |t, x| d.apply(vec![t, x]));
+                    return args
+                        .into_iter()
+                        .reduce(|xs, y| d.apply(vec![xs, y]))
+                        .unwrap();
                 }
                 _ => (),
             }
