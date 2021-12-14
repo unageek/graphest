@@ -28,7 +28,7 @@ const XY: VarSet = VarSet::from_bits_truncate(VarSet::X.bits() | VarSet::Y.bits(
 pub struct Implicit {
     rel: Relation,
     vars: VarSet,
-    dirs: Vec<VarSet>,
+    subdivision_dirs: Vec<VarSet>,
     im: Image<PixelState>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
@@ -52,7 +52,7 @@ impl Implicit {
         assert_eq!(rel.relation_type(), RelationType::Implicit);
 
         let vars = rel.vars();
-        let dirs = [XY, VarSet::N_THETA, VarSet::N, VarSet::T]
+        let subdivision_dirs = [XY, VarSet::N_THETA, VarSet::N, VarSet::T]
             .into_iter()
             .filter(|&d| (XY | vars).contains(d))
             .collect();
@@ -60,7 +60,7 @@ impl Implicit {
         let mut g = Self {
             rel,
             vars,
-            dirs,
+            subdivision_dirs,
             im: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(XY | vars),
             im_to_real: Transform2D::new(
@@ -100,7 +100,7 @@ impl Implicit {
             x: Coordinate::new(0, k),
             y: Coordinate::new(0, k),
             t: RealParameter::new(g.rel.t_range()),
-            next_dir: g.dirs[0],
+            next_dir: g.subdivision_dirs[0],
             ..Block::default()
         }];
 
@@ -179,7 +179,7 @@ impl Implicit {
                 b.next_dir
             } else {
                 // Subdivide in other direction.
-                let mut it = self.dirs.iter().copied().cycle();
+                let mut it = self.subdivision_dirs.iter().copied().cycle();
                 it.find(|&d| d == b.next_dir);
                 it.next().unwrap()
             };
@@ -187,7 +187,7 @@ impl Implicit {
             next_dir_candidates.splice(
                 ..,
                 once(next_dir_suggestion).chain(
-                    self.dirs
+                    self.subdivision_dirs
                         .iter()
                         .copied()
                         .filter(|&d| d != next_dir_suggestion),
