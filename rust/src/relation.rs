@@ -15,6 +15,7 @@ use inari::{const_interval, interval, DecInterval, Interval};
 use rug::Integer;
 use std::{
     collections::HashMap,
+    iter::once,
     mem::{size_of, take},
     str::FromStr,
 };
@@ -823,11 +824,10 @@ fn normalize_explicit_relation(
     }
 
     if let Some(y) = parts.y {
-        let mut conjuncts = vec![box y];
-        conjuncts.extend(parts.px.into_iter().map(|e| box e));
-        let mut it = conjuncts.into_iter();
-        let first = it.next().unwrap();
-        *e = *it.fold(first, |acc, e| box Expr::binary(And, acc, e));
+        *e = *(once(box y)
+            .chain(parts.px.into_iter().map(Box::new))
+            .reduce(|acc, e| box Expr::binary(And, acc, e))
+            .unwrap());
         Some(parts.op)
     } else {
         None
@@ -894,18 +894,16 @@ fn normalize_parametric_relation(e: &mut Expr) -> bool {
         pt: vec![],
     };
 
-    if !e.vars.contains(VarSet::T)
-        || !normalize_parametric_relation_impl(&mut e.clone(), &mut parts)
-    {
+    if !normalize_parametric_relation_impl(&mut e.clone(), &mut parts) {
         return false;
     }
 
     if let (Some(xt), Some(yt)) = (parts.xt, parts.yt) {
-        let mut conjuncts = vec![box xt, box yt];
-        conjuncts.extend(parts.pt.into_iter().map(|e| box e));
-        let mut it = conjuncts.into_iter();
-        let first = it.next().unwrap();
-        *e = *it.fold(first, |acc, e| box Expr::binary(And, acc, e));
+        *e = *([box xt, box yt]
+            .into_iter()
+            .chain(parts.pt.into_iter().map(Box::new))
+            .reduce(|acc, e| box Expr::binary(And, acc, e))
+            .unwrap());
         true
     } else {
         false
