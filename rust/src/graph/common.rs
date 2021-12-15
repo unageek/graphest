@@ -4,6 +4,7 @@ use crate::{
     region::Region,
 };
 use inari::{interval, Interval};
+use smallvec::smallvec;
 
 /// The index of a [`Block`] in a [`BlockQueue`].
 ///
@@ -122,6 +123,54 @@ pub fn simple_fraction(x: Interval) -> f64 {
     } else {
         f64::from_bits(b_bits & mask)
     }
+}
+
+/// Subdivides `b.n` and appends the sub-blocks to `sub_bs`.
+/// Three sub-blocks are created at most.
+///
+/// Precondition: `b.n.is_subdivisible()` is `true`.
+pub fn subdivide_n(sub_bs: &mut Vec<Block>, b: &Block) {
+    sub_bs.extend(b.n.subdivide().into_iter().map(|n| Block { n, ..*b }));
+}
+
+/// Subdivides `b.n_theta` and appends the sub-blocks to `sub_bs`.
+/// Three sub-blocks are created at most.
+///
+/// Precondition: `b.n_theta.is_subdivisible()` is `true`.
+pub fn subdivide_n_theta(sub_bs: &mut Vec<Block>, b: &Block) {
+    sub_bs.extend(
+        b.n_theta
+            .subdivide()
+            .into_iter()
+            .map(|n| Block { n_theta: n, ..*b }),
+    );
+}
+
+/// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
+/// Two sub-blocks are created.
+///
+/// Precondition: `b.t.is_subdivisible()` is `true`.
+pub fn subdivide_t(sub_bs: &mut Vec<Block>, b: &Block) {
+    sub_bs.extend(b.t.subdivide().into_iter().map(|t| Block { t, ..*b }));
+}
+
+/// Subdivides `b.t` twice and appends the sub-blocks to `sub_bs`.
+/// Four sub-blocks are created at most.
+///
+/// Precondition: `b.t.is_subdivisible()` is `true`.
+pub fn subdivide_t_twice(sub_bs: &mut Vec<Block>, b: &Block) {
+    sub_bs.extend(
+        b.t.subdivide()
+            .into_iter()
+            .flat_map(|t| {
+                if t.is_subdivisible() {
+                    t.subdivide()
+                } else {
+                    smallvec![t]
+                }
+            })
+            .map(|t| Block { t, ..*b }),
+    );
 }
 
 /// Returns a subset of the outer region.

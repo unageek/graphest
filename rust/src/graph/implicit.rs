@@ -3,8 +3,7 @@ use crate::{
     eval_result::EvalResult,
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
-        common::{point_interval, simple_fraction, subpixel_outer, PixelState, QueuedBlockIndex},
-        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
+        common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet},
@@ -138,9 +137,9 @@ impl Implicit {
             let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
                 XY => self.subdivide_xy(&mut sub_bs, &b),
-                VarSet::N_THETA => Self::subdivide_n_theta(&mut sub_bs, &b),
-                VarSet::N => Self::subdivide_n(&mut sub_bs, &b),
-                VarSet::T => Self::subdivide_t(&mut sub_bs, &b),
+                VarSet::N_THETA => subdivide_n_theta(&mut sub_bs, &b),
+                VarSet::N => subdivide_n(&mut sub_bs, &b),
+                VarSet::T => subdivide_t_twice(&mut sub_bs, &b),
                 _ => panic!(),
             }
 
@@ -506,46 +505,6 @@ impl Implicit {
                 kind: GraphingErrorKind::BlockIndexOverflow,
             })
         }
-    }
-
-    /// Subdivides `b.n` and appends the sub-blocks to `sub_bs`.
-    /// Three sub-blocks are created at most.
-    ///
-    /// Precondition: `b.n.is_subdivisible()` is `true`.
-    fn subdivide_n(sub_bs: &mut Vec<Block>, b: &Block) {
-        sub_bs.extend(b.n.subdivide().into_iter().map(|n| Block { n, ..*b }));
-    }
-
-    /// Subdivides `b.n_theta` and appends the sub-blocks to `sub_bs`.
-    /// Three sub-blocks are created at most.
-    ///
-    /// Precondition: `b.n_theta.is_subdivisible()` is `true`.
-    fn subdivide_n_theta(sub_bs: &mut Vec<Block>, b: &Block) {
-        sub_bs.extend(
-            b.n_theta
-                .subdivide()
-                .into_iter()
-                .map(|n| Block { n_theta: n, ..*b }),
-        );
-    }
-
-    /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
-    /// Four sub-blocks are created at most.
-    ///
-    /// Precondition: `b.t.is_subdivisible()` is `true`.
-    fn subdivide_t(sub_bs: &mut Vec<Block>, b: &Block) {
-        sub_bs.extend(
-            b.t.subdivide()
-                .into_iter()
-                .flat_map(|t| {
-                    if t.is_subdivisible() {
-                        t.subdivide()
-                    } else {
-                        smallvec![t]
-                    }
-                })
-                .map(|t| Block { t, ..*b }),
-        );
     }
 
     /// Subdivides both `b.x` and `b.y` and appends the sub-blocks to `sub_bs`.

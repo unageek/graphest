@@ -2,8 +2,7 @@ use crate::{
     block::{Block, BlockQueue, RealParameter},
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
-        common::{point_interval, point_interval_possibly_infinite, PixelState, QueuedBlockIndex},
-        Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
+        common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
     image::{Image, PixelIndex, PixelRange},
     interval_set::TupperIntervalSet,
@@ -98,7 +97,7 @@ impl Parametric {
 
             if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
                 if b.t.is_subdivisible() {
-                    Self::subdivide_t(&mut sub_bs, &b);
+                    subdivide_t(&mut sub_bs, &b);
                     self.block_queue.extend(sub_bs.drain(..));
                     let last_bi = self.block_queue.end_index() - 1;
                     self.set_last_queued_block(&incomplete_pixels, last_bi, bi)?;
@@ -311,14 +310,6 @@ impl Parametric {
                 self.im[p] = PixelState::Uncertain(None);
             }
         }
-    }
-
-    /// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
-    /// Two sub-blocks are created.
-    ///
-    /// Precondition: `b.t.is_subdivisible()` is `true`.
-    fn subdivide_t(sub_bs: &mut Vec<Block>, b: &Block) {
-        sub_bs.extend(b.t.subdivide().into_iter().map(|t| Block { t, ..*b }));
     }
 }
 
