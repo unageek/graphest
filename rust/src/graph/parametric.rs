@@ -7,13 +7,14 @@ use crate::{
     image::{Image, PixelIndex, PixelRange},
     interval_set::TupperIntervalSet,
     region::Region,
-    relation::{EvalParametricCache, Relation, RelationType},
+    relation::{EvalParametricCache, Relation, RelationArgs, RelationType},
     vars::VarSet,
 };
 use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
     convert::TryFrom,
+    iter::once,
     mem::swap,
     time::{Duration, Instant},
 };
@@ -23,8 +24,9 @@ use std::{
 /// A parametric relation is a relation of type [`RelationType::Parametric`].
 pub struct Parametric {
     rel: Relation,
+    subdivision_dirs: Vec<VarSet>,
     im: Image<PixelState>,
-    block_queue: BlockQueue,
+    bs_to_subdivide: BlockQueue,
     /// The pixel-aligned region that matches the entire image.
     im_region: Region,
     /// The affine transformation from real coordinates to image coordinates.
@@ -45,10 +47,17 @@ impl Parametric {
     ) -> Self {
         assert_eq!(rel.relation_type(), RelationType::Parametric);
 
+        let vars = rel.vars();
+        let subdivision_dirs = [VarSet::N, VarSet::T]
+            .into_iter()
+            .filter(|&d| vars.contains(d))
+            .collect();
+
         let mut g = Self {
             rel,
+            subdivision_dirs,
             im: Image::new(im_width, im_height),
-            block_queue: BlockQueue::new(VarSet::T),
+            bs_to_subdivide: BlockQueue::new(vars),
             im_region: Region::new(
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
@@ -77,11 +86,12 @@ impl Parametric {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache: Default::default(),
+            cache: EvalParametricCache::new(vars.intersection(VarSet::N | VarSet::T)),
         };
 
-        g.block_queue.push_back(Block {
+        g.bs_to_subdivide.push_back(Block {
             t: RealParameter::new(g.rel.t_range()),
+            next_dir: g.subdivision_dirs[0],
             ..Block::default()
         });
 
@@ -90,20 +100,66 @@ impl Parametric {
 
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
-        while let Some(b) = self.block_queue.pop_front() {
-            let bi = self.block_queue.begin_index() - 1;
+        let mut incomplete_sub_bs = vec![];
+        let mut next_dir_candidates = vec![];
+        while let Some(b) = self.bs_to_subdivide.pop_front() {
+            let bi = self.bs_to_subdivide.begin_index() - 1;
+            match b.next_dir {
+                VarSet::N => subdivide_n(&mut sub_bs, &b),
+                VarSet::T => subdivide_t(&mut sub_bs, &b),
+                _ => panic!(),
+            }
 
-            let incomplete_pixels = self.process_block(&b);
-
-            if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
-                if b.t.is_subdivisible() {
-                    subdivide_t(&mut sub_bs, &b);
-                    self.block_queue.extend(sub_bs.drain(..));
-                    let last_bi = self.block_queue.end_index() - 1;
-                    self.set_last_queued_block(&incomplete_pixels, last_bi, bi)?;
-                } else {
-                    self.set_undisprovable(&incomplete_pixels, bi);
+            let n_sub_bs = sub_bs.len();
+            for sub_b in sub_bs.drain(..) {
+                let incomplete_pixels = self.process_block(&sub_b);
+                if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
+                    incomplete_sub_bs.push((sub_b, incomplete_pixels));
                 }
+            }
+
+            let n_max = match b.next_dir {
+                VarSet::N => 3,
+                VarSet::T => 1000, // Avoid repeated subdivision of t.
+                _ => panic!(),
+            };
+            let next_dir_suggestion = if n_max * incomplete_sub_bs.len() <= n_sub_bs {
+                // Subdivide in the same direction again.
+                b.next_dir
+            } else {
+                // Subdivide in other direction.
+                let mut it = self.subdivision_dirs.iter().copied().cycle();
+                it.find(|&d| d == b.next_dir);
+                it.next().unwrap()
+            };
+
+            next_dir_candidates.splice(
+                ..,
+                once(next_dir_suggestion).chain(
+                    self.subdivision_dirs
+                        .iter()
+                        .copied()
+                        .filter(|&d| d != next_dir_suggestion),
+                ),
+            );
+
+            for (mut sub_b, incomplete_pixels) in incomplete_sub_bs.drain(..) {
+                let next_dir = next_dir_candidates.iter().copied().find(|&d| {
+                    d == VarSet::N && sub_b.n.is_subdivisible()
+                        || d == VarSet::T && sub_b.t.is_subdivisible()
+                });
+
+                if let Some(d) = next_dir {
+                    sub_b.next_dir = d;
+                } else {
+                    // Cannot subdivide in any direction.
+                    self.set_undisprovable(&incomplete_pixels, bi);
+                    continue;
+                }
+
+                self.bs_to_subdivide.push_back(sub_b.clone());
+                let last_bi = self.bs_to_subdivide.end_index() - 1;
+                self.set_last_queued_block(&incomplete_pixels, last_bi, bi)?;
             }
 
             let mut clear_cache_and_retry = true;
@@ -123,7 +179,7 @@ impl Parametric {
             }
         }
 
-        if self.block_queue.is_empty() {
+        if self.bs_to_subdivide.is_empty() {
             if self
                 .im
                 .pixels()
@@ -143,7 +199,12 @@ impl Parametric {
     /// Tries to prove or disprove the existence of a solution in the block
     /// and if it is unsuccessful, returns pixels that possibly contain solutions.
     fn process_block(&mut self, block: &Block) -> Vec<PixelRange> {
-        let (xs, ys, cond) = self.rel.eval_parametric(block.t.interval(), None);
+        let args = RelationArgs {
+            n: block.n.interval(),
+            t: block.t.interval(),
+            ..Default::default()
+        };
+        let (xs, ys, cond) = self.rel.eval_parametric(&args, None);
         let rs = self
             .im_regions(&xs, &ys)
             .into_iter()
@@ -157,7 +218,7 @@ impl Parametric {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
             if Self::is_pixel(&r) {
-                // f(t) × g(t) is interior to a single pixel.
+                // f(…) × g(…) is interior to a single pixel.
                 for p in &self.pixels_in_image(&r) {
                     self.im[p] = PixelState::True;
                 }
@@ -166,14 +227,18 @@ impl Parametric {
                 assert_eq!(rs.len(), 1);
                 let r1 = {
                     let t = point_interval_possibly_infinite(block.t.interval().inf());
-                    let (xs, ys, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
+                    let (xs, ys, _) = self
+                        .rel
+                        .eval_parametric(&RelationArgs { t, ..args }, Some(&mut self.cache));
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
                 let r2 = {
                     let t = point_interval_possibly_infinite(block.t.interval().sup());
-                    let (xs, ys, _) = self.rel.eval_parametric(t, Some(&mut self.cache));
+                    let (xs, ys, _) = self
+                        .rel
+                        .eval_parametric(&RelationArgs { t, ..args }, Some(&mut self.cache));
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
@@ -319,7 +384,7 @@ impl Graph for Parametric {
         for (s, dst) in self.im.pixels().copied().zip(im.pixels_mut()) {
             *dst = match s {
                 PixelState::True => Ternary::True,
-                _ if s.is_uncertain(self.block_queue.begin_index()) => Ternary::Uncertain,
+                _ if s.is_uncertain(self.bs_to_subdivide.begin_index()) => Ternary::Uncertain,
                 _ => Ternary::False,
             }
         }
@@ -331,7 +396,7 @@ impl Graph for Parametric {
             pixels_complete: self
                 .im
                 .pixels()
-                .filter(|s| !s.is_uncertain(self.block_queue.begin_index()))
+                .filter(|s| !s.is_uncertain(self.bs_to_subdivide.begin_index()))
                 .count(),
             ..self.stats
         }
@@ -345,6 +410,6 @@ impl Graph for Parametric {
     }
 
     fn size_in_heap(&self) -> usize {
-        self.im.size_in_heap() + self.block_queue.size_in_heap() + self.cache.size_in_heap()
+        self.im.size_in_heap() + self.bs_to_subdivide.size_in_heap() + self.cache.size_in_heap()
     }
 }
