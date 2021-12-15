@@ -234,10 +234,10 @@ pub fn subpixel_outer_x(r: &Box1D, b: &Block) -> Interval {
 
 #[cfg(test)]
 mod tests {
-    use crate::block::Coordinate;
-
     use super::*;
+    use crate::block::Coordinate;
     use inari::const_interval;
+    use std::default::default;
 
     #[test]
     fn test_subpixel_outer_x() {
@@ -246,7 +246,7 @@ mod tests {
         // The left side is pixel boundary.
         let b = Block {
             x: Coordinate::new(4, -2),
-            ..Block::default()
+            ..default()
         };
         assert_eq!(
             subpixel_outer_x(&r, &b),
@@ -256,7 +256,7 @@ mod tests {
         // The right side is pixel boundary.
         let b = Block {
             x: Coordinate::new(b.x.index() + 3, b.x.level()),
-            ..Block::default()
+            ..default()
         };
         assert_eq!(
             subpixel_outer_x(&r, &b),

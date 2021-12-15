@@ -15,6 +15,7 @@ use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use rug::Integer;
 use std::{
     collections::HashMap,
+    default::default,
     iter::once,
     mem::{size_of, take},
     str::FromStr,
@@ -440,24 +441,12 @@ impl Relation {
     fn eval_explicit_without_cache(&mut self, x: Interval) -> EvalExplicitResult {
         match self.relation_type {
             RelationType::ExplicitFunctionOfX(_) => {
-                let p = self.eval(
-                    &RelationArgs {
-                        x,
-                        ..Default::default()
-                    },
-                    None,
-                );
+                let p = self.eval(&RelationArgs { x, ..default() }, None);
 
                 (self.ts[self.y_explicit.unwrap()].clone(), p)
             }
             RelationType::ExplicitFunctionOfY(_) => {
-                let p = self.eval(
-                    &RelationArgs {
-                        y: x,
-                        ..Default::default()
-                    },
-                    None,
-                );
+                let p = self.eval(&RelationArgs { y: x, ..default() }, None);
 
                 (self.ts[self.x_explicit.unwrap()].clone(), p)
             }

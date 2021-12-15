@@ -22,7 +22,7 @@ impl<T: Clone + Copy + Default> Image<T> {
         Self {
             width,
             height,
-            data: vec![Default::default(); height as usize * width as usize],
+            data: vec![T::default(); height as usize * width as usize],
         }
     }
 

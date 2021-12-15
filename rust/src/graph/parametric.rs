@@ -14,6 +14,7 @@ use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
     convert::TryFrom,
+    default::default,
     iter::once,
     mem::swap,
     time::{Duration, Instant},
@@ -202,7 +203,7 @@ impl Parametric {
         let args = RelationArgs {
             n: block.n.interval(),
             t: block.t.interval(),
-            ..Default::default()
+            ..default()
         };
         let (xs, ys, cond) = self.rel.eval_parametric(&args, None);
         let rs = self

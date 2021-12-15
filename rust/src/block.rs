@@ -591,13 +591,14 @@ impl Extend<Block> for BlockQueue {
 mod tests {
     use super::*;
     use inari::const_interval;
+    use std::default::default;
 
     #[test]
     fn block() {
         let b = Block {
             x: Coordinate::new(42, 3),
             y: Coordinate::new(42, 5),
-            ..Block::default()
+            ..default()
         };
         assert_eq!(b.x.width(), 8);
         assert_eq!(b.y.width(), 32);
@@ -612,7 +613,7 @@ mod tests {
         let b = Block {
             x: Coordinate::new(42, 0),
             y: Coordinate::new(42, 0),
-            ..Block::default()
+            ..default()
         };
         assert_eq!(b.x.width(), 1);
         assert_eq!(b.y.width(), 1);
@@ -630,7 +631,7 @@ mod tests {
         let b = Block {
             x: Coordinate::new(42, -3),
             y: Coordinate::new(42, -5),
-            ..Block::default()
+            ..default()
         };
         assert_eq!(b.x.widthf(), 0.125);
         assert_eq!(b.y.widthf(), 0.03125);
@@ -641,7 +642,7 @@ mod tests {
             Block {
                 x: Coordinate::new(5, 0),
                 y: Coordinate::new(1, 0),
-                ..Block::default()
+                ..default()
             }
         );
         assert_eq!(b.pixel_index(), PixelIndex::new(5, 1));
@@ -658,82 +659,82 @@ mod tests {
             Block {
                 x: Coordinate::new(0, -32),
                 y: Coordinate::new(0xffffffffffffff, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x7f, 64),
                 y: Coordinate::new(0x2000000000000, 127),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x80, 0),
                 y: Coordinate::new(0x1ffffffffffff, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x3fff, 0),
                 y: Coordinate::new(0x40000000000, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x4000, 0),
                 y: Coordinate::new(0x3ffffffffff, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x1fffff, 0),
                 y: Coordinate::new(0x800000000, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x200000, 0),
                 y: Coordinate::new(0x7ffffffff, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0xfffffff, 0),
                 y: Coordinate::new(0x10000000, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x10000000, 0),
                 y: Coordinate::new(0xfffffff, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x7ffffffff, 0),
                 y: Coordinate::new(0x200000, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x800000000, 0),
                 y: Coordinate::new(0x1fffff, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x3ffffffffff, 0),
                 y: Coordinate::new(0x4000, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x40000000000, 0),
                 y: Coordinate::new(0x3fff, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x1ffffffffffff, 0),
                 y: Coordinate::new(0x80, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0x2000000000000, 0),
                 y: Coordinate::new(0x7f, 0),
-                ..Block::default()
+                ..default()
             },
             Block {
                 x: Coordinate::new(0xffffffffffffff, 0),
                 y: Coordinate::new(0, 0),
-                ..Block::default()
+                ..default()
             },
         ];
         assert_eq!(queue.begin_index(), 0);
@@ -755,7 +756,7 @@ mod tests {
         let mut queue = BlockQueue::new(VarSet::N_THETA);
         let b = Block {
             n_theta: IntegerParameter::new(const_interval!(-2.0, 3.0)),
-            ..Block::default()
+            ..default()
         };
         queue.push_back(b.clone());
         queue.push_back(b.clone());
@@ -765,7 +766,7 @@ mod tests {
         let mut queue = BlockQueue::new(VarSet::N);
         let b = Block {
             n: IntegerParameter::new(const_interval!(-2.0, 3.0)),
-            ..Block::default()
+            ..default()
         };
         queue.push_back(b.clone());
         queue.push_back(b.clone());
@@ -775,7 +776,7 @@ mod tests {
         let mut queue = BlockQueue::new(VarSet::T);
         let b = Block {
             t: RealParameter::new(const_interval!(-2.0, 3.0)),
-            ..Block::default()
+            ..default()
         };
         queue.push_back(b.clone());
         queue.push_back(b.clone());

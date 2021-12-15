@@ -16,6 +16,7 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 use std::{
     convert::TryFrom,
+    default::default,
     mem::swap,
     time::{Duration, Instant},
 };
@@ -105,13 +106,13 @@ impl Explicit {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache: Default::default(),
+            cache: EvalExplicitCache::default(),
         };
 
         let kx = (im_width as f64).log2().ceil() as i8;
         let b = Block {
             x: Coordinate::new(0, kx),
-            ..Block::default()
+            ..default()
         };
         g.block_queue.push_back(b);
 

@@ -1,5 +1,5 @@
 #![allow(clippy::float_cmp)]
-#![feature(box_patterns, box_syntax, once_cell)]
+#![feature(box_patterns, box_syntax, default_free_fn, once_cell)]
 
 pub use crate::{
     geom::Box2D,

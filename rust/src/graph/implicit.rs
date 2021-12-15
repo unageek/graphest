@@ -17,6 +17,7 @@ use itertools::Itertools;
 use smallvec::smallvec;
 use std::{
     convert::TryFrom,
+    default::default,
     iter::once,
     time::{Duration, Instant},
 };
@@ -100,7 +101,7 @@ impl Implicit {
             y: Coordinate::new(0, k),
             t: RealParameter::new(g.rel.t_range()),
             next_dir: g.subdivision_dirs[0],
-            ..Block::default()
+            ..default()
         }];
 
         if vars.contains(VarSet::N_THETA) {
