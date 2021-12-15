@@ -11,7 +11,7 @@ use crate::{
     vars::VarSet,
     visit::*,
 };
-use inari::{const_interval, interval, DecInterval, Interval};
+use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use rug::Integer;
 use std::{
     collections::HashMap,
@@ -345,6 +345,14 @@ impl Relation {
         self.vars
     }
 
+    fn decorate_integer_param(x: Interval) -> DecInterval {
+        if x.is_singleton() {
+            DecInterval::new(x)
+        } else {
+            DecInterval::set_dec(x, Decoration::Def)
+        }
+    }
+
     fn eval_explicit_without_cache(&mut self, x: Interval) -> EvalExplicitResult {
         match self.relation_type {
             RelationType::ExplicitFunctionOfX(_) => {
@@ -422,14 +430,14 @@ impl Relation {
             match t.kind {
                 StaticTermKind::Var => {
                     let x = match t.vars {
-                        VarSet::X => x,
-                        VarSet::Y => y,
-                        VarSet::N_THETA => args.n_theta,
-                        VarSet::N => args.n,
-                        VarSet::T => args.t,
+                        VarSet::X => DecInterval::new(x),
+                        VarSet::Y => DecInterval::new(y),
+                        VarSet::N_THETA => Self::decorate_integer_param(args.n_theta),
+                        VarSet::N => Self::decorate_integer_param(args.n),
+                        VarSet::T => DecInterval::new(args.t),
                         _ => panic!(),
                     };
-                    t.put(ts, DecInterval::new(x).into());
+                    t.put(ts, x.into());
                 }
                 _ if t.vars == VarSet::EMPTY
                     || t.vars == VarSet::X && mx_ts_is_cached
@@ -466,14 +474,14 @@ impl Relation {
             match t.kind {
                 StaticTermKind::Var => {
                     let x = match t.vars {
-                        VarSet::X => args.x,
-                        VarSet::Y => args.y,
-                        VarSet::N_THETA => args.n_theta,
-                        VarSet::N => args.n,
-                        VarSet::T => args.t,
+                        VarSet::X => DecInterval::new(args.x),
+                        VarSet::Y => DecInterval::new(args.y),
+                        VarSet::N_THETA => Self::decorate_integer_param(args.n_theta),
+                        VarSet::N => Self::decorate_integer_param(args.n),
+                        VarSet::T => DecInterval::new(args.t),
                         _ => panic!(),
                     };
-                    t.put(ts, DecInterval::new(x).into());
+                    t.put(ts, x.into());
                 }
                 _ if t.vars == VarSet::EMPTY => {
                     // `t` is constant.
