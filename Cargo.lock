@@ -133,9 +133,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.0.0-rc.4"
+version = "3.0.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "967965e82fc46fee1a88147a7a977a66d615ed5f83eb95b18577b342c08f90ff"
+checksum = "9d358d5dcd274692e60df775bd452f66341a49ab90cc6cc1084c4350a3f914d9"
 dependencies = [
  "bitflags",
  "indexmap",
@@ -208,7 +208,7 @@ name = "graphest"
 version = "0.9.0"
 dependencies = [
  "bitflags",
- "clap 3.0.0-rc.4",
+ "clap 3.0.0-rc.5",
  "gmp-mpfr-sys",
  "graphest-arb-sys",
  "image",
