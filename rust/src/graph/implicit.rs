@@ -1,6 +1,5 @@
 use crate::{
     block::{Block, BlockQueue, Coordinate, IntegerParameter, RealParameter},
-    eval_result::EvalResult,
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -12,7 +11,7 @@ use crate::{
     vars,
     vars::VarSet,
 };
-use inari::{Decoration, Interval};
+use inari::Decoration;
 use itertools::Itertools;
 use smallvec::smallvec;
 use std::{
@@ -169,8 +168,7 @@ impl Implicit {
 
             let n_max = match b.next_dir {
                 XY => 4,
-                VarSet::N_THETA => 3,
-                VarSet::N => 3,
+                VarSet::N_THETA | VarSet::N => 3,
                 VarSet::T => 1000, // Avoid repeated subdivision of t.
                 _ => panic!(),
             };
@@ -265,12 +263,14 @@ impl Implicit {
         }
 
         let u_up = self.block_to_region_clipped(b).outer();
-        let r_u_up = Self::eval_on_region(
-            &mut self.rel,
-            &u_up,
-            b.n_theta.interval(),
-            b.n.interval(),
-            b.t.interval(),
+        let r_u_up = self.rel.eval(
+            &RelationArgs {
+                x: u_up.x(),
+                y: u_up.y(),
+                n_theta: b.n_theta.interval(),
+                n: b.n.interval(),
+                t: b.t.interval(),
+            },
             Some(&mut self.cache_eval_on_region),
         );
 
@@ -298,14 +298,14 @@ impl Implicit {
         }
 
         let u_up = subpixel_outer(&self.block_to_region(b), b);
-        let r_u_up = Self::eval_on_region(
-            &mut self.rel,
-            &u_up,
-            b.n_theta.interval(),
-            b.n.interval(),
-            b.t.interval(),
-            Some(&mut self.cache_eval_on_region),
-        );
+        let args = RelationArgs {
+            x: u_up.x(),
+            y: u_up.y(),
+            n_theta: b.n_theta.interval(),
+            n: b.n.interval(),
+            t: b.t.interval(),
+        };
+        let r_u_up = self.rel.eval(&args, Some(&mut self.cache_eval_on_region));
 
         let p_dn = self.block_to_region(&b.pixel_block()).inner();
         let inter = u_up.intersection(&p_dn);
@@ -363,13 +363,12 @@ impl Implicit {
         let mut neg_mask = r_u_up.map(|_| false);
         let mut pos_mask = neg_mask.clone();
         for point in &points {
-            let r = Self::eval_on_point(
-                &mut self.rel,
-                point.0,
-                point.1,
-                b.n_theta.interval(),
-                b.n.interval(),
-                b.t.interval(),
+            let r = self.rel.eval(
+                &RelationArgs {
+                    x: point_interval(point.0),
+                    y: point_interval(point.1),
+                    ..args
+                },
                 Some(&mut self.cache_eval_on_point),
             );
 
@@ -423,47 +422,6 @@ impl Implicit {
             point_interval((py + ph).min(self.im.height() as f64)),
         )
         .transform(&self.im_to_real)
-    }
-
-    fn eval_on_point(
-        rel: &mut Relation,
-        x: f64,
-        y: f64,
-        n_theta: Interval,
-        n: Interval,
-        t: Interval,
-        cache: Option<&mut EvalCache>,
-    ) -> EvalResult {
-        rel.eval(
-            &RelationArgs {
-                x: point_interval(x),
-                y: point_interval(y),
-                n_theta,
-                n,
-                t,
-            },
-            cache,
-        )
-    }
-
-    fn eval_on_region(
-        rel: &mut Relation,
-        r: &Region,
-        n_theta: Interval,
-        n: Interval,
-        t: Interval,
-        cache: Option<&mut EvalCache>,
-    ) -> EvalResult {
-        rel.eval(
-            &RelationArgs {
-                x: r.x(),
-                y: r.y(),
-                n_theta,
-                n,
-                t,
-            },
-            cache,
-        )
     }
 
     /// Returns the pixels that are contained in both the block and the image.
