@@ -166,11 +166,11 @@ fn function_name(i: InputWithContext) -> ParseResult<(&Context, &str)> {
 
 /// Nonempty, comma-separated list of expressions.
 fn expr_list(i: InputWithContext) -> ParseResult<Vec<Expr>> {
-    let (i, x) = expr(i)?;
+    let (i, mut x) = expr(i)?;
 
     fold_many0(
         preceded(delimited(space0, char(','), space0), cut(expr)),
-        move || vec![x.clone()],
+        move || vec![std::mem::take(&mut x)],
         |mut xs, x| {
             xs.push(x);
             xs
@@ -345,7 +345,7 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
 
 fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
     let builtin = i.context_stack.first().unwrap();
-    let (i, x) = unary_expr(i)?;
+    let (i, mut x) = unary_expr(i)?;
 
     fold_many0(
         alt((
@@ -363,7 +363,7 @@ fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
             // x y
             pair(value("*", space0), power_expr),
         )),
-        move || x.clone(),
+        move || std::mem::take(&mut x),
         move |xs, (op, y)| {
             let range = xs.source_range.start..y.source_range.end;
             builtin.apply(op, vec![xs, y]).with_source_range(range)
@@ -373,7 +373,7 @@ fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
 
 fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
     let builtin = i.context_stack.first().unwrap();
-    let (i, x) = multiplicative_expr(i)?;
+    let (i, mut x) = multiplicative_expr(i)?;
 
     fold_many0(
         pair(
@@ -387,7 +387,7 @@ fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
             ),
             cut(multiplicative_expr),
         ),
-        move || x.clone(),
+        move || std::mem::take(&mut x),
         move |xs, (op, y)| {
             let range = xs.source_range.start..y.source_range.end;
             builtin.apply(op, vec![xs, y]).with_source_range(range)
@@ -398,9 +398,7 @@ fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
 // Relational operators can be chained: x op1 y op2 z is equivalent to x op1 y ∧ y op2 z.
 fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
     let builtin = i.context_stack.first().unwrap();
-    let (i, side) = additive_expr(i)?;
-    let ops = vec![];
-    let sides = vec![side];
+    let (i, mut side) = additive_expr(i)?;
 
     map(
         fold_many0(
@@ -418,7 +416,7 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
                 ),
                 cut(additive_expr),
             ),
-            move || (ops.clone(), sides.clone()),
+            move || (vec![], vec![std::mem::take(&mut side)]),
             |(mut ops, mut sides), (op, side)| {
                 ops.push(op);
                 sides.push(side);
@@ -448,14 +446,14 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
 
 fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
     let builtin = i.context_stack.first().unwrap();
-    let (i, x) = relational_expr(i)?;
+    let (i, mut x) = relational_expr(i)?;
 
     fold_many0(
         preceded(
             delimited(space0, alt((tag("&&"), tag("∧"))), space0),
             cut(relational_expr),
         ),
-        move || x.clone(),
+        move || std::mem::take(&mut x),
         move |xs, y| {
             let range = xs.source_range.start..y.source_range.end;
             builtin.apply("&&", vec![xs, y]).with_source_range(range)
@@ -465,14 +463,14 @@ fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
 
 fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
     let builtin = i.context_stack.first().unwrap();
-    let (i, x) = and_expr(i)?;
+    let (i, mut x) = and_expr(i)?;
 
     fold_many0(
         preceded(
             delimited(space0, alt((tag("||"), tag("∨"))), space0),
             cut(and_expr),
         ),
-        move || x.clone(),
+        move || std::mem::take(&mut x),
         move |xs, y| {
             let range = xs.source_range.start..y.source_range.end;
             builtin.apply("||", vec![xs, y]).with_source_range(range)
