@@ -100,11 +100,13 @@ impl Box2D {
     }
 
     /// Transforms the region by `t`.
+    #[must_use]
     pub fn transform(&self, t: &Transform2D) -> Self {
         Self(self.0.transform(&t.0), self.1.transform(&t.1))
     }
 
     /// Swaps the axes of the region.
+    #[must_use]
     pub fn transpose(&self) -> Self {
         Self(self.1.clone(), self.0.clone())
     }
