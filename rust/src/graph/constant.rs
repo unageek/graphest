@@ -1,7 +1,7 @@
 use crate::{
     graph::{Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Ternary},
     image::Image,
-    relation::{Relation, RelationArgs, RelationType},
+    relation::{Relation, RelationType},
     traits::BytesAllocated,
 };
 use std::time::{Duration, Instant};
@@ -35,7 +35,8 @@ impl Constant {
 
     fn refine_impl(&mut self) -> Result<bool, GraphingError> {
         if self.result.is_none() {
-            let r = self.rel.eval(&RelationArgs::default(), None);
+            let args = self.rel.create_args();
+            let r = self.rel.eval(&args, None);
 
             self.result = Some(r.result(self.rel.forms()));
         }

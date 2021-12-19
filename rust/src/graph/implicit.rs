@@ -7,7 +7,8 @@ use crate::{
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet},
     region::Region,
-    relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
+    relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType, VarIndices},
+    set_arg,
     traits::BytesAllocated,
     vars,
     vars::VarSet,
@@ -28,6 +29,7 @@ const XY: VarSet = vars!(VarSet::X | VarSet::Y);
 pub struct Implicit {
     rel: Relation,
     vars: VarSet,
+    var_indices: VarIndices,
     subdivision_dirs: Vec<VarSet>,
     im: Image<PixelState>,
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
@@ -52,6 +54,7 @@ impl Implicit {
         assert_eq!(rel.relation_type(), RelationType::Implicit);
 
         let vars = rel.vars();
+        let var_indices = rel.var_indices().clone();
         let subdivision_dirs = [XY, VarSet::N_THETA, VarSet::N, VarSet::T]
             .into_iter()
             .filter(|&d| (XY | vars).contains(d))
@@ -60,6 +63,7 @@ impl Implicit {
         let mut g = Self {
             rel,
             vars,
+            var_indices,
             subdivision_dirs,
             im: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(XY | vars),
@@ -87,11 +91,11 @@ impl Implicit {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache_eval_on_region: EvalCache::new(EvalCacheLevel::PerAxis),
+            cache_eval_on_region: EvalCache::new(EvalCacheLevel::PerAxis, vars),
             cache_eval_on_point: if XY.contains(vars) {
-                EvalCache::new(EvalCacheLevel::Full)
+                EvalCache::new(EvalCacheLevel::Full, vars)
             } else {
-                EvalCache::new(EvalCacheLevel::PerAxis)
+                EvalCache::new(EvalCacheLevel::PerAxis, vars)
             },
         };
 
@@ -134,6 +138,7 @@ impl Implicit {
         let mut sub_bs = vec![];
         let mut incomplete_sub_bs = vec![];
         let mut next_dir_candidates = vec![];
+        let mut args = self.rel.create_args();
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
@@ -147,20 +152,23 @@ impl Implicit {
             let n_sub_bs = sub_bs.len();
             for sub_b in sub_bs.drain(..) {
                 let complete = if !sub_b.x.is_subpixel() {
-                    self.process_block(&sub_b)
+                    self.process_block(&sub_b, &mut args)
                 } else {
                     if self.vars.contains(VarSet::N_THETA) {
                         let n = sub_b.n_theta.interval();
                         let n_simple = simple_fraction(n);
                         if n.inf() != n_simple && n.sup() != n_simple {
                             // Try finding a solution earlier.
-                            self.process_subpixel_block(&Block {
-                                n_theta: IntegerParameter::new(point_interval(n_simple)),
-                                ..sub_b
-                            });
+                            self.process_subpixel_block(
+                                &Block {
+                                    n_theta: IntegerParameter::new(point_interval(n_simple)),
+                                    ..sub_b
+                                },
+                                &mut args,
+                            );
                         }
                     }
-                    self.process_subpixel_block(&sub_b)
+                    self.process_subpixel_block(&sub_b, &mut args)
                 };
                 if !complete {
                     incomplete_sub_bs.push(sub_b);
@@ -256,7 +264,7 @@ impl Implicit {
     /// and returns `true` if it is successful.
     ///
     /// Precondition: the block is either a pixel or a superpixel.
-    fn process_block(&mut self, b: &Block) -> bool {
+    fn process_block(&mut self, b: &Block, args: &mut RelationArgs) -> bool {
         let pixels = self.pixels_in_image(b);
         if pixels.iter().all(|p| self.im[p] == PixelState::True) {
             // All pixels have already been proven to be true.
@@ -264,16 +272,12 @@ impl Implicit {
         }
 
         let u_up = self.block_to_region_clipped(b).outer();
-        let r_u_up = self.rel.eval(
-            &RelationArgs {
-                x: u_up.x(),
-                y: u_up.y(),
-                n_theta: b.n_theta.interval(),
-                n: b.n.interval(),
-                t: b.t.interval(),
-            },
-            Some(&mut self.cache_eval_on_region),
-        );
+        set_arg!(args, self.var_indices.n, b.n.interval());
+        set_arg!(args, self.var_indices.n_theta, b.n_theta.interval());
+        set_arg!(args, self.var_indices.t, b.t.interval());
+        set_arg!(args, self.var_indices.x, u_up.x());
+        set_arg!(args, self.var_indices.y, u_up.y());
+        let r_u_up = self.rel.eval(args, Some(&mut self.cache_eval_on_region));
 
         let result = r_u_up.result(self.rel.forms());
 
@@ -291,7 +295,7 @@ impl Implicit {
     /// and returns `true` if it is successful.
     ///
     /// Precondition: the block is a subpixel.
-    fn process_subpixel_block(&mut self, b: &Block) -> bool {
+    fn process_subpixel_block(&mut self, b: &Block, args: &mut RelationArgs) -> bool {
         let pixels = self.pixels_in_image(b);
         if pixels.iter().all(|p| self.im[p] == PixelState::True) {
             // This pixel has already been proven to be true.
@@ -299,20 +303,18 @@ impl Implicit {
         }
 
         let u_up = subpixel_outer(&self.block_to_region(b), b);
-        let args = RelationArgs {
-            x: u_up.x(),
-            y: u_up.y(),
-            n_theta: b.n_theta.interval(),
-            n: b.n.interval(),
-            t: b.t.interval(),
-        };
-        let r_u_up = self.rel.eval(&args, Some(&mut self.cache_eval_on_region));
-
-        let p_dn = self.block_to_region(&b.pixel_block()).inner();
-        let inter = u_up.intersection(&p_dn);
+        set_arg!(args, self.var_indices.n, b.n.interval());
+        set_arg!(args, self.var_indices.n_theta, b.n_theta.interval());
+        set_arg!(args, self.var_indices.t, b.t.interval());
+        set_arg!(args, self.var_indices.x, u_up.x());
+        set_arg!(args, self.var_indices.y, u_up.y());
+        let r_u_up = self.rel.eval(args, Some(&mut self.cache_eval_on_region));
 
         let result_mask = r_u_up.result_mask();
         let result = result_mask.eval(self.rel.forms());
+
+        let p_dn = self.block_to_region(&b.pixel_block()).inner();
+        let inter = u_up.intersection(&p_dn);
 
         if result.certainly_true() && !inter.is_empty() {
             // The relation is true everywhere in the subpixel, and the subpixel certainly overlaps
@@ -364,14 +366,9 @@ impl Implicit {
         let mut neg_mask = r_u_up.map(|_| false);
         let mut pos_mask = neg_mask.clone();
         for point in &points {
-            let r = self.rel.eval(
-                &RelationArgs {
-                    x: point_interval(point.0),
-                    y: point_interval(point.1),
-                    ..args
-                },
-                Some(&mut self.cache_eval_on_point),
-            );
+            set_arg!(args, self.var_indices.x, point_interval(point.0));
+            set_arg!(args, self.var_indices.y, point_interval(point.1));
+            let r = self.rel.eval(args, Some(&mut self.cache_eval_on_point));
 
             // `ss` is nonempty if the decoration is ≥ `Def`, which will be ensured
             // by taking bitand with `dac_mask`.

@@ -7,7 +7,8 @@ use crate::{
     image::{Image, PixelIndex, PixelRange},
     interval_set::TupperIntervalSet,
     region::Region,
-    relation::{EvalParametricCache, Relation, RelationArgs, RelationType},
+    relation::{EvalParametricCache, Relation, RelationArgs, RelationType, VarIndices},
+    set_arg,
     traits::BytesAllocated,
     vars::VarSet,
 };
@@ -15,7 +16,6 @@ use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
     convert::TryFrom,
-    default::default,
     iter::once,
     mem::swap,
     time::{Duration, Instant},
@@ -26,6 +26,7 @@ use std::{
 /// A parametric relation is a relation of type [`RelationType::Parametric`].
 pub struct Parametric {
     rel: Relation,
+    var_indices: VarIndices,
     subdivision_dirs: Vec<VarSet>,
     im: Image<PixelState>,
     bs_to_subdivide: BlockQueue,
@@ -50,6 +51,7 @@ impl Parametric {
         assert_eq!(rel.relation_type(), RelationType::Parametric);
 
         let vars = rel.vars();
+        let var_indices = rel.var_indices().clone();
         let subdivision_dirs = [VarSet::N, VarSet::T]
             .into_iter()
             .filter(|&d| vars.contains(d))
@@ -57,6 +59,7 @@ impl Parametric {
 
         let mut g = Self {
             rel,
+            var_indices,
             subdivision_dirs,
             im: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(vars),
@@ -88,7 +91,7 @@ impl Parametric {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache: EvalParametricCache::new(vars.intersection(VarSet::N | VarSet::T)),
+            cache: EvalParametricCache::new(vars),
         };
 
         g.bs_to_subdivide.push_back(Block {
@@ -104,6 +107,7 @@ impl Parametric {
         let mut sub_bs = vec![];
         let mut incomplete_sub_bs = vec![];
         let mut next_dir_candidates = vec![];
+        let mut args = self.rel.create_args();
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
@@ -114,7 +118,7 @@ impl Parametric {
 
             let n_sub_bs = sub_bs.len();
             for sub_b in sub_bs.drain(..) {
-                let incomplete_pixels = self.process_block(&sub_b);
+                let incomplete_pixels = self.process_block(&sub_b, &mut args);
                 if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
                     incomplete_sub_bs.push((sub_b, incomplete_pixels));
                 }
@@ -200,13 +204,10 @@ impl Parametric {
 
     /// Tries to prove or disprove the existence of a solution in the block
     /// and if it is unsuccessful, returns pixels that possibly contain solutions.
-    fn process_block(&mut self, block: &Block) -> Vec<PixelRange> {
-        let args = RelationArgs {
-            n: block.n.interval(),
-            t: block.t.interval(),
-            ..default()
-        };
-        let (xs, ys, cond) = self.rel.eval_parametric(&args, None);
+    fn process_block(&mut self, block: &Block, args: &mut RelationArgs) -> Vec<PixelRange> {
+        set_arg!(args, self.var_indices.n, block.n.interval());
+        set_arg!(args, self.var_indices.t, block.t.interval());
+        let (xs, ys, cond) = self.rel.eval_parametric(args, None);
         let rs = self
             .im_regions(&xs, &ys)
             .into_iter()
@@ -228,19 +229,23 @@ impl Parametric {
             } else if dec >= Decoration::Dac && (r.x().wid() == 1.0 || r.y().wid() == 1.0) {
                 assert_eq!(rs.len(), 1);
                 let r1 = {
-                    let t = point_interval_possibly_infinite(block.t.interval().inf());
-                    let (xs, ys, _) = self
-                        .rel
-                        .eval_parametric(&RelationArgs { t, ..args }, Some(&mut self.cache));
+                    set_arg!(
+                        args,
+                        self.var_indices.t,
+                        point_interval_possibly_infinite(block.t.interval().inf())
+                    );
+                    let (xs, ys, _) = self.rel.eval_parametric(args, Some(&mut self.cache));
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
                 };
                 let r2 = {
-                    let t = point_interval_possibly_infinite(block.t.interval().sup());
-                    let (xs, ys, _) = self
-                        .rel
-                        .eval_parametric(&RelationArgs { t, ..args }, Some(&mut self.cache));
+                    set_arg!(
+                        args,
+                        self.var_indices.t,
+                        point_interval_possibly_infinite(block.t.interval().sup())
+                    );
+                    let (xs, ys, _) = self.rel.eval_parametric(args, Some(&mut self.cache));
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()

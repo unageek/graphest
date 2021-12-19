@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 
 /// A sequence of evaluation results of atomic formulas.
 #[derive(Clone, Debug)]
-pub struct EvalResult(pub SmallVec<[DecSignSet; 32]>);
+pub struct EvalResult(pub SmallVec<[DecSignSet; 8]>);
 
 impl EvalResult {
     /// Applies the given ternary-valued function on each result.
@@ -44,7 +44,7 @@ impl BytesAllocated for EvalResult {
 
 /// A sequence of Boolean values assigned to atomic formulas.
 #[derive(Clone, Debug)]
-pub struct EvalResultMask(pub SmallVec<[Ternary; 32]>);
+pub struct EvalResultMask(pub SmallVec<[Ternary; 8]>);
 
 impl EvalResultMask {
     /// Evaluates the last formula to a Boolean value.
