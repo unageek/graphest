@@ -32,5 +32,6 @@ mod real;
 mod region;
 mod relation;
 mod ternary;
+mod traits;
 mod vars;
 mod visit;

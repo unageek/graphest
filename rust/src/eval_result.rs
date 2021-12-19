@@ -1,6 +1,7 @@
 use crate::{
     interval_set::{DecSignSet, SignSet},
     ops::{StaticForm, StaticFormKind},
+    traits::BytesAllocated,
     Ternary,
 };
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
@@ -34,9 +35,10 @@ impl EvalResult {
             )
         })
     }
+}
 
-    /// Returns the size allocated by the [`EvalResult`] in bytes.
-    pub fn size_in_heap(&self) -> usize {
+impl BytesAllocated for EvalResult {
+    fn bytes_allocated(&self) -> usize {
         if self.0.spilled() {
             self.0.capacity() * size_of::<DecSignSet>()
         } else {

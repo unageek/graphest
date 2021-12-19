@@ -1,4 +1,4 @@
-use crate::{image::PixelIndex, vars::VarSet};
+use crate::{image::PixelIndex, traits::BytesAllocated, vars::VarSet};
 use inari::{interval, Interval};
 use itertools::Itertools;
 use smallvec::SmallVec;
@@ -455,11 +455,6 @@ impl BlockQueue {
         self.end_index += 1;
     }
 
-    /// Returns the approximate size allocated by the [`BlockQueue`] in bytes.
-    pub fn size_in_heap(&self) -> usize {
-        self.seq.capacity() * size_of::<u8>()
-    }
-
     fn pop_i8(&mut self) -> Option<i8> {
         Some(self.seq.pop_front()? as i8)
     }
@@ -584,6 +579,12 @@ impl Extend<Block> for BlockQueue {
         for b in iter {
             self.push_back(b);
         }
+    }
+}
+
+impl BytesAllocated for BlockQueue {
+    fn bytes_allocated(&self) -> usize {
+        self.seq.capacity() * size_of::<u8>()
     }
 }
 

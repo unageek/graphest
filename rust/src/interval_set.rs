@@ -1,3 +1,4 @@
+use crate::traits::BytesAllocated;
 use bitflags::*;
 use inari::{DecInterval, Decoration, Interval};
 use smallvec::SmallVec;
@@ -255,15 +256,6 @@ impl TupperIntervalSet {
         xs.shrink_to_fit();
     }
 
-    /// Returns the size allocated by the [`TupperIntervalSet`] in bytes.
-    pub fn size_in_heap(&self) -> usize {
-        if self.xs.spilled() {
-            self.xs.capacity() * size_of::<TupperInterval>()
-        } else {
-            0
-        }
-    }
-
     /// Returns the only [`f64`] number in the set if `self` contains exactly one interval
     /// which is a singleton and has a decoration ≥ [`Decoration::Def`]; otherwise, [`None`].
     /// Zero is returned as `+0.0`.
@@ -368,6 +360,16 @@ impl<'a> IntoIterator for &'a TupperIntervalSet {
 
     fn into_iter(self) -> Self::IntoIter {
         self.xs.iter()
+    }
+}
+
+impl BytesAllocated for TupperIntervalSet {
+    fn bytes_allocated(&self) -> usize {
+        if self.xs.spilled() {
+            self.xs.capacity() * size_of::<TupperInterval>()
+        } else {
+            0
+        }
     }
 }
 

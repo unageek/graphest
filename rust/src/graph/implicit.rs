@@ -8,6 +8,7 @@ use crate::{
     interval_set::{DecSignSet, SignSet},
     region::Region,
     relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType},
+    traits::BytesAllocated,
     vars,
     vars::VarSet,
 };
@@ -217,7 +218,7 @@ impl Implicit {
             }
 
             let mut clear_cache_and_retry = true;
-            while self.size_in_heap() > self.mem_limit {
+            while self.bytes_allocated() > self.mem_limit {
                 if clear_cache_and_retry {
                     self.cache_eval_on_region.clear();
                     self.cache_eval_on_point.clear();
@@ -527,11 +528,13 @@ impl Graph for Implicit {
         self.stats.time_elapsed += now.elapsed();
         result
     }
+}
 
-    fn size_in_heap(&self) -> usize {
-        self.im.size_in_heap()
-            + self.bs_to_subdivide.size_in_heap()
-            + self.cache_eval_on_region.size_in_heap()
-            + self.cache_eval_on_point.size_in_heap()
+impl BytesAllocated for Implicit {
+    fn bytes_allocated(&self) -> usize {
+        self.im.bytes_allocated()
+            + self.bs_to_subdivide.bytes_allocated()
+            + self.cache_eval_on_region.bytes_allocated()
+            + self.cache_eval_on_point.bytes_allocated()
     }
 }
