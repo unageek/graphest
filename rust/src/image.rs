@@ -1,3 +1,4 @@
+use crate::traits::BytesAllocated;
 use std::{
     mem::size_of,
     ops::{Index, IndexMut},
@@ -43,11 +44,6 @@ impl<T: Clone + Copy + Default> Image<T> {
         self.data.iter_mut()
     }
 
-    /// Returns the size allocated by the [`Image`] in bytes.
-    pub fn size_in_heap(&self) -> usize {
-        self.data.capacity() * size_of::<T>()
-    }
-
     /// Returns the width of the image in pixels.
     pub fn width(&self) -> u32 {
         self.width
@@ -71,6 +67,12 @@ impl<T: Clone + Copy + Default> IndexMut<PixelIndex> for Image<T> {
     fn index_mut(&mut self, index: PixelIndex) -> &mut Self::Output {
         let i = self.index(index);
         &mut self.data[i]
+    }
+}
+
+impl<T: Clone + Copy + Default> BytesAllocated for Image<T> {
+    fn bytes_allocated(&self) -> usize {
+        self.data.capacity() * size_of::<T>()
     }
 }
 

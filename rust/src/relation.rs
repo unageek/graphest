@@ -7,7 +7,9 @@ use crate::{
     nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
     parse::{format_error, parse_expr},
-    ternary, unary, var, vars,
+    ternary,
+    traits::BytesAllocated,
+    unary, var, vars,
     vars::VarSet,
     visit::*,
 };
@@ -34,8 +36,10 @@ impl<K, V> MultiKeyHashMap<K, V> {
             _ => panic!(),
         }
     }
+}
 
-    fn size_in_heap(&self) -> usize {
+impl<K, V> BytesAllocated for MultiKeyHashMap<K, V> {
+    fn bytes_allocated(&self) -> usize {
         let (capacity, key_size) = match self {
             Self::One(m) => (m.capacity(), size_of::<[K; 1]>()),
             Self::Two(m) => (m.capacity(), size_of::<[K; 2]>()),
@@ -56,10 +60,10 @@ pub struct EvalCache {
     cx: HashMap<Interval, Vec<TupperIntervalSet>>,
     cy: HashMap<Interval, Vec<TupperIntervalSet>>,
     cxy: HashMap<(Interval, Interval), EvalResult>,
-    size_of_cx: usize,
-    size_of_cy: usize,
-    size_of_cxy: usize,
-    size_of_values_in_heap: usize,
+    bytes_allocated_by_cx: usize,
+    bytes_allocated_by_cy: usize,
+    bytes_allocated_by_cxy: usize,
+    bytes_allocated_by_values: usize,
 }
 
 impl EvalCache {
@@ -69,10 +73,10 @@ impl EvalCache {
             cx: HashMap::new(),
             cy: HashMap::new(),
             cxy: HashMap::new(),
-            size_of_cx: 0,
-            size_of_cy: 0,
-            size_of_cxy: 0,
-            size_of_values_in_heap: 0,
+            bytes_allocated_by_cx: 0,
+            bytes_allocated_by_cy: 0,
+            bytes_allocated_by_cxy: 0,
+            bytes_allocated_by_values: 0,
         }
     }
 
@@ -81,10 +85,10 @@ impl EvalCache {
         self.cx = HashMap::new();
         self.cy = HashMap::new();
         self.cxy = HashMap::new();
-        self.size_of_cx = 0;
-        self.size_of_cy = 0;
-        self.size_of_cxy = 0;
-        self.size_of_values_in_heap = 0;
+        self.bytes_allocated_by_cx = 0;
+        self.bytes_allocated_by_cy = 0;
+        self.bytes_allocated_by_cxy = 0;
+        self.bytes_allocated_by_values = 0;
     }
 
     pub fn get_x(&self, x: Interval) -> Option<&Vec<TupperIntervalSet>> {
@@ -104,36 +108,39 @@ impl EvalCache {
 
     pub fn insert_x_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, x: Interval, f: F) {
         let v = f();
-        self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
-            + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
+        self.bytes_allocated_by_values += v.capacity() * size_of::<TupperIntervalSet>()
+            + v.iter().map(|t| t.bytes_allocated()).sum::<usize>();
         self.cx.insert(x, v);
-        self.size_of_cx = self.cx.capacity()
+        self.bytes_allocated_by_cx = self.cx.capacity()
             * (size_of::<u64>() + size_of::<Interval>() + size_of::<Vec<TupperIntervalSet>>());
     }
 
     pub fn insert_y_with<F: FnOnce() -> Vec<TupperIntervalSet>>(&mut self, y: Interval, f: F) {
         let v = f();
-        self.size_of_values_in_heap += v.capacity() * size_of::<TupperIntervalSet>()
-            + v.iter().map(|t| t.size_in_heap()).sum::<usize>();
+        self.bytes_allocated_by_values += v.capacity() * size_of::<TupperIntervalSet>()
+            + v.iter().map(|t| t.bytes_allocated()).sum::<usize>();
         self.cy.insert(y, v);
-        self.size_of_cy = self.cy.capacity()
+        self.bytes_allocated_by_cy = self.cy.capacity()
             * (size_of::<u64>() + size_of::<Interval>() + size_of::<Vec<TupperIntervalSet>>());
     }
 
     pub fn insert_xy_with<F: FnOnce() -> EvalResult>(&mut self, x: Interval, y: Interval, f: F) {
         if self.level == EvalCacheLevel::Full {
             let v = f();
-            self.size_of_values_in_heap += v.size_in_heap();
+            self.bytes_allocated_by_values += v.bytes_allocated();
             self.cxy.insert((x, y), v);
-            self.size_of_cxy = self.cxy.capacity()
+            self.bytes_allocated_by_cxy = self.cxy.capacity()
                 * (size_of::<u64>() + size_of::<(Interval, Interval)>() + size_of::<EvalResult>());
         }
     }
+}
 
-    /// Returns the approximate size allocated by the [`EvalCache`] in bytes.
-    pub fn size_in_heap(&self) -> usize {
-        // This is a lowest bound, the actual size can be much larger.
-        self.size_of_cx + self.size_of_cy + self.size_of_cxy + self.size_of_values_in_heap
+impl BytesAllocated for EvalCache {
+    fn bytes_allocated(&self) -> usize {
+        self.bytes_allocated_by_cx
+            + self.bytes_allocated_by_cy
+            + self.bytes_allocated_by_cxy
+            + self.bytes_allocated_by_values
     }
 }
 
@@ -143,16 +150,16 @@ type EvalExplicitResult = (TupperIntervalSet, EvalResult);
 #[derive(Default)]
 pub struct EvalExplicitCache {
     ct: HashMap<Interval, EvalExplicitResult>,
-    size_of_ct: usize,
-    size_of_values_in_heap: usize,
+    bytes_allocated_by_ct: usize,
+    bytes_allocated_by_values: usize,
 }
 
 impl EvalExplicitCache {
     /// Clears the cache and releases the allocated memory.
     pub fn clear(&mut self) {
         self.ct = HashMap::new();
-        self.size_of_ct = 0;
-        self.size_of_values_in_heap = 0;
+        self.bytes_allocated_by_ct = 0;
+        self.bytes_allocated_by_values = 0;
     }
 
     pub fn get(&self, t: Interval) -> Option<&EvalExplicitResult> {
@@ -160,15 +167,16 @@ impl EvalExplicitCache {
     }
 
     pub fn insert(&mut self, t: Interval, r: EvalExplicitResult) {
-        self.size_of_values_in_heap += r.0.size_in_heap() + r.1.size_in_heap();
+        self.bytes_allocated_by_values += r.0.bytes_allocated() + r.1.bytes_allocated();
         self.ct.insert(t, r);
-        self.size_of_ct = self.ct.capacity()
+        self.bytes_allocated_by_ct = self.ct.capacity()
             * (size_of::<u64>() + size_of::<Interval>() + size_of::<EvalParametricResult>());
     }
+}
 
-    /// Returns the approximate size allocated by the [`EvalExplicitCache`] in bytes.
-    pub fn size_in_heap(&self) -> usize {
-        self.size_of_ct + self.size_of_values_in_heap
+impl BytesAllocated for EvalExplicitCache {
+    fn bytes_allocated(&self) -> usize {
+        self.bytes_allocated_by_ct + self.bytes_allocated_by_values
     }
 }
 
@@ -185,8 +193,8 @@ pub struct EvalParametricCache {
     n_vars: usize,
     key_indices: KeyIndices,
     c: MultiKeyHashMap<Interval, EvalParametricResult>,
-    size_of_c: usize,
-    size_of_values_in_heap: usize,
+    bytes_allocated_by_c: usize,
+    bytes_allocated_by_values: usize,
 }
 
 impl EvalParametricCache {
@@ -210,16 +218,16 @@ impl EvalParametricCache {
             n_vars,
             key_indices,
             c: MultiKeyHashMap::new(n_vars),
-            size_of_c: 0,
-            size_of_values_in_heap: 0,
+            bytes_allocated_by_c: 0,
+            bytes_allocated_by_values: 0,
         }
     }
 
     /// Clears the cache and releases the allocated memory.
     pub fn clear(&mut self) {
         self.c = MultiKeyHashMap::new(self.n_vars);
-        self.size_of_c = 0;
-        self.size_of_values_in_heap = 0;
+        self.bytes_allocated_by_c = 0;
+        self.bytes_allocated_by_values = 0;
     }
 
     pub fn get(&self, args: &RelationArgs) -> Option<&EvalParametricResult> {
@@ -236,7 +244,8 @@ impl EvalParametricCache {
     }
 
     pub fn insert(&mut self, args: &RelationArgs, r: EvalParametricResult) {
-        self.size_of_values_in_heap += r.0.size_in_heap() + r.1.size_in_heap() + r.2.size_in_heap();
+        self.bytes_allocated_by_values +=
+            r.0.bytes_allocated() + r.1.bytes_allocated() + r.2.bytes_allocated();
         match &mut self.c {
             MultiKeyHashMap::One(c) => {
                 let k = Self::make_key::<1>(&self.key_indices, args);
@@ -247,12 +256,7 @@ impl EvalParametricCache {
                 c.insert(k, r);
             }
         }
-        self.size_of_c = self.c.size_in_heap();
-    }
-
-    /// Returns the approximate size allocated by the [`EvalParametricCache`] in bytes.
-    pub fn size_in_heap(&self) -> usize {
-        self.size_of_c + self.size_of_values_in_heap
+        self.bytes_allocated_by_c = self.c.bytes_allocated();
     }
 
     fn make_key<const N: usize>(key_indices: &KeyIndices, args: &RelationArgs) -> [Interval; N] {
@@ -264,6 +268,12 @@ impl EvalParametricCache {
             k[i] = args.t;
         }
         k
+    }
+}
+
+impl BytesAllocated for EvalParametricCache {
+    fn bytes_allocated(&self) -> usize {
+        self.bytes_allocated_by_c + self.bytes_allocated_by_values
     }
 }
 

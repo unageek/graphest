@@ -2,6 +2,7 @@ use crate::{
     graph::{Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Ternary},
     image::Image,
     relation::{Relation, RelationArgs, RelationType},
+    traits::BytesAllocated,
 };
 use std::time::{Duration, Instant};
 
@@ -77,8 +78,10 @@ impl Graph for Constant {
         self.stats.time_elapsed += now.elapsed();
         result
     }
+}
 
-    fn size_in_heap(&self) -> usize {
+impl BytesAllocated for Constant {
+    fn bytes_allocated(&self) -> usize {
         0
     }
 }

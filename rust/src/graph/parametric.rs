@@ -8,6 +8,7 @@ use crate::{
     interval_set::TupperIntervalSet,
     region::Region,
     relation::{EvalParametricCache, Relation, RelationArgs, RelationType},
+    traits::BytesAllocated,
     vars::VarSet,
 };
 use inari::{const_interval, interval, Decoration, Interval};
@@ -164,7 +165,7 @@ impl Parametric {
             }
 
             let mut clear_cache_and_retry = true;
-            while self.size_in_heap() > self.mem_limit {
+            while self.bytes_allocated() > self.mem_limit {
                 if clear_cache_and_retry {
                     self.cache.clear();
                     clear_cache_and_retry = false;
@@ -409,8 +410,12 @@ impl Graph for Parametric {
         self.stats.time_elapsed += now.elapsed();
         result
     }
+}
 
-    fn size_in_heap(&self) -> usize {
-        self.im.size_in_heap() + self.bs_to_subdivide.size_in_heap() + self.cache.size_in_heap()
+impl BytesAllocated for Parametric {
+    fn bytes_allocated(&self) -> usize {
+        self.im.bytes_allocated()
+            + self.bs_to_subdivide.bytes_allocated()
+            + self.cache.bytes_allocated()
     }
 }

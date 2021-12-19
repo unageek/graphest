@@ -1,4 +1,4 @@
-use crate::{image::Image, Ternary};
+use crate::{image::Image, traits::BytesAllocated, Ternary};
 use std::{error, fmt, time::Duration};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -41,7 +41,7 @@ pub struct GraphingStatistics {
 }
 
 /// An implementation of a faithful graphing algorithm.
-pub trait Graph {
+pub trait Graph: BytesAllocated {
     /// Puts the image of the graph to `im`.
     ///
     /// The image is vertically flipped, i.e., the pixel (0, 0) is the bottom-left corner of the graph.
@@ -54,9 +54,6 @@ pub trait Graph {
     ///
     /// Returns `Ok(true)`/`Ok(false)` if graphing is complete/incomplete after refinement.
     fn refine(&mut self, duration: Duration) -> Result<bool, GraphingError>;
-
-    /// Returns the amount of memory allocated by `self` in bytes.
-    fn size_in_heap(&self) -> usize;
 }
 
 #[derive(Clone, Debug)]
