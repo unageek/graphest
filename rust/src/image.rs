@@ -1,6 +1,5 @@
 use crate::traits::BytesAllocated;
 use std::{
-    mem::size_of,
     ops::{Index, IndexMut},
     slice::{Iter, IterMut},
 };
@@ -72,7 +71,7 @@ impl<T: Clone + Copy + Default> IndexMut<PixelIndex> for Image<T> {
 
 impl<T: Clone + Copy + Default> BytesAllocated for Image<T> {
     fn bytes_allocated(&self) -> usize {
-        self.data.capacity() * size_of::<T>()
+        self.data.bytes_allocated()
     }
 }
 

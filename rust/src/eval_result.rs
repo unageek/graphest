@@ -7,7 +7,6 @@ use crate::{
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use inari::Decoration;
 use smallvec::SmallVec;
-use std::mem::size_of;
 
 /// A sequence of evaluation results of atomic formulas.
 #[derive(Clone, Debug)]
@@ -39,11 +38,7 @@ impl EvalResult {
 
 impl BytesAllocated for EvalResult {
     fn bytes_allocated(&self) -> usize {
-        if self.0.spilled() {
-            self.0.capacity() * size_of::<DecSignSet>()
-        } else {
-            0
-        }
+        self.0.bytes_allocated()
     }
 }
 

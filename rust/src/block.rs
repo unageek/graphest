@@ -2,7 +2,7 @@ use crate::{image::PixelIndex, traits::BytesAllocated, vars::VarSet};
 use inari::{interval, Interval};
 use itertools::Itertools;
 use smallvec::SmallVec;
-use std::{collections::VecDeque, mem::size_of, ptr::copy_nonoverlapping};
+use std::{collections::VecDeque, ptr::copy_nonoverlapping};
 
 /// A component of a [`Block`] that corresponds to the horizontal or vertical axis of an [`Image`].
 ///
@@ -584,7 +584,7 @@ impl Extend<Block> for BlockQueue {
 
 impl BytesAllocated for BlockQueue {
     fn bytes_allocated(&self) -> usize {
-        self.seq.capacity() * size_of::<u8>()
+        self.seq.bytes_allocated()
     }
 }
 

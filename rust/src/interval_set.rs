@@ -6,7 +6,7 @@ use std::{
     convert::From,
     hash::{Hash, Hasher},
     iter::{Extend, FromIterator},
-    mem::{size_of, transmute},
+    mem::transmute,
     slice::Iter,
 };
 
@@ -365,11 +365,7 @@ impl<'a> IntoIterator for &'a TupperIntervalSet {
 
 impl BytesAllocated for TupperIntervalSet {
     fn bytes_allocated(&self) -> usize {
-        if self.xs.spilled() {
-            self.xs.capacity() * size_of::<TupperInterval>()
-        } else {
-            0
-        }
+        self.xs.bytes_allocated()
     }
 }
 

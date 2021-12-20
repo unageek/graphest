@@ -40,11 +40,10 @@ impl<K, V> MultiKeyHashMap<K, V> {
 
 impl<K, V> BytesAllocated for MultiKeyHashMap<K, V> {
     fn bytes_allocated(&self) -> usize {
-        let (capacity, key_size) = match self {
-            Self::One(m) => (m.capacity(), size_of::<[K; 1]>()),
-            Self::Two(m) => (m.capacity(), size_of::<[K; 2]>()),
-        };
-        capacity * (size_of::<u64>() + key_size + size_of::<V>())
+        match self {
+            Self::One(m) => m.bytes_allocated(),
+            Self::Two(m) => m.bytes_allocated(),
+        }
     }
 }
 
