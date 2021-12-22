@@ -1,5 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, Coordinate},
+    eval_cache::{EvalCacheLevel, EvalExplicitCache},
+    eval_result::RelationArgs,
     geom::{Box1D, Box2D, Transform1D, TransformMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -7,7 +9,7 @@ use crate::{
     image::{Image, PixelIndex, PixelRange},
     interval_set::TupperIntervalSet,
     region::Region,
-    relation::{EvalExplicitCache, ExplicitRelationOp, Relation, RelationArgs, RelationType},
+    relation::{ExplicitRelationOp, Relation, RelationType},
     set_arg,
     traits::BytesAllocated,
     vars::{VarIndex, VarSet},
@@ -35,6 +37,7 @@ pub struct Explicit {
     real_to_im_y: Transform1D,
     stats: GraphingStatistics,
     mem_limit: usize,
+    no_cache: EvalExplicitCache,
     cache: EvalExplicitCache,
 }
 
@@ -112,7 +115,8 @@ impl Explicit {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache: EvalExplicitCache::new(vars),
+            no_cache: EvalExplicitCache::new(EvalCacheLevel::None, vars),
+            cache: EvalExplicitCache::new(EvalCacheLevel::Full, vars),
         };
 
         let kx = (im_width as f64).log2().ceil() as i8;
@@ -189,7 +193,7 @@ impl Explicit {
     fn process_block(&mut self, b: &Block, args: &mut RelationArgs) -> Vec<PixelRange> {
         let x_up = self.block_to_region_clipped(b).outer();
         set_arg!(args, self.x_index, x_up);
-        let (ys, cond) = self.rel.eval_explicit(args, None);
+        let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache);
 
         let px = {
             let begin = b.pixel_index().x;
@@ -231,7 +235,7 @@ impl Explicit {
     fn process_subpixel_block(&mut self, b: &Block, args: &mut RelationArgs) -> Vec<PixelRange> {
         let x_up = subpixel_outer_x(&self.block_to_region(b), b);
         set_arg!(args, self.x_index, x_up);
-        let (ys, cond) = self.rel.eval_explicit(args, None);
+        let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache);
 
         let px = {
             let begin = b.pixel_index().x;
@@ -270,7 +274,7 @@ impl Explicit {
                 .dedup()
                 .map(|&x| {
                     set_arg!(args, self.x_index, point_interval(x));
-                    self.rel.eval_explicit(args, Some(&mut self.cache))
+                    self.rel.eval_explicit(args, &mut self.cache)
                 })
                 .collect::<SmallVec<[_; 3]>>();
 

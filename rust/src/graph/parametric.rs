@@ -1,5 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, RealParameter},
+    eval_cache::{EvalCacheLevel, EvalParametricCache},
+    eval_result::RelationArgs,
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -7,7 +9,7 @@ use crate::{
     image::{Image, PixelIndex, PixelRange},
     interval_set::TupperIntervalSet,
     region::Region,
-    relation::{EvalParametricCache, Relation, RelationArgs, RelationType, VarIndices},
+    relation::{Relation, RelationType, VarIndices},
     set_arg,
     traits::BytesAllocated,
     vars::VarSet,
@@ -36,6 +38,7 @@ pub struct Parametric {
     real_to_im: Transform2D,
     stats: GraphingStatistics,
     mem_limit: usize,
+    no_cache: EvalParametricCache,
     cache: EvalParametricCache,
 }
 
@@ -91,7 +94,8 @@ impl Parametric {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache: EvalParametricCache::new(vars),
+            no_cache: EvalParametricCache::new(EvalCacheLevel::None, vars),
+            cache: EvalParametricCache::new(EvalCacheLevel::Full, vars),
         };
 
         g.bs_to_subdivide.push_back(Block {
@@ -207,7 +211,7 @@ impl Parametric {
     fn process_block(&mut self, block: &Block, args: &mut RelationArgs) -> Vec<PixelRange> {
         set_arg!(args, self.var_indices.n, block.n.interval());
         set_arg!(args, self.var_indices.t, block.t.interval());
-        let (xs, ys, cond) = self.rel.eval_parametric(args, None);
+        let (xs, ys, cond) = self.rel.eval_parametric(args, &mut self.no_cache);
         let rs = self
             .im_regions(&xs, &ys)
             .into_iter()
@@ -234,7 +238,7 @@ impl Parametric {
                         self.var_indices.t,
                         point_interval_possibly_infinite(block.t.interval().inf())
                     );
-                    let (xs, ys, _) = self.rel.eval_parametric(args, Some(&mut self.cache));
+                    let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache);
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
@@ -245,7 +249,7 @@ impl Parametric {
                         self.var_indices.t,
                         point_interval_possibly_infinite(block.t.interval().sup())
                     );
-                    let (xs, ys, _) = self.rel.eval_parametric(args, Some(&mut self.cache));
+                    let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache);
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()

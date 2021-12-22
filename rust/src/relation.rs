@@ -2,7 +2,8 @@ use crate::{
     ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType},
     binary, bool_constant, constant,
     context::Context,
-    eval_result::EvalResult,
+    eval_cache::{EvalCacheGeneric, EvalExplicitCache, EvalImplicitCache, EvalParametricCache},
+    eval_result::{EvalExplicitResult, EvalParametricResult, EvalResult, RelationArgs},
     interval_set::TupperIntervalSet,
     nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
@@ -15,216 +16,7 @@ use crate::{
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use rug::Integer;
-use std::{
-    collections::HashMap,
-    iter::once,
-    mem::{size_of, take},
-    str::FromStr,
-};
-
-pub type RelationArgs = [Interval];
-
-#[macro_export]
-macro_rules! set_arg {
-    ($args:expr, $opt_index:expr, $x:expr) => {
-        if let Some(i) = $opt_index {
-            $args[i as usize] = $x;
-        }
-    };
-}
-
-type EvalExplicitResult = (TupperIntervalSet, EvalResult);
-
-impl BytesAllocated for EvalExplicitResult {
-    fn bytes_allocated(&self) -> usize {
-        self.0.bytes_allocated() + self.1.bytes_allocated()
-    }
-}
-
-type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, EvalResult);
-
-impl BytesAllocated for EvalParametricResult {
-    fn bytes_allocated(&self) -> usize {
-        self.0.bytes_allocated() + self.1.bytes_allocated() + self.2.bytes_allocated()
-    }
-}
-
-enum MultiKeyHashMap<K, V> {
-    One(HashMap<[K; 1], V>),
-    Two(HashMap<[K; 2], V>),
-    Three(HashMap<[K; 3], V>),
-    Four(HashMap<[K; 4], V>),
-    Five(HashMap<[K; 5], V>),
-}
-
-impl<K, V> MultiKeyHashMap<K, V> {
-    fn new(n: usize) -> Self {
-        match n {
-            1 => MultiKeyHashMap::One(HashMap::new()),
-            2 => MultiKeyHashMap::Two(HashMap::new()),
-            3 => MultiKeyHashMap::Three(HashMap::new()),
-            4 => MultiKeyHashMap::Four(HashMap::new()),
-            5 => MultiKeyHashMap::Five(HashMap::new()),
-            _ => panic!(),
-        }
-    }
-}
-
-impl<K, V> BytesAllocated for MultiKeyHashMap<K, V> {
-    fn bytes_allocated(&self) -> usize {
-        match self {
-            Self::One(m) => m.bytes_allocated(),
-            Self::Two(m) => m.bytes_allocated(),
-            Self::Three(m) => m.bytes_allocated(),
-            Self::Four(m) => m.bytes_allocated(),
-            Self::Five(m) => m.bytes_allocated(),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum EvalCacheLevel {
-    PerAxis,
-    Full,
-}
-
-/// A cache for memoizing evaluation of an implicit relation.
-pub struct EvalCache {
-    level: EvalCacheLevel,
-    n_vars: usize,
-    cx: Vec<HashMap<Interval, Vec<TupperIntervalSet>>>,
-    c: Cache<EvalResult>,
-    bytes_allocated_by_cx: Vec<usize>,
-    bytes_allocated_by_values: usize,
-}
-
-impl EvalCache {
-    pub fn new(level: EvalCacheLevel, vars: VarSet) -> Self {
-        let n_vars = vars.len();
-        Self {
-            level,
-            n_vars,
-            cx: vec![HashMap::new(); n_vars],
-            c: Cache::new(vars),
-            bytes_allocated_by_cx: vec![0; n_vars],
-            bytes_allocated_by_values: 0,
-        }
-    }
-
-    /// Clears the cache and releases the allocated memory.
-    pub fn clear(&mut self) {
-        self.cx = vec![HashMap::new(); self.n_vars];
-        self.c.clear();
-        self.bytes_allocated_by_cx = vec![0; self.n_vars];
-        self.bytes_allocated_by_values = 0;
-    }
-
-    pub fn get_x(&self, index: usize, args: &RelationArgs) -> Option<&Vec<TupperIntervalSet>> {
-        self.cx[index].get(&args[index])
-    }
-
-    pub fn get_xy(&self, args: &RelationArgs) -> Option<&EvalResult> {
-        match self.level {
-            EvalCacheLevel::PerAxis => None,
-            EvalCacheLevel::Full => self.c.get(args),
-        }
-    }
-
-    pub fn insert_x_with<F: FnOnce() -> Vec<TupperIntervalSet>>(
-        &mut self,
-        index: usize,
-        args: &RelationArgs,
-        f: F,
-    ) {
-        let v = f();
-        self.bytes_allocated_by_values += v.capacity() * size_of::<TupperIntervalSet>()
-            + v.iter().map(|xs| xs.bytes_allocated()).sum::<usize>();
-        self.cx[index].insert(args[index], v);
-        self.bytes_allocated_by_cx[index] = self.cx[index].capacity()
-            * (size_of::<u64>() + size_of::<Interval>() + size_of::<Vec<TupperIntervalSet>>());
-    }
-
-    pub fn insert_xy_with<F: FnOnce() -> EvalResult>(&mut self, args: &RelationArgs, f: F) {
-        if self.level == EvalCacheLevel::Full {
-            let v = f();
-            self.bytes_allocated_by_values += v.bytes_allocated();
-            self.c.insert(args, v);
-        }
-    }
-}
-
-impl BytesAllocated for EvalCache {
-    fn bytes_allocated(&self) -> usize {
-        self.bytes_allocated_by_cx.iter().sum::<usize>()
-            + self.c.bytes_allocated()
-            + self.bytes_allocated_by_values
-    }
-}
-
-pub struct Cache<V: BytesAllocated> {
-    n_vars: usize,
-    c: MultiKeyHashMap<Interval, V>,
-    bytes_allocated_by_values: usize,
-}
-
-impl<V: BytesAllocated> Cache<V> {
-    pub fn new(vars: VarSet) -> Self {
-        let n_vars = vars.len();
-        Self {
-            n_vars,
-            c: MultiKeyHashMap::new(n_vars),
-            bytes_allocated_by_values: 0,
-        }
-    }
-
-    /// Clears the cache and releases the allocated memory.
-    pub fn clear(&mut self) {
-        self.c = MultiKeyHashMap::new(self.n_vars);
-        self.bytes_allocated_by_values = 0;
-    }
-
-    pub fn get(&self, args: &RelationArgs) -> Option<&V> {
-        assert_eq!(args.len(), self.n_vars);
-        let ptr = args.as_ptr();
-        match &self.c {
-            MultiKeyHashMap::One(c) => c.get(unsafe { &*(ptr as *const [Interval; 1]) }),
-            MultiKeyHashMap::Two(c) => c.get(unsafe { &*(ptr as *const [Interval; 2]) }),
-            MultiKeyHashMap::Three(c) => c.get(unsafe { &*(ptr as *const [Interval; 3]) }),
-            MultiKeyHashMap::Four(c) => c.get(unsafe { &*(ptr as *const [Interval; 4]) }),
-            MultiKeyHashMap::Five(c) => c.get(unsafe { &*(ptr as *const [Interval; 5]) }),
-        }
-    }
-
-    pub fn insert(&mut self, args: &RelationArgs, v: V) {
-        self.bytes_allocated_by_values += v.bytes_allocated();
-        match &mut self.c {
-            MultiKeyHashMap::One(c) => {
-                c.insert(args.try_into().unwrap(), v);
-            }
-            MultiKeyHashMap::Two(c) => {
-                c.insert(args.try_into().unwrap(), v);
-            }
-            MultiKeyHashMap::Three(c) => {
-                c.insert(args.try_into().unwrap(), v);
-            }
-            MultiKeyHashMap::Four(c) => {
-                c.insert(args.try_into().unwrap(), v);
-            }
-            MultiKeyHashMap::Five(c) => {
-                c.insert(args.try_into().unwrap(), v);
-            }
-        }
-    }
-}
-
-impl<V: BytesAllocated> BytesAllocated for Cache<V> {
-    fn bytes_allocated(&self) -> usize {
-        self.c.bytes_allocated() + self.bytes_allocated_by_values
-    }
-}
-
-pub type EvalExplicitCache = Cache<EvalExplicitResult>;
-pub type EvalParametricCache = Cache<EvalParametricResult>;
+use std::{collections::HashMap, iter::once, mem::take, str::FromStr};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ExplicitRelationOp {
@@ -285,17 +77,6 @@ impl Relation {
         vec![Interval::ENTIRE; self.vars_ordered.len()]
     }
 
-    /// Evaluates the relation with the given arguments.
-    ///
-    /// Precondition: `cache` has never been passed to other relations.
-    pub fn eval(&mut self, args: &RelationArgs, cache: Option<&mut EvalCache>) -> EvalResult {
-        self.eval_count += 1;
-        match cache {
-            Some(cache) => self.eval_with_cache(args, cache),
-            _ => self.eval_without_cache(args),
-        }
-    }
-
     /// Returns the total number of times the functions [`Self::eval`], [`Self::eval_explicit`]
     /// and [`Self::eval_parametric`] are called for `self`.
     pub fn eval_count(&self) -> usize {
@@ -311,24 +92,51 @@ impl Relation {
     pub fn eval_explicit(
         &mut self,
         args: &RelationArgs,
-        cache: Option<&mut EvalExplicitCache>,
+        cache: &mut EvalExplicitCache,
     ) -> EvalExplicitResult {
         assert!(matches!(
             self.relation_type,
             RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_)
         ));
+        self.eval_count += 1;
 
-        match cache {
-            Some(cache) => match cache.get(args) {
-                Some(r) => r.clone(),
-                _ => {
-                    let r = self.eval_explicit_without_cache(args);
-                    cache.insert(args, r.clone());
-                    r
-                }
-            },
-            _ => self.eval_explicit_without_cache(args),
+        if let Some(r) = cache.get(args) {
+            return r.clone();
         }
+
+        let p = self.eval_generic(args, cache);
+        let r = match self.relation_type {
+            RelationType::ExplicitFunctionOfX(_) => (self.ts[self.y_explicit.unwrap()].clone(), p),
+            RelationType::ExplicitFunctionOfY(_) => (self.ts[self.x_explicit.unwrap()].clone(), p),
+            _ => unreachable!(),
+        };
+
+        cache.insert_with(args, || r.clone());
+        r
+    }
+
+    /// Evaluates the implicit or constant relation.
+    ///
+    /// Precondition: `cache` has never been passed to other relations.
+    pub fn eval_implicit(
+        &mut self,
+        args: &RelationArgs,
+        cache: &mut EvalImplicitCache,
+    ) -> EvalResult {
+        assert!(matches!(
+            self.relation_type,
+            RelationType::Constant | RelationType::Implicit
+        ));
+        self.eval_count += 1;
+
+        if let Some(r) = cache.get(args) {
+            return r.clone();
+        }
+
+        let r = self.eval_generic(args, cache);
+
+        cache.insert_with(args, || r.clone());
+        r
     }
 
     /// Evaluates the parametric relation x = f(n, t) ∧ y = g(n, t) ∧ P(n, t)
@@ -340,21 +148,24 @@ impl Relation {
     pub fn eval_parametric(
         &mut self,
         args: &RelationArgs,
-        cache: Option<&mut EvalParametricCache>,
+        cache: &mut EvalParametricCache,
     ) -> EvalParametricResult {
         assert_eq!(self.relation_type, RelationType::Parametric);
+        self.eval_count += 1;
 
-        match cache {
-            Some(cache) => match cache.get(args) {
-                Some(r) => r.clone(),
-                _ => {
-                    let r = self.eval_parametric_without_cache(args);
-                    cache.insert(args, r.clone());
-                    r
-                }
-            },
-            _ => self.eval_parametric_without_cache(args),
+        if let Some(r) = cache.get(args) {
+            return r.clone();
         }
+
+        let p = self.eval_generic(args, cache);
+        let r = (
+            self.ts[self.x_explicit.unwrap()].clone(),
+            self.ts[self.y_explicit.unwrap()].clone(),
+            p,
+        );
+
+        cache.insert_with(args, || r.clone());
+        r
     }
 
     pub fn forms(&self) -> &Vec<StaticForm> {
@@ -387,41 +198,14 @@ impl Relation {
         &self.var_indices
     }
 
-    fn decoration_for_integer_arg(x: Interval) -> Decoration {
-        if x.is_singleton() {
-            Decoration::Com
-        } else {
-            Decoration::Def
-        }
-    }
-
-    fn eval_explicit_without_cache(&mut self, args: &RelationArgs) -> EvalExplicitResult {
-        let p = self.eval(args, None);
-
-        match self.relation_type {
-            RelationType::ExplicitFunctionOfX(_) => (self.ts[self.y_explicit.unwrap()].clone(), p),
-            RelationType::ExplicitFunctionOfY(_) => (self.ts[self.x_explicit.unwrap()].clone(), p),
-            _ => panic!(),
-        }
-    }
-
-    fn eval_parametric_without_cache(&mut self, args: &RelationArgs) -> EvalParametricResult {
-        let p = self.eval(args, None);
-
-        (
-            self.ts[self.x_explicit.unwrap()].clone(),
-            self.ts[self.y_explicit.unwrap()].clone(),
-            p,
-        )
-    }
-
-    fn eval_with_cache(&mut self, args: &RelationArgs, cache: &mut EvalCache) -> EvalResult {
-        if let Some(r) = cache.get_xy(args) {
-            return r.clone();
-        }
-
+    fn eval_generic<T: BytesAllocated>(
+        &mut self,
+        args: &RelationArgs,
+        cache: &mut EvalCacheGeneric<T>,
+    ) -> EvalResult {
         let ts = &mut self.ts;
         let mut cached_vars = VarSet::EMPTY;
+
         for i in 0..self.vars_ordered.len() {
             if let Some(mx_ts) = cache.get_x(i, args) {
                 for (&i, mx) in self.cached_terms[i].iter().zip(mx_ts.iter()) {
@@ -435,9 +219,10 @@ impl Relation {
             match t.kind {
                 StaticTermKind::Var(i, ty) => {
                     let x = args[i as usize];
-                    let d = match ty {
-                        VarType::Integer => Self::decoration_for_integer_arg(x),
-                        VarType::Real => Decoration::Com,
+                    let d = if ty == VarType::Integer && !x.is_singleton() {
+                        Decoration::Def
+                    } else {
+                        Decoration::Com
                     };
                     t.put(ts, DecInterval::set_dec(x, d).into());
                 }
@@ -465,36 +250,8 @@ impl Relation {
                 });
             }
         }
-        cache.insert_xy_with(args, || r.clone());
+
         r
-    }
-
-    fn eval_without_cache(&mut self, args: &RelationArgs) -> EvalResult {
-        let ts = &mut self.ts;
-        let terms = &self.terms;
-        for t in terms {
-            match t.kind {
-                StaticTermKind::Var(i, ty) => {
-                    let x = args[i as usize];
-                    let d = match ty {
-                        VarType::Integer => Self::decoration_for_integer_arg(x),
-                        VarType::Real => Decoration::Com,
-                    };
-                    t.put(ts, DecInterval::set_dec(x, d).into());
-                }
-                _ if t.vars == VarSet::EMPTY => {
-                    // `t` is constant.
-                }
-                _ => t.put_eval(ts),
-            }
-        }
-
-        EvalResult(
-            self.forms[..self.n_atom_forms]
-                .iter()
-                .map(|f| f.eval(ts))
-                .collect(),
-        )
     }
 
     fn initialize(&mut self) {

@@ -19,6 +19,7 @@ mod arb_interval_set_ops;
 mod ast;
 mod block;
 mod context;
+mod eval_cache;
 mod eval_result;
 mod geom;
 mod graph;

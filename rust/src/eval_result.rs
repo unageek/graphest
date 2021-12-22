@@ -1,11 +1,11 @@
 use crate::{
-    interval_set::{DecSignSet, SignSet},
+    interval_set::{DecSignSet, SignSet, TupperIntervalSet},
     ops::{StaticForm, StaticFormKind},
     traits::BytesAllocated,
     Ternary,
 };
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
-use inari::Decoration;
+use inari::{Decoration, Interval};
 use smallvec::SmallVec;
 
 /// A sequence of evaluation results of atomic formulas.
@@ -169,5 +169,32 @@ impl Not for EvalResultMask {
 
     fn not(self) -> Self::Output {
         EvalResultMask(self.0.iter().map(|&x| !x).collect())
+    }
+}
+
+pub type RelationArgs = [Interval];
+
+#[macro_export]
+macro_rules! set_arg {
+    ($args:expr, $opt_index:expr, $x:expr) => {
+        if let Some(i) = $opt_index {
+            $args[i as usize] = $x;
+        }
+    };
+}
+
+pub type EvalExplicitResult = (TupperIntervalSet, EvalResult);
+
+impl BytesAllocated for EvalExplicitResult {
+    fn bytes_allocated(&self) -> usize {
+        self.0.bytes_allocated() + self.1.bytes_allocated()
+    }
+}
+
+pub type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, EvalResult);
+
+impl BytesAllocated for EvalParametricResult {
+    fn bytes_allocated(&self) -> usize {
+        self.0.bytes_allocated() + self.1.bytes_allocated() + self.2.bytes_allocated()
     }
 }

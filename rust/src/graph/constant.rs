@@ -1,8 +1,10 @@
 use crate::{
+    eval_cache::{EvalCacheLevel, EvalImplicitCache},
     graph::{Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Ternary},
     image::Image,
     relation::{Relation, RelationType},
     traits::BytesAllocated,
+    vars::VarSet,
 };
 use std::time::{Duration, Instant};
 
@@ -36,7 +38,10 @@ impl Constant {
     fn refine_impl(&mut self) -> Result<bool, GraphingError> {
         if self.result.is_none() {
             let args = self.rel.create_args();
-            let r = self.rel.eval(&args, None);
+            let r = self.rel.eval_implicit(
+                &args,
+                &mut EvalImplicitCache::new(EvalCacheLevel::None, VarSet::EMPTY),
+            );
 
             self.result = Some(r.result(self.rel.forms()));
         }

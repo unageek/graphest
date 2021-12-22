@@ -1,5 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, Coordinate, IntegerParameter, RealParameter},
+    eval_cache::{EvalCacheLevel, EvalImplicitCache},
+    eval_result::RelationArgs,
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -7,7 +9,7 @@ use crate::{
     image::{Image, PixelIndex, PixelRange},
     interval_set::{DecSignSet, SignSet},
     region::Region,
-    relation::{EvalCache, EvalCacheLevel, Relation, RelationArgs, RelationType, VarIndices},
+    relation::{Relation, RelationType, VarIndices},
     set_arg,
     traits::BytesAllocated,
     vars,
@@ -38,8 +40,8 @@ pub struct Implicit {
     im_to_real: Transform2D,
     stats: GraphingStatistics,
     mem_limit: usize,
-    cache_eval_on_region: EvalCache,
-    cache_eval_on_point: EvalCache,
+    cache_eval_on_region: EvalImplicitCache,
+    cache_eval_on_point: EvalImplicitCache,
 }
 
 impl Implicit {
@@ -91,11 +93,11 @@ impl Implicit {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache_eval_on_region: EvalCache::new(EvalCacheLevel::PerAxis, vars),
+            cache_eval_on_region: EvalImplicitCache::new(EvalCacheLevel::Univariate, vars),
             cache_eval_on_point: if XY.contains(vars) {
-                EvalCache::new(EvalCacheLevel::Full, vars)
+                EvalImplicitCache::new(EvalCacheLevel::Full, vars)
             } else {
-                EvalCache::new(EvalCacheLevel::PerAxis, vars)
+                EvalImplicitCache::new(EvalCacheLevel::Univariate, vars)
             },
         };
 
@@ -277,7 +279,7 @@ impl Implicit {
         set_arg!(args, self.var_indices.t, b.t.interval());
         set_arg!(args, self.var_indices.x, u_up.x());
         set_arg!(args, self.var_indices.y, u_up.y());
-        let r_u_up = self.rel.eval(args, Some(&mut self.cache_eval_on_region));
+        let r_u_up = self.rel.eval_implicit(args, &mut self.cache_eval_on_region);
 
         let result = r_u_up.result(self.rel.forms());
 
@@ -308,7 +310,7 @@ impl Implicit {
         set_arg!(args, self.var_indices.t, b.t.interval());
         set_arg!(args, self.var_indices.x, u_up.x());
         set_arg!(args, self.var_indices.y, u_up.y());
-        let r_u_up = self.rel.eval(args, Some(&mut self.cache_eval_on_region));
+        let r_u_up = self.rel.eval_implicit(args, &mut self.cache_eval_on_region);
 
         let result_mask = r_u_up.result_mask();
         let result = result_mask.eval(self.rel.forms());
@@ -368,7 +370,7 @@ impl Implicit {
         for point in &points {
             set_arg!(args, self.var_indices.x, point_interval(point.0));
             set_arg!(args, self.var_indices.y, point_interval(point.1));
-            let r = self.rel.eval(args, Some(&mut self.cache_eval_on_point));
+            let r = self.rel.eval_implicit(args, &mut self.cache_eval_on_point);
 
             // `ss` is nonempty if the decoration is ≥ `Def`, which will be ensured
             // by taking bitand with `dac_mask`.
