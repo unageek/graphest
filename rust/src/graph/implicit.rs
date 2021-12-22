@@ -313,7 +313,7 @@ impl Implicit {
         set_arg!(args, self.var_indices.t, b.t.interval());
         set_arg!(args, self.var_indices.x, u_up.x());
         set_arg!(args, self.var_indices.y, u_up.y());
-        let (result_mask, dac_mask, mut neg_mask, mut pos_mask) = {
+        let (locally_zero_mask, dac_mask, mut neg_mask, mut pos_mask) = {
             let r_u_up = self.rel.eval_implicit(args, &mut self.cache_eval_on_region);
 
             let result_mask = r_u_up.result_mask();
@@ -338,28 +338,27 @@ impl Implicit {
                 return false;
             }
 
-            // Evaluate the relation for some sample points within the inner bounds of the subpixel
-            // and try proving existence of a solution in two ways:
-            //
-            // a. Test if the relation is true for any of the sample points.
-            //    This is useful especially for plotting inequalities such as "lcm(x, y) ≤ 1".
-            //
-            // b. Use the intermediate value theorem.
-            //    A note about `locally_zero_mask` (for plotting conjunction):
-            //    Suppose we are plotting "y = sin(x) && x ≥ 0".
-            //    If the conjunct "x ≥ 0" is true throughout the subpixel
-            //    and "y - sin(x)" evaluates to `POS` for a sample point and `NEG` for another,
-            //    we can conclude that there is a point within the subpixel where the entire relation holds.
-            //    Such observation would not be possible by merely converting the relation to
-            //    "|y - sin(x)| + |x ≥ 0 ? 0 : 1| = 0".
             let dac_mask = r_u_up.map(|DecSignSet(_, d)| d >= Decoration::Dac);
-
             let neg_mask = r_u_up.map(|_| false);
             let pos_mask = neg_mask.clone();
 
             (result_mask, dac_mask, neg_mask, pos_mask)
         };
 
+        // Evaluate the relation for some sample points within the inner bounds of the subpixel
+        // and try proving existence of a solution in two ways:
+        //
+        // a. Test if the relation is true for any of the sample points.
+        //    This is useful especially for plotting inequalities such as "lcm(x, y) ≤ 1".
+        //
+        // b. Use the intermediate value theorem.
+        //    A note on `locally_zero_mask` (for plotting conjunction):
+        //    Suppose we are plotting "y = sin(x) && x ≥ 0".
+        //    If the conjunct "x ≥ 0" is true throughout the subpixel
+        //    and "y - sin(x)" evaluates to `POS` for a sample point and `NEG` for another,
+        //    we can conclude that there is a point within the subpixel where the entire relation holds.
+        //    Such observation would not be possible by merely converting the relation to
+        //    "|y - sin(x)| + |x ≥ 0 ? 0 : 1| = 0".
         let points = {
             let x = inter.x();
             let y = inter.y();
@@ -386,7 +385,7 @@ impl Implicit {
 
             if point_result.certainly_true()
                 || (&(&neg_mask & &pos_mask) & &dac_mask)
-                    .solution_certainly_exists(self.rel.forms(), &result_mask)
+                    .solution_certainly_exists(self.rel.forms(), &locally_zero_mask)
             {
                 // Found a solution.
                 for p in &pixels {
