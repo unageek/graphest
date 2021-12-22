@@ -56,7 +56,7 @@ impl Parametric {
 
         let vars = rel.vars();
         let var_indices = rel.var_indices().clone();
-        let subdivision_dirs = [VarSet::N, VarSet::T]
+        let subdivision_dirs = [VarSet::M, VarSet::N, VarSet::T]
             .into_iter()
             .filter(|&d| vars.contains(d))
             .collect();
@@ -116,6 +116,7 @@ impl Parametric {
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
+                VarSet::M => subdivide_m(&mut sub_bs, &b),
                 VarSet::N => subdivide_n(&mut sub_bs, &b),
                 VarSet::T => subdivide_t(&mut sub_bs, &b),
                 _ => panic!(),
@@ -130,7 +131,7 @@ impl Parametric {
             }
 
             let n_max = match b.next_dir {
-                VarSet::N => 3,
+                VarSet::M | VarSet::N => 3,
                 VarSet::T => 1000, // Avoid repeated subdivision of t.
                 _ => panic!(),
             };
@@ -156,7 +157,8 @@ impl Parametric {
 
             for (mut sub_b, incomplete_pixels) in incomplete_sub_bs.drain(..) {
                 let next_dir = next_dir_candidates.iter().copied().find(|&d| {
-                    d == VarSet::N && sub_b.n.is_subdivisible()
+                    d == VarSet::M && sub_b.m.is_subdivisible()
+                        || d == VarSet::N && sub_b.n.is_subdivisible()
                         || d == VarSet::T && sub_b.t.is_subdivisible()
                 });
 
@@ -210,6 +212,7 @@ impl Parametric {
     /// Tries to prove or disprove the existence of a solution in the block
     /// and if it is unsuccessful, returns pixels that possibly contain solutions.
     fn process_block(&mut self, block: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
+        set_arg!(args, self.var_indices.m, block.m.interval());
         set_arg!(args, self.var_indices.n, block.n.interval());
         set_arg!(args, self.var_indices.t, block.t.interval());
         let (xs, ys, cond) = self.rel.eval_parametric(args, &mut self.no_cache).clone();

@@ -57,7 +57,7 @@ impl Implicit {
 
         let vars = rel.vars();
         let var_indices = rel.var_indices().clone();
-        let subdivision_dirs = [XY, VarSet::N_THETA, VarSet::N, VarSet::T]
+        let subdivision_dirs = [XY, VarSet::M, VarSet::N, VarSet::N_THETA, VarSet::T]
             .into_iter()
             .filter(|&d| (XY | vars).contains(d))
             .collect();
@@ -145,8 +145,9 @@ impl Implicit {
             let bi = self.bs_to_subdivide.begin_index() - 1;
             match b.next_dir {
                 XY => self.subdivide_xy(&mut sub_bs, &b),
-                VarSet::N_THETA => subdivide_n_theta(&mut sub_bs, &b),
+                VarSet::M => subdivide_m(&mut sub_bs, &b),
                 VarSet::N => subdivide_n(&mut sub_bs, &b),
+                VarSet::N_THETA => subdivide_n_theta(&mut sub_bs, &b),
                 VarSet::T => subdivide_t_twice(&mut sub_bs, &b),
                 _ => panic!(),
             }
@@ -179,7 +180,7 @@ impl Implicit {
 
             let n_max = match b.next_dir {
                 XY => 4,
-                VarSet::N_THETA | VarSet::N => 3,
+                VarSet::M | VarSet::N | VarSet::N_THETA => 3,
                 VarSet::T => 1000, // Avoid repeated subdivision of t.
                 _ => panic!(),
             };
@@ -206,8 +207,9 @@ impl Implicit {
             for mut sub_b in incomplete_sub_bs.drain(..) {
                 let next_dir = next_dir_candidates.iter().copied().find(|&d| {
                     d == XY && sub_b.x.is_subdivisible()
-                        || d == VarSet::N_THETA && sub_b.n_theta.is_subdivisible()
+                        || d == VarSet::M && sub_b.m.is_subdivisible()
                         || d == VarSet::N && sub_b.n.is_subdivisible()
+                        || d == VarSet::N_THETA && sub_b.n_theta.is_subdivisible()
                         || d == VarSet::T && sub_b.t.is_subdivisible()
                 });
 
@@ -274,6 +276,7 @@ impl Implicit {
         }
 
         let u_up = self.block_to_region_clipped(b).outer();
+        set_arg!(args, self.var_indices.m, b.m.interval());
         set_arg!(args, self.var_indices.n, b.n.interval());
         set_arg!(args, self.var_indices.n_theta, b.n_theta.interval());
         set_arg!(args, self.var_indices.t, b.t.interval());
@@ -308,6 +311,7 @@ impl Implicit {
         let p_dn = self.block_to_region(&b.pixel_block()).inner();
         let inter = u_up.intersection(&p_dn);
 
+        set_arg!(args, self.var_indices.m, b.m.interval());
         set_arg!(args, self.var_indices.n, b.n.interval());
         set_arg!(args, self.var_indices.n_theta, b.n_theta.interval());
         set_arg!(args, self.var_indices.t, b.t.interval());

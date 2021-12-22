@@ -43,6 +43,7 @@ pub enum RelationType {
 
 #[derive(Clone, Debug)]
 pub struct VarIndices {
+    pub m: Option<VarIndex>,
     pub n: Option<VarIndex>,
     pub n_theta: Option<VarIndex>,
     pub t: Option<VarIndex>,
@@ -324,10 +325,17 @@ impl FromStr for Relation {
             RelationType::Parametric => e.vars.difference(VarSet::X | VarSet::Y),
             _ => e.vars,
         };
-        let vars_ordered = [VarSet::N, VarSet::N_THETA, VarSet::T, VarSet::X, VarSet::Y]
-            .into_iter()
-            .filter(|&v| vars.contains(v))
-            .collect::<Vec<_>>();
+        let vars_ordered = [
+            VarSet::M,
+            VarSet::N,
+            VarSet::N_THETA,
+            VarSet::T,
+            VarSet::X,
+            VarSet::Y,
+        ]
+        .into_iter()
+        .filter(|&v| vars.contains(v))
+        .collect::<Vec<_>>();
         let var_index = vars_ordered
             .iter()
             .enumerate()
@@ -370,6 +378,7 @@ impl FromStr for Relation {
             vars,
             vars_ordered,
             var_indices: VarIndices {
+                m: var_index.get(&VarSet::M).copied(),
                 n: var_index.get(&VarSet::N).copied(),
                 n_theta: var_index.get(&VarSet::N_THETA).copied(),
                 t: var_index.get(&VarSet::T).copied(),
@@ -687,7 +696,7 @@ fn normalize_parametric_relation(e: &mut Expr) -> bool {
 fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelationParts) -> bool {
     use BinaryOp::*;
 
-    const PARAMS: VarSet = vars!(VarSet::N | VarSet::T);
+    const PARAMS: VarSet = vars!(VarSet::M | VarSet::N | VarSet::T);
 
     match e {
         binary!(And, e1, e2) => {
@@ -852,6 +861,7 @@ mod tests {
         assert_eq!(f("y = 0"), VarSet::EMPTY);
         assert_eq!(f("r = 0"), VarSet::X | VarSet::Y);
         assert_eq!(f("θ = 0"), VarSet::X | VarSet::Y | VarSet::N_THETA);
+        assert_eq!(f("m = 0"), VarSet::M);
         assert_eq!(f("n = 0"), VarSet::N);
         assert_eq!(f("t = 0"), VarSet::T);
     }
