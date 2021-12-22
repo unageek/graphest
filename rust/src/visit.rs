@@ -11,7 +11,7 @@ use crate::{
     },
     parse::parse_expr,
     pown, rootn, ternary, unary, uninit, var,
-    vars::VarSet,
+    vars::{VarIndex, VarSet},
 };
 use inari::Decoration;
 use rug::Rational;
@@ -1500,7 +1500,7 @@ impl VisitMut for AssignId {
 }
 
 /// Collects [`StaticTerm`]s and [`StaticForm`]s in ascending order of the IDs.
-pub struct CollectStatic {
+pub struct CollectStatic<'a> {
     pub terms: Vec<StaticTerm>,
     pub forms: Vec<StaticForm>,
     site_map: SiteMap,
@@ -1508,10 +1508,11 @@ pub struct CollectStatic {
     term_index: HashMap<ExprId, usize>,
     form_index: HashMap<ExprId, FormIndex>,
     next_scalar_store_index: u32,
+    var_index: &'a HashMap<VarSet, VarIndex>,
 }
 
-impl CollectStatic {
-    pub fn new(v: AssignId) -> Self {
+impl<'a> CollectStatic<'a> {
+    pub fn new(v: AssignId, var_index: &'a HashMap<VarSet, VarIndex>) -> Self {
         let mut slf = Self {
             terms: vec![],
             forms: vec![],
@@ -1520,6 +1521,7 @@ impl CollectStatic {
             term_index: HashMap::new(),
             form_index: HashMap::new(),
             next_scalar_store_index: 0,
+            var_index,
         };
         slf.collect_terms();
         slf.collect_atomic_forms();
@@ -1533,7 +1535,10 @@ impl CollectStatic {
             let k = match &*t {
                 bool_constant!(_) => None,
                 constant!(x) => Some(StaticTermKind::Constant(box x.interval().clone())),
-                var!(_) => Some(StaticTermKind::Var),
+                var!(_) => self
+                    .var_index
+                    .get(&t.vars)
+                    .map(|&i| StaticTermKind::Var(i, t.vars.var_type())),
                 unary!(op, x) => (|| {
                     Some(match op {
                         Abs => ScalarUnaryOp::Abs,
@@ -1718,7 +1723,7 @@ impl CollectStatic {
 /// which can be nested in top-level [`BinaryOp::And`] operations,
 /// where `x` is the variable specified in the constructor.
 pub struct FindExplicitRelation<'a> {
-    collector: &'a CollectStatic,
+    collector: &'a CollectStatic<'a>,
     variable: VarSet,
     store_index: Option<StoreIndex>,
 }
@@ -1753,47 +1758,44 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
 
 /// Collects the store indices of maximal scalar sub-expressions that contain exactly one free variable.
 /// Expressions of the kind [`ExprKind::Var`](crate::ast::ExprKind::Var) are excluded from collection.
-pub struct FindMaximalScalarTerms {
-    mx: Vec<StoreIndex>,
-    my: Vec<StoreIndex>,
+pub struct FindMaximalScalarTerms<'a> {
+    mx: Vec<Vec<StoreIndex>>,
     terms: Vec<StaticTerm>,
     term_index: HashMap<ExprId, usize>,
+    var_index: &'a HashMap<VarSet, VarIndex>,
 }
 
-impl FindMaximalScalarTerms {
-    pub fn new(collector: CollectStatic) -> Self {
+impl<'a> FindMaximalScalarTerms<'a> {
+    pub fn new(collector: CollectStatic<'a>) -> Self {
+        let var_index = collector.var_index;
         Self {
-            mx: vec![],
-            my: vec![],
+            mx: vec![vec![]; var_index.len()],
             terms: collector.terms,
             term_index: collector.term_index,
+            var_index,
         }
     }
 
-    pub fn mx_my(mut self) -> (Vec<StoreIndex>, Vec<StoreIndex>) {
-        self.mx.sort_unstable();
-        self.mx.dedup();
-        self.my.sort_unstable();
-        self.my.dedup();
-        (self.mx, self.my)
+    /// Returns a vector that maps [`VarIndex`] to a vector of store indices.
+    pub fn get(mut self) -> Vec<Vec<StoreIndex>> {
+        for m in &mut self.mx {
+            m.sort_unstable();
+            m.dedup();
+        }
+        self.mx
     }
 }
 
-impl<'a> Visit<'a> for FindMaximalScalarTerms {
+impl<'a> Visit<'a> for FindMaximalScalarTerms<'a> {
     fn visit_expr(&mut self, e: &'a Expr) {
         match e.vars {
             VarSet::EMPTY => {
                 // Stop traversal.
             }
-            VarSet::X if e.ty == ValueType::Real => {
+            vars if vars.len() == 1 && e.ty == ValueType::Real => {
                 if !matches!(e, var!(_)) {
-                    self.mx.push(self.terms[self.term_index[&e.id]].store_index);
-                }
-                // Stop traversal.
-            }
-            VarSet::Y if e.ty == ValueType::Real => {
-                if !matches!(e, var!(_)) {
-                    self.my.push(self.terms[self.term_index[&e.id]].store_index);
+                    self.mx[self.var_index[&vars] as usize]
+                        .push(self.terms[self.term_index[&e.id]].store_index);
                 }
                 // Stop traversal.
             }

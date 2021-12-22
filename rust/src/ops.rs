@@ -1,6 +1,6 @@
 use crate::{
     interval_set::{DecSignSet, Site, TupperIntervalSet},
-    vars::VarSet,
+    vars::{VarIndex, VarSet, VarType},
 };
 use std::ops::{Index, IndexMut};
 
@@ -133,7 +133,7 @@ pub enum RelOp {
 #[derive(Clone, Debug)]
 pub enum StaticTermKind {
     Constant(Box<TupperIntervalSet>),
-    Var,
+    Var(VarIndex, VarType),
     Unary(ScalarUnaryOp, StoreIndex),
     Binary(ScalarBinaryOp, StoreIndex, StoreIndex),
     Ternary(ScalarTernaryOp, StoreIndex, StoreIndex, StoreIndex),
@@ -262,7 +262,7 @@ impl StaticTerm {
                     ),
                 );
             }
-            Var => panic!("variables cannot be evaluated"),
+            Var(_, _) => panic!("variables cannot be evaluated"),
         }
     }
 }

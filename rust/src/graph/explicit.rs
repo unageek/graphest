@@ -1,6 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, Coordinate},
-    eval_result::EvalResult,
+    eval_cache::{EvalCacheLevel, EvalExplicitCache},
+    eval_result::EvalArgs,
     geom::{Box1D, Box2D, Transform1D, TransformMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -8,9 +9,10 @@ use crate::{
     image::{Image, PixelIndex, PixelRange},
     interval_set::TupperIntervalSet,
     region::Region,
-    relation::{EvalExplicitCache, ExplicitRelationOp, Relation, RelationType},
+    relation::{ExplicitRelationOp, Relation, RelationType},
+    set_arg,
     traits::BytesAllocated,
-    vars::VarSet,
+    vars::{VarIndex, VarSet},
 };
 use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
@@ -27,6 +29,7 @@ pub struct Explicit {
     rel: Relation,
     op: ExplicitRelationOp,
     transpose: bool,
+    x_index: Option<VarIndex>,
     im: Image<PixelState>,
     block_queue: BlockQueue,
     im_region: Region,
@@ -34,6 +37,7 @@ pub struct Explicit {
     real_to_im_y: Transform1D,
     stats: GraphingStatistics,
     mem_limit: usize,
+    no_cache: EvalExplicitCache,
     cache: EvalExplicitCache,
 }
 
@@ -52,6 +56,7 @@ impl Explicit {
             RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_)
         ));
 
+        let vars = rel.vars();
         let op = match relation_type {
             RelationType::ExplicitFunctionOfX(op) | RelationType::ExplicitFunctionOfY(op) => op,
             _ => unreachable!(),
@@ -59,8 +64,9 @@ impl Explicit {
         let transpose = matches!(relation_type, RelationType::ExplicitFunctionOfY(_));
         let im = Image::new(im_width, im_height);
 
-        let (region, im_width, im_height, padding) = if transpose {
+        let (x_index, region, im_width, im_height, padding) = if transpose {
             (
+                rel.var_indices().y,
                 region.transpose(),
                 im_height,
                 im_width,
@@ -72,12 +78,14 @@ impl Explicit {
                 },
             )
         } else {
-            (region, im_width, im_height, padding)
+            (rel.var_indices().x, region, im_width, im_height, padding)
         };
+
         let mut g = Self {
             rel,
             op,
             transpose,
+            x_index,
             im,
             block_queue: BlockQueue::new(VarSet::X),
             im_region: Region::new(
@@ -107,7 +115,8 @@ impl Explicit {
                 time_elapsed: Duration::ZERO,
             },
             mem_limit,
-            cache: EvalExplicitCache::default(),
+            no_cache: EvalExplicitCache::new(EvalCacheLevel::None, vars),
+            cache: EvalExplicitCache::new(EvalCacheLevel::Full, vars),
         };
 
         let kx = (im_width as f64).log2().ceil() as i8;
@@ -122,13 +131,14 @@ impl Explicit {
 
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
+        let mut args = self.rel.create_args();
         while let Some(b) = self.block_queue.pop_front() {
             let bi = self.block_queue.begin_index() - 1;
 
             let incomplete_pixels = if !b.x.is_subpixel() {
-                self.process_block(&b)
+                self.process_block(&b, &mut args)
             } else {
-                self.process_subpixel_block(&b)
+                self.process_subpixel_block(&b, &mut args)
             };
 
             if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
@@ -180,9 +190,10 @@ impl Explicit {
     /// and if it is unsuccessful, returns pixels that possibly contain solutions.
     ///
     /// Precondition: the block is either a pixel or a superpixel.
-    fn process_block(&mut self, b: &Block) -> Vec<PixelRange> {
+    fn process_block(&mut self, b: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
         let x_up = self.block_to_region_clipped(b).outer();
-        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x_up);
+        set_arg!(args, self.x_index, x_up);
+        let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache);
 
         let px = {
             let begin = b.pixel_index().x;
@@ -221,13 +232,10 @@ impl Explicit {
     /// and if it is unsuccessful, returns pixels that possibly contain solutions.
     ///
     /// Precondition: the block is a subpixel.
-    fn process_subpixel_block(&mut self, b: &Block) -> Vec<PixelRange> {
+    fn process_subpixel_block(&mut self, b: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
         let x_up = subpixel_outer_x(&self.block_to_region(b), b);
-        let inter = {
-            let p_dn = self.block_to_region(&b.pixel_block()).inner();
-            x_up.intersection(p_dn)
-        };
-        let (ys, cond) = Self::eval_on_interval(&mut self.rel, x_up);
+        set_arg!(args, self.x_index, x_up);
+        let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache);
 
         let px = {
             let begin = b.pixel_index().x;
@@ -256,12 +264,18 @@ impl Explicit {
             return vec![];
         }
 
+        let x_dn = self.block_to_region(&b.pixel_block()).inner();
+        let inter = x_up.intersection(x_dn);
+
         if !inter.is_empty() {
             // To dedup, points must be sorted.
             let rs = [inter.inf(), simple_fraction(inter), inter.sup()]
                 .iter()
                 .dedup()
-                .map(|&x| Self::eval_on_point(&mut self.rel, x, Some(&mut self.cache)))
+                .map(|&x| {
+                    set_arg!(args, self.x_index, point_interval(x));
+                    self.rel.eval_explicit(args, &mut self.cache)
+                })
                 .collect::<SmallVec<[_; 3]>>();
 
             if dec >= Decoration::Dac && cond.certainly_true() {
@@ -339,18 +353,6 @@ impl Explicit {
             point_interval((px + pw).min(self.im_width() as f64)),
         )
         .transform(&self.im_to_real_x)
-    }
-
-    fn eval_on_interval(rel: &mut Relation, x: Interval) -> (TupperIntervalSet, EvalResult) {
-        rel.eval_explicit(x, None)
-    }
-
-    fn eval_on_point(
-        rel: &mut Relation,
-        x: f64,
-        cache: Option<&mut EvalExplicitCache>,
-    ) -> (TupperIntervalSet, EvalResult) {
-        rel.eval_explicit(point_interval(x), cache)
     }
 
     /// Returns enclosures of `y` in image coordinates.
