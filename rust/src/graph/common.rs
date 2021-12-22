@@ -125,6 +125,14 @@ pub fn simple_fraction(x: Interval) -> f64 {
     }
 }
 
+/// Subdivides `b.m` and appends the sub-blocks to `sub_bs`.
+/// Three sub-blocks are created at most.
+///
+/// Precondition: `b.m.is_subdivisible()` is `true`.
+pub fn subdivide_m(sub_bs: &mut Vec<Block>, b: &Block) {
+    sub_bs.extend(b.m.subdivide().into_iter().map(|m| Block { m, ..*b }));
+}
+
 /// Subdivides `b.n` and appends the sub-blocks to `sub_bs`.
 /// Three sub-blocks are created at most.
 ///

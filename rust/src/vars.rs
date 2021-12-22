@@ -5,11 +5,12 @@ bitflags! {
     #[derive(Default)]
     pub struct VarSet: u8 {
         const EMPTY = 0;
-        const X = 1;
-        const Y = 2;
+        const M = 1;
+        const N = 2;
         const N_THETA = 4;
-        const N = 8;
-        const T = 16;
+        const T = 8;
+        const X = 16;
+        const Y = 32;
     }
 }
 
@@ -26,7 +27,7 @@ impl VarSet {
 
     pub fn var_type(&self) -> VarType {
         match *self {
-            VarSet::N | VarSet::N_THETA => VarType::Integer,
+            VarSet::M | VarSet::N | VarSet::N_THETA => VarType::Integer,
             VarSet::T | VarSet::X | VarSet::Y => VarType::Real,
             _ => panic!(),
         }

@@ -179,6 +179,17 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
             },
         )
         .def(
+            "m",
+            Def::var(
+                "m",
+                VarProps {
+                    totally_defined: true,
+                    ty: ValueType::Real,
+                    vars: VarSet::M,
+                },
+            ),
+        )
+        .def(
             "n",
             Def::var(
                 "n",
