@@ -18,6 +18,7 @@ use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
 use std::{
     convert::TryFrom,
+    default::default,
     iter::once,
     mem::swap,
     time::{Duration, Instant},
@@ -101,7 +102,7 @@ impl Parametric {
         g.bs_to_subdivide.push_back(Block {
             t: RealParameter::new(g.rel.t_range()),
             next_dir: g.subdivision_dirs[0],
-            ..Block::default()
+            ..default()
         });
 
         g
