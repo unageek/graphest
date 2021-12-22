@@ -292,6 +292,16 @@ impl Block {
     }
 }
 
+const DEFAULT_BLOCK: Block = Block {
+    x: Coordinate { i: 0, k: 0 },
+    y: Coordinate { i: 0, k: 0 },
+    m: IntegerParameter(Interval::ENTIRE),
+    n: IntegerParameter(Interval::ENTIRE),
+    n_theta: IntegerParameter(Interval::ENTIRE),
+    t: RealParameter(Interval::ENTIRE),
+    next_dir: VarSet::EMPTY,
+};
+
 /// A queue that stores [`Block`]s.
 ///
 /// The [`Block`]s are entropy-encoded internally so that the closer the indices of consecutive
@@ -369,67 +379,50 @@ impl BlockQueue {
     /// Removes the first block from the queue and returns it.
     /// [`None`] is returned if the queue is empty.
     pub fn pop_front(&mut self) -> Option<Block> {
-        let x = if self.store_vars.contains(VarSet::X) {
+        // This is (somehow) faster than Block::default().
+        let mut b = DEFAULT_BLOCK;
+
+        if self.store_vars.contains(VarSet::X) {
             self.x_front ^= self.pop_small_u64()?;
-            Coordinate {
+            b.x = Coordinate {
                 i: self.x_front,
                 k: self.pop_i8()?,
-            }
-        } else {
-            Coordinate::default()
-        };
+            };
+        }
 
-        let y = if self.store_vars.contains(VarSet::Y) {
+        if self.store_vars.contains(VarSet::Y) {
             self.y_front ^= self.pop_small_u64()?;
-            Coordinate {
+            b.y = Coordinate {
                 i: self.y_front,
                 k: self.pop_i8()?,
-            }
-        } else {
-            Coordinate::default()
-        };
+            };
+        }
 
-        let m = if self.store_vars.contains(VarSet::M) {
+        if self.store_vars.contains(VarSet::M) {
             self.m_front = self.pop_interval(self.m_front)?;
-            IntegerParameter(self.m_front)
-        } else {
-            IntegerParameter::default()
-        };
+            b.m = IntegerParameter(self.m_front)
+        }
 
-        let n = if self.store_vars.contains(VarSet::N) {
+        if self.store_vars.contains(VarSet::N) {
             self.n_front = self.pop_interval(self.n_front)?;
-            IntegerParameter(self.n_front)
-        } else {
-            IntegerParameter::default()
-        };
+            b.n = IntegerParameter(self.n_front);
+        }
 
-        let n_theta = if self.store_vars.contains(VarSet::N_THETA) {
+        if self.store_vars.contains(VarSet::N_THETA) {
             self.n_theta_front = self.pop_interval(self.n_theta_front)?;
-            IntegerParameter(self.n_theta_front)
-        } else {
-            IntegerParameter::default()
-        };
+            b.n_theta = IntegerParameter(self.n_theta_front);
+        }
 
-        let t = if self.store_vars.contains(VarSet::T) {
+        if self.store_vars.contains(VarSet::T) {
             self.t_front = self.pop_interval(self.t_front)?;
-            RealParameter(self.t_front)
-        } else {
-            RealParameter::default()
-        };
+            b.t = RealParameter(self.t_front);
+        }
 
-        let next_dir = self.pop_vars()?;
+        b.next_dir = self.pop_vars()?;
 
         self.begin_index += 1;
 
-        Some(Block {
-            x,
-            y,
-            m,
-            n,
-            n_theta,
-            t,
-            next_dir,
-        })
+        Some(b)
     }
 
     /// Appends the block to the back of the queue.
