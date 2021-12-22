@@ -193,7 +193,7 @@ impl Explicit {
     fn process_block(&mut self, b: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
         let x_up = self.block_to_region_clipped(b).outer();
         set_arg!(args, self.x_index, x_up);
-        let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache);
+        let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache).clone();
 
         let px = {
             let begin = b.pixel_index().x;
@@ -235,7 +235,7 @@ impl Explicit {
     fn process_subpixel_block(&mut self, b: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
         let x_up = subpixel_outer_x(&self.block_to_region(b), b);
         set_arg!(args, self.x_index, x_up);
-        let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache);
+        let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache).clone();
 
         let px = {
             let begin = b.pixel_index().x;
@@ -274,7 +274,7 @@ impl Explicit {
                 .dedup()
                 .map(|&x| {
                     set_arg!(args, self.x_index, point_interval(x));
-                    self.rel.eval_explicit(args, &mut self.cache)
+                    self.rel.eval_explicit(args, &mut self.cache).clone()
                 })
                 .collect::<SmallVec<[_; 3]>>();
 

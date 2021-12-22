@@ -2,15 +2,13 @@ use crate::{
     ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType},
     binary, bool_constant, constant,
     context::Context,
-    eval_cache::{EvalCache, EvalExplicitCache, EvalImplicitCache, EvalParametricCache},
+    eval_cache::{EvalExplicitCache, EvalImplicitCache, EvalParametricCache, UnivariateCache},
     eval_result::{EvalArgs, EvalExplicitResult, EvalParametricResult, EvalResult},
     interval_set::TupperIntervalSet,
     nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
     parse::{format_error, parse_expr},
-    ternary,
-    traits::BytesAllocated,
-    unary, var, vars,
+    ternary, unary, var, vars,
     vars::{VarIndex, VarSet, VarType},
     visit::*,
 };
@@ -89,50 +87,48 @@ impl Relation {
     /// If P(x) (or P(y)) is absent, its value is assumed to be always true.
     ///
     /// Precondition: `cache` has never been passed to other relations.
-    pub fn eval_explicit(
+    pub fn eval_explicit<'a>(
         &mut self,
         args: &EvalArgs,
-        cache: &mut EvalExplicitCache,
-    ) -> EvalExplicitResult {
+        cache: &'a mut EvalExplicitCache,
+    ) -> &'a EvalExplicitResult {
         assert!(matches!(
             self.relation_type,
             RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_)
         ));
         self.eval_count += 1;
 
-        if let Some(r) = cache.get(args) {
-            return r.clone();
-        }
-
-        let p = self.eval(args, cache);
-        let r = match self.relation_type {
-            RelationType::ExplicitFunctionOfX(_) => (self.ts[self.y_explicit.unwrap()].clone(), p),
-            RelationType::ExplicitFunctionOfY(_) => (self.ts[self.x_explicit.unwrap()].clone(), p),
-            _ => unreachable!(),
-        };
-
-        cache.insert_with(args, || r.clone());
-        r
+        cache.full.get_or_insert_with(args, || {
+            let p = self.eval(args, &mut cache.univariate);
+            match self.relation_type {
+                RelationType::ExplicitFunctionOfX(_) => {
+                    (self.ts[self.y_explicit.unwrap()].clone(), p)
+                }
+                RelationType::ExplicitFunctionOfY(_) => {
+                    (self.ts[self.x_explicit.unwrap()].clone(), p)
+                }
+                _ => unreachable!(),
+            }
+        })
     }
 
     /// Evaluates the implicit or constant relation.
     ///
     /// Precondition: `cache` has never been passed to other relations.
-    pub fn eval_implicit(&mut self, args: &EvalArgs, cache: &mut EvalImplicitCache) -> EvalResult {
+    pub fn eval_implicit<'a>(
+        &mut self,
+        args: &EvalArgs,
+        cache: &'a mut EvalImplicitCache,
+    ) -> &'a EvalResult {
         assert!(matches!(
             self.relation_type,
             RelationType::Constant | RelationType::Implicit
         ));
         self.eval_count += 1;
 
-        if let Some(r) = cache.get(args) {
-            return r.clone();
-        }
-
-        let r = self.eval(args, cache);
-
-        cache.insert_with(args, || r.clone());
-        r
+        cache
+            .full
+            .get_or_insert_with(args, || self.eval(args, &mut cache.univariate))
     }
 
     /// Evaluates the parametric relation x = f(…) ∧ y = g(…) ∧ P(…)
@@ -141,27 +137,22 @@ impl Relation {
     /// If P(…) is absent, its value is assumed to be always true.
     ///
     /// Precondition: `cache` has never been passed to other relations.
-    pub fn eval_parametric(
+    pub fn eval_parametric<'a>(
         &mut self,
         args: &EvalArgs,
-        cache: &mut EvalParametricCache,
-    ) -> EvalParametricResult {
+        cache: &'a mut EvalParametricCache,
+    ) -> &'a EvalParametricResult {
         assert_eq!(self.relation_type, RelationType::Parametric);
         self.eval_count += 1;
 
-        if let Some(r) = cache.get(args) {
-            return r.clone();
-        }
-
-        let p = self.eval(args, cache);
-        let r = (
-            self.ts[self.x_explicit.unwrap()].clone(),
-            self.ts[self.y_explicit.unwrap()].clone(),
-            p,
-        );
-
-        cache.insert_with(args, || r.clone());
-        r
+        cache.full.get_or_insert_with(args, || {
+            let p = self.eval(args, &mut cache.univariate);
+            (
+                self.ts[self.x_explicit.unwrap()].clone(),
+                self.ts[self.y_explicit.unwrap()].clone(),
+                p,
+            )
+        })
     }
 
     pub fn forms(&self) -> &Vec<StaticForm> {
@@ -197,12 +188,12 @@ impl Relation {
         &self.var_indices
     }
 
-    fn eval<T: BytesAllocated>(&mut self, args: &EvalArgs, cache: &mut EvalCache<T>) -> EvalResult {
+    fn eval(&mut self, args: &EvalArgs, cache: &mut UnivariateCache) -> EvalResult {
         let ts = &mut self.ts;
         let mut cached_vars = VarSet::EMPTY;
 
         for i in 0..self.vars_ordered.len() {
-            if let Some(mx_ts) = cache.get_x(i, args) {
+            if let Some(mx_ts) = cache.get(i, args) {
                 for (&i, mx) in self.cached_terms[i].iter().zip(mx_ts.iter()) {
                     ts[i] = mx.clone();
                 }
@@ -237,7 +228,7 @@ impl Relation {
 
         for i in 0..self.vars_ordered.len() {
             if !cached_vars.contains(self.vars_ordered[i]) {
-                cache.insert_x_with(i, args, || {
+                cache.insert_with(i, args, || {
                     self.cached_terms[i]
                         .iter()
                         .map(|&i| ts[i].clone())
