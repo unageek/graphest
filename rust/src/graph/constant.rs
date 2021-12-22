@@ -37,11 +37,9 @@ impl Constant {
 
     fn refine_impl(&mut self) -> Result<bool, GraphingError> {
         if self.result.is_none() {
+            let mut cache = EvalImplicitCache::new(EvalCacheLevel::None, VarSet::EMPTY);
             let args = self.rel.create_args();
-            let r = self.rel.eval_implicit(
-                &args,
-                &mut EvalImplicitCache::new(EvalCacheLevel::None, VarSet::EMPTY),
-            );
+            let r = self.rel.eval_implicit(&args, &mut cache);
 
             self.result = Some(r.result(self.rel.forms()));
         }

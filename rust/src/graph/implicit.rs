@@ -305,37 +305,45 @@ impl Implicit {
         }
 
         let u_up = subpixel_outer(&self.block_to_region(b), b);
+        let p_dn = self.block_to_region(&b.pixel_block()).inner();
+        let inter = u_up.intersection(&p_dn);
+
         set_arg!(args, self.var_indices.n, b.n.interval());
         set_arg!(args, self.var_indices.n_theta, b.n_theta.interval());
         set_arg!(args, self.var_indices.t, b.t.interval());
         set_arg!(args, self.var_indices.x, u_up.x());
         set_arg!(args, self.var_indices.y, u_up.y());
-        let r_u_up = self.rel.eval_implicit(args, &mut self.cache_eval_on_region);
+        let (locally_zero_mask, dac_mask, mut neg_mask, mut pos_mask) = {
+            let r_u_up = self.rel.eval_implicit(args, &mut self.cache_eval_on_region);
 
-        let result_mask = r_u_up.result_mask();
-        let result = result_mask.eval(self.rel.forms());
+            let result_mask = r_u_up.result_mask();
+            let result = result_mask.eval(self.rel.forms());
 
-        let p_dn = self.block_to_region(&b.pixel_block()).inner();
-        let inter = u_up.intersection(&p_dn);
-
-        if result.certainly_true() && !inter.is_empty() {
-            // The relation is true everywhere in the subpixel, and the subpixel certainly overlaps
-            // with the pixel. Therefore, the pixel contains a solution.
-            for p in &pixels {
-                self.im[p] = PixelState::True;
+            if result.certainly_true() && !inter.is_empty() {
+                // The relation is true everywhere in the subpixel, and the subpixel certainly overlaps
+                // with the pixel. Therefore, the pixel contains a solution.
+                for p in &pixels {
+                    self.im[p] = PixelState::True;
+                }
+                return true;
             }
-            return true;
-        }
 
-        if result.certainly_false() {
-            // The relation is false everywhere in the subpixel.
-            return true;
-        }
+            if result.certainly_false() {
+                // The relation is false everywhere in the subpixel.
+                return true;
+            }
 
-        if inter.is_empty() {
-            // We still need to refine the subpixel to show absence of solutions.
-            return false;
-        }
+            if inter.is_empty() {
+                // We still need to refine the subpixel to show absence of solutions.
+                return false;
+            }
+
+            let dac_mask = r_u_up.map(|DecSignSet(_, d)| d >= Decoration::Dac);
+            let neg_mask = r_u_up.map(|_| false);
+            let pos_mask = neg_mask.clone();
+
+            (result_mask, dac_mask, neg_mask, pos_mask)
+        };
 
         // Evaluate the relation for some sample points within the inner bounds of the subpixel
         // and try proving existence of a solution in two ways:
@@ -344,15 +352,13 @@ impl Implicit {
         //    This is useful especially for plotting inequalities such as "lcm(x, y) ≤ 1".
         //
         // b. Use the intermediate value theorem.
-        //    A note about `locally_zero_mask` (for plotting conjunction):
+        //    A note on `locally_zero_mask` (for plotting conjunction):
         //    Suppose we are plotting "y = sin(x) && x ≥ 0".
         //    If the conjunct "x ≥ 0" is true throughout the subpixel
         //    and "y - sin(x)" evaluates to `POS` for a sample point and `NEG` for another,
         //    we can conclude that there is a point within the subpixel where the entire relation holds.
         //    Such observation would not be possible by merely converting the relation to
         //    "|y - sin(x)| + |x ≥ 0 ? 0 : 1| = 0".
-        let dac_mask = r_u_up.map(|DecSignSet(_, d)| d >= Decoration::Dac);
-
         let points = {
             let x = inter.x();
             let y = inter.y();
@@ -365,8 +371,6 @@ impl Implicit {
             ]
         };
 
-        let mut neg_mask = r_u_up.map(|_| false);
-        let mut pos_mask = neg_mask.clone();
         for point in &points {
             set_arg!(args, self.var_indices.x, point_interval(point.0));
             set_arg!(args, self.var_indices.y, point_interval(point.1));
@@ -381,7 +385,7 @@ impl Implicit {
 
             if point_result.certainly_true()
                 || (&(&neg_mask & &pos_mask) & &dac_mask)
-                    .solution_certainly_exists(self.rel.forms(), &result_mask)
+                    .solution_certainly_exists(self.rel.forms(), &locally_zero_mask)
             {
                 // Found a solution.
                 for p in &pixels {

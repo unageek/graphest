@@ -32,37 +32,17 @@ where
         }
     }
 
-    fn get(&self, k: &[K]) -> Option<&V> {
-        match &self {
-            MultiKeyHashMap::Zero(m) => m.into(),
-            MultiKeyHashMap::One(m) => m.get(k),
-            MultiKeyHashMap::Two(m) => m.get(k),
-            MultiKeyHashMap::Three(m) => m.get(k),
-            MultiKeyHashMap::Four(m) => m.get(k),
-            MultiKeyHashMap::Five(m) => m.get(k),
-        }
-    }
-
-    fn insert(&mut self, k: &[K], v: V) {
+    fn get_or_insert_with<F>(&mut self, k: &[K], f: F) -> &V
+    where
+        F: FnOnce() -> V,
+    {
         match self {
-            MultiKeyHashMap::Zero(m) => {
-                *m = Some(v);
-            }
-            MultiKeyHashMap::One(m) => {
-                m.insert(k.try_into().unwrap(), v);
-            }
-            MultiKeyHashMap::Two(m) => {
-                m.insert(k.try_into().unwrap(), v);
-            }
-            MultiKeyHashMap::Three(m) => {
-                m.insert(k.try_into().unwrap(), v);
-            }
-            MultiKeyHashMap::Four(m) => {
-                m.insert(k.try_into().unwrap(), v);
-            }
-            MultiKeyHashMap::Five(m) => {
-                m.insert(k.try_into().unwrap(), v);
-            }
+            MultiKeyHashMap::Zero(m) => m.get_or_insert_with(f),
+            MultiKeyHashMap::One(m) => m.entry(k.try_into().unwrap()).or_insert_with(f),
+            MultiKeyHashMap::Two(m) => m.entry(k.try_into().unwrap()).or_insert_with(f),
+            MultiKeyHashMap::Three(m) => m.entry(k.try_into().unwrap()).or_insert_with(f),
+            MultiKeyHashMap::Four(m) => m.entry(k.try_into().unwrap()).or_insert_with(f),
+            MultiKeyHashMap::Five(m) => m.entry(k.try_into().unwrap()).or_insert_with(f),
         }
     }
 }
@@ -87,57 +67,86 @@ pub enum EvalCacheLevel {
     Full,
 }
 
-/// A cache for memoizing evaluation of a relation.
-pub struct EvalCache<T: BytesAllocated> {
+pub struct FullCache<T: BytesAllocated> {
     cache_level: EvalCacheLevel,
     n_vars: usize,
-    cx: Vec<HashMap<Interval, Vec<TupperIntervalSet>>>,
     c: MultiKeyHashMap<Interval, T>,
+    last_value: Option<T>,
     bytes_allocated_by_values: usize,
 }
 
-impl<T: BytesAllocated> EvalCache<T> {
-    pub fn new(cache_level: EvalCacheLevel, vars: VarSet) -> Self {
+impl<T: BytesAllocated> FullCache<T> {
+    fn new(cache_level: EvalCacheLevel, vars: VarSet) -> Self {
         let n_vars = vars.len();
         Self {
             cache_level,
             n_vars,
-            cx: vec![HashMap::new(); n_vars],
             c: MultiKeyHashMap::new(n_vars),
+            last_value: None,
+            bytes_allocated_by_values: 0,
+        }
+    }
+
+    fn clear(&mut self) {
+        self.c = MultiKeyHashMap::new(self.n_vars);
+        self.bytes_allocated_by_values = 0;
+    }
+
+    pub fn get_or_insert_with<F>(&mut self, args: &EvalArgs, f: F) -> &T
+    where
+        F: FnOnce() -> T,
+    {
+        if self.cache_level == EvalCacheLevel::Full {
+            self.c.get_or_insert_with(args, || {
+                let v = f();
+                self.bytes_allocated_by_values += v.bytes_allocated();
+                v
+            })
+        } else {
+            self.last_value.insert(f())
+        }
+    }
+}
+
+impl<T: BytesAllocated> BytesAllocated for FullCache<T> {
+    fn bytes_allocated(&self) -> usize {
+        self.c.bytes_allocated() + self.bytes_allocated_by_values
+    }
+}
+
+pub struct UnivariateCache {
+    cache_level: EvalCacheLevel,
+    n_vars: usize,
+    cs: Vec<HashMap<Interval, Vec<TupperIntervalSet>>>,
+    bytes_allocated_by_values: usize,
+}
+
+impl UnivariateCache {
+    fn new(cache_level: EvalCacheLevel, vars: VarSet) -> Self {
+        let n_vars = vars.len();
+        Self {
+            cache_level,
+            n_vars,
+            cs: vec![HashMap::new(); n_vars],
             bytes_allocated_by_values: 0,
         }
     }
 
     /// Clears the cache and releases the allocated memory.
-    pub fn clear(&mut self) {
-        self.cx = vec![HashMap::new(); self.n_vars];
-        self.c = MultiKeyHashMap::new(self.n_vars);
+    fn clear(&mut self) {
+        self.cs = vec![HashMap::new(); self.n_vars];
         self.bytes_allocated_by_values = 0;
     }
 
-    pub fn get(&self, args: &EvalArgs) -> Option<&T> {
-        match self.cache_level {
-            EvalCacheLevel::Full => self.c.get(args),
-            _ => None,
+    pub fn get(&self, index: usize, args: &EvalArgs) -> Option<&Vec<TupperIntervalSet>> {
+        if self.cache_level >= EvalCacheLevel::Univariate {
+            self.cs[index].get(&args[index])
+        } else {
+            None
         }
     }
 
-    pub fn get_x(&self, index: usize, args: &EvalArgs) -> Option<&Vec<TupperIntervalSet>> {
-        match self.cache_level {
-            l if l >= EvalCacheLevel::Univariate => self.cx[index].get(&args[index]),
-            _ => None,
-        }
-    }
-
-    pub fn insert_with<F: FnOnce() -> T>(&mut self, args: &EvalArgs, f: F) {
-        if self.cache_level == EvalCacheLevel::Full {
-            let v = f();
-            self.bytes_allocated_by_values += v.bytes_allocated();
-            self.c.insert(args, v);
-        }
-    }
-
-    pub fn insert_x_with<F: FnOnce() -> Vec<TupperIntervalSet>>(
+    pub fn insert_with<F: FnOnce() -> Vec<TupperIntervalSet>>(
         &mut self,
         index: usize,
         args: &EvalArgs,
@@ -147,16 +156,41 @@ impl<T: BytesAllocated> EvalCache<T> {
             let v = f();
             self.bytes_allocated_by_values +=
                 v.bytes_allocated() + v.iter().map(|xs| xs.bytes_allocated()).sum::<usize>();
-            self.cx[index].insert(args[index], v);
+            self.cs[index].insert(args[index], v);
         }
+    }
+}
+
+impl BytesAllocated for UnivariateCache {
+    fn bytes_allocated(&self) -> usize {
+        self.cs.iter().map(|c| c.bytes_allocated()).sum::<usize>() + self.bytes_allocated_by_values
+    }
+}
+
+/// A cache for memoizing evaluation of a relation.
+pub struct EvalCache<T: BytesAllocated> {
+    pub full: FullCache<T>,
+    pub univariate: UnivariateCache,
+}
+
+impl<T: BytesAllocated> EvalCache<T> {
+    pub fn new(cache_level: EvalCacheLevel, vars: VarSet) -> Self {
+        Self {
+            full: FullCache::new(cache_level, vars),
+            univariate: UnivariateCache::new(cache_level, vars),
+        }
+    }
+
+    /// Clears the cache and releases allocated memory.
+    pub fn clear(&mut self) {
+        self.full.clear();
+        self.univariate.clear();
     }
 }
 
 impl<T: BytesAllocated> BytesAllocated for EvalCache<T> {
     fn bytes_allocated(&self) -> usize {
-        self.cx.iter().map(|cx| cx.bytes_allocated()).sum::<usize>()
-            + self.c.bytes_allocated()
-            + self.bytes_allocated_by_values
+        self.full.bytes_allocated() + self.univariate.bytes_allocated()
     }
 }
 

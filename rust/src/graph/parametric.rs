@@ -211,7 +211,7 @@ impl Parametric {
     fn process_block(&mut self, block: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
         set_arg!(args, self.var_indices.n, block.n.interval());
         set_arg!(args, self.var_indices.t, block.t.interval());
-        let (xs, ys, cond) = self.rel.eval_parametric(args, &mut self.no_cache);
+        let (xs, ys, cond) = self.rel.eval_parametric(args, &mut self.no_cache).clone();
         let rs = self
             .im_regions(&xs, &ys)
             .into_iter()
@@ -238,7 +238,7 @@ impl Parametric {
                         self.var_indices.t,
                         point_interval_possibly_infinite(block.t.interval().inf())
                     );
-                    let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache);
+                    let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache).clone();
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
@@ -249,7 +249,7 @@ impl Parametric {
                         self.var_indices.t,
                         point_interval_possibly_infinite(block.t.interval().sup())
                     );
-                    let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache);
+                    let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache).clone();
                     let rs = self.im_regions(&xs, &ys);
                     assert_eq!(rs.len(), 1);
                     rs[0].clone()
