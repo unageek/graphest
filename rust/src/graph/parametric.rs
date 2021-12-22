@@ -1,7 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, RealParameter},
     eval_cache::{EvalCacheLevel, EvalParametricCache},
-    eval_result::RelationArgs,
+    eval_result::EvalArgs,
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -208,7 +208,7 @@ impl Parametric {
 
     /// Tries to prove or disprove the existence of a solution in the block
     /// and if it is unsuccessful, returns pixels that possibly contain solutions.
-    fn process_block(&mut self, block: &Block, args: &mut RelationArgs) -> Vec<PixelRange> {
+    fn process_block(&mut self, block: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
         set_arg!(args, self.var_indices.n, block.n.interval());
         set_arg!(args, self.var_indices.t, block.t.interval());
         let (xs, ys, cond) = self.rel.eval_parametric(args, &mut self.no_cache);

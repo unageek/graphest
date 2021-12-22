@@ -2,8 +2,8 @@ use crate::{
     ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType},
     binary, bool_constant, constant,
     context::Context,
-    eval_cache::{EvalCacheGeneric, EvalExplicitCache, EvalImplicitCache, EvalParametricCache},
-    eval_result::{EvalExplicitResult, EvalParametricResult, EvalResult, RelationArgs},
+    eval_cache::{EvalCache, EvalExplicitCache, EvalImplicitCache, EvalParametricCache},
+    eval_result::{EvalArgs, EvalExplicitResult, EvalParametricResult, EvalResult},
     interval_set::TupperIntervalSet,
     nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
@@ -77,8 +77,8 @@ impl Relation {
         vec![Interval::ENTIRE; self.vars_ordered.len()]
     }
 
-    /// Returns the total number of times the functions [`Self::eval`], [`Self::eval_explicit`]
-    /// and [`Self::eval_parametric`] are called for `self`.
+    /// Returns the total number of times either of the functions [`Self::eval_implicit`],
+    /// [`Self::eval_explicit`] or [`Self::eval_parametric`] is called for `self`.
     pub fn eval_count(&self) -> usize {
         self.eval_count
     }
@@ -91,7 +91,7 @@ impl Relation {
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_explicit(
         &mut self,
-        args: &RelationArgs,
+        args: &EvalArgs,
         cache: &mut EvalExplicitCache,
     ) -> EvalExplicitResult {
         assert!(matches!(
@@ -104,7 +104,7 @@ impl Relation {
             return r.clone();
         }
 
-        let p = self.eval_generic(args, cache);
+        let p = self.eval(args, cache);
         let r = match self.relation_type {
             RelationType::ExplicitFunctionOfX(_) => (self.ts[self.y_explicit.unwrap()].clone(), p),
             RelationType::ExplicitFunctionOfY(_) => (self.ts[self.x_explicit.unwrap()].clone(), p),
@@ -118,11 +118,7 @@ impl Relation {
     /// Evaluates the implicit or constant relation.
     ///
     /// Precondition: `cache` has never been passed to other relations.
-    pub fn eval_implicit(
-        &mut self,
-        args: &RelationArgs,
-        cache: &mut EvalImplicitCache,
-    ) -> EvalResult {
+    pub fn eval_implicit(&mut self, args: &EvalArgs, cache: &mut EvalImplicitCache) -> EvalResult {
         assert!(matches!(
             self.relation_type,
             RelationType::Constant | RelationType::Implicit
@@ -133,21 +129,21 @@ impl Relation {
             return r.clone();
         }
 
-        let r = self.eval_generic(args, cache);
+        let r = self.eval(args, cache);
 
         cache.insert_with(args, || r.clone());
         r
     }
 
-    /// Evaluates the parametric relation x = f(n, t) ∧ y = g(n, t) ∧ P(n, t)
-    /// and returns (f(n, t), g(n, t), P(n, t)).
+    /// Evaluates the parametric relation x = f(…) ∧ y = g(…) ∧ P(…)
+    /// and returns (f(…), g(…), P(…)).
     ///
-    /// If P(n, t) is absent, its value is assumed to be always true.
+    /// If P(…) is absent, its value is assumed to be always true.
     ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_parametric(
         &mut self,
-        args: &RelationArgs,
+        args: &EvalArgs,
         cache: &mut EvalParametricCache,
     ) -> EvalParametricResult {
         assert_eq!(self.relation_type, RelationType::Parametric);
@@ -157,7 +153,7 @@ impl Relation {
             return r.clone();
         }
 
-        let p = self.eval_generic(args, cache);
+        let p = self.eval(args, cache);
         let r = (
             self.ts[self.x_explicit.unwrap()].clone(),
             self.ts[self.y_explicit.unwrap()].clone(),
@@ -189,20 +185,19 @@ impl Relation {
         self.t_range
     }
 
-    /// Returns the set of variables that appear in the relation.
+    /// Returns the set of variables in the relation.
+    /// For an explicit or parametric relation, the variables x and y are excluded from the set.
     pub fn vars(&self) -> VarSet {
         self.vars
     }
 
+    /// Returns the indices of the variables in the relation
+    /// that is used for indexing in [`EvalArgs`].
     pub fn var_indices(&self) -> &VarIndices {
         &self.var_indices
     }
 
-    fn eval_generic<T: BytesAllocated>(
-        &mut self,
-        args: &RelationArgs,
-        cache: &mut EvalCacheGeneric<T>,
-    ) -> EvalResult {
+    fn eval<T: BytesAllocated>(&mut self, args: &EvalArgs, cache: &mut EvalCache<T>) -> EvalResult {
         let ts = &mut self.ts;
         let mut cached_vars = VarSet::EMPTY;
 

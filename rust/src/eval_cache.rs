@@ -1,5 +1,5 @@
 use crate::{
-    eval_result::{EvalExplicitResult, EvalParametricResult, EvalResult, RelationArgs},
+    eval_result::{EvalArgs, EvalExplicitResult, EvalParametricResult, EvalResult},
     interval_set::TupperIntervalSet,
     traits::BytesAllocated,
     vars::VarSet,
@@ -88,7 +88,7 @@ pub enum EvalCacheLevel {
 }
 
 /// A cache for memoizing evaluation of a relation.
-pub struct EvalCacheGeneric<T: BytesAllocated> {
+pub struct EvalCache<T: BytesAllocated> {
     cache_level: EvalCacheLevel,
     n_vars: usize,
     cx: Vec<HashMap<Interval, Vec<TupperIntervalSet>>>,
@@ -96,7 +96,7 @@ pub struct EvalCacheGeneric<T: BytesAllocated> {
     bytes_allocated_by_values: usize,
 }
 
-impl<T: BytesAllocated> EvalCacheGeneric<T> {
+impl<T: BytesAllocated> EvalCache<T> {
     pub fn new(cache_level: EvalCacheLevel, vars: VarSet) -> Self {
         let n_vars = vars.len();
         Self {
@@ -115,21 +115,21 @@ impl<T: BytesAllocated> EvalCacheGeneric<T> {
         self.bytes_allocated_by_values = 0;
     }
 
-    pub fn get(&self, args: &RelationArgs) -> Option<&T> {
+    pub fn get(&self, args: &EvalArgs) -> Option<&T> {
         match self.cache_level {
             EvalCacheLevel::Full => self.c.get(args),
             _ => None,
         }
     }
 
-    pub fn get_x(&self, index: usize, args: &RelationArgs) -> Option<&Vec<TupperIntervalSet>> {
+    pub fn get_x(&self, index: usize, args: &EvalArgs) -> Option<&Vec<TupperIntervalSet>> {
         match self.cache_level {
             l if l >= EvalCacheLevel::Univariate => self.cx[index].get(&args[index]),
             _ => None,
         }
     }
 
-    pub fn insert_with<F: FnOnce() -> T>(&mut self, args: &RelationArgs, f: F) {
+    pub fn insert_with<F: FnOnce() -> T>(&mut self, args: &EvalArgs, f: F) {
         if self.cache_level == EvalCacheLevel::Full {
             let v = f();
             self.bytes_allocated_by_values += v.bytes_allocated();
@@ -140,7 +140,7 @@ impl<T: BytesAllocated> EvalCacheGeneric<T> {
     pub fn insert_x_with<F: FnOnce() -> Vec<TupperIntervalSet>>(
         &mut self,
         index: usize,
-        args: &RelationArgs,
+        args: &EvalArgs,
         f: F,
     ) {
         if self.cache_level >= EvalCacheLevel::Univariate {
@@ -152,7 +152,7 @@ impl<T: BytesAllocated> EvalCacheGeneric<T> {
     }
 }
 
-impl<T: BytesAllocated> BytesAllocated for EvalCacheGeneric<T> {
+impl<T: BytesAllocated> BytesAllocated for EvalCache<T> {
     fn bytes_allocated(&self) -> usize {
         self.cx.iter().map(|cx| cx.bytes_allocated()).sum::<usize>()
             + self.c.bytes_allocated()
@@ -160,6 +160,6 @@ impl<T: BytesAllocated> BytesAllocated for EvalCacheGeneric<T> {
     }
 }
 
-pub type EvalExplicitCache = EvalCacheGeneric<EvalExplicitResult>;
-pub type EvalImplicitCache = EvalCacheGeneric<EvalResult>;
-pub type EvalParametricCache = EvalCacheGeneric<EvalParametricResult>;
+pub type EvalExplicitCache = EvalCache<EvalExplicitResult>;
+pub type EvalImplicitCache = EvalCache<EvalResult>;
+pub type EvalParametricCache = EvalCache<EvalParametricResult>;

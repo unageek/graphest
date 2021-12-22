@@ -1,7 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, Coordinate},
     eval_cache::{EvalCacheLevel, EvalExplicitCache},
-    eval_result::RelationArgs,
+    eval_result::EvalArgs,
     geom::{Box1D, Box2D, Transform1D, TransformMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -190,7 +190,7 @@ impl Explicit {
     /// and if it is unsuccessful, returns pixels that possibly contain solutions.
     ///
     /// Precondition: the block is either a pixel or a superpixel.
-    fn process_block(&mut self, b: &Block, args: &mut RelationArgs) -> Vec<PixelRange> {
+    fn process_block(&mut self, b: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
         let x_up = self.block_to_region_clipped(b).outer();
         set_arg!(args, self.x_index, x_up);
         let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache);
@@ -232,7 +232,7 @@ impl Explicit {
     /// and if it is unsuccessful, returns pixels that possibly contain solutions.
     ///
     /// Precondition: the block is a subpixel.
-    fn process_subpixel_block(&mut self, b: &Block, args: &mut RelationArgs) -> Vec<PixelRange> {
+    fn process_subpixel_block(&mut self, b: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
         let x_up = subpixel_outer_x(&self.block_to_region(b), b);
         set_arg!(args, self.x_index, x_up);
         let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache);

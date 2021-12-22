@@ -1,7 +1,7 @@
 use crate::{
     block::{Block, BlockQueue, Coordinate, IntegerParameter, RealParameter},
     eval_cache::{EvalCacheLevel, EvalImplicitCache},
-    eval_result::RelationArgs,
+    eval_result::EvalArgs,
     geom::{Box2D, Transform2D, TransformMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
@@ -266,7 +266,7 @@ impl Implicit {
     /// and returns `true` if it is successful.
     ///
     /// Precondition: the block is either a pixel or a superpixel.
-    fn process_block(&mut self, b: &Block, args: &mut RelationArgs) -> bool {
+    fn process_block(&mut self, b: &Block, args: &mut EvalArgs) -> bool {
         let pixels = self.pixels_in_image(b);
         if pixels.iter().all(|p| self.im[p] == PixelState::True) {
             // All pixels have already been proven to be true.
@@ -297,7 +297,7 @@ impl Implicit {
     /// and returns `true` if it is successful.
     ///
     /// Precondition: the block is a subpixel.
-    fn process_subpixel_block(&mut self, b: &Block, args: &mut RelationArgs) -> bool {
+    fn process_subpixel_block(&mut self, b: &Block, args: &mut EvalArgs) -> bool {
         let pixels = self.pixels_in_image(b);
         if pixels.iter().all(|p| self.im[p] == PixelState::True) {
             // This pixel has already been proven to be true.

@@ -172,7 +172,7 @@ impl Not for EvalResultMask {
     }
 }
 
-pub type RelationArgs = [Interval];
+pub type EvalArgs = [Interval];
 
 #[macro_export]
 macro_rules! set_arg {
