@@ -38,3 +38,16 @@ where
         }
     }
 }
+
+pub trait Single: Iterator {
+    fn single(self) -> Option<Self::Item>;
+}
+
+impl<I: Iterator> Single for I {
+    fn single(mut self) -> Option<Self::Item> {
+        match (self.next(), self.next()) {
+            (Some(item), None) => Some(item),
+            _ => None,
+        }
+    }
+}

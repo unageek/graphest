@@ -131,15 +131,16 @@ impl Explicit {
 
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
+        let mut incomplete_pixels = vec![];
         let mut args = self.rel.create_args();
         while let Some(b) = self.block_queue.pop_front() {
             let bi = self.block_queue.begin_index() - 1;
 
-            let incomplete_pixels = if !b.x.is_subpixel() {
-                self.process_block(&b, &mut args)
+            if !b.x.is_subpixel() {
+                self.process_block(&b, &mut args, &mut incomplete_pixels);
             } else {
-                self.process_subpixel_block(&b, &mut args)
-            };
+                self.process_subpixel_block(&b, &mut args, &mut incomplete_pixels);
+            }
 
             if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
                 if b.x.is_subdivisible() {
@@ -151,6 +152,7 @@ impl Explicit {
                     self.set_undisprovable(&incomplete_pixels, bi);
                 }
             }
+            incomplete_pixels.clear();
 
             let mut clear_cache_and_retry = true;
             while self.bytes_allocated() > self.mem_limit {
@@ -186,11 +188,16 @@ impl Explicit {
         }
     }
 
-    /// Tries to prove or disprove the existence of a solution in the block
-    /// and if it is unsuccessful, returns pixels that possibly contain solutions.
+    /// Tries to prove or disprove the existence of a solution in the block,
+    /// and if that fails, appends pixels that may contain solutions to `incomplete_pixels`.
     ///
     /// Precondition: the block is either a pixel or a superpixel.
-    fn process_block(&mut self, b: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
+    fn process_block(
+        &mut self,
+        b: &Block,
+        args: &mut EvalArgs,
+        incomplete_pixels: &mut Vec<PixelRange>,
+    ) {
         let x_up = self.block_to_region_clipped(b).outer();
         set_arg!(args, self.x_index, x_up);
         let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache).clone();
@@ -200,7 +207,7 @@ impl Explicit {
             let end = (begin + b.x.width()).min(self.im_width());
             interval!(begin as f64, end as f64).unwrap()
         };
-        let im_ys = self.im_intervals(&ys);
+        let im_ys = self.im_intervals(&ys).collect::<SmallVec<[_; 2]>>();
 
         let cond = cond.result(self.rel.forms());
         let dec = ys.decoration();
@@ -216,23 +223,29 @@ impl Explicit {
                 self.im[p] = PixelState::True;
             }
             if pixels == t_pixels {
-                return vec![];
+                return;
             }
         } else if cond.certainly_false() {
-            return vec![];
+            return;
         }
 
-        im_ys
-            .into_iter()
-            .map(|im_y| self.possibly_true_pixels(px, im_y))
-            .collect()
+        incomplete_pixels.extend(
+            im_ys
+                .into_iter()
+                .map(|im_y| self.possibly_true_pixels(px, im_y)),
+        )
     }
 
-    /// Tries to prove or disprove the existence of a solution in the block
-    /// and if it is unsuccessful, returns pixels that possibly contain solutions.
+    /// Tries to prove or disprove the existence of a solution in the block,
+    /// and if that fails, appends pixels that may contain solutions to `incomplete_pixels`.
     ///
     /// Precondition: the block is a subpixel.
-    fn process_subpixel_block(&mut self, b: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
+    fn process_subpixel_block(
+        &mut self,
+        b: &Block,
+        args: &mut EvalArgs,
+        incomplete_pixels: &mut Vec<PixelRange>,
+    ) {
         let x_up = subpixel_outer_x(&self.block_to_region(b), b);
         set_arg!(args, self.x_index, x_up);
         let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache).clone();
@@ -242,7 +255,7 @@ impl Explicit {
             let end = begin + 1;
             interval!(begin as f64, end as f64).unwrap()
         };
-        let im_ys = self.im_intervals(&ys);
+        let im_ys = self.im_intervals(&ys).collect::<SmallVec<[_; 2]>>();
 
         let cond = cond.result(self.rel.forms());
         let dec = ys.decoration();
@@ -258,10 +271,10 @@ impl Explicit {
                 self.im[p] = PixelState::True;
             }
             if pixels == t_pixels {
-                return vec![];
+                return;
             }
         } else if cond.certainly_false() {
-            return vec![];
+            return;
         }
 
         let x_dn = self.block_to_region(&b.pixel_block()).inner();
@@ -319,7 +332,6 @@ impl Explicit {
                     if dec >= Decoration::Def && cond.certainly_true() {
                         let im_y = self
                             .im_intervals(&ys)
-                            .into_iter()
                             .fold(Interval::EMPTY, |acc, y| acc.convex_hull(y));
 
                         let t_pixels = self.true_pixels(px, im_y);
@@ -331,10 +343,11 @@ impl Explicit {
             }
         }
 
-        im_ys
-            .into_iter()
-            .map(|im_y| self.possibly_true_pixels(px, im_y))
-            .collect()
+        incomplete_pixels.extend(
+            im_ys
+                .into_iter()
+                .map(|im_y| self.possibly_true_pixels(px, im_y)),
+        )
     }
 
     /// Returns the region that corresponds to a subpixel block `b`.
@@ -356,17 +369,18 @@ impl Explicit {
     }
 
     /// Returns enclosures of `y` in image coordinates.
-    fn im_intervals(&self, ys: &TupperIntervalSet) -> Vec<Interval> {
-        ys.iter()
-            .map(|y| {
-                Box1D::new(
-                    point_interval_possibly_infinite(y.x.inf()),
-                    point_interval_possibly_infinite(y.x.sup()),
-                )
-                .transform(&self.real_to_im_y)
-                .outer()
-            })
-            .collect::<Vec<_>>()
+    fn im_intervals<'a>(
+        &'a self,
+        ys: &'a TupperIntervalSet,
+    ) -> impl 'a + Iterator<Item = Interval> {
+        ys.iter().map(|y| {
+            Box1D::new(
+                point_interval_possibly_infinite(y.x.inf()),
+                point_interval_possibly_infinite(y.x.sup()),
+            )
+            .transform(&self.real_to_im_y)
+            .outer()
+        })
     }
 
     fn im_width(&self) -> u32 {
