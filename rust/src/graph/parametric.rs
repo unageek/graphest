@@ -11,11 +11,12 @@ use crate::{
     region::Region,
     relation::{Relation, RelationType, VarIndices},
     set_arg,
-    traits::BytesAllocated,
+    traits::{BytesAllocated, Single},
     vars::VarSet,
 };
 use inari::{const_interval, interval, Decoration, Interval};
 use itertools::Itertools;
+use smallvec::SmallVec;
 use std::{
     convert::TryFrom,
     default::default,
@@ -110,6 +111,7 @@ impl Parametric {
 
     fn refine_impl(&mut self, duration: Duration, now: &Instant) -> Result<bool, GraphingError> {
         let mut sub_bs = vec![];
+        let mut incomplete_pixels = vec![];
         let mut incomplete_sub_bs = vec![];
         let mut next_dir_candidates = vec![];
         let mut args = self.rel.create_args();
@@ -124,10 +126,14 @@ impl Parametric {
 
             let n_sub_bs = sub_bs.len();
             for sub_b in sub_bs.drain(..) {
-                let incomplete_pixels = self.process_block(&sub_b, &mut args);
+                self.process_block(&sub_b, &mut args, &mut incomplete_pixels);
                 if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
-                    incomplete_sub_bs.push((sub_b, incomplete_pixels));
+                    incomplete_sub_bs.push((
+                        sub_b,
+                        incomplete_pixels.drain(..).collect::<SmallVec<[_; 4]>>(),
+                    ));
                 }
+                incomplete_pixels.clear();
             }
 
             let n_max = match b.next_dir {
@@ -209,18 +215,22 @@ impl Parametric {
         }
     }
 
-    /// Tries to prove or disprove the existence of a solution in the block
-    /// and if it is unsuccessful, returns pixels that possibly contain solutions.
-    fn process_block(&mut self, block: &Block, args: &mut EvalArgs) -> Vec<PixelRange> {
+    /// Tries to prove or disprove the existence of a solution in the block,
+    /// and if that fails, appends pixels that may contain solutions to `incomplete_pixels`.
+    fn process_block(
+        &mut self,
+        block: &Block,
+        args: &mut EvalArgs,
+        incomplete_pixels: &mut Vec<PixelRange>,
+    ) {
         set_arg!(args, self.var_indices.m, block.m.interval());
         set_arg!(args, self.var_indices.n, block.n.interval());
         set_arg!(args, self.var_indices.t, block.t.interval());
         let (xs, ys, cond) = self.rel.eval_parametric(args, &mut self.no_cache).clone();
         let rs = self
             .im_regions(&xs, &ys)
-            .into_iter()
             .map(|r| Self::outer_pixels(&r))
-            .collect::<Vec<_>>();
+            .collect::<SmallVec<[_; 4]>>();
 
         let cond = cond.result(self.rel.forms());
 
@@ -233,7 +243,7 @@ impl Parametric {
                 for p in &self.pixels_in_image(&r) {
                     self.im[p] = PixelState::True;
                 }
-                return vec![];
+                return;
             } else if dec >= Decoration::Dac && (r.x().wid() == 1.0 || r.y().wid() == 1.0) {
                 assert_eq!(rs.len(), 1);
                 let r1 = {
@@ -244,8 +254,7 @@ impl Parametric {
                     );
                     let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache).clone();
                     let rs = self.im_regions(&xs, &ys);
-                    assert_eq!(rs.len(), 1);
-                    rs[0].clone()
+                    rs.single().unwrap()
                 };
                 let r2 = {
                     set_arg!(
@@ -255,8 +264,7 @@ impl Parametric {
                     );
                     let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache).clone();
                     let rs = self.im_regions(&xs, &ys);
-                    assert_eq!(rs.len(), 1);
-                    rs[0].clone()
+                    rs.single().unwrap()
                 };
 
                 let mut r12 = Region::EMPTY;
@@ -294,18 +302,22 @@ impl Parametric {
                 }
 
                 if r12 == r {
-                    return vec![];
+                    return;
                 }
             }
         } else if cond.certainly_false() {
-            return vec![];
+            return;
         }
 
-        rs.into_iter().map(|r| self.pixels_in_image(&r)).collect()
+        incomplete_pixels.extend(rs.into_iter().map(|r| self.pixels_in_image(&r)))
     }
 
     /// Returns enclosures of possible combinations of `x × y` in image coordinates.
-    fn im_regions(&self, xs: &TupperIntervalSet, ys: &TupperIntervalSet) -> Vec<Region> {
+    fn im_regions<'a>(
+        &'a self,
+        xs: &'a TupperIntervalSet,
+        ys: &'a TupperIntervalSet,
+    ) -> impl 'a + Iterator<Item = Region> {
         xs.iter()
             .cartesian_product(ys.iter())
             .filter(|(x, y)| x.g.union(y.g).is_some())
@@ -319,7 +331,6 @@ impl Parametric {
                 .transform(&self.real_to_im)
                 .outer()
             })
-            .collect::<Vec<_>>()
     }
 
     fn is_any_pixel_uncertain(&self, pixels: &[PixelRange], front_block_index: usize) -> bool {
