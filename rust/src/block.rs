@@ -144,7 +144,10 @@ impl IntegerParameter {
 
     /// Returns `true` if the block can be subdivided.
     pub fn is_subdivisible(&self) -> bool {
-        let x = self.0;
+        Self::is_subdivisible_impl(self.0)
+    }
+
+    fn is_subdivisible_impl(x: Interval) -> bool {
         let mid = x.mid().round();
         x.inf() != mid && x.sup() != mid
     }
@@ -171,10 +174,19 @@ impl IntegerParameter {
             interval!(mid, b).unwrap(),
         ]
         .into_iter()
-        // Any interval with width 1 can be discarded since its endpoints are already processed
-        // as point intervals and there are no integers in between them.
-        .filter(|x| x.wid() != 1.0)
-        .map(Self)
+        .filter_map(|x| {
+            let w = x.wid();
+            if w == 1.0 {
+                // Discard the interval since both of the endpoints are already taken
+                // as point intervals and there is no integer between them.
+                None
+            } else if w == 2.0 && Self::is_subdivisible_impl(x) {
+                let m = x.mid();
+                Some(Self(interval!(m, m).unwrap()))
+            } else {
+                Some(Self(x))
+            }
+        })
         .collect()
     }
 }
