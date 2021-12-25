@@ -275,7 +275,7 @@ impl Implicit {
             return true;
         }
 
-        let u_up = self.block_to_region_clipped(b).outer();
+        let u_up = self.region_clipped(b.x, b.y).outer();
         set_arg!(args, self.var_indices.m, b.m.interval());
         set_arg!(args, self.var_indices.n, b.n.interval());
         set_arg!(args, self.var_indices.n_theta, b.n_theta.interval());
@@ -307,8 +307,8 @@ impl Implicit {
             return true;
         }
 
-        let u_up = subpixel_outer(&self.block_to_region(b), b);
-        let p_dn = self.block_to_region(&b.pixel_block()).inner();
+        let u_up = subpixel_outer(&self.region(b.x, b.y), b);
+        let p_dn = self.region(b.x.pixel(), b.y.pixel()).inner();
         let inter = u_up.intersection(&p_dn);
 
         set_arg!(args, self.var_indices.m, b.m.interval());
@@ -402,39 +402,9 @@ impl Implicit {
         false
     }
 
-    /// Returns the region that corresponds to a subpixel block `b`.
-    fn block_to_region(&self, b: &Block) -> Box2D {
-        let pw = b.x.widthf();
-        let ph = b.y.widthf();
-        let px = b.x.index() as f64 * pw;
-        let py = b.y.index() as f64 * ph;
-        Box2D::new(
-            point_interval(px),
-            point_interval(px + pw),
-            point_interval(py),
-            point_interval(py + ph),
-        )
-        .transform(&self.im_to_real)
-    }
-
-    /// Returns the region that corresponds to a pixel or superpixel block `b`.
-    fn block_to_region_clipped(&self, b: &Block) -> Box2D {
-        let pw = b.x.widthf();
-        let ph = b.y.widthf();
-        let px = b.x.index() as f64 * pw;
-        let py = b.y.index() as f64 * ph;
-        Box2D::new(
-            point_interval(px),
-            point_interval((px + pw).min(self.im.width() as f64)),
-            point_interval(py),
-            point_interval((py + ph).min(self.im.height() as f64)),
-        )
-        .transform(&self.im_to_real)
-    }
-
     /// Returns the pixels that are contained in both the block and the image.
     fn pixels_in_image(&self, b: &Block) -> PixelRange {
-        let begin = b.pixel_index();
+        let begin = PixelIndex::new(b.x.pixel_index(), b.y.pixel_index());
         let end = if b.x.is_superpixel() {
             PixelIndex::new(
                 (begin.x + b.x.width()).min(self.im.width()),
@@ -450,6 +420,36 @@ impl Implicit {
             PixelIndex::new(begin.x, self.im.height() - end.y),
             PixelIndex::new(end.x, self.im.height() - begin.y),
         )
+    }
+
+    /// Returns the region that corresponds to the given subpixel.
+    fn region(&self, x: Coordinate, y: Coordinate) -> Box2D {
+        let pw = x.widthf();
+        let ph = y.widthf();
+        let px = x.index() as f64 * pw;
+        let py = y.index() as f64 * ph;
+        Box2D::new(
+            point_interval(px),
+            point_interval(px + pw),
+            point_interval(py),
+            point_interval(py + ph),
+        )
+        .transform(&self.im_to_real)
+    }
+
+    /// Returns the region that corresponds to the given pixel or superpixel.
+    fn region_clipped(&self, x: Coordinate, y: Coordinate) -> Box2D {
+        let pw = x.widthf();
+        let ph = y.widthf();
+        let px = x.index() as f64 * pw;
+        let py = y.index() as f64 * ph;
+        Box2D::new(
+            point_interval(px),
+            point_interval((px + pw).min(self.im.width() as f64)),
+            point_interval(py),
+            point_interval((py + ph).min(self.im.height() as f64)),
+        )
+        .transform(&self.im_to_real)
     }
 
     fn set_last_queued_block(

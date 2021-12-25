@@ -198,12 +198,12 @@ impl Explicit {
         args: &mut EvalArgs,
         incomplete_pixels: &mut Vec<PixelRange>,
     ) {
-        let x_up = self.block_to_region_clipped(b).outer();
+        let x_up = self.region_clipped(b.x).outer();
         set_arg!(args, self.x_index, x_up);
         let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache).clone();
 
         let px = {
-            let begin = b.pixel_index().x;
+            let begin = b.x.pixel_index();
             let end = (begin + b.x.width()).min(self.im_width());
             interval!(begin as f64, end as f64).unwrap()
         };
@@ -246,12 +246,12 @@ impl Explicit {
         args: &mut EvalArgs,
         incomplete_pixels: &mut Vec<PixelRange>,
     ) {
-        let x_up = subpixel_outer_x(&self.block_to_region(b), b);
+        let x_up = subpixel_outer_x(&self.region(b.x), b);
         set_arg!(args, self.x_index, x_up);
         let (ys, cond) = self.rel.eval_explicit(args, &mut self.no_cache).clone();
 
         let px = {
-            let begin = b.pixel_index().x;
+            let begin = b.x.pixel_index();
             let end = begin + 1;
             interval!(begin as f64, end as f64).unwrap()
         };
@@ -277,7 +277,7 @@ impl Explicit {
             return;
         }
 
-        let x_dn = self.block_to_region(&b.pixel_block()).inner();
+        let x_dn = self.region(b.x.pixel()).inner();
         let inter = x_up.intersection(x_dn);
 
         if !inter.is_empty() {
@@ -348,24 +348,6 @@ impl Explicit {
                 .into_iter()
                 .map(|im_y| self.possibly_true_pixels(px, im_y)),
         )
-    }
-
-    /// Returns the region that corresponds to a subpixel block `b`.
-    fn block_to_region(&self, b: &Block) -> Box1D {
-        let pw = b.x.widthf();
-        let px = b.x.index() as f64 * pw;
-        Box1D::new(point_interval(px), point_interval(px + pw)).transform(&self.im_to_real_x)
-    }
-
-    /// Returns the region that corresponds to a pixel or superpixel block `b`.
-    fn block_to_region_clipped(&self, b: &Block) -> Box1D {
-        let pw = b.x.widthf();
-        let px = b.x.index() as f64 * pw;
-        Box1D::new(
-            point_interval(px),
-            point_interval((px + pw).min(self.im_width() as f64)),
-        )
-        .transform(&self.im_to_real_x)
     }
 
     /// Returns enclosures of `y` in image coordinates.
@@ -455,6 +437,24 @@ impl Explicit {
         };
 
         self.pixels_in_image(&Region::new(px, py))
+    }
+
+    /// Returns the region that corresponds to the given subpixel.
+    fn region(&self, x: Coordinate) -> Box1D {
+        let pw = x.widthf();
+        let px = x.index() as f64 * pw;
+        Box1D::new(point_interval(px), point_interval(px + pw)).transform(&self.im_to_real_x)
+    }
+
+    /// Returns the region that corresponds to the given pixel or superpixel.
+    fn region_clipped(&self, x: Coordinate) -> Box1D {
+        let pw = x.widthf();
+        let px = x.index() as f64 * pw;
+        Box1D::new(
+            point_interval(px),
+            point_interval((px + pw).min(self.im_width() as f64)),
+        )
+        .transform(&self.im_to_real_x)
     }
 
     fn set_last_queued_block(
