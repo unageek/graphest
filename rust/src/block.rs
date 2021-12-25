@@ -1,4 +1,4 @@
-use crate::{image::PixelIndex, traits::BytesAllocated, vars::VarSet};
+use crate::{traits::BytesAllocated, vars::VarSet};
 use inari::{interval, Interval};
 use itertools::Itertools;
 use smallvec::SmallVec;
@@ -60,6 +60,15 @@ impl Coordinate {
     #[allow(dead_code)]
     pub fn level(&self) -> i8 {
         self.k
+    }
+
+    /// Returns the pixel-level block that contains the given block.
+    /// If the block spans multiple pixels, the one with the least index is returned.
+    pub fn pixel(&self) -> Self {
+        Self {
+            i: self.pixel_index() as u64,
+            k: 0,
+        }
     }
 
     /// Returns the pixel width divided by the block width.
@@ -281,27 +290,6 @@ pub struct Block {
     pub t: RealParameter,
     /// The component(s) of the block that should be subdivided next.
     pub next_dir: VarSet,
-}
-
-impl Block {
-    /// Returns the pixel-level block that contains the given block.
-    ///
-    /// Panics if `self` is a superpixel.
-    pub fn pixel_block(&self) -> Self {
-        assert!(!self.x.is_superpixel() && !self.y.is_superpixel());
-        let pixel = self.pixel_index();
-        Self {
-            x: Coordinate::new(pixel.x as u64, 0),
-            y: Coordinate::new(pixel.y as u64, 0),
-            ..*self
-        }
-    }
-
-    /// Returns the index of the pixel that contains the block.
-    /// If the block spans multiple pixels, the least index is returned.
-    pub fn pixel_index(&self) -> PixelIndex {
-        PixelIndex::new(self.x.pixel_index(), self.y.pixel_index())
-    }
 }
 
 const DEFAULT_BLOCK: Block = Block {
@@ -620,62 +608,31 @@ mod tests {
     use std::default::default;
 
     #[test]
-    fn block() {
-        let b = Block {
-            x: Coordinate::new(42, 3),
-            y: Coordinate::new(42, 5),
-            ..default()
-        };
-        assert_eq!(b.x.width(), 8);
-        assert_eq!(b.y.width(), 32);
-        assert_eq!(b.x.widthf(), 8.0);
-        assert_eq!(b.y.widthf(), 32.0);
-        assert_eq!(b.pixel_index(), PixelIndex::new(336, 1344));
-        assert!(b.x.is_superpixel());
-        assert!(b.y.is_superpixel());
-        assert!(!b.x.is_subpixel());
-        assert!(!b.y.is_subpixel());
+    fn coordinate() {
+        let x = Coordinate::new(42, 3);
+        assert!(!x.is_subpixel());
+        assert!(x.is_superpixel());
+        assert_eq!(x.pixel(), Coordinate::new(336, 0));
+        assert_eq!(x.pixel_index(), 336);
+        assert_eq!(x.width(), 8);
+        assert_eq!(x.widthf(), 8.0);
 
-        let b = Block {
-            x: Coordinate::new(42, 0),
-            y: Coordinate::new(42, 0),
-            ..default()
-        };
-        assert_eq!(b.x.width(), 1);
-        assert_eq!(b.y.width(), 1);
-        assert_eq!(b.x.widthf(), 1.0);
-        assert_eq!(b.y.widthf(), 1.0);
-        assert_eq!(b.x.pixel_align(), 1);
-        assert_eq!(b.y.pixel_align(), 1);
-        assert_eq!(b.pixel_block(), b);
-        assert_eq!(b.pixel_index(), PixelIndex::new(42, 42));
-        assert!(!b.x.is_superpixel());
-        assert!(!b.y.is_superpixel());
-        assert!(!b.x.is_subpixel());
-        assert!(!b.y.is_subpixel());
+        let x = Coordinate::new(42, 0);
+        assert!(!x.is_subpixel());
+        assert!(!x.is_superpixel());
+        assert_eq!(x.pixel(), x);
+        assert_eq!(x.pixel_align(), 1);
+        assert_eq!(x.pixel_index(), 42);
+        assert_eq!(x.width(), 1);
+        assert_eq!(x.widthf(), 1.0);
 
-        let b = Block {
-            x: Coordinate::new(42, -3),
-            y: Coordinate::new(42, -5),
-            ..default()
-        };
-        assert_eq!(b.x.widthf(), 0.125);
-        assert_eq!(b.y.widthf(), 0.03125);
-        assert_eq!(b.x.pixel_align(), 8);
-        assert_eq!(b.y.pixel_align(), 32);
-        assert_eq!(
-            b.pixel_block(),
-            Block {
-                x: Coordinate::new(5, 0),
-                y: Coordinate::new(1, 0),
-                ..default()
-            }
-        );
-        assert_eq!(b.pixel_index(), PixelIndex::new(5, 1));
-        assert!(!b.x.is_superpixel());
-        assert!(!b.y.is_superpixel());
-        assert!(b.x.is_subpixel());
-        assert!(b.y.is_subpixel());
+        let x = Coordinate::new(42, -3);
+        assert!(x.is_subpixel());
+        assert!(!x.is_superpixel());
+        assert_eq!(x.pixel(), Coordinate::new(5, 0));
+        assert_eq!(x.pixel_align(), 8);
+        assert_eq!(x.pixel_index(), 5);
+        assert_eq!(x.widthf(), 0.125);
     }
 
     #[test]
