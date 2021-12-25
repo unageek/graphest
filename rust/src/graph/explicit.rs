@@ -2,7 +2,7 @@ use crate::{
     block::{Block, BlockQueue, Coordinate},
     eval_cache::{EvalCacheLevel, EvalExplicitCache},
     eval_result::EvalArgs,
-    geom::{Box1D, Box2D, Transform1D, TransformMode},
+    geom::{Box1D, Box2D, Transform, Transformation1D, TransformationMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
@@ -33,8 +33,8 @@ pub struct Explicit {
     im: Image<PixelState>,
     block_queue: BlockQueue,
     im_region: Region,
-    im_to_real_x: Transform1D,
-    real_to_im_y: Transform1D,
+    im_to_real_x: Transformation1D,
+    real_to_im_y: Transformation1D,
     stats: GraphingStatistics,
     mem_limit: usize,
     no_cache: EvalExplicitCache,
@@ -92,21 +92,21 @@ impl Explicit {
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
             ),
-            im_to_real_x: Transform1D::new(
+            im_to_real_x: Transformation1D::new(
                 [
                     point_interval(padding.left as f64),
                     point_interval((im_width - padding.right) as f64),
                 ],
                 [region.left(), region.right()],
-                TransformMode::Fast,
+                TransformationMode::Fast,
             ),
-            real_to_im_y: Transform1D::new(
+            real_to_im_y: Transformation1D::new(
                 [region.bottom(), region.top()],
                 [
                     point_interval(padding.bottom as f64),
                     point_interval((im_height - padding.top) as f64),
                 ],
-                TransformMode::Precise,
+                TransformationMode::Precise,
             ),
             stats: GraphingStatistics {
                 eval_count: 0,
@@ -373,14 +373,7 @@ impl Explicit {
         &'a self,
         ys: &'a TupperIntervalSet,
     ) -> impl 'a + Iterator<Item = Interval> {
-        ys.iter().map(|y| {
-            Box1D::new(
-                point_interval_possibly_infinite(y.x.inf()),
-                point_interval_possibly_infinite(y.x.sup()),
-            )
-            .transform(&self.real_to_im_y)
-            .outer()
-        })
+        ys.iter().map(|y| y.x.transform(&self.real_to_im_y))
     }
 
     fn im_width(&self) -> u32 {

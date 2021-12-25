@@ -43,17 +43,6 @@ impl Box1D {
     pub fn right(&self) -> Interval {
         self.r
     }
-
-    /// Transforms the region by `t`.
-    pub fn transform(&self, t: &Transform1D) -> Self {
-        match *t {
-            Transform1D::Fast { s, t } => Self::new(self.l.mul_add(s, t), self.r.mul_add(s, t)),
-            Transform1D::Precise { a0, a01, x0, x01 } => Self::new(
-                ((self.l - a0) / a01).mul_add(x01, x0),
-                ((self.r - a0) / a01).mul_add(x01, x0),
-            ),
-        }
-    }
 }
 
 /// A two-dimensional geometric region that represents an axis-aligned rectangle.
@@ -99,12 +88,6 @@ impl Box2D {
         self.1.right()
     }
 
-    /// Transforms the region by `t`.
-    #[must_use]
-    pub fn transform(&self, t: &Transform2D) -> Self {
-        Self(self.0.transform(&t.0), self.1.transform(&t.1))
-    }
-
     /// Swaps the axes of the region.
     #[must_use]
     pub fn transpose(&self) -> Self {
@@ -114,7 +97,7 @@ impl Box2D {
 
 /// The type of the formula that should be used for performing geometric transformations.
 #[derive(Clone, Copy, Debug)]
-pub enum TransformMode {
+pub enum TransformationMode {
     /// Suitable for transformation from image coordinates to real coordinates,
     /// which usually involves exact divisions (division by image dimensions).
     Fast,
@@ -125,7 +108,7 @@ pub enum TransformMode {
 
 /// A one-dimensional affine geometric transformation that consists of only scaling and translation.
 #[derive(Clone, Debug)]
-pub enum Transform1D {
+pub enum Transformation1D {
     Fast {
         s: Interval,
         t: Interval,
@@ -138,17 +121,21 @@ pub enum Transform1D {
     },
 }
 
-impl Transform1D {
+impl Transformation1D {
     /// Creates a transformation that maps each source point to the corresponding destination point.
-    pub fn new(from_points: [Interval; 2], to_points: [Interval; 2], mode: TransformMode) -> Self {
+    pub fn new(
+        from_points: [Interval; 2],
+        to_points: [Interval; 2],
+        mode: TransformationMode,
+    ) -> Self {
         let [a0, a1] = from_points;
         let [x0, x1] = to_points;
         match mode {
-            TransformMode::Fast => Self::Fast {
+            TransformationMode::Fast => Self::Fast {
                 s: (x1 - x0) / (a1 - a0),
                 t: (-a0).mul_add((x1 - x0) / (a1 - a0), x0),
             },
-            TransformMode::Precise => Self::Precise {
+            TransformationMode::Precise => Self::Precise {
                 a0,
                 a01: a1 - a0,
                 x0,
@@ -160,23 +147,58 @@ impl Transform1D {
 
 /// A two-dimensional affine geometric transformation that consists of only scaling and translation.
 #[derive(Clone, Debug)]
-pub struct Transform2D(Transform1D, Transform1D);
+pub struct Transformation2D(Transformation1D, Transformation1D);
 
-impl Transform2D {
+impl Transformation2D {
     /// Creates a transformation that maps each source point to the corresponding destination point.
-    pub fn new(from_points: [Region; 2], to_points: [Region; 2], mode: TransformMode) -> Self {
+    pub fn new(from_points: [Region; 2], to_points: [Region; 2], mode: TransformationMode) -> Self {
         Self(
-            Transform1D::new(
+            Transformation1D::new(
                 [from_points[0].x(), from_points[1].x()],
                 [to_points[0].x(), to_points[1].x()],
                 mode,
             ),
-            Transform1D::new(
+            Transformation1D::new(
                 [from_points[0].y(), from_points[1].y()],
                 [to_points[0].y(), to_points[1].y()],
                 mode,
             ),
         )
+    }
+}
+
+pub trait Transform<T> {
+    /// Returns an enclosure of the geometric object transformed by `t`.
+    fn transform(&self, t: &T) -> Self;
+}
+
+impl Transform<Transformation1D> for Box1D {
+    fn transform(&self, t: &Transformation1D) -> Self {
+        Self {
+            l: self.l.transform(t),
+            r: self.r.transform(t),
+        }
+    }
+}
+
+impl Transform<Transformation2D> for Box2D {
+    fn transform(&self, t: &Transformation2D) -> Self {
+        Self(self.0.transform(&t.0), self.1.transform(&t.1))
+    }
+}
+
+impl Transform<Transformation1D> for Interval {
+    fn transform(&self, t: &Transformation1D) -> Self {
+        match *t {
+            Transformation1D::Fast { s, t } => self.mul_add(s, t),
+            Transformation1D::Precise { a0, a01, x0, x01 } => ((*self - a0) / a01).mul_add(x01, x0),
+        }
+    }
+}
+
+impl Transform<Transformation2D> for Region {
+    fn transform(&self, t: &Transformation2D) -> Self {
+        Self::new(self.x().transform(&t.0), self.y().transform(&t.1))
     }
 }
 

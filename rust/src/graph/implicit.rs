@@ -2,7 +2,7 @@ use crate::{
     block::{Block, BlockQueue, Coordinate, IntegerParameter, RealParameter},
     eval_cache::{EvalCacheLevel, EvalImplicitCache},
     eval_result::EvalArgs,
-    geom::{Box2D, Transform2D, TransformMode},
+    geom::{Box2D, Transform, Transformation2D, TransformationMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
@@ -37,7 +37,7 @@ pub struct Implicit {
     // Queue blocks that will be subdivided instead of the divided blocks to save memory.
     bs_to_subdivide: BlockQueue,
     // Affine transformation from image coordinates to real coordinates.
-    im_to_real: Transform2D,
+    im_to_real: Transformation2D,
     stats: GraphingStatistics,
     mem_limit: usize,
     cache_eval_on_region: EvalImplicitCache,
@@ -69,7 +69,7 @@ impl Implicit {
             subdivision_dirs,
             im: Image::new(im_width, im_height),
             bs_to_subdivide: BlockQueue::new(XY | vars),
-            im_to_real: Transform2D::new(
+            im_to_real: Transformation2D::new(
                 [
                     Region::new(
                         point_interval(padding.left as f64),
@@ -84,7 +84,7 @@ impl Implicit {
                     Region::new(region.left(), region.bottom()),
                     Region::new(region.right(), region.top()),
                 ],
-                TransformMode::Fast,
+                TransformationMode::Fast,
             ),
             stats: GraphingStatistics {
                 eval_count: 0,

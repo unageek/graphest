@@ -2,7 +2,7 @@ use crate::{
     block::{Block, BlockQueue, RealParameter},
     eval_cache::{EvalCacheLevel, EvalParametricCache},
     eval_result::EvalArgs,
-    geom::{Box2D, Transform2D, TransformMode},
+    geom::{Box2D, Transform, Transformation2D, TransformationMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
@@ -37,7 +37,7 @@ pub struct Parametric {
     /// The pixel-aligned region that matches the entire image.
     im_region: Region,
     /// The affine transformation from real coordinates to image coordinates.
-    real_to_im: Transform2D,
+    real_to_im: Transformation2D,
     stats: GraphingStatistics,
     mem_limit: usize,
     no_cache: EvalParametricCache,
@@ -72,7 +72,7 @@ impl Parametric {
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
             ),
-            real_to_im: Transform2D::new(
+            real_to_im: Transformation2D::new(
                 [
                     Region::new(region.left(), region.bottom()),
                     Region::new(region.right(), region.top()),
@@ -87,7 +87,7 @@ impl Parametric {
                         point_interval((im_height - padding.top) as f64),
                     ),
                 ],
-                TransformMode::Precise,
+                TransformationMode::Precise,
             ),
             stats: GraphingStatistics {
                 eval_count: 0,
@@ -321,16 +321,7 @@ impl Parametric {
         xs.iter()
             .cartesian_product(ys.iter())
             .filter(|(x, y)| x.g.union(y.g).is_some())
-            .map(|(x, y)| {
-                Box2D::new(
-                    point_interval_possibly_infinite(x.x.inf()),
-                    point_interval_possibly_infinite(x.x.sup()),
-                    point_interval_possibly_infinite(y.x.inf()),
-                    point_interval_possibly_infinite(y.x.sup()),
-                )
-                .transform(&self.real_to_im)
-                .outer()
-            })
+            .map(|(x, y)| Region::new(x.x, y.x).transform(&self.real_to_im))
     }
 
     fn is_any_pixel_uncertain(&self, pixels: &[PixelRange], front_block_index: usize) -> bool {
