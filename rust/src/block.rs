@@ -171,9 +171,21 @@ impl IntegerParameter {
         let a = x.inf();
         let b = x.sup();
         let mid = if a == f64::NEG_INFINITY {
-            (2.0 * b).max(f64::MIN).min(-1.0)
+            if b < 0.0 {
+                (2.0 * b).max(f64::MIN)
+            } else if b == 0.0 {
+                -1.0
+            } else {
+                0.0
+            }
         } else if b == f64::INFINITY {
-            (2.0 * a).max(1.0).min(f64::MAX)
+            if a < 0.0 {
+                0.0
+            } else if a == 0.0 {
+                1.0
+            } else {
+                (2.0 * a).min(f64::MAX)
+            }
         } else {
             x.mid().round()
         };
@@ -614,6 +626,10 @@ mod tests {
         assert!(x.is_superpixel());
         assert_eq!(x.pixel(), Coordinate::new(336, 0));
         assert_eq!(x.pixel_index(), 336);
+        assert_eq!(
+            x.subdivide(),
+            [Coordinate::new(84, 2), Coordinate::new(85, 2)]
+        );
         assert_eq!(x.width(), 8);
         assert_eq!(x.widthf(), 8.0);
 
@@ -623,6 +639,10 @@ mod tests {
         assert_eq!(x.pixel(), x);
         assert_eq!(x.pixel_align(), 1);
         assert_eq!(x.pixel_index(), 42);
+        assert_eq!(
+            x.subdivide(),
+            [Coordinate::new(84, -1), Coordinate::new(85, -1)]
+        );
         assert_eq!(x.width(), 1);
         assert_eq!(x.widthf(), 1.0);
 
@@ -632,7 +652,145 @@ mod tests {
         assert_eq!(x.pixel(), Coordinate::new(5, 0));
         assert_eq!(x.pixel_align(), 8);
         assert_eq!(x.pixel_index(), 5);
+        assert_eq!(
+            x.subdivide(),
+            [Coordinate::new(84, -4), Coordinate::new(85, -4)]
+        );
         assert_eq!(x.widthf(), 0.125);
+    }
+
+    #[test]
+    fn integer_parameter() {
+        fn test(x: Interval, ys: Vec<Interval>) {
+            let n = IntegerParameter::new(x);
+            assert_eq!(
+                n.subdivide(),
+                ys.iter()
+                    .copied()
+                    .map(IntegerParameter::new)
+                    .collect::<SmallVec<[_; 2]>>()
+            );
+
+            let n = IntegerParameter::new(-x);
+            assert_eq!(
+                n.subdivide(),
+                ys.into_iter()
+                    .map(|y| IntegerParameter::new(-y))
+                    .rev()
+                    .collect::<SmallVec<[_; 2]>>()
+            );
+        }
+
+        test(
+            Interval::ENTIRE,
+            vec![
+                const_interval!(f64::NEG_INFINITY, 0.0),
+                const_interval!(0.0, 0.0),
+                const_interval!(0.0, f64::INFINITY),
+            ],
+        );
+
+        test(
+            const_interval!(0.0, f64::INFINITY),
+            vec![
+                const_interval!(1.0, 1.0),
+                const_interval!(1.0, f64::INFINITY),
+            ],
+        );
+
+        test(
+            const_interval!(1.0, f64::INFINITY),
+            vec![
+                const_interval!(2.0, 2.0),
+                const_interval!(2.0, f64::INFINITY),
+            ],
+        );
+
+        test(
+            const_interval!(2.0, f64::INFINITY),
+            vec![
+                const_interval!(3.0, 3.0),
+                const_interval!(4.0, 4.0),
+                const_interval!(4.0, f64::INFINITY),
+            ],
+        );
+
+        test(
+            const_interval!(4.0, f64::INFINITY),
+            vec![
+                const_interval!(4.0, 8.0),
+                const_interval!(8.0, 8.0),
+                const_interval!(8.0, f64::INFINITY),
+            ],
+        );
+
+        test(const_interval!(0.0, 2.0), vec![const_interval!(1.0, 1.0)]);
+
+        test(
+            const_interval!(0.0, 3.0),
+            vec![const_interval!(1.0, 1.0), const_interval!(2.0, 2.0)],
+        );
+
+        test(
+            const_interval!(0.0, 4.0),
+            vec![
+                const_interval!(1.0, 1.0),
+                const_interval!(2.0, 2.0),
+                const_interval!(3.0, 3.0),
+            ],
+        );
+    }
+
+    #[test]
+    fn real_parameter() {
+        fn test(x: Interval, ys: Vec<Interval>) {
+            let n = RealParameter::new(x);
+            assert_eq!(
+                n.subdivide(),
+                ys.iter()
+                    .copied()
+                    .map(RealParameter::new)
+                    .collect::<SmallVec<[_; 3]>>()
+            );
+
+            let n = RealParameter::new(-x);
+            assert_eq!(
+                n.subdivide(),
+                ys.into_iter()
+                    .map(|y| RealParameter::new(-y))
+                    .rev()
+                    .collect::<SmallVec<[_; 3]>>()
+            );
+        }
+
+        test(
+            Interval::ENTIRE,
+            vec![
+                const_interval!(f64::NEG_INFINITY, 0.0),
+                const_interval!(0.0, f64::INFINITY),
+            ],
+        );
+
+        test(
+            const_interval!(0.0, f64::INFINITY),
+            vec![
+                const_interval!(0.0, 1.0),
+                const_interval!(1.0, f64::INFINITY),
+            ],
+        );
+
+        test(
+            const_interval!(2.0, f64::INFINITY),
+            vec![
+                const_interval!(2.0, 4.0),
+                const_interval!(4.0, f64::INFINITY),
+            ],
+        );
+
+        test(
+            const_interval!(2.0, 3.0),
+            vec![const_interval!(2.0, 2.5), const_interval!(2.5, 3.0)],
+        );
     }
 
     #[test]
