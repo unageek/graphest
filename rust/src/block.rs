@@ -120,7 +120,7 @@ impl Coordinate {
     }
 }
 
-fn subdivision_point(x: Interval, integers: bool) -> f64 {
+fn subdivision_point(x: Interval, integer: bool) -> f64 {
     let a = x.inf();
     let b = x.sup();
     if a == f64::NEG_INFINITY {
@@ -139,7 +139,7 @@ fn subdivision_point(x: Interval, integers: bool) -> f64 {
         } else {
             (2.0 * a).min(f64::MAX)
         }
-    } else if integers {
+    } else if integer {
         x.mid().round()
     } else {
         x.mid()
