@@ -30,7 +30,6 @@ const XY: VarSet = vars!(VarSet::X | VarSet::Y);
 /// The graphing algorithm for implicit relations.
 pub struct Implicit {
     rel: Relation,
-    vars: VarSet,
     var_indices: VarIndices,
     subdivision_dirs: Vec<VarSet>,
     im: Image<PixelState>,
@@ -64,7 +63,6 @@ impl Implicit {
 
         let mut g = Self {
             rel,
-            vars,
             var_indices,
             subdivision_dirs,
             im: Image::new(im_width, im_height),
@@ -157,20 +155,6 @@ impl Implicit {
                 let complete = if !sub_b.x.is_subpixel() {
                     self.process_block(&sub_b, &mut args)
                 } else {
-                    if self.vars.contains(VarSet::N_THETA) {
-                        let n = sub_b.n_theta.interval();
-                        let n_simple = simple_fraction(n);
-                        if n.inf() != n_simple && n.sup() != n_simple {
-                            // Try finding a solution earlier.
-                            self.process_subpixel_block(
-                                &Block {
-                                    n_theta: IntegerParameter::new(point_interval(n_simple)),
-                                    ..sub_b
-                                },
-                                &mut args,
-                            );
-                        }
-                    }
                     self.process_subpixel_block(&sub_b, &mut args)
                 };
                 if !complete {
