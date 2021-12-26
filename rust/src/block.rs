@@ -120,6 +120,32 @@ impl Coordinate {
     }
 }
 
+fn subdivision_point(x: Interval, integers: bool) -> f64 {
+    let a = x.inf();
+    let b = x.sup();
+    if a == f64::NEG_INFINITY {
+        if b < 0.0 {
+            (2.0 * b).max(f64::MIN)
+        } else if b == 0.0 {
+            -1.0
+        } else {
+            0.0
+        }
+    } else if b == f64::INFINITY {
+        if a < 0.0 {
+            0.0
+        } else if a == 0.0 {
+            1.0
+        } else {
+            (2.0 * a).min(f64::MAX)
+        }
+    } else if integers {
+        x.mid().round()
+    } else {
+        x.mid()
+    }
+}
+
 /// A component of a [`Block`] that corresponds to a integer parameter.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct IntegerParameter(Interval);
@@ -170,25 +196,7 @@ impl IntegerParameter {
         let x = self.0;
         let a = x.inf();
         let b = x.sup();
-        let mid = if a == f64::NEG_INFINITY {
-            if b < 0.0 {
-                (2.0 * b).max(f64::MIN)
-            } else if b == 0.0 {
-                -1.0
-            } else {
-                0.0
-            }
-        } else if b == f64::INFINITY {
-            if a < 0.0 {
-                0.0
-            } else if a == 0.0 {
-                1.0
-            } else {
-                (2.0 * a).min(f64::MAX)
-            }
-        } else {
-            x.mid().round()
-        };
+        let mid = subdivision_point(x, true);
         [
             interval!(a, mid).unwrap(),
             interval!(mid, mid).unwrap(),
@@ -252,25 +260,7 @@ impl RealParameter {
         let x = self.0;
         let a = x.inf();
         let b = x.sup();
-        let mid = if a == f64::NEG_INFINITY {
-            if b < 0.0 {
-                (2.0 * b).max(f64::MIN)
-            } else if b == 0.0 {
-                -1.0
-            } else {
-                0.0
-            }
-        } else if b == f64::INFINITY {
-            if a < 0.0 {
-                0.0
-            } else if a == 0.0 {
-                1.0
-            } else {
-                (2.0 * a).min(f64::MAX)
-            }
-        } else {
-            x.mid()
-        };
+        let mid = subdivision_point(x, false);
         [interval!(a, mid).unwrap(), interval!(mid, b).unwrap()]
             .into_iter()
             .filter(|x| !x.is_singleton())
