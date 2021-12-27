@@ -5,7 +5,6 @@ use std::{
     path::PathBuf,
     process::{Command, Stdio},
 };
-
 use uuid::Uuid;
 
 fn execute(cmd: &mut Command) -> bool {
