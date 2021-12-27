@@ -290,8 +290,9 @@ pub struct Block {
     pub n_theta: IntegerParameter,
     /// The parameter t.
     pub t: RealParameter,
-    /// The component(s) of the block that should be subdivided next.
-    pub next_dir: VarSet,
+    /// The index of the subdivision direction, defined by the graphing algorithm,
+    /// that should be chosen to subdivide this block.
+    pub next_dir_index: u8,
 }
 
 const DEFAULT_BLOCK: Block = Block {
@@ -301,7 +302,7 @@ const DEFAULT_BLOCK: Block = Block {
     n: IntegerParameter(Interval::ENTIRE),
     n_theta: IntegerParameter(Interval::ENTIRE),
     t: RealParameter(Interval::ENTIRE),
-    next_dir: VarSet::EMPTY,
+    next_dir_index: 0,
 };
 
 /// A queue that stores [`Block`]s.
@@ -420,7 +421,7 @@ impl BlockQueue {
             b.t = RealParameter(self.t_front);
         }
 
-        b.next_dir = self.pop_vars()?;
+        b.next_dir_index = self.pop_u8()?;
 
         self.begin_index += 1;
 
@@ -465,7 +466,7 @@ impl BlockQueue {
             self.t_back = t;
         }
 
-        self.push_vars(b.next_dir);
+        self.push_u8(b.next_dir_index);
 
         self.end_index += 1;
     }
@@ -546,10 +547,8 @@ impl BlockQueue {
         Some(x | y)
     }
 
-    fn pop_vars(&mut self) -> Option<VarSet> {
-        let bits = self.seq.pop_front()?;
-        let vars = unsafe { VarSet::from_bits_unchecked(bits) };
-        Some(vars)
+    fn pop_u8(&mut self) -> Option<u8> {
+        self.seq.pop_front()
     }
 
     fn push_i8(&mut self, x: i8) {
@@ -584,8 +583,8 @@ impl BlockQueue {
         self.seq.extend(y.to_le_bytes()[..tail_len].iter());
     }
 
-    fn push_vars(&mut self, vars: VarSet) {
-        self.seq.push_back(vars.bits());
+    fn push_u8(&mut self, x: u8) {
+        self.seq.push_back(x)
     }
 }
 
