@@ -820,9 +820,9 @@ mod tests {
         assert_eq!(f("r = 1"), Implicit);
         assert_eq!(f("x = θ"), Implicit);
         assert_eq!(f("x = theta"), Implicit);
-        assert_eq!(f("x = n"), Implicit);
-        assert_eq!(f("x = 1 && y = n"), Parametric);
-        assert_eq!(f("x = n && y = 1"), Parametric);
+        assert_eq!(f("x = m + n"), Implicit);
+        assert_eq!(f("x = 1 && y = m + n"), Parametric);
+        assert_eq!(f("x = m + n && y = 1"), Parametric);
         assert_eq!(f("x = 1 && y = sin(t)"), Parametric);
         assert_eq!(f("x = cos(t) && y = 1"), Parametric);
         assert_eq!(f("x = cos(t) && y = sin(t)"), Parametric);

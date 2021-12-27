@@ -226,3 +226,20 @@ t!(
     "x = 1 - 3 t^2 ∧ y = t (3 - t^2)",
     @bounds(-100, 100, -100, 100),
 );
+
+// Integer parameters
+
+t!(
+    t_edb96325adb6497cbb0173eb9d5496cc,
+    "x = 10 / m ∧ y = 20 / n",
+);
+
+t!(
+    t_c6947324ad53422e9076ce55e9073913,
+    "x = 10 / m ∧ y = 20 / n ∧ m = n",
+);
+
+t!(
+    t_bfe7a22400304fa0bf9d0260f522f047,
+    "x = cos(t) + m ∧ y = sin(t) + 2 n ∧ m = n",
+);
