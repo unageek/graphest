@@ -20,7 +20,6 @@ use smallvec::SmallVec;
 use std::{
     convert::TryFrom,
     default::default,
-    iter::once,
     mem::swap,
     time::{Duration, Instant},
 };
@@ -102,7 +101,6 @@ impl Parametric {
 
         g.bs_to_subdivide.push_back(Block {
             t: RealParameter::new(g.rel.t_range()),
-            next_dir: g.subdivision_dirs[0],
             ..default()
         });
 
@@ -113,11 +111,11 @@ impl Parametric {
         let mut sub_bs = vec![];
         let mut incomplete_pixels = vec![];
         let mut incomplete_sub_bs = vec![];
-        let mut next_dir_candidates = vec![];
         let mut args = self.rel.create_args();
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
-            match b.next_dir {
+            let next_dir = self.subdivision_dirs[b.next_dir_index as usize];
+            match next_dir {
                 VarSet::M => subdivide_m(&mut sub_bs, &b),
                 VarSet::N => subdivide_n(&mut sub_bs, &b),
                 VarSet::T => subdivide_t(&mut sub_bs, &b),
@@ -136,40 +134,36 @@ impl Parametric {
                 incomplete_pixels.clear();
             }
 
-            let n_max = match b.next_dir {
+            let n_max = match next_dir {
                 VarSet::M | VarSet::N => 3,
                 VarSet::T => 1000, // Avoid repeated subdivision of t.
                 _ => panic!(),
             };
-            let next_dir_suggestion = if n_max * incomplete_sub_bs.len() <= n_sub_bs {
-                // Subdivide in the same direction again.
-                b.next_dir
-            } else {
-                // Subdivide in other direction.
-                let mut it = self.subdivision_dirs.iter().copied().cycle();
-                it.find(|&d| d == b.next_dir);
-                it.next().unwrap()
-            };
 
-            next_dir_candidates.splice(
-                ..,
-                once(next_dir_suggestion).chain(
-                    self.subdivision_dirs
-                        .iter()
-                        .copied()
-                        .filter(|&d| d != next_dir_suggestion),
-                ),
-            );
+            let it = (0..self.subdivision_dirs.len())
+                .cycle()
+                .skip(
+                    if n_max * incomplete_sub_bs.len() <= n_sub_bs {
+                        // Subdivide in the same direction again.
+                        b.next_dir_index
+                    } else {
+                        // Subdivide in other direction.
+                        b.next_dir_index + 1
+                    }
+                    .into(),
+                )
+                .take(self.subdivision_dirs.len());
 
             for (mut sub_b, incomplete_pixels) in incomplete_sub_bs.drain(..) {
-                let next_dir = next_dir_candidates.iter().copied().find(|&d| {
+                let next_dir_index = it.clone().find(|&i| {
+                    let d = self.subdivision_dirs[i];
                     d == VarSet::M && sub_b.m.is_subdivisible()
                         || d == VarSet::N && sub_b.n.is_subdivisible()
                         || d == VarSet::T && sub_b.t.is_subdivisible()
                 });
 
-                if let Some(d) = next_dir {
-                    sub_b.next_dir = d;
+                if let Some(i) = next_dir_index {
+                    sub_b.next_dir_index = i as u8;
                 } else {
                     // Cannot subdivide in any direction.
                     self.set_undisprovable(&incomplete_pixels, bi);
