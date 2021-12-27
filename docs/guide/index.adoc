@@ -6,19 +6,24 @@
 :stem: latexmath
 :toc: left
 
-== General Rules
+== Entering a Relation
 
-* A valid relation must be either an equation, an inequality, or a compound <<formulae,formula>>, such as `y = sin(x)` or `sin(x) < cos(y)`.
+* A relation must contain at least one of `=`, `<`, `≤`, `>`, or `≥`, as in `y = sin(x)` or `sin(x) < cos(y)`.
+** It can also be a <<logical-connectives,compound formula>>, such as `y = sin(x) ∨ y = cos(x)`.
 * Enter the product of `x` and `y` as `x y`, instead of [red]`xy`.
-** You don't need a space around parentheses or in a expression like `2x` .
+** You don't need a space around parentheses or in a expression like `2x`.
 * Enter the sine of stem:[x] as `sin(x)`, instead of [red]`sinx` or [red]`sin x`.
-* Use parentheses to group a part of the relation like `1 / (x + 3)`.
-* Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, stem:[(x, y) = (1, 0)] is identical to stem:[(r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …]
-** You can restrict the range of `r` or `θ` as in `r = θ ∧ 0 ≤ θ < 2π`.
-* You can make a parametric relation by using a real parameter `t` as in `x = cos(t) ∧ y = sin(t)`, `x + i y = exp(i t)`, or `x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π`.
-** Any relation that contains `t` is implicitly interpreted as stem:[∃t ∈ ℝ[…\]].
+* Use parentheses to group a part of a relation, as in `1 / (x + 3)`.
+* You can use the variables `x`, `y`, `r` and `θ` as coordinates.
+** Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, stem:[(x, y) = (1, 0)] is identical to stem:[(r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …]
+** You can restrict the range of `r` or `θ`, as in `r = θ ∧ 0 ≤ θ < 2π`.
+* You can use the real parameter `t` to make parametric relations. Examples:
+** `x = cos(t) ∧ y = sin(t)`
+** `x + i y = exp(i t)`
+** `x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π`
+* You can also use the two independent integer parameters `m` and `n`.
 
-== Definitions Reference
+== Built-in Definitions
 
 === Constants
 
@@ -82,11 +87,22 @@
 |stem:[θ]
 |The angular coordinate.
 
+3+s|Integer Parameters
+|`m`
+|stem:[m]
+|A parameter that spans all integers.
+
+|`n`
+|stem:[n]
+|A parameter that spans all integers.
+
 3+s|Real Parameter
 |`t`
 |stem:[t]
 |A parameter that spans all real numbers.
 |===
+
+A relation stem:[R] that contains parameters is interpreted as stem:[∃m, n ∈ ℤ, ∃t ∈ ℝ : R].
 
 === Real Functions
 
@@ -546,6 +562,9 @@ Branch cuts for a fixed stem:[z]: stem:[(−∞, 0)], continuous from above.
 |stem:[x] and stem:[y] must be real.
 |===
 
+These operators can be chained. For example, `0 ≤ θ < 2π` is equivalent to `0 ≤ θ ∧ θ < 2π`.
+
+[#logical-connectives]
 ==== Logical Connectives
 
 [cols="a,,"]

@@ -438,8 +438,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </style>
 <link
   rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/katex@0.13.20/dist/katex.min.css"
-  integrity="sha384-cRxb1HsKSl8bTfU9fBcGsjktUfQa6w+fwvkYnU8XjFH4Qg8To1+/9OXv5iRzrKX4"
+  href="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.css"
+  integrity="sha384-R4558gYOUz8mP9YWpZJjofhk+zx0AS11p36HnD2ZKj/6JR5z27gSSULCNHIRReVs"
   crossorigin="anonymous"
 />
 <style type="text/css">
@@ -449,13 +449,13 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </style>
 <script
   defer
-  src="https://cdn.jsdelivr.net/npm/katex@0.13.20/dist/katex.min.js"
-  integrity="sha384-ov99pRO2tAc0JuxTVzf63RHHeQTJ0CIawbDZFiFTzB07aqFZwEu2pz4uzqL+5OPG"
+  src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.js"
+  integrity="sha384-z1fJDqw8ZApjGO3/unPWUPsIymfsJmyrDVWC8Tv/a1HeOtGmkwNd/7xUS0Xcnvsx"
   crossorigin="anonymous"
 ></script>
 <script
   defer
-  src="https://cdn.jsdelivr.net/npm/katex@0.13.20/dist/contrib/auto-render.min.js"
+  src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/contrib/auto-render.min.js"
   integrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR"
   crossorigin="anonymous"
 ></script>
@@ -487,8 +487,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div id="toc" class="toc2">
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
-<li><a href="#_general_rules">General Rules</a></li>
-<li><a href="#_definitions_reference">Definitions Reference</a>
+<li><a href="#_entering_a_relation">Entering a Relation</a></li>
+<li><a href="#_built_in_definitions">Built-in Definitions</a>
 <ul class="sectlevel2">
 <li><a href="#_constants">Constants</a></li>
 <li><a href="#_variables">Variables</a></li>
@@ -504,19 +504,26 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div>
 <div id="content">
 <div class="sect1">
-<h2 id="_general_rules"><a class="anchor" href="#_general_rules"></a><a class="link" href="#_general_rules">General Rules</a></h2>
+<h2 id="_entering_a_relation"><a class="anchor" href="#_entering_a_relation"></a><a class="link" href="#_entering_a_relation">Entering a Relation</a></h2>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
 <li>
-<p>A valid relation must be either an equation, an inequality, or a compound <a href="#formulae">formula</a>, such as <code>y = sin(x)</code> or <code>sin(x) &lt; cos(y)</code>.</p>
+<p>A relation must contain at least one of <code>=</code>, <code>&lt;</code>, <code>≤</code>, <code>&gt;</code>, or <code>≥</code>, as in <code>y = sin(x)</code> or <code>sin(x) &lt; cos(y)</code>.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>It can also be a <a href="#logical-connectives">compound formula</a>, such as <code>y = sin(x) ∨ y = cos(x)</code>.</p>
+</li>
+</ul>
+</div>
 </li>
 <li>
 <p>Enter the product of <code>x</code> and <code>y</code> as <code>x y</code>, instead of <code class="red">xy</code>.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>You don&#8217;t need a space around parentheses or in a expression like <code>2x</code> .</p>
+<p>You don&#8217;t need a space around parentheses or in a expression like <code>2x</code>.</p>
 </li>
 </ul>
 </div>
@@ -525,34 +532,46 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <p>Enter the sine of \(x\) as <code>sin(x)</code>, instead of <code class="red">sinx</code> or <code class="red">sin x</code>.</p>
 </li>
 <li>
-<p>Use parentheses to group a part of the relation like <code>1 / (x + 3)</code>.</p>
+<p>Use parentheses to group a part of a relation, as in <code>1 / (x + 3)</code>.</p>
 </li>
+<li>
+<p>You can use the variables <code>x</code>, <code>y</code>, <code>r</code> and <code>θ</code> as coordinates.</p>
+<div class="ulist">
+<ul>
 <li>
 <p>Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, \((x, y) = (1, 0)\) is identical to \((r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …\)</p>
-<div class="ulist">
-<ul>
+</li>
 <li>
-<p>You can restrict the range of <code>r</code> or <code>θ</code> as in <code>r = θ ∧ 0 ≤ θ &lt; 2π</code>.</p>
+<p>You can restrict the range of <code>r</code> or <code>θ</code>, as in <code>r = θ ∧ 0 ≤ θ &lt; 2π</code>.</p>
 </li>
 </ul>
 </div>
 </li>
 <li>
-<p>You can make a parametric relation by using a real parameter <code>t</code> as in <code>x = cos(t) ∧ y = sin(t)</code>, <code>x + i y = exp(i t)</code>, or <code>x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π</code>.</p>
+<p>You can use the real parameter <code>t</code> to make parametric relations. Examples:</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Any relation that contains <code>t</code> is implicitly interpreted as \(∃t ∈ ℝ[…]\).</p>
+<p><code>x = cos(t) ∧ y = sin(t)</code></p>
+</li>
+<li>
+<p><code>x + i y = exp(i t)</code></p>
+</li>
+<li>
+<p><code>x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π</code></p>
 </li>
 </ul>
 </div>
+</li>
+<li>
+<p>You can also use the two independent integer parameters <code>m</code> and <code>n</code>.</p>
 </li>
 </ul>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_definitions_reference"><a class="anchor" href="#_definitions_reference"></a><a class="link" href="#_definitions_reference">Definitions Reference</a></h2>
+<h2 id="_built_in_definitions"><a class="anchor" href="#_built_in_definitions"></a><a class="link" href="#_built_in_definitions">Built-in Definitions</a></h2>
 <div class="sectionbody">
 <div class="sect2">
 <h3 id="_constants"><a class="anchor" href="#_constants"></a><a class="link" href="#_constants">Constants</a></h3>
@@ -676,6 +695,23 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <td class="tableblock halign-left valign-top"><p class="tableblock">The angular coordinate.</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top" colspan="3"><p class="tableblock"><strong>Integer Parameters</strong></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>m</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(m\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A parameter that spans all integers.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>n</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">\(n\)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A parameter that spans all integers.</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top" colspan="3"><p class="tableblock"><strong>Real Parameter</strong></p></td>
 </tr>
 <tr>
@@ -687,6 +723,9 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </tr>
 </tbody>
 </table>
+<div class="paragraph">
+<p>A relation \(R\) that contains parameters is interpreted as \(∃m, n ∈ ℤ, ∃t ∈ ℝ : R\).</p>
+</div>
 </div>
 <div class="sect2">
 <h3 id="_real_functions"><a class="anchor" href="#_real_functions"></a><a class="link" href="#_real_functions">Real Functions</a></h3>
@@ -1551,9 +1590,12 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </tr>
 </tbody>
 </table>
+<div class="paragraph">
+<p>These operators can be chained. For example, <code>0 ≤ θ &lt; 2π</code> is equivalent to <code>0 ≤ θ ∧ θ &lt; 2π</code>.</p>
+</div>
 </div>
 <div class="sect3">
-<h4 id="_logical_connectives"><a class="anchor" href="#_logical_connectives"></a><a class="link" href="#_logical_connectives">Logical Connectives</a></h4>
+<h4 id="logical-connectives"><a class="anchor" href="#logical-connectives"></a><a class="link" href="#logical-connectives">Logical Connectives</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
 <col style="width: 33.3333%;">
@@ -1826,7 +1868,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-11-28 17:25:13 +0900
+Last updated 2021-12-28 02:34:07 +0900
 </div>
 </div>
 
