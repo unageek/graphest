@@ -69,6 +69,9 @@ a:not([draggable]) {
   font-family: "DejaVu Mono";
   font-size: 16px;
   line-height: 1.5;
+  /* Use a fractional number of lines to help the user recognize the overflow. */
+  max-height: calc(5.5 * (1.5 * 16px));
+  overflow-y: auto;
   word-spacing: -0.25ch;
 }
 
