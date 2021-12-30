@@ -87,6 +87,8 @@ impl Relation {
     ///
     /// If P(x) (or P(y)) is absent, its value is assumed to be always true.
     ///
+    /// f(x) is normalized as an interval set.
+    ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_explicit<'a>(
         &mut self,
@@ -101,15 +103,13 @@ impl Relation {
 
         cache.full.get_or_insert_with(args, || {
             let p = self.eval(args, &mut cache.univariate);
-            match self.relation_type {
-                RelationType::ExplicitFunctionOfX(_) => {
-                    (self.ts[self.y_explicit.unwrap()].clone(), p)
-                }
-                RelationType::ExplicitFunctionOfY(_) => {
-                    (self.ts[self.x_explicit.unwrap()].clone(), p)
-                }
+            let mut ys = match self.relation_type {
+                RelationType::ExplicitFunctionOfX(_) => self.ts[self.y_explicit.unwrap()].clone(),
+                RelationType::ExplicitFunctionOfY(_) => self.ts[self.x_explicit.unwrap()].clone(),
                 _ => unreachable!(),
-            }
+            };
+            ys.normalize(true);
+            (ys, p)
         })
     }
 
@@ -137,6 +137,8 @@ impl Relation {
     ///
     /// If P(…) is absent, its value is assumed to be always true.
     ///
+    /// f(…) and g(…) are normalized as interval sets.
+    ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_parametric<'a>(
         &mut self,
@@ -148,11 +150,11 @@ impl Relation {
 
         cache.full.get_or_insert_with(args, || {
             let p = self.eval(args, &mut cache.univariate);
-            (
-                self.ts[self.x_explicit.unwrap()].clone(),
-                self.ts[self.y_explicit.unwrap()].clone(),
-                p,
-            )
+            let mut xs = self.ts[self.x_explicit.unwrap()].clone();
+            let mut ys = self.ts[self.y_explicit.unwrap()].clone();
+            xs.normalize(true);
+            ys.normalize(true);
+            (xs, ys, p)
         })
     }
 
