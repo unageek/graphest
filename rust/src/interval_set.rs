@@ -171,6 +171,11 @@ pub struct TupperIntervalSet {
 }
 
 impl TupperIntervalSet {
+    /// The maximum number of intervals left after normalization.
+    ///
+    /// See [`Self::normalize`].
+    pub const MAX_INTERVALS: usize = 16;
+
     /// Creates an empty [`TupperIntervalSet`].
     pub fn new() -> Self {
         Self {
@@ -216,8 +221,10 @@ impl TupperIntervalSet {
         self.xs.len()
     }
 
-    /// Sorts intervals in a consistent order and merges overlapping intervals
-    /// with the same branch map.
+    /// Sorts the intervals in a consistent order, and merges overlapping ones
+    /// which share the same branch map. If there are more than [`Self::MAX_INTERVALS`] intervals,
+    /// merges all of them regardless of the branch maps by taking the convex hull,
+    /// leaving exactly one interval.
     ///
     /// It does nothing when the set is small enough and `force` is `false`.
     pub fn normalize(&mut self, force: bool) {
@@ -253,6 +260,16 @@ impl TupperIntervalSet {
             write += 1;
         }
         xs.truncate(write);
+
+        if xs.len() > Self::MAX_INTERVALS {
+            let hull = xs
+                .drain(..)
+                .map(|x| x.x)
+                .reduce(|acc, x| acc.convex_hull(x))
+                .unwrap();
+            xs.push(DecInterval::set_dec(hull, self.d).into());
+        }
+
         xs.shrink_to_fit();
     }
 
