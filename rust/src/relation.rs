@@ -4,6 +4,7 @@ use crate::{
     context::Context,
     eval_cache::{EvalExplicitCache, EvalImplicitCache, EvalParametricCache, UnivariateCache},
     eval_result::{EvalArgs, EvalExplicitResult, EvalParametricResult, EvalResult},
+    geom::{TransformInPlace, Transformation1D},
     interval_set::TupperIntervalSet,
     nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
@@ -83,16 +84,17 @@ impl Relation {
     }
 
     /// Evaluates the explicit relation y = f(x) ∧ P(x) (or x = f(y) ∧ P(y))
-    /// and returns (f(x), P(x)) (or (f(y), P(y))).
+    /// and returns (f'(x), P(x)) (or (f'(y), P(y))), where f'(x) is f(x) transformed by `ty`.
     ///
-    /// If P(x) (or P(y)) is absent, its value is assumed to be always true.
+    /// If P(x) is absent, its value is assumed to be always true.
     ///
-    /// f(x) is normalized as an interval set.
+    /// f'(x) is normalized as an interval set.
     ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_explicit<'a>(
         &mut self,
         args: &EvalArgs,
+        ty: &Transformation1D,
         cache: &'a mut EvalExplicitCache,
     ) -> &'a EvalExplicitResult {
         assert!(matches!(
@@ -109,6 +111,7 @@ impl Relation {
                 _ => unreachable!(),
             };
             ys.normalize(true);
+            ys.transform_in_place(ty);
             (ys, p)
         })
     }
@@ -133,16 +136,19 @@ impl Relation {
     }
 
     /// Evaluates the parametric relation x = f(…) ∧ y = g(…) ∧ P(…)
-    /// and returns (f(…), g(…), P(…)).
+    /// and returns (f'(…), g'(…), P(…)), where f'(…) and g'(…) are f(…) and g(…)
+    /// transformed by `tx` and `ty`, respectively.
     ///
     /// If P(…) is absent, its value is assumed to be always true.
     ///
-    /// f(…) and g(…) are normalized as interval sets.
+    /// f'(…) and g'(…) are normalized as interval sets.
     ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_parametric<'a>(
         &mut self,
         args: &EvalArgs,
+        tx: &Transformation1D,
+        ty: &Transformation1D,
         cache: &'a mut EvalParametricCache,
     ) -> &'a EvalParametricResult {
         assert_eq!(self.relation_type, RelationType::Parametric);
@@ -154,6 +160,8 @@ impl Relation {
             let mut ys = self.ts[self.y_explicit.unwrap()].clone();
             xs.normalize(true);
             ys.normalize(true);
+            xs.transform_in_place(tx);
+            ys.transform_in_place(ty);
             (xs, ys, p)
         })
     }

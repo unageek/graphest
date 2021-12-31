@@ -2,7 +2,7 @@ use crate::{
     block::{Block, BlockQueue, RealParameter},
     eval_cache::{EvalCacheLevel, EvalParametricCache},
     eval_result::EvalArgs,
-    geom::{Box2D, Transform, Transformation2D, TransformationMode},
+    geom::{Box2D, Transformation1D, TransformationMode},
     graph::{
         common::*, Graph, GraphingError, GraphingErrorKind, GraphingStatistics, Padding, Ternary,
     },
@@ -36,7 +36,8 @@ pub struct Parametric {
     /// The pixel-aligned region that matches the entire image.
     im_region: Region,
     /// The affine transformation from real coordinates to image coordinates.
-    real_to_im: Transformation2D,
+    real_to_im_x: Transformation1D,
+    real_to_im_y: Transformation1D,
     stats: GraphingStatistics,
     mem_limit: usize,
     no_cache: EvalParametricCache,
@@ -71,20 +72,19 @@ impl Parametric {
                 interval!(0.0, im_width as f64).unwrap(),
                 interval!(0.0, im_height as f64).unwrap(),
             ),
-            real_to_im: Transformation2D::new(
+            real_to_im_x: Transformation1D::new(
+                [region.left(), region.right()],
                 [
-                    Region::new(region.left(), region.bottom()),
-                    Region::new(region.right(), region.top()),
+                    point_interval(padding.left as f64),
+                    point_interval((im_width - padding.right) as f64),
                 ],
+                TransformationMode::Precise,
+            ),
+            real_to_im_y: Transformation1D::new(
+                [region.bottom(), region.top()],
                 [
-                    Region::new(
-                        point_interval(padding.left as f64),
-                        point_interval(padding.bottom as f64),
-                    ),
-                    Region::new(
-                        point_interval((im_width - padding.right) as f64),
-                        point_interval((im_height - padding.top) as f64),
-                    ),
+                    point_interval(padding.bottom as f64),
+                    point_interval((im_height - padding.top) as f64),
                 ],
                 TransformationMode::Precise,
             ),
@@ -220,9 +220,16 @@ impl Parametric {
         set_arg!(args, self.var_indices.m, block.m.interval());
         set_arg!(args, self.var_indices.n, block.n.interval());
         set_arg!(args, self.var_indices.t, block.t.interval());
-        let (xs, ys, cond) = self.rel.eval_parametric(args, &mut self.no_cache).clone();
-        let rs = self
-            .im_regions(&xs, &ys)
+        let (xs, ys, cond) = self
+            .rel
+            .eval_parametric(
+                args,
+                &self.real_to_im_x,
+                &self.real_to_im_y,
+                &mut self.no_cache,
+            )
+            .clone();
+        let rs = Self::regions(&xs, &ys)
             .map(|r| Self::outer_pixels(&r))
             .collect::<SmallVec<[_; 4]>>();
 
@@ -246,8 +253,16 @@ impl Parametric {
                         self.var_indices.t,
                         point_interval_possibly_infinite(block.t.interval().inf())
                     );
-                    let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache).clone();
-                    let rs = self.im_regions(&xs, &ys);
+                    let (xs, ys, _) = self
+                        .rel
+                        .eval_parametric(
+                            args,
+                            &self.real_to_im_x,
+                            &self.real_to_im_y,
+                            &mut self.cache,
+                        )
+                        .clone();
+                    let rs = Self::regions(&xs, &ys);
                     rs.single().unwrap()
                 };
                 let r2 = {
@@ -256,8 +271,16 @@ impl Parametric {
                         self.var_indices.t,
                         point_interval_possibly_infinite(block.t.interval().sup())
                     );
-                    let (xs, ys, _) = self.rel.eval_parametric(args, &mut self.cache).clone();
-                    let rs = self.im_regions(&xs, &ys);
+                    let (xs, ys, _) = self
+                        .rel
+                        .eval_parametric(
+                            args,
+                            &self.real_to_im_x,
+                            &self.real_to_im_y,
+                            &mut self.cache,
+                        )
+                        .clone();
+                    let rs = Self::regions(&xs, &ys);
                     rs.single().unwrap()
                 };
 
@@ -306,18 +329,6 @@ impl Parametric {
         incomplete_pixels.extend(rs.into_iter().map(|r| self.pixels_in_image(&r)))
     }
 
-    /// Returns enclosures of possible combinations of `x × y` in image coordinates.
-    fn im_regions<'a>(
-        &'a self,
-        xs: &'a TupperIntervalSet,
-        ys: &'a TupperIntervalSet,
-    ) -> impl 'a + Iterator<Item = Region> {
-        xs.iter()
-            .cartesian_product(ys.iter())
-            .filter(|(x, y)| x.g.union(y.g).is_some())
-            .map(|(x, y)| Region::new(x.x, y.x).transform(&self.real_to_im))
-    }
-
     fn is_any_pixel_uncertain(&self, pixels: &[PixelRange], front_block_index: usize) -> bool {
         pixels
             .iter()
@@ -358,6 +369,17 @@ impl Parametric {
                 PixelIndex::new(x.sup() as u32, self.im.height() - y.inf() as u32),
             )
         }
+    }
+
+    /// Returns possible combinations of `x × y`.
+    fn regions<'a>(
+        xs: &'a TupperIntervalSet,
+        ys: &'a TupperIntervalSet,
+    ) -> impl 'a + Iterator<Item = Region> {
+        xs.iter()
+            .cartesian_product(ys.iter())
+            .filter(|(x, y)| x.g.union(y.g).is_some())
+            .map(|(x, y)| Region::new(x.x, y.x))
     }
 
     fn set_last_queued_block(

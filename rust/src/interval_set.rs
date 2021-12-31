@@ -1,4 +1,7 @@
-use crate::traits::BytesAllocated;
+use crate::{
+    geom::{Transform, TransformInPlace, Transformation1D},
+    traits::BytesAllocated,
+};
 use bitflags::*;
 use inari::{DecInterval, Decoration, Interval};
 use smallvec::SmallVec;
@@ -383,6 +386,16 @@ impl<'a> IntoIterator for &'a TupperIntervalSet {
 impl BytesAllocated for TupperIntervalSet {
     fn bytes_allocated(&self) -> usize {
         self.xs.bytes_allocated()
+    }
+}
+
+impl TransformInPlace<Transformation1D> for TupperIntervalSet {
+    fn transform_in_place(&mut self, t: &Transformation1D) {
+        self.d = self.d.min(Decoration::Dac);
+        for x in &mut self.xs {
+            x.x = x.x.transform(t);
+            x.d = self.d;
+        }
     }
 }
 
