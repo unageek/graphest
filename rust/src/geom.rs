@@ -197,7 +197,7 @@ impl Transform<Transformation1D> for Interval {
 }
 
 pub trait TransformInPlace<T> {
-    /// Returns an enclosure of the geometric object transformed by `t`.
+    /// The in-place version of [`Transform`].
     fn transform_in_place(&mut self, t: &T);
 }
 
