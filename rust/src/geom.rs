@@ -196,10 +196,9 @@ impl Transform<Transformation1D> for Interval {
     }
 }
 
-impl Transform<Transformation2D> for Region {
-    fn transform(&self, t: &Transformation2D) -> Self {
-        Self::new(self.x().transform(&t.0), self.y().transform(&t.1))
-    }
+pub trait TransformInPlace<T> {
+    /// The in-place version of [`Transform`].
+    fn transform_in_place(&mut self, t: &T);
 }
 
 #[cfg(test)]
