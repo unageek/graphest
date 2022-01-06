@@ -19,14 +19,18 @@ import {
 import { Range } from "../common/range";
 import { ValidationResult } from "../common/validationResult";
 import {
-  getHighlights,
+  areBracketsBalanced,
+  getRightBracket,
+  highlightBrackets,
+  isLeftBracket,
+  isRightBracket,
   NormalizationRules,
   validateRelation,
 } from "./relationUtils";
 
 export interface RelationInputActions {
   insertSymbol: (symbol: string) => void;
-  insertSymbolPair: (first: string, second: string) => void;
+  insertSymbolPair: (left: string, right: string) => void;
 }
 
 export interface RelationInputProps {
@@ -65,8 +69,133 @@ declare module "slate" {
 
 type DecoratedRange = S.Range & Partial<Decoration>;
 
-const withRelationNormalization = (editor: S.Editor) => {
-  const { normalizeNode } = editor;
+const insertSymbolPair = (editor: S.Editor, left: string, right: string) => {
+  // Do not read `editor.selection` after any transformation.
+  // See https://github.com/ianstormtaylor/slate/issues/4541
+  const sel = editor.selection;
+  if (!sel) return;
+
+  const selRef = S.Editor.rangeRef(editor, sel);
+  if (!selRef.current) return;
+
+  S.Transforms.insertText(editor, left, {
+    at: S.Editor.start(editor, selRef.current),
+  });
+
+  const lastSel = selRef.current;
+  S.Transforms.insertText(editor, right, {
+    at: S.Editor.end(editor, selRef.current),
+  });
+  // Revert the move of the end cursor by `Transforms.insertText`.
+  S.Transforms.select(editor, lastSel);
+
+  selRef.unref();
+};
+
+const withRelationEditingExtensions = (editor: S.Editor) => {
+  const { deleteBackward, insertText, normalizeNode } = editor;
+
+  editor.deleteBackward = (unit) => {
+    let handled = false;
+
+    const sel = editor.selection;
+    if (!sel) throw new Error();
+
+    if (unit === "character" && S.Range.isCollapsed(sel)) {
+      S.Editor.withoutNormalizing(editor, () => {
+        const point = S.Editor.point(editor, sel);
+        const before = S.Editor.before(editor, point, { unit: "character" });
+        const after = S.Editor.after(editor, point, { unit: "character" });
+        if (!before || !after) return;
+
+        const charBefore = S.Editor.string(editor, {
+          anchor: before,
+          focus: point,
+        });
+        const charAfter = S.Editor.string(editor, {
+          anchor: point,
+          focus: after,
+        });
+        if (getRightBracket(charBefore) !== charAfter) return;
+
+        const rel = S.Editor.string(editor, {
+          anchor: S.Editor.start(editor, [0]),
+          focus: S.Editor.end(editor, [editor.children.length - 1]),
+        });
+        if (!areBracketsBalanced(rel)) return;
+
+        S.Transforms.delete(editor, {
+          at: { anchor: before, focus: after },
+        });
+        handled = true;
+      });
+    }
+
+    if (!handled) {
+      deleteBackward(unit);
+    }
+  };
+
+  editor.insertText = (text) => {
+    let handled = false;
+
+    const sel = editor.selection;
+    if (!sel) throw new Error();
+
+    if (S.Range.isCollapsed(sel)) {
+      if (isLeftBracket(text)) {
+        S.Editor.withoutNormalizing(editor, () => {
+          const point = S.Editor.point(editor, sel);
+          const after = S.Editor.after(editor, point, { unit: "character" });
+          if (after) {
+            const charAfter = S.Editor.string(editor, {
+              anchor: point,
+              focus: after,
+            });
+            if (!isRightBracket(charAfter)) return;
+          }
+
+          const rightBracket = getRightBracket(text);
+          if (!rightBracket) throw new Error();
+
+          const rel = S.Editor.string(editor, {
+            anchor: S.Editor.start(editor, [0]),
+            focus: S.Editor.end(editor, [editor.children.length - 1]),
+          });
+          if (!areBracketsBalanced(rel)) return;
+
+          insertSymbolPair(editor, text, rightBracket);
+          handled = true;
+        });
+      } else if (isRightBracket(text)) {
+        S.Editor.withoutNormalizing(editor, () => {
+          const point = S.Editor.point(editor, sel);
+          const after = S.Editor.after(editor, point, { unit: "character" });
+          if (!after) return;
+
+          const charAfter = S.Editor.string(editor, {
+            anchor: point,
+            focus: after,
+          });
+          if (text !== charAfter) return;
+
+          const rel = S.Editor.string(editor, {
+            anchor: S.Editor.start(editor, [0]),
+            focus: S.Editor.end(editor, [editor.children.length - 1]),
+          });
+          if (!areBracketsBalanced(rel)) return;
+
+          S.Transforms.select(editor, after);
+          handled = true;
+        });
+      }
+    }
+
+    if (!handled) {
+      insertText(text);
+    }
+  };
+
   editor.normalizeNode = (entry) => {
     const [node, path] = entry;
 
@@ -129,7 +258,7 @@ const renderLeaf = (props: RenderLeafProps) => {
 
 export const RelationInput = (props: RelationInputProps) => {
   const [editor] = useState(
-    withRelationNormalization(withHistory(withReact(S.createEditor())))
+    withRelationEditingExtensions(withHistory(withReact(S.createEditor())))
   );
   const [error, setError] = useState<ValidationResult>(null);
   const [showError, setShowError] = useState(false);
@@ -158,7 +287,7 @@ export const RelationInput = (props: RelationInputProps) => {
       if (!sel) return ranges;
 
       const rel = S.Editor.string(editor, path);
-      const decs = getHighlights(
+      const decs = highlightBrackets(
         rel,
         new Range(S.Range.start(sel).offset, S.Range.end(sel).offset)
       );
@@ -261,28 +390,9 @@ export const RelationInput = (props: RelationInputProps) => {
     insertSymbol: (symbol: string) => {
       S.Transforms.insertText(editor, symbol);
     },
-    insertSymbolPair: (first: string, second: string) => {
+    insertSymbolPair: (left: string, right: string) => {
       S.Editor.withoutNormalizing(editor, () => {
-        // Do not read `editor.selection` after any transformation.
-        // See https://github.com/ianstormtaylor/slate/issues/4541
-        const sel = editor.selection;
-        if (!sel) return;
-
-        const selRef = S.Editor.rangeRef(editor, sel);
-        if (!selRef.current) return;
-
-        S.Transforms.insertText(editor, first, {
-          at: S.Editor.start(editor, selRef.current),
-        });
-
-        const lastSel = selRef.current;
-        S.Transforms.insertText(editor, second, {
-          at: S.Editor.end(editor, lastSel),
-        });
-        // Revert the move of the end cursor by `Transforms.insertText`.
-        S.Transforms.setSelection(editor, lastSel);
-
-        selRef.unref();
+        insertSymbolPair(editor, left, right);
       });
     },
   }));
