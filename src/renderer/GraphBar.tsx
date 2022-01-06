@@ -57,8 +57,8 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
         onSymbolChosen={(symbol: string) =>
           relationInputActionsRef.current?.insertSymbol(symbol)
         }
-        onSymbolPairChosen={(first: string, second: string) =>
-          relationInputActionsRef.current?.insertSymbolPair(first, second)
+        onSymbolPairChosen={(left: string, right: string) =>
+          relationInputActionsRef.current?.insertSymbolPair(left, right)
         }
       />
       <BarIconButton

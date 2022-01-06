@@ -8,37 +8,80 @@ export const NormalizationRules: [string, string][] = [
   [">=", "≥"],
 ];
 
-const leftBracketKind = new Map([
+const leftBracketToRight = new Map([
+  ["(", ")"],
+  ["[", "]"],
+  ["⌈", "⌉"],
+  ["⌊", "⌋"],
+]);
+
+const rightBracketToLeft = new Map([
   [")", "("],
   ["]", "["],
   ["⌉", "⌈"],
   ["⌋", "⌊"],
 ]);
 
-export function getHighlights(
-  rel: string,
-  selection: Range
-): { errors: Range[]; highlightsLeft: Range[]; highlightsRight: Range[] } {
-  const errors: Range[] = [];
-  const highlightsLeft: Range[] = [];
-  const highlightsRight: Range[] = [];
-  const leftBrackets: { kind: string; pos: number }[] = [];
+export function areBracketsBalanced(rel: string): boolean {
+  const leftBrackets: { ch: string; pos: number }[] = [];
 
   for (let pos = 0; pos < rel.length; pos++) {
-    const kind = rel[pos];
-    switch (kind) {
+    const ch = rel[pos];
+    switch (ch) {
       case "(":
       case "[":
       case "⌈":
       case "⌊":
-        leftBrackets.push({ kind, pos });
+        leftBrackets.push({ ch, pos });
         break;
       case ")":
       case "]":
       case "⌉":
       case "⌋": {
         const left = leftBrackets.pop();
-        if (!left || left.kind !== leftBracketKind.get(kind)) {
+        if (!left || left.ch !== getLeftBracket(ch)) {
+          return false;
+        }
+        break;
+      }
+    }
+  }
+
+  return leftBrackets.length === 0;
+}
+
+export function getLeftBracket(rightBracket: string): string | undefined {
+  return rightBracketToLeft.get(rightBracket);
+}
+
+export function getRightBracket(leftBracket: string): string | undefined {
+  return leftBracketToRight.get(leftBracket);
+}
+
+export function highlightBrackets(
+  rel: string,
+  selection: Range
+): { errors: Range[]; highlightsLeft: Range[]; highlightsRight: Range[] } {
+  const errors: Range[] = [];
+  const highlightsLeft: Range[] = [];
+  const highlightsRight: Range[] = [];
+  const leftBrackets: { ch: string; pos: number }[] = [];
+
+  for (let pos = 0; pos < rel.length; pos++) {
+    const ch = rel[pos];
+    switch (ch) {
+      case "(":
+      case "[":
+      case "⌈":
+      case "⌊":
+        leftBrackets.push({ ch, pos });
+        break;
+      case ")":
+      case "]":
+      case "⌉":
+      case "⌋": {
+        const left = leftBrackets.pop();
+        if (!left || left.ch !== getLeftBracket(ch)) {
           errors.push(...leftBrackets.map((l) => new Range(l.pos, l.pos + 1)));
           if (left) {
             errors.push(new Range(left.pos, left.pos + 1));
@@ -59,6 +102,14 @@ export function getHighlights(
   errors.push(...leftBrackets.map((l) => new Range(l.pos, l.pos + 1)));
 
   return { errors, highlightsLeft, highlightsRight };
+}
+
+export function isLeftBracket(ch: string): boolean {
+  return leftBracketToRight.has(ch);
+}
+
+export function isRightBracket(ch: string): boolean {
+  return rightBracketToLeft.has(ch);
 }
 
 export async function validateRelation(rel: string): Promise<ValidationResult> {

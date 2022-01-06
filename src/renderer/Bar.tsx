@@ -1,7 +1,7 @@
-import { Stack, useTheme } from "@fluentui/react";
+import { IStackProps, Stack, useTheme } from "@fluentui/react";
 import * as React from "react";
 
-export interface BarProps extends React.HTMLAttributes<HTMLElement> {
+export interface BarProps extends IStackProps {
   padding?: number | string;
 }
 
@@ -10,8 +10,10 @@ export const Bar = (props: BarProps): JSX.Element => {
 
   return (
     <Stack
+      {...props}
       horizontal
       styles={{
+        ...props.styles,
         root: {
           background: theme.semanticColors.bodyBackground,
           minHeight: "32px",
@@ -20,7 +22,6 @@ export const Bar = (props: BarProps): JSX.Element => {
       tokens={{
         padding: props.padding,
       }}
-      {...props}
     />
   );
 };
