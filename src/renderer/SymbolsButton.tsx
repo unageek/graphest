@@ -81,6 +81,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
               }}
               style={{ gridColumn: "span 3" }}
               styles={SymbolButtonStyles}
+              title="pi"
             >
               π
             </BarIconButton>
@@ -91,6 +92,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
               }}
               style={{ gridColumn: "span 3" }}
               styles={SymbolButtonStyles}
+              title="theta"
             >
               θ
             </BarIconButton>
@@ -112,7 +114,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
               }}
               style={{ gridColumn: "span 3" }}
               styles={SymbolButtonStyles}
-              title="Brackets"
+              title="Square brackets"
             >
               [ ]
             </BarIconButton>
