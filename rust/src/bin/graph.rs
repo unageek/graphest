@@ -1,4 +1,4 @@
-use clap::{App, Arg, ArgSettings};
+use clap::{App, Arg};
 use graphest::{
     Box2D, Constant, Explicit, Graph, GraphingStatistics, Image, Implicit, Padding, Parametric,
     PixelIndex, PixelRange, Relation, RelationType, Ternary,
@@ -64,15 +64,11 @@ fn main() {
         .arg(
             Arg::new("dilate")
                 .long("dilate")
-                .setting(ArgSettings::Hidden)
+                .hide(true)
                 .default_value("1")
                 .forbid_empty_values(true),
         )
-        .arg(
-            Arg::new("gray-alpha")
-                .long("gray-alpha")
-                .setting(ArgSettings::Hidden),
-        )
+        .arg(Arg::new("gray-alpha").long("gray-alpha").hide(true))
         .arg(
             Arg::new("mem-limit")
                 .long("mem-limit")
@@ -93,28 +89,28 @@ fn main() {
         .arg(
             Arg::new("padding-bottom")
                 .long("padding-bottom")
-                .setting(ArgSettings::Hidden)
+                .hide(true)
                 .default_value("0")
                 .forbid_empty_values(true),
         )
         .arg(
             Arg::new("padding-left")
                 .long("padding-left")
-                .setting(ArgSettings::Hidden)
+                .hide(true)
                 .default_value("0")
                 .forbid_empty_values(true),
         )
         .arg(
             Arg::new("padding-right")
                 .long("padding-right")
-                .setting(ArgSettings::Hidden)
+                .hide(true)
                 .default_value("0")
                 .forbid_empty_values(true),
         )
         .arg(
             Arg::new("padding-top")
                 .long("padding-top")
-                .setting(ArgSettings::Hidden)
+                .hide(true)
                 .default_value("0")
                 .forbid_empty_values(true),
         )
@@ -126,7 +122,7 @@ fn main() {
         .arg(
             Arg::new("pause-per-output")
                 .long("pause-per-output")
-                .setting(ArgSettings::Hidden),
+                .hide(true),
         )
         .arg(
             Arg::new("size")
