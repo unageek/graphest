@@ -76,8 +76,8 @@ jobs:
         env:
           NODE_ENV: production
 
-      # - name: Test
-      #   run: npm test
+      - name: Test
+        run: npm test
 
       - name: Lint
         run: npm run lint

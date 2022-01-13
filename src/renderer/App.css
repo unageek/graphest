@@ -75,11 +75,55 @@ a:not([draggable]) {
   word-spacing: -0.25ch;
 }
 
-.relation-input span.error {
+.relation-input:focus span.highlighted-left-bracket::before,
+.relation-input:focus span.highlighted-right-bracket::before {
+  background-color: greenyellow;
+  color: transparent;
+  margin-right: -1ch;
+  mix-blend-mode: multiply;
+}
+
+.relation-input:focus span.highlighted-left-bracket::before {
+  border-radius: 0.5ch 0 0 0.5ch / 50% 0 0 50%;
+  /* Prevent the pseudo-element from affecting line break. */
+  content: "(\2060";
+}
+
+.relation-input:focus span.highlighted-right-bracket::before {
+  border-radius: 0 0.5ch 0.5ch 0 / 0 50% 50% 0;
+  content: ")\2060";
+}
+
+.relation-input span.multiplication-container {
+  /* Create a new stacking content. */
+  position: relative;
+  z-index: 0;
+}
+
+.relation-input span.multiplication {
+  word-spacing: 0.5ch;
+}
+
+.relation-input span.multiplication::before {
+  color: silver;
+  content: "×";
+  margin-left: 0.25ch;
+  position: absolute;
+  z-index: -1;
+}
+
+.relation-input span.syntax-error {
+  color: #b4009e; /* theme.palette.magenta */
+}
+
+.relation-input span.validation-error {
   background-color: mistyrose;
 }
 
-.relation-input span.error-after > span[data-slate-zero-width="n"] > br {
+.relation-input
+  span.validation-error-after
+  > span[data-slate-zero-width="n"]
+  > br {
   /*
    * Hide the <br> in:
    * https://github.com/ianstormtaylor/slate/blob/fece5c157099b5ddef9f6dc8d070f2fdb3724b90/packages/slate-react/src/components/string.tsx#L91
@@ -87,33 +131,10 @@ a:not([draggable]) {
   display: none;
 }
 
-.relation-input span.error-after::after {
+.relation-input span.validation-error-after::after {
   background-color: mistyrose;
   content: " ";
   word-spacing: normal;
-}
-
-.relation-input:focus span.highlight-left::before,
-.relation-input:focus span.highlight-right::before {
-  background-color: greenyellow;
-  color: transparent;
-  margin-right: -1ch;
-  mix-blend-mode: multiply;
-}
-
-.relation-input:focus span.highlight-left::before {
-  border-radius: 0.5ch 0 0 0.5ch / 50% 0 0 50%;
-  /* Prevent the pseudo-element from affecting line break. */
-  content: "(\2060";
-}
-
-.relation-input:focus span.highlight-right::before {
-  border-radius: 0 0.5ch 0.5ch 0 / 0 50% 50% 0;
-  content: ")\2060";
-}
-
-.relation-input span.syntax-error {
-  color: #b4009e; /* theme.palette.magenta */
 }
 
 .relation-input-error-message {
