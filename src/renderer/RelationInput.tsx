@@ -20,11 +20,12 @@ import { Range } from "../common/range";
 import { ValidationResult } from "../common/validationResult";
 import {
   areBracketsBalanced,
+  getDecorations,
   getRightBracket,
-  highlightBrackets,
   isLeftBracket,
   isRightBracket,
   NormalizationRules,
+  tokenize,
   validateRelation,
 } from "./relationUtils";
 
@@ -48,11 +49,12 @@ type CustomElement = {
 };
 
 type Decoration = {
-  error: boolean;
-  errorAfter: boolean;
-  highlightLeft: boolean;
-  highlightRight: boolean;
+  highlightedLeftBracket: boolean;
+  highlightedRightBracket: boolean;
+  multiplication: boolean;
   syntaxError: boolean;
+  validationError: boolean;
+  validationErrorAfter: boolean;
 };
 
 type CustomText = Decoration & {
@@ -230,23 +232,27 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
 
 const renderLeaf = (props: RenderLeafProps) => {
   const { attributes, leaf } = props;
-  const { children } = props;
+  let { children } = props;
 
   const classNames = [];
-  if (leaf.error) {
-    classNames.push("error");
+  if (leaf.highlightedLeftBracket) {
+    classNames.push("highlighted-left-bracket");
   }
-  if (leaf.errorAfter) {
-    classNames.push("error-after");
+  if (leaf.highlightedRightBracket) {
+    classNames.push("highlighted-right-bracket");
   }
-  if (leaf.highlightLeft) {
-    classNames.push("highlight-left");
-  }
-  if (leaf.highlightRight) {
-    classNames.push("highlight-right");
+  if (leaf.multiplication) {
+    classNames.push("multiplication-container");
+    children = <span className="multiplication">{children}</span>;
   }
   if (leaf.syntaxError) {
     classNames.push("syntax-error");
+  }
+  if (leaf.validationError) {
+    classNames.push("validation-error");
+  }
+  if (leaf.validationErrorAfter) {
+    classNames.push("validation-error-after");
   }
 
   return (
@@ -260,18 +266,20 @@ export const RelationInput = (props: RelationInputProps) => {
   const [editor] = useState(
     withRelationEditingExtensions(withHistory(withReact(S.createEditor())))
   );
-  const [error, setError] = useState<ValidationResult>(null);
-  const [showError, setShowError] = useState(false);
+  const [validationError, setValidationError] =
+    useState<ValidationResult>(null);
+  const [showValidationError, setShowValidationError] = useState(false);
   const [value, setValue] = useState<S.Descendant[]>([
     {
       children: [
         {
           text: props.relation,
-          error: false,
-          errorAfter: false,
-          highlightLeft: false,
-          highlightRight: false,
+          highlightedLeftBracket: false,
+          highlightedRightBracket: false,
+          multiplication: false,
           syntaxError: false,
+          validationError: false,
+          validationErrorAfter: false,
         },
       ],
     },
@@ -287,58 +295,65 @@ export const RelationInput = (props: RelationInputProps) => {
       if (!sel) return ranges;
 
       const rel = S.Editor.string(editor, path);
-      const decs = highlightBrackets(
-        rel,
+      const decs = getDecorations(
+        [...tokenize(rel)],
         new Range(S.Range.start(sel).offset, S.Range.end(sel).offset)
       );
-      for (const r of decs.errors) {
+      for (const { range: r } of decs.highlightedLeftBrackets) {
+        ranges.push({
+          anchor: { path, offset: r.start },
+          focus: { path, offset: r.end },
+          highlightedLeftBracket: true,
+        });
+      }
+      for (const { range: r } of decs.highlightedRightBrackets) {
+        ranges.push({
+          anchor: { path, offset: r.start },
+          focus: { path, offset: r.end },
+          highlightedRightBracket: true,
+        });
+      }
+      for (const { range: r } of decs.multiplications) {
+        ranges.push({
+          anchor: { path, offset: r.start },
+          focus: { path, offset: r.end },
+          multiplication: true,
+        });
+      }
+      for (const { range: r } of decs.syntaxErrors) {
         ranges.push({
           anchor: { path, offset: r.start },
           focus: { path, offset: r.end },
           syntaxError: true,
         });
       }
-      for (const r of decs.highlightsLeft) {
-        ranges.push({
-          anchor: { path, offset: r.start },
-          focus: { path, offset: r.end },
-          highlightLeft: true,
-        });
-      }
-      for (const r of decs.highlightsRight) {
-        ranges.push({
-          anchor: { path, offset: r.start },
-          focus: { path, offset: r.end },
-          highlightRight: true,
-        });
-      }
-      if (error && showError) {
-        const r = error.range;
+      if (validationError && showValidationError) {
+        const r = validationError.range;
         const editorEnd = S.Editor.end(editor, [editor.children.length - 1]);
         if (r.start === editorEnd.offset) {
           ranges.push({
             anchor: { path, offset: r.start - 1 },
             focus: editorEnd,
-            errorAfter: true,
+            validationErrorAfter: true,
           });
         } else if (r.start === r.end) {
           ranges.push({
             anchor: { path, offset: r.start },
             focus: editorEnd,
-            error: true,
+            validationError: true,
           });
         } else {
           ranges.push({
             anchor: { path, offset: r.start },
             focus: { path, offset: r.end },
-            error: true,
+            validationError: true,
           });
         }
       }
 
       return ranges;
     },
-    [error, showError]
+    [validationError, showValidationError]
   );
 
   const updateRelation = useCallback(
@@ -350,7 +365,7 @@ export const RelationInput = (props: RelationInputProps) => {
       } else {
         props.onRelationChanged("false");
       }
-      setError(error);
+      setValidationError(error);
       // For immediate use of the result.
       return error;
     }, 200),
@@ -403,7 +418,7 @@ export const RelationInput = (props: RelationInputProps) => {
       onChange={(value) => {
         // https://github.com/ianstormtaylor/slate/issues/4687#issuecomment-977911063
         if (editor.operations.some((op) => op.type !== "set_selection")) {
-          setShowError(false);
+          setShowValidationError(false);
           setValue(value);
           updateRelation();
         }
@@ -411,14 +426,14 @@ export const RelationInput = (props: RelationInputProps) => {
       value={value}
     >
       <div
-        className={`relation-input-outer ${error ? "has-error" : ""} ${
-          !error && props.processing ? "processing" : ""
-        }`}
+        className={`relation-input-outer ${
+          validationError ? "has-error" : ""
+        } ${!validationError && props.processing ? "processing" : ""}`}
         style={{
           flexGrow: props.grow ? 1 : undefined,
         }}
         title={
-          error && !showError
+          validationError && !showValidationError
             ? "Press the Enter key to see the details of the error."
             : undefined
         }
@@ -433,7 +448,7 @@ export const RelationInput = (props: RelationInputProps) => {
               updateRelation();
               updateRelation.flush()?.then((error) => {
                 if (error) {
-                  setShowError(true);
+                  setShowValidationError(true);
                 } else {
                   props.onEnterKeyPressed();
                 }
@@ -442,9 +457,9 @@ export const RelationInput = (props: RelationInputProps) => {
           }}
           renderLeaf={renderLeaf}
         />
-        {error && showError && (
+        {validationError && showValidationError && (
           <div className="relation-input-error-message">
-            Error: {error.message}
+            Error: {validationError.message}
           </div>
         )}
       </div>
