@@ -139,6 +139,12 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
     }
   };
 
+  editor.insertBreak = () => {
+    // The default implementation splits the node.
+
+    insertText("\n");
+  };
+
   editor.insertText = (text) => {
     let handled = false;
 
@@ -189,6 +195,17 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
     if (!handled) {
       insertText(text);
     }
+  };
+
+  editor.insertTextData = (data) => {
+    // The default implementation puts each line into a separate node.
+    // We treat line breaks as they are.
+
+    const text = data.getData("text/plain");
+    if (!text) return false;
+
+    insertText(text);
+    return true;
   };
 
   editor.normalizeNode = (entry) => {

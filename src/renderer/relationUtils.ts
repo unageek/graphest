@@ -68,9 +68,14 @@ export type Token = {
 };
 
 export const NormalizationRules: [string, string][] = [
-  ["-", "−"], // hyphen-minus → minus sign
+  ["-", "−"], // a hyphen-minus → a minus sign
   ["<=", "≤"],
   [">=", "≥"],
+  [" ", " "], // a non-breaking space → a space
+  ["\t", "    "], // a horizontal tab → four spaces
+  ["\r\n", " "],
+  ["\r", " "],
+  ["\n", " "],
 ];
 
 const leftBracketToRight = new Map([
