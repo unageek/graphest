@@ -64,7 +64,7 @@ export enum TokenKind {
 export type Token = {
   kind: TokenKind;
   range: Range;
-  slice: string;
+  source: string;
 };
 
 export const NormalizationRules: [string, string][] = [
@@ -104,7 +104,7 @@ export function areBracketsBalanced(tokens: Token[]): boolean {
       case TokenKind.RFloor:
       case TokenKind.RParen: {
         const left = leftBrackets.pop();
-        if (!left || left.slice !== getLeftBracket(token.slice)) {
+        if (!left || left.source !== getLeftBracket(token.source)) {
           return false;
         }
         break;
@@ -195,7 +195,7 @@ export function getDecorations(
       case TokenKind.RFloor:
       case TokenKind.RParen: {
         const left = leftBrackets.pop();
-        if (!left || left.slice !== getLeftBracket(token.slice)) {
+        if (!left || left.source !== getLeftBracket(token.source)) {
           syntaxErrors.push(...leftBrackets);
           if (left) {
             syntaxErrors.push(left);
@@ -356,7 +356,7 @@ export function* tokenize(rel: string): Generator<Token, void> {
         break;
     }
     if (kind !== undefined) {
-      yield { kind, range: new Range(i, i + 1), slice: rel[i] };
+      yield { kind, range: new Range(i, i + 1), source: rel[i] };
       i++;
       continue;
     }
@@ -373,7 +373,7 @@ export function* tokenize(rel: string): Generator<Token, void> {
         break;
     }
     if (kind !== undefined) {
-      yield { kind, range: new Range(i, i + 2), slice: rel.slice(i, i + 2) };
+      yield { kind, range: new Range(i, i + 2), source: rel.slice(i, i + 2) };
       i += 2;
       continue;
     }
@@ -386,7 +386,7 @@ export function* tokenize(rel: string): Generator<Token, void> {
       yield {
         kind: TokenKind.Identifier,
         range: new Range(i, i + len),
-        slice: identifier[0],
+        source: identifier[0],
       };
       i += len;
       continue;
@@ -398,7 +398,7 @@ export function* tokenize(rel: string): Generator<Token, void> {
       yield {
         kind: TokenKind.Number,
         range: new Range(i, i + len),
-        slice: numberLiteral[0],
+        source: numberLiteral[0],
       };
       i += len;
       continue;
@@ -407,7 +407,7 @@ export function* tokenize(rel: string): Generator<Token, void> {
     yield {
       kind: TokenKind.Unknown,
       range: new Range(i, i + 1),
-      slice: rel.slice(i, i + 1),
+      source: rel.slice(i, i + 1),
     };
     i++;
   }
