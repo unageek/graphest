@@ -87,10 +87,10 @@ const rightBracketToLeft = new Map([
   ["⌋", "⌊"],
 ]);
 
-export function areBracketsBalanced(rel: string): boolean {
+export function areBracketsBalanced(tokens: Token[]): boolean {
   const leftBrackets: Token[] = [];
 
-  for (const token of tokenize(rel)) {
+  for (const token of tokens) {
     switch (token.kind) {
       case TokenKind.LBracket:
       case TokenKind.LCeil:

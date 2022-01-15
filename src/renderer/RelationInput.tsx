@@ -25,6 +25,7 @@ import {
   isLeftBracket,
   isRightBracket,
   NormalizationRules,
+  Token,
   tokenize,
   validateRelation,
 } from "./relationUtils";
@@ -61,9 +62,13 @@ type CustomText = Decoration & {
   text: string;
 };
 
+type CustomEditorProps = {
+  tokens: Token[];
+};
+
 declare module "slate" {
   interface CustomTypes {
-    Editor: S.BaseEditor & ReactEditor;
+    Editor: S.BaseEditor & ReactEditor & CustomEditorProps;
     Element: CustomElement;
     Text: CustomText;
   }
@@ -120,11 +125,7 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
         });
         if (getRightBracket(charBefore) !== charAfter) return;
 
-        const rel = S.Editor.string(editor, {
-          anchor: S.Editor.start(editor, [0]),
-          focus: S.Editor.end(editor, [editor.children.length - 1]),
-        });
-        if (!areBracketsBalanced(rel)) return;
+        if (!areBracketsBalanced(editor.tokens)) return;
 
         S.Transforms.delete(editor, {
           at: { anchor: before, focus: after },
@@ -160,11 +161,7 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
           const rightBracket = getRightBracket(text);
           if (!rightBracket) throw new Error();
 
-          const rel = S.Editor.string(editor, {
-            anchor: S.Editor.start(editor, [0]),
-            focus: S.Editor.end(editor, [editor.children.length - 1]),
-          });
-          if (!areBracketsBalanced(rel)) return;
+          if (!areBracketsBalanced(editor.tokens)) return;
 
           insertSymbolPair(editor, text, rightBracket);
           handled = true;
@@ -181,11 +178,7 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
           });
           if (text !== charAfter) return;
 
-          const rel = S.Editor.string(editor, {
-            anchor: S.Editor.start(editor, [0]),
-            focus: S.Editor.end(editor, [editor.children.length - 1]),
-          });
-          if (!areBracketsBalanced(rel)) return;
+          if (!areBracketsBalanced(editor.tokens)) return;
 
           S.Transforms.select(editor, after);
           handled = true;
@@ -294,9 +287,8 @@ export const RelationInput = (props: RelationInputProps) => {
       const sel = editor.selection;
       if (!sel) return ranges;
 
-      const rel = S.Editor.string(editor, path);
       const decs = getDecorations(
-        [...tokenize(rel)],
+        editor.tokens,
         new Range(S.Range.start(sel).offset, S.Range.end(sel).offset)
       );
       for (const { range: r } of decs.highlightedLeftBrackets) {
@@ -353,8 +345,15 @@ export const RelationInput = (props: RelationInputProps) => {
 
       return ranges;
     },
-    [validationError, showValidationError]
+    [showValidationError, validationError, value]
   );
+
+  function moveCursorToTheEnd() {
+    S.Transforms.select(editor, {
+      anchor: S.Editor.end(editor, [editor.children.length - 1]),
+      focus: S.Editor.end(editor, [editor.children.length - 1]),
+    });
+  }
 
   const updateRelation = useCallback(
     debounce(async (): Promise<ValidationResult> => {
@@ -372,17 +371,16 @@ export const RelationInput = (props: RelationInputProps) => {
     []
   );
 
-  function moveCursorToTheEnd() {
-    S.Transforms.select(editor, {
-      anchor: S.Editor.end(editor, [editor.children.length - 1]),
-      focus: S.Editor.end(editor, [editor.children.length - 1]),
-    });
+  function updateTokens() {
+    const rel = S.Node.string(editor);
+    editor.tokens = [...tokenize(rel)];
   }
 
   useEffect(() => {
+    updateTokens();
     ReactEditor.focus(editor);
     moveCursorToTheEnd();
-  }, [editor]);
+  }, []);
 
   useEffect(() => {
     if (props.relationInputByUser) return;
@@ -421,6 +419,7 @@ export const RelationInput = (props: RelationInputProps) => {
           setShowValidationError(false);
           setValue(value);
           updateRelation();
+          updateTokens();
         }
       }}
       value={value}
