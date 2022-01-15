@@ -349,10 +349,8 @@ export const RelationInput = (props: RelationInputProps) => {
   );
 
   function moveCursorToTheEnd() {
-    S.Transforms.select(editor, {
-      anchor: S.Editor.end(editor, [editor.children.length - 1]),
-      focus: S.Editor.end(editor, [editor.children.length - 1]),
-    });
+    const end = S.Editor.end(editor, [editor.children.length - 1]);
+    S.Transforms.select(editor, end);
   }
 
   const updateRelation = useCallback(
