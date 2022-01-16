@@ -42,7 +42,7 @@ default-features = false
 features = ["float", "integer", "rational"]
 
 [dependencies.smallvec]
-version = "1.7"
+version = "1.8"
 features = ["specialization"]
 
 [dev-dependencies.uuid]
