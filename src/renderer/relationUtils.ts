@@ -272,7 +272,7 @@ export function isRightBracket(ch: string): boolean {
   return rightBracketToLeft.has(ch);
 }
 
-const IDENTIFIER = /^\p{Alphabetic}[\p{Alphabetic}\d']*/u;
+const IDENTIFIER = /^\p{Alphabetic}[\p{Alphabetic}\p{N}']*/u;
 const NUMBER_LITERAL = /^(?:\d+\.?\d*|\.\d+)/;
 
 export function* tokenize(rel: string): Generator<Token, void> {
