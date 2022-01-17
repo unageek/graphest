@@ -6,7 +6,7 @@ use std::{
 
 // https://gitlab.com/tspiteri/gmp-mpfr-sys/-/blob/master/build.rs
 
-const ARB_GIT_TAG: &str = "2.21.1";
+const ARB_GIT_TAG: &str = "2.22.0";
 const ARB_GIT_URL: &str = "https://github.com/fredrik-johansson/arb.git";
 
 const FLINT_GIT_TAG: &str = "v2.8.4";
