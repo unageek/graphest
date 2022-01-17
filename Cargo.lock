@@ -205,7 +205,7 @@ dependencies = [
 
 [[package]]
 name = "graphest"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "bitflags",
  "clap 3.0.7",
