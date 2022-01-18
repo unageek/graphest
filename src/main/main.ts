@@ -216,7 +216,7 @@ function createMainMenu(): Menu {
           label: "Example Relations",
           click: async () => {
             await shell.openExternal(
-              "https://github.com/unageek/graphest/blob/master/Examples.md"
+              "https://github.com/unageek/graphest/blob/main/Examples.md"
             );
           },
         },
