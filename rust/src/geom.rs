@@ -89,7 +89,6 @@ impl Box2D {
     }
 
     /// Swaps the axes of the region.
-    #[must_use]
     pub fn transpose(&self) -> Self {
         Self(self.1.clone(), self.0.clone())
     }
