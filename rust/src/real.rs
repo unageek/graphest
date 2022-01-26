@@ -170,6 +170,11 @@ impl Real {
     impl_op!(mul(x, y), &x * &y, Some(x * y));
     impl_op!(neg(x), -&x, Some(-x));
     impl_op!(pow(x, y), x.pow(&y, None), rational_ops::pow(x, y));
+    impl_op!(
+        pow_rational(x, y),
+        x.pow_rational(&y, None),
+        rational_ops::pow_rational(x, y)
+    );
 
     pub fn ranked_max(xs: Vec<Real>, n: Real) -> Self {
         TupperIntervalSet::ranked_max(xs.iter().map(|x| &x.x).collect(), &n.x, None).into()

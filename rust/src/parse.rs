@@ -307,15 +307,19 @@ fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
     map(
         pair(
             primary_expr,
-            opt(preceded(
-                delimited(space0, char('^'), space0),
+            opt(pair(
+                delimited(
+                    space0,
+                    alt((value("^^", tag("^^")), value("^", char('^')))),
+                    space0,
+                ),
                 cut(unary_expr),
             )),
         ),
-        move |(x, y)| match y {
-            Some(y) => {
+        move |(x, op_y)| match op_y {
+            Some((op, y)) => {
                 let range = x.source_range.start..y.source_range.end;
-                builtin.apply("^", vec![x, y]).with_source_range(range)
+                builtin.apply(op, vec![x, y]).with_source_range(range)
             }
             _ => x,
         },
@@ -652,6 +656,8 @@ mod tests {
         test("rankedMin([x, y, z], k)", "(RankedMin (List x y z) k)");
         test("x ^ y ^ z", "(Pow x (Pow y z))");
         test("-x ^ -y", "(Neg (Pow x (Neg y)))");
+        test("x ^^ y ^^ z", "(PowRational x (PowRational y z))");
+        test("-x ^^ -y", "(Neg (PowRational x (Neg y)))");
         test("+x", "x");
         test("2x", "(Mul 2 x)");
         test("x y z", "(Mul (Mul x y) z)");

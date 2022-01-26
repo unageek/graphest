@@ -93,6 +93,7 @@ pub enum BinaryOp {
     Mul,
     Or,
     Pow,
+    PowRational,
     RankedMax,
     RankedMin,
     ReSignNonnegative,
@@ -457,6 +458,7 @@ impl Expr {
             binary!(Mod, x, y) => Some(x.eval()?.modulo(y.eval()?)),
             binary!(Mul, x, y) => Some(x.eval()? * y.eval()?),
             binary!(Pow, x, y) => Some(x.eval()?.pow(y.eval()?)),
+            binary!(PowRational, x, y) => Some(x.eval()?.pow_rational(y.eval()?)),
             binary!(RankedMax, nary!(List, xs), n) => {
                 let xs = xs.iter().map(|x| x.eval()).collect::<Option<Vec<_>>>()?;
                 Some(Real::ranked_max(xs, n.eval()?))
@@ -730,6 +732,7 @@ impl Expr {
                     | Mod
                     | Mul
                     | Pow
+                    | PowRational
                     | ReSignNonnegative
                     | Sub,
                 x,

@@ -13,6 +13,8 @@ export enum TokenKind {
   Caret,
   /** `,`. */
   Comma,
+  /** `^^`. */
+  DoubleCarets,
   /** `=`. */
   Equals,
   /** `>`. */
@@ -369,6 +371,9 @@ export function* tokenize(rel: string): Generator<Token, void> {
     switch (rel.slice(i, i + 2)) {
       case "&&":
         kind = TokenKind.And;
+        break;
+      case "^^":
+        kind = TokenKind.DoubleCarets;
         break;
       case ">=":
         kind = TokenKind.GreaterThanOrEquals;
