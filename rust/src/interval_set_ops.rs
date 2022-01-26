@@ -236,7 +236,7 @@ impl TupperIntervalSet {
         } else if a < 0.0 && b > 0.0 && c == 0.0 && d == 0.0 {
             let dec = Decoration::Trv;
             (
-                DecInterval::set_dec(const_interval!(0.0, 0.0), dec),
+                DecInterval::set_dec(I_ZERO, dec),
                 Some(DecInterval::set_dec(Interval::PI, dec)),
             )
         } else if a < 0.0 && b <= 0.0 && c < 0.0 && d >= 0.0 {
@@ -393,14 +393,14 @@ impl TupperIntervalSet {
                     // Empty.
                 } else {
                     // Γ(x) = π / (sin(π x) Γ(1 - x)).
-                    let one = Self::from(const_dec_interval!(1.0, 1.0));
+                    let one = Self::from(DI_ONE);
                     let pi = Self::from(DecInterval::PI);
                     let mut xs = Self::new();
                     xs.insert(*x);
                     let mut sin = (&pi * &xs).sin();
                     // `a.floor() + 1.0` can be inexact when the first condition is not met.
                     if x.x.wid() <= 1.0 && b <= a.floor() + 1.0 {
-                        let zero = Self::from(const_dec_interval!(0.0, 0.0));
+                        let zero = Self::from(DI_ZERO);
                         sin = if a.floor() % 2.0 == 0.0 {
                             // ∃k ∈ ℤ : 2k ≤ x ≤ 2k + 1 ⟹ sin(π x) ≥ 0.
                             sin.max(&zero)
@@ -679,14 +679,13 @@ impl TupperIntervalSet {
     //
     // Hence, the result.  ∎
     pub fn lcm(&self, rhs: &Self, site: Option<Site>) -> Self {
-        const ZERO: Interval = const_interval!(0.0, 0.0);
         let mut rs = TupperIntervalSet::new();
         for x in self {
             for y in rhs {
                 if let Some(g) = x.g.union(y.g) {
-                    if x.x == ZERO && y.x == ZERO {
+                    if x.x == I_ZERO && y.x == I_ZERO {
                         let dec = Decoration::Dac.min(x.d).min(y.d);
-                        rs.insert(TupperInterval::new(DecInterval::set_dec(ZERO, dec), g));
+                        rs.insert(TupperInterval::new(DecInterval::set_dec(I_ZERO, dec), g));
                     } else {
                         let xs = &TupperIntervalSet::from(*x);
                         let ys = &TupperIntervalSet::from(*y);
@@ -754,9 +753,7 @@ impl TupperIntervalSet {
     }
 
     // f(x) = 1.
-    impl_op!(one(x), {
-        DecInterval::set_dec(const_interval!(1.0, 1.0), x.decoration())
-    });
+    impl_op!(one(x), DecInterval::set_dec(I_ONE, x.decoration()));
 
     // For any coprime integers p and q (q > 0), we define
     //
@@ -800,7 +797,7 @@ impl TupperIntervalSet {
                         let y = y.interval().unwrap();
                         let mut z = x.abs().pow(y);
                         if x.contains(0.0) && c == 0.0 {
-                            z = z.convex_hull(const_interval!(1.0, 1.0));
+                            z = z.convex_hull(I_ONE);
                         }
                         let z = DecInterval::set_dec(z, dec);
                         (z, None)
@@ -857,7 +854,7 @@ impl TupperIntervalSet {
 
                 // x^y < 0 part, which comes from
                 //   x < 0, y = (odd)/(odd) (x^y is an odd function of x).
-                let x0 = x.min(const_interval!(0.0, 0.0));
+                let x0 = x.min(I_ZERO);
                 let z0 = DecInterval::set_dec(-(-x0).pow(y), dec);
 
                 // x^y ≥ 0 part, which comes from
@@ -865,7 +862,7 @@ impl TupperIntervalSet {
                 //   x < 0, y = (even)/(odd) (x^y is an even function of x).
                 let mut z1 = DecInterval::set_dec(x.abs().pow(y), dec);
                 if x.contains(0.0) && y.contains(0.0) {
-                    z1 = z1.convex_hull(const_dec_interval!(1.0, 1.0));
+                    z1 = z1.convex_hull(DI_ONE);
                 }
 
                 (z0, Some(z1))
@@ -882,7 +879,7 @@ impl TupperIntervalSet {
                     let z0 = DecInterval::set_dec(z0.interval().unwrap(), dec);
                     let z1 = if x.is_singleton() {
                         // a = b = 0.
-                        Some(DecInterval::set_dec(const_interval!(1.0, 1.0), dec))
+                        Some(DecInterval::set_dec(I_ONE, dec))
                     } else {
                         None
                     };
@@ -921,7 +918,7 @@ impl TupperIntervalSet {
         let mut sups = vec![];
         for n in n {
             // `n` uses 1-based indexing.
-            let n0 = n.x - const_interval!(1.0, 1.0);
+            let n0 = n.x - I_ONE;
             let n0_rest = n0.intersection(interval!(0.0, (xs.len() - 1) as f64).unwrap());
             let na = n0_rest.inf().ceil() as usize;
             let nb = n0_rest.sup().floor() as usize;
@@ -963,9 +960,7 @@ impl TupperIntervalSet {
     //         = | x / sqrt(x^2 + y^2)  if x > 0,
     //           | 0                    otherwise.
     impl_op_cut!(re_sign_nonnegative(x, y), {
-        const ZERO: Interval = const_interval!(0.0, 0.0);
-        const ONE: Interval = const_interval!(1.0, 1.0);
-        let x = x.max(const_dec_interval!(0.0, 0.0));
+        let x = x.max(DI_ZERO);
         let y = y.abs();
         // 0 ≤ a ∧ 0 ≤ c.
         let a = x.inf();
@@ -981,14 +976,14 @@ impl TupperIntervalSet {
         .min(y.decoration());
         if d == 0.0 {
             if b == 0.0 {
-                let z = DecInterval::set_dec(ZERO, dec);
+                let z = DecInterval::set_dec(I_ZERO, dec);
                 (z, None)
             } else if a == 0.0 {
-                let z0 = DecInterval::set_dec(ZERO, dec);
-                let z1 = DecInterval::set_dec(ONE, dec);
+                let z0 = DecInterval::set_dec(I_ZERO, dec);
+                let z1 = DecInterval::set_dec(I_ONE, dec);
                 (z0, Some(z1))
             } else {
-                let z = DecInterval::set_dec(ONE, dec);
+                let z = DecInterval::set_dec(I_ONE, dec);
                 (z, None)
             }
         } else {
