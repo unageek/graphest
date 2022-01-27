@@ -60,25 +60,29 @@ pub fn pow(x: Rational, y: Rational) -> Option<Rational> {
     let yd = y.denom().to_u32()?;
     if yd == 1 {
         // y ∈ ℤ.
-        if yn >= 0 {
+        if yn <= 0 && xn == 0 {
+            // y ≤ 0 ∧ x = 0.
+            None
+        } else if yn >= 0 {
+            // y ≥ 0.
             let n = yn as u32;
             let zn = xn.checked_pow(n)?;
             let zd = xd.checked_pow(n)?;
             Some((zn, zd).into())
-        } else if xn != 0 {
+        } else {
+            // y < 0 ∧ x ≠ 0.
             let n = -yn as u32;
             let zn = xd.checked_pow(n)?;
             let zd = xn.checked_pow(n)?;
             Some((zn, zd).into())
-        } else {
-            // y < 0 ∧ x = 0.
-            None
         }
     } else {
         // y ∉ ℤ.
         if xn == 0 && yn > 0 {
+            // x = 0 ∧ y > 0.
             Some(0.into())
         } else {
+            // x ≠ 0 ∨ y ≤ 0.
             None
         }
     }
@@ -214,7 +218,7 @@ mod tests {
         test!(pow, r!(0), r!(-3), None);
         test!(pow, r!(0), r!(-4 / 5), None);
         test!(pow, r!(0), r!(-3 / 5), None);
-        test!(pow, r!(0), r!(0), Some(r!(1)));
+        test!(pow, r!(0), r!(0), None);
         test!(pow, r!(0), r!(3 / 5), Some(r!(0)));
         test!(pow, r!(0), r!(4 / 5), Some(r!(0)));
         test!(pow, r!(0), r!(3), Some(r!(0)));

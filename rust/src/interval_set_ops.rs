@@ -752,9 +752,6 @@ impl TupperIntervalSet {
         rs
     }
 
-    // f(x) = 1.
-    impl_op!(one(x), DecInterval::set_dec(I_ONE, x.decoration()));
-
     // For any coprime integers p and q (q > 0), we define
     //
     //   x^(p/q) = rootn(x, q)^p,
@@ -768,9 +765,7 @@ impl TupperIntervalSet {
     //         |            (x^y is an odd function of x),
     //         | undefined  otherwise (y = (odd)/(even) or irrational).
     //
-    // We also define 0^0 = 1.
-    //
-    // `Interval::pow` is defined neither for x < 0 nor for x = y = 0, so we extend it here.
+    // 0^0 is left undefined.
     impl_op_cut!(
         #[allow(clippy::many_single_char_names)]
         pow(x, y),
@@ -781,7 +776,7 @@ impl TupperIntervalSet {
                 match exponentiation_parity(c) {
                     Parity::None => (x.pow(y), None),
                     Parity::Even => {
-                        let dec = if x.contains(0.0) && c < 0.0 {
+                        let dec = if x.contains(0.0) && c <= 0.0 {
                             Decoration::Trv
                         } else {
                             if a > 0.0 || a >= 0.0 && c > 0.0 {
@@ -795,11 +790,7 @@ impl TupperIntervalSet {
 
                         let x = x.interval().unwrap();
                         let y = y.interval().unwrap();
-                        let mut z = x.abs().pow(y);
-                        if x.contains(0.0) && c == 0.0 {
-                            z = z.convex_hull(I_ONE);
-                        }
-                        let z = DecInterval::set_dec(z, dec);
+                        let z = DecInterval::set_dec(x.abs().pow(y), dec);
                         (z, None)
                     }
                     Parity::Odd => {
@@ -868,33 +859,29 @@ impl TupperIntervalSet {
                 (z0, Some(z1))
             } else {
                 // a ≥ 0.
-                if x.contains(0.0) && y.contains(0.0) {
-                    let dec = if c < 0.0 {
-                        Decoration::Trv
-                    } else {
-                        // y is not a singleton, thus there is a discontinuity.
-                        Decoration::Def.min(x.decoration()).min(y.decoration())
-                    };
-                    let z0 = x.pow(y);
-                    let z0 = DecInterval::set_dec(z0.interval().unwrap(), dec);
-                    let z1 = if x.is_singleton() {
-                        // a = b = 0.
-                        Some(DecInterval::set_dec(I_ONE, dec))
-                    } else {
-                        None
-                    };
-                    (z0, z1)
-                } else {
-                    (x.pow(y), None)
-                }
+                (x.pow(y), None)
             }
         }
     );
 
+    //       | x × ⋯ × x (n copies)  if n > 0,
+    // x^n = | 1                     if n = 0 ∧ x ≠ 0,
+    //       | 1 / x^-n              if n < 0.
     impl_op_cut!(pown(x, n: i32), {
         let a = x.inf();
         let b = x.sup();
-        if n < 0 && n % 2 == -1 && a < 0.0 && b > 0.0 {
+        if n == 0 {
+            if x.contains(0.0) {
+                if x.is_singleton() {
+                    // x = {0}.
+                    (DecInterval::EMPTY, None)
+                } else {
+                    (DecInterval::set_dec(I_ONE, Decoration::Trv), None)
+                }
+            } else {
+                (DecInterval::set_dec(I_ONE, x.decoration()), None)
+            }
+        } else if n < 0 && n % 2 == -1 && a < 0.0 && b > 0.0 {
             let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.decoration());
             let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.decoration());
             (x0.pown(n), Some(x1.pown(n)))
@@ -1979,15 +1966,6 @@ mod tests {
     }
 
     #[test]
-    fn one() {
-        fn f(x: &TupperIntervalSet) -> TupperIntervalSet {
-            x.one()
-        }
-
-        test!(f, i!(-1.0, 1.0), (vec![i!(1.0)], Com));
-    }
-
-    #[test]
     fn pow() {
         fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
             x.pow(y, None)
@@ -2058,11 +2036,11 @@ mod tests {
         // x^0
         let y = i!(0.0);
         test!(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
-        test!(f, i!(0.0), y, (vec![i!(1.0)], Dac));
+        test!(f, i!(0.0), y, (vec![], Trv));
         test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
-        test!(f, i!(-1.0, 0.0), y, (vec![i!(1.0)], Dac));
-        test!(f, i!(0.0, 1.0), y, (vec![i!(1.0)], Dac));
-        test!(f, i!(-1.0, 1.0), y, (vec![i!(1.0)], Dac));
+        test!(f, i!(-1.0, 0.0), y, (vec![i!(1.0)], Trv));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(1.0)], Trv));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(1.0)], Trv));
         test!(f, i!(-3.0, -2.0), y, (vec![i!(1.0)], Dac));
         test!(f, i!(2.0, 3.0), y, (vec![i!(1.0)], Com));
 
@@ -2129,16 +2107,16 @@ mod tests {
         // 0^y
         let x = i!(0.0);
         test!(f, x, i!(-1.0), (vec![], Trv));
-        test!(f, x, i!(0.0), (vec![i!(1.0)], Dac));
+        test!(f, x, i!(0.0), (vec![], Trv));
         test!(f, x, i!(1.0), (vec![i!(0.0)], Com));
-        test!(f, x, i!(-1.0, 0.0), (vec![i!(1.0)], Trv));
-        test!(f, x, i!(0.0, 1.0), (vec![i!(0.0), i!(1.0)], Def));
-        test!(f, x, i!(-1.0, 1.0), (vec![i!(0.0), i!(1.0)], Trv));
+        test!(f, x, i!(-1.0, 0.0), (vec![], Trv));
+        test!(f, x, i!(0.0, 1.0), (vec![i!(0.0)], Trv));
+        test!(f, x, i!(-1.0, 1.0), (vec![i!(0.0)], Trv));
 
         // Others
         let x = i!(0.0, 1.0);
         test!(f, x, i!(-1.0, 0.0), (vec![i!(1.0, f64::INFINITY)], Trv));
-        test!(f, x, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Def));
+        test!(f, x, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
         test!(f, x, i!(-1.0, 1.0), (vec![i!(0.0, f64::INFINITY)], Trv));
     }
 
@@ -2178,16 +2156,25 @@ mod tests {
 
         // x^0
         let f = |x: &_| pown(x, 0);
-        test!(f, i!(-1.0, 1.0), (vec![i!(1.0)], Com));
-        test!(f, @even i!(2.0, 3.0), (vec![i!(1.0, 1.0)], Com));
+        test!(f, i!(0.0), (vec![], Trv));
+        test!(f, @even i!(1.0), (vec![i!(1.0)], Com));
+        test!(f, @even i!(0.0, 1.0), (vec![i!(1.0)], Trv));
+        test!(f, i!(-1.0, 1.0), (vec![i!(1.0)], Trv));
+        test!(f, @even i!(2.0, 3.0), (vec![i!(1.0)], Com));
 
         // x^2
         let f = |x: &_| pown(x, 2);
+        test!(f, i!(0.0), (vec![i!(0.0)], Com));
+        test!(f, @even i!(1.0), (vec![i!(1.0)], Com));
+        test!(f, @even i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Com));
         test!(f, i!(-1.0, 1.0), (vec![i!(0.0, 1.0)], Com));
         test!(f, @even i!(2.0, 3.0), (vec![i!(4.0, 9.0)], Com));
 
         // x^3
         let f = |x: &_| pown(x, 3);
+        test!(f, i!(0.0), (vec![i!(0.0)], Com));
+        test!(f, @odd i!(1.0), (vec![i!(1.0)], Com));
+        test!(f, @odd i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Com));
         test!(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
         test!(f, @odd i!(2.0, 3.0), (vec![i!(8.0, 27.0)], Com));
     }
@@ -2312,7 +2299,6 @@ mod tests {
             TupperIntervalSet::erfc,
             TupperIntervalSet::exp,
             TupperIntervalSet::ln,
-            TupperIntervalSet::one,
             TupperIntervalSet::sin,
             TupperIntervalSet::sinc,
             TupperIntervalSet::sinh,
