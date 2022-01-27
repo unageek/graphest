@@ -1035,13 +1035,6 @@ impl VisitMut for Transform {
                 };
                 self.modified = true;
             }
-            // Don't replace x^0 with 1 unless x is totally defined;
-            // otherwise, tha replacement will alter the domain of the expression.
-            binary!(Pow, x, constant!(a)) if x.totally_defined && a.to_f64() == Some(0.0) => {
-                // x^0 → 1
-                *e = Expr::one();
-                self.modified = true;
-            }
             binary!(Pow, x, constant!(a)) if a.to_f64() == Some(1.0) => {
                 // x^1 → x
                 *e = take(x);
@@ -1332,7 +1325,6 @@ impl VisitMut for PostTransform {
                         };
                         *e = match n {
                             -1 => Expr::unary(Recip, box root),
-                            0 => Expr::unary(One, box root),
                             1 => root,
                             2 => Expr::unary(Sqr, box root),
                             _ => Expr::pown(box root, n),
@@ -1575,7 +1567,6 @@ impl<'a> CollectStatic<'a> {
                         Li => ScalarUnaryOp::Li,
                         Ln => ScalarUnaryOp::Ln,
                         Neg => ScalarUnaryOp::Neg,
-                        One => ScalarUnaryOp::One,
                         Recip => ScalarUnaryOp::Recip,
                         Shi => ScalarUnaryOp::Shi,
                         Si => ScalarUnaryOp::Si,
@@ -2077,8 +2068,6 @@ mod tests {
         test("true || y = x", "True");
         test("y = x || true", "True");
 
-        test("sin(x)^0", "1");
-        test("sqrt(x)^0", "(Pow (Pow x 0.5) 0)");
         test("x^1", "x");
 
         test("if(false, x, y)", "y");
@@ -2120,7 +2109,7 @@ mod tests {
         };
 
         test("x^-1", "(Recip x)");
-        test("x^0", "(One x)");
+        test("x^0", "(Pown x 0)");
         test("x^1", "x");
         test("x^2", "(Sqr x)");
         test("x^3", "(Pown x 3)");

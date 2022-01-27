@@ -51,7 +51,6 @@ pub enum UnaryOp {
     Ln,
     Neg,
     Not,
-    One,
     Re,
     Recip,
     Shi,
@@ -439,7 +438,7 @@ impl Expr {
             unary!(Tanh, x) => Some(x.eval()?.tanh()),
             unary!(UndefAt0, x) => Some(x.eval()?.undef_at_0()),
             unary!(
-                Arg | Boole | Conj | Im | Neg | Not | One | Re | Recip | Sign | Sqr | Sqrt,
+                Arg | Boole | Conj | Im | Neg | Not | Re | Recip | Sign | Sqr | Sqrt,
                 _
             ) => None,
             binary!(Add, x, y) => Some(x.eval()? + y.eval()?),
@@ -550,7 +549,6 @@ impl Expr {
                     | FresnelS
                     | Im
                     | Neg
-                    | One
                     | Re
                     | Shi
                     | Si
@@ -701,7 +699,6 @@ impl Expr {
                     | Li
                     | Ln
                     | Neg
-                    | One
                     | Re
                     | Recip
                     | Shi
