@@ -27,7 +27,7 @@
 
 === Constants
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -45,22 +45,26 @@
 |stem:[e ≈ 2.71828]
 |The base of natural logarithms.
 |https://functions.wolfram.com/Constants/E/[MFS]
+https://mathworld.wolfram.com/e.html[MW]
 
 |`pi` or `π`
 |stem:[π ≈ 3.14159]
 |
 |https://functions.wolfram.com/Constants/Pi/[MFS]
+https://mathworld.wolfram.com/Pi.html[MW]
 
 |`gamma` or `γ`
 |stem:[γ ≈ 0.577216]
 |The https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant[Euler–Mascheroni constant].
 |https://functions.wolfram.com/Constants/EulerGamma/[MFS]
+https://mathworld.wolfram.com/Euler-MascheroniConstant.html[MW]
 
 4+s|Complex Numbers
 |`i`
 |stem:[i = \sqrt{−1}]
 |The imaginary unit.
 |https://functions.wolfram.com/Constants/I/[MFS]
+https://mathworld.wolfram.com/ImaginaryUnit.html[MW]
 |===
 
 === Variables
@@ -135,7 +139,7 @@ A relation stem:[R] that contains parameters is interpreted as stem:[∃m, n ∈
 
 ==== Number Parts
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -143,6 +147,7 @@ A relation stem:[R] that contains parameters is interpreted as stem:[∃m, n ∈
 |stem:[\|x\|]
 |The absolute value of stem:[x].
 |https://functions.wolfram.com/ComplexComponents/Abs/[MFS]
+https://mathworld.wolfram.com/AbsoluteValue.html[MW]
 
 |`sign(x)` or `sgn(x)`
 |stem:[\sgn x = \begin{cases}
@@ -152,11 +157,12 @@ A relation stem:[R] that contains parameters is interpreted as stem:[∃m, n ∈
  \end{cases}]
 |The https://en.wikipedia.org/wiki/Sign_function[sign function].
 |https://functions.wolfram.com/ComplexComponents/Sign/[MFS]
+https://mathworld.wolfram.com/Sign.html[MW]
 |===
 
 ==== Exponentiation and Logarithm
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -164,6 +170,7 @@ A relation stem:[R] that contains parameters is interpreted as stem:[∃m, n ∈
 |stem:[\sqrt{x} = x^{1/2}]
 |Undefined for stem:[x < 0].
 |https://functions.wolfram.com/ElementaryFunctions/Sqrt/[MFS]
+https://mathworld.wolfram.com/SquareRoot.html[MW]
 
 |`x^y`
 |stem:[x^y]
@@ -174,16 +181,19 @@ A relation stem:[R] that contains parameters is interpreted as stem:[∃m, n ∈
 |stem:[\exp x = e^x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Exp/[MFS]
+https://mathworld.wolfram.com/ExponentialFunction.html[MW]
 
 |`ln(x)`
 |stem:[\ln x = \log_e x]
 |Undefined for stem:[x ≤ 0].
 |https://functions.wolfram.com/ElementaryFunctions/Log/[MFS]
+https://mathworld.wolfram.com/NaturalLogarithm.html[MW]
 
 |`log(b, x)`
 |stem:[\log_b x = \dfrac{\ln x}{\ln b}]
 |Undefined for stem:[x ≤ 0], stem:[b ≤ 0], and stem:[b = 1].
 |https://functions.wolfram.com/ElementaryFunctions/Log2/[MFS]
+https://mathworld.wolfram.com/Logarithm.html[MW]
 |===
 
 For real stem:[x] and stem:[y], stem:[x^y] is defined as follows:
@@ -202,7 +212,7 @@ If stem:[x] and/or stem:[y] are complex, the principal value of stem:[e^{y \ln x
 
 ==== Trigonometry
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -211,32 +221,38 @@ If stem:[x] and/or stem:[y] are complex, the principal value of stem:[e^{y \ln x
 |stem:[\sin x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Sin/[MFS]
+https://mathworld.wolfram.com/Sine.html[MW]
 
 |`cos(x)`
 |stem:[\cos x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Cos/[MFS]
+https://mathworld.wolfram.com/Cosine.html[MW]
 
 |`tan(x)`
 |stem:[\tan x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Tan/[MFS]
+https://mathworld.wolfram.com/Tangent.html[MW]
 
 4+s|Inverse Trigonometric Functions
 |`asin(x)`
 |stem:[\sin^{−1} x]
 |The range is stem:[[−π/2, π/2\]].
 |https://functions.wolfram.com/ElementaryFunctions/ArcSin/[MFS]
+https://mathworld.wolfram.com/InverseSine.html[MW]
 
 |`acos(x)`
 |stem:[\cos^{−1} x]
 |The range is stem:[[0, π\]].
 |https://functions.wolfram.com/ElementaryFunctions/ArcCos/[MFS]
+https://mathworld.wolfram.com/InverseCosine.html[MW]
 
 |`atan(x)`
 |stem:[\tan^{−1} x]
 |The range is stem:[(−π/2, π/2)].
 |https://functions.wolfram.com/ElementaryFunctions/ArcTan/[MFS]
+https://mathworld.wolfram.com/InverseTangent.html[MW]
 
 |`atan2(y, x)`
 |
@@ -244,43 +260,50 @@ If stem:[x] and/or stem:[y] are complex, the principal value of stem:[e^{y \ln x
 Undefined for stem:[(x, y) = (0, 0)]. +
 The range is stem:[(−π, π\]].
 |https://functions.wolfram.com/ElementaryFunctions/ArcTan2/[MFS]
+https://mathworld.wolfram.com/InverseTangent.html[MW]
 
 4+s|Hyperbolic Functions
 |`sinh(x)`
 |stem:[\sinh x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Sinh/[MFS]
+https://mathworld.wolfram.com/HyperbolicSine.html[MW]
 
 |`cosh(x)`
 |stem:[\cosh x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Cosh/[MFS]
+https://mathworld.wolfram.com/HyperbolicCosine.html[MW]
 
 |`tanh(x)`
 |stem:[\tanh x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Tanh/[MFS]
+https://mathworld.wolfram.com/HyperbolicTangent.html[MW]
 
 4+s|Inverse Hyperbolic Functions
 |`asinh(x)`
 |stem:[\sinh^{−1} x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/ArcSinh/[MFS]
+https://mathworld.wolfram.com/InverseHyperbolicSine.html[MW]
 
 |`acosh(x)`
 |stem:[\cosh^{−1} x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/ArcCosh/[MFS]
+https://mathworld.wolfram.com/InverseHyperbolicCosine.html[MW]
 
 |`atanh(x)`
 |stem:[\tanh^{−1} x]
 |
 |https://functions.wolfram.com/ElementaryFunctions/ArcTanh/[MFS]
+https://mathworld.wolfram.com/InverseHyperbolicTangent.html[MW]
 |===
 
 ==== Divisibility
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -293,6 +316,7 @@ The range for a fixed stem:[y] is stem:[\begin{cases}
   [0, y)  & \if y > 0.
  \end{cases}]
 |https://functions.wolfram.com/IntegerFunctions/Mod/[MFS]
+https://mathworld.wolfram.com/Mod.html[MW]
 
 |`gcd(x~1~, …, x~n~)`
 |stem:[\gcd \set{x_1, …, x_n}]
@@ -300,6 +324,7 @@ The range for a fixed stem:[y] is stem:[\begin{cases}
 stem:[\gcd \set{x, 0}] is defined to be stem:[\|x\|] for any rational number stem:[x]. +
 Undefined if any of the numbers is irrational.
 |https://functions.wolfram.com/IntegerFunctions/GCD/[MFS]
+https://mathworld.wolfram.com/GreatestCommonDivisor.html[MW]
 
 |`lcm(x~1~, …, x~n~)`
 |stem:[\lcm \set{x_1, …, x_n}]
@@ -307,11 +332,12 @@ Undefined if any of the numbers is irrational.
 stem:[\lcm \set{x, 0}] is defined to be 0 for any rational number stem:[x]. +
 Undefined if any of the numbers is irrational.
 |https://functions.wolfram.com/IntegerFunctions/LCM/[MFS]
+https://mathworld.wolfram.com/LeastCommonMultiple.html[MW]
 |===
 
 ==== Ordering
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -320,8 +346,10 @@ Undefined if any of the numbers is irrational.
 |stem:[\max \set{x_1, …, x_n}] +
 stem:[\min \set{x_1, …, x_n}]
 |The largest and the smallest elements of the set stem:[\set{x_1, …, x_n}], respectively.
-|https://functions.wolfram.com/ElementaryFunctions/Max/[MFS] +
+|https://functions.wolfram.com/ElementaryFunctions/Max/[MFS]
+https://mathworld.wolfram.com/Maximum.html[MW] +
 https://functions.wolfram.com/ElementaryFunctions/Min/[MFS]
+https://mathworld.wolfram.com/Minimum.html[MW]
 
 |`rankedMax([x~1~, …, x~n~], k)`
 `rankedMin([x~1~, …, x~n~], k)` +
@@ -332,7 +360,7 @@ https://functions.wolfram.com/ElementaryFunctions/Min/[MFS]
 
 ==== Rounding
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -340,11 +368,13 @@ https://functions.wolfram.com/ElementaryFunctions/Min/[MFS]
 |stem:[⌊x⌋]
 |The https://en.wikipedia.org/wiki/Floor_and_ceiling_functions[floor function].
 |https://functions.wolfram.com/IntegerFunctions/Floor/[MFS]
+https://mathworld.wolfram.com/FloorFunction.html[MW]
 
 |`ceil(x)` or `⌈x⌉`
 |stem:[⌈x⌉]
 |The https://en.wikipedia.org/wiki/Floor_and_ceiling_functions[ceiling function].
 |https://functions.wolfram.com/IntegerFunctions/Ceiling/[MFS]
+https://mathworld.wolfram.com/CeilingFunction.html[MW]
 |===
 
 === Complex Functions
@@ -380,7 +410,7 @@ To use a complex function when all arguments are real, add a dummy imaginary par
 
 ==== Number Parts
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -389,28 +419,33 @@ To use a complex function when all arguments are real, add a dummy imaginary par
 |stem:[\Re z]
 |The real part of stem:[z].
 |https://functions.wolfram.com/ComplexComponents/Re/[MFS]
+https://mathworld.wolfram.com/RealPart.html[MW]
 
 |`Im(z)`
 |stem:[\Im z]
 |The imaginary part of stem:[z].
 |https://functions.wolfram.com/ComplexComponents/Im/[MFS]
+https://mathworld.wolfram.com/ImaginaryPart.html[MW]
 
 |`abs(z)` or `\|z\|`
 |stem:[\|z\|]
 |The absolute value of stem:[z].
 |https://functions.wolfram.com/ComplexComponents/Abs/[MFS]
+https://mathworld.wolfram.com/AbsoluteValue.html[MW]
 
 |`arg(z)`
 |stem:[\arg z]
 |The argument of stem:[z]. +
 Undefined for stem:[z = 0].
 |https://functions.wolfram.com/ComplexComponents/Arg/[MFS]
+https://mathworld.wolfram.com/ComplexArgument.html[MW]
 
 4+s|Complex-Valued
 |`~z`
 |stem:[\bar z]
 |The complex conjugate of stem:[z].
 |https://functions.wolfram.com/ComplexComponents/Conjugate/[MFS]
+https://mathworld.wolfram.com/ComplexConjugate.html[MW]
 
 |`sgn(z)` or `sign(z)`
 |stem:[\sgn z = \begin{cases}
@@ -419,12 +454,13 @@ Undefined for stem:[z = 0].
  \end{cases}]
 |The complex sign of stem:[z].
 |https://functions.wolfram.com/ComplexComponents/Sign/[MFS]
+https://mathworld.wolfram.com/Sign.html[MW]
 |===
 
 [#complex-pow]
 ==== Exponentiation and Logarithm
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -432,6 +468,7 @@ Undefined for stem:[z = 0].
 |stem:[\sqrt{z} = z^{1/2}]
 |Branch cuts: stem:[(−∞, 0)], continuous from above.
 |https://functions.wolfram.com/ElementaryFunctions/Sqrt/[MFS]
+https://mathworld.wolfram.com/SquareRoot.html[MW]
 
 |`z^w`
 |stem:[z^w = \begin{cases}
@@ -441,17 +478,20 @@ Undefined for stem:[z = 0].
 |Undefined for stem:[(z, w)] if stem:[z = 0 ∧ \Re w ≤ 0]. +
 Branch cuts for a fixed non-integer stem:[w]: stem:[(−∞, 0)], continuous from above.
 |https://functions.wolfram.com/ElementaryFunctions/Power/[MFS]
+https://mathworld.wolfram.com/Power.html[MW]
 
 |`exp(z)`
 |stem:[\exp z = e^z]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Exp/[MFS]
+https://mathworld.wolfram.com/ExponentialFunction.html[MW]
 
 |`ln(z)`
 |stem:[\ln z = \log_e z]
 |Undefined for stem:[z = 0]. +
 Branch cuts: (−∞, 0), continuous from above.
 |https://functions.wolfram.com/ElementaryFunctions/Log/[MFS]
+https://mathworld.wolfram.com/NaturalLogarithm.html[MW]
 
 |`log(b, z)`
 |stem:[\log_b z = \dfrac{\ln z}{\ln b}]
@@ -459,11 +499,12 @@ Branch cuts: (−∞, 0), continuous from above.
 Branch cuts for a fixed stem:[b]: stem:[(−∞, 0)], continuous from above. +
 Branch cuts for a fixed stem:[z]: stem:[(−∞, 0)], continuous from above.
 |https://functions.wolfram.com/ElementaryFunctions/Log2/[MFS]
+https://mathworld.wolfram.com/Logarithm.html[MW]
 |===
 
 ==== Trigonometry
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -472,64 +513,76 @@ Branch cuts for a fixed stem:[z]: stem:[(−∞, 0)], continuous from above.
 |stem:[\sin z]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Sin/[MFS]
+https://mathworld.wolfram.com/Sine.html[MW]
 
 |`cos(z)`
 |stem:[\cos z]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Cos/[MFS]
+https://mathworld.wolfram.com/Cosine.html[MW]
 
 |`tan(z)`
 |stem:[\tan z]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Tan/[MFS]
+https://mathworld.wolfram.com/Tangent.html[MW]
 
 4+s|Inverse Trigonometric Functions
 |`asin(z)`
 |stem:[\sin^{−1} z]
 |Branch cuts: stem:[(−∞, −1)], continuous from above; stem:[(1, ∞)], continuous from below.
 |https://functions.wolfram.com/ElementaryFunctions/ArcSin/[MFS]
+https://mathworld.wolfram.com/InverseSine.html[MW]
 
 |`acos(z)`
 |stem:[\cos^{−1} z]
 |Branch cuts: stem:[(−∞, −1)], continuous from above; stem:[(1, ∞)], continuous from below.
 |https://functions.wolfram.com/ElementaryFunctions/ArcCos/[MFS]
+https://mathworld.wolfram.com/InverseCosine.html[MW]
 
 |`atan(z)`
 |stem:[\tan^{−1} z]
 |Branch cuts: stem:[(−i∞, −i)], continuous from the left; stem:[(i, i∞)], continuous from the right.
 |https://functions.wolfram.com/ElementaryFunctions/ArcTan/[MFS]
+https://mathworld.wolfram.com/InverseTangent.html[MW]
 
 4+s|Hyperbolic Functions
 |`sinh(z)`
 |stem:[\sinh z]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Sinh/[MFS]
+https://mathworld.wolfram.com/HyperbolicSine.html[MW]
 
 |`cosh(z)`
 |stem:[\cosh z]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Cosh/[MFS]
+https://mathworld.wolfram.com/HyperbolicCosine.html[MW]
 
 |`tanh(z)`
 |stem:[\tanh z]
 |
 |https://functions.wolfram.com/ElementaryFunctions/Tanh/[MFS]
+https://mathworld.wolfram.com/HyperbolicTangent.html[MW]
 
 4+s|Inverse Hyperbolic Functions
 |`asinh(z)`
 |stem:[\sinh^{−1} z]
 |Branch cuts: stem:[(−i∞, −i)], continuous from the left; stem:[(i, i∞)], continuous from the right.
 |https://functions.wolfram.com/ElementaryFunctions/ArcSinh/[MFS]
+https://mathworld.wolfram.com/InverseHyperbolicSine.html[MW]
 
 |`acosh(z)`
 |stem:[\cosh^{−1} z]
 |Branch cuts: stem:[(−∞, 1)], continuous from above.
 |https://functions.wolfram.com/ElementaryFunctions/ArcCosh/[MFS]
+https://mathworld.wolfram.com/InverseHyperbolicCosine.html[MW]
 
 |`atanh(z)`
 |stem:[\tanh^{−1} z]
 |Branch cuts: stem:[(−∞, −1)], continuous from above; stem:[(1, ∞)], continuous from below.
 |https://functions.wolfram.com/ElementaryFunctions/ArcTanh/[MFS]
+https://mathworld.wolfram.com/InverseHyperbolicTangent.html[MW]
 |===
 
 [#formulae]
@@ -605,7 +658,7 @@ stem:[x] and/or stem:[y] can be either real or complex.
 
 All functions accept only real inputs at the moment.
 
-[cols="a,,,0"]
+[cols="3a,3,3,1"]
 |===
 |Input |Interpreted as |Notes |Links
 
@@ -613,70 +666,84 @@ All functions accept only real inputs at the moment.
 |stem:[Γ(x)]
 |The https://en.wikipedia.org/wiki/Gamma_function[gamma function].
 |https://functions.wolfram.com/GammaBetaErf/Gamma/[MFS]
+https://mathworld.wolfram.com/GammaFunction.html[MW]
 
 |`Gamma(a, x)` or `Γ(a, x)`
 |stem:[Γ(a, x)]
 |The https://en.wikipedia.org/wiki/Incomplete_gamma_function[upper incomplete gamma function]. +
 stem:[a] must be an exact numberfootnote:[A number that can be represented as a double-precision floating-point number, such as 1.5 or −3.0625.].
 |https://functions.wolfram.com/GammaBetaErf/Gamma2/[MFS]
+https://mathworld.wolfram.com/IncompleteGammaFunction.html[MW]
 
 |`psi(x)` or `ψ(x)`
 |stem:[ψ(x)]
 |The https://en.wikipedia.org/wiki/Digamma_function[digamma function].
 |https://functions.wolfram.com/GammaBetaErf/PolyGamma/[MFS]
+https://mathworld.wolfram.com/DigammaFunction.html[MW]
 
 |`erf(x)`
 |stem:[\operatorname{erf}(x)]
 |The https://en.wikipedia.org/wiki/Error_function[error function].
 |https://functions.wolfram.com/GammaBetaErf/Erf/[MFS]
+https://mathworld.wolfram.com/Erf.html[MW]
 
 |`erfc(x)`
 |stem:[\operatorname{erfc}(x)]
 |The complementary error function.
 |https://functions.wolfram.com/GammaBetaErf/Erfc/[MFS]
+https://mathworld.wolfram.com/Erfc.html[MW]
 
 |`erfi(x)`
 |stem:[\operatorname{erfi}(x)]
 |The imaginary error function.
 |https://functions.wolfram.com/GammaBetaErf/Erfi/[MFS]
+https://mathworld.wolfram.com/Erfi.html[MW]
 
 |`Ei(x)`
 |stem:[\operatorname{Ei}(x)]
 |The https://en.wikipedia.org/wiki/Exponential_integral[exponential integral].
 |https://functions.wolfram.com/GammaBetaErf/ExpIntegralEi/[MFS]
+https://mathworld.wolfram.com/ExponentialIntegral.html[MW]
 
 |`li(x)`
 |stem:[\operatorname{li}(x)]
 |The https://en.wikipedia.org/wiki/Logarithmic_integral_function[logarithmic integral].
 |https://functions.wolfram.com/GammaBetaErf/LogIntegral/[MFS]
+https://mathworld.wolfram.com/LogarithmicIntegral.html[MW]
 
 |`Si(x)`
 |stem:[\operatorname{Si}(x)]
 |The https://en.wikipedia.org/wiki/Trigonometric_integral[sine integral].
 |https://functions.wolfram.com/GammaBetaErf/SinIntegral/[MFS]
+https://mathworld.wolfram.com/SineIntegral.html[MW]
 
 |`Ci(x)`
 |stem:[\operatorname{Ci}(x)]
 |The cosine integral.
 |https://functions.wolfram.com/GammaBetaErf/CosIntegral/[MFS]
+https://mathworld.wolfram.com/CosineIntegral.html[MW]
 
 |`Shi(x)`
 |stem:[\operatorname{Shi}(x)]
 |The hyperbolic sine integral.
 |https://functions.wolfram.com/GammaBetaErf/SinhIntegral/[MFS]
+https://mathworld.wolfram.com/Shi.html[MW]
 
 |`Chi(x)`
 |stem:[\operatorname{Chi}(x)]
 |The hyperbolic cosine integral.
 |https://functions.wolfram.com/GammaBetaErf/CoshIntegral/[MFS]
+https://mathworld.wolfram.com/Chi.html[MW]
 
 |`S(x)` +
 `C(x)`
 |stem:[S(x)] +
 stem:[C(x)]
 |The https://en.wikipedia.org/wiki/Fresnel_integral[Fresnel integrals].
-|https://functions.wolfram.com/GammaBetaErf/FresnelS/[MFS] +
+|https://functions.wolfram.com/GammaBetaErf/FresnelS/[MFS]
+https://mathworld.wolfram.com/FresnelIntegrals.html[MW] +
 https://functions.wolfram.com/GammaBetaErf/FresnelC/[MFS]
+https://mathworld.wolfram.com/FresnelIntegrals.html[MW]
 
 |`J(n, x)` +
 `Y(n, x)`
@@ -684,8 +751,10 @@ https://functions.wolfram.com/GammaBetaErf/FresnelC/[MFS]
 stem:[Y_n(x)]
 |The https://en.wikipedia.org/wiki/Bessel_function[Bessel functions]. +
 stem:[n] must be an integer or a half-integer.
-|https://functions.wolfram.com/Bessel-TypeFunctions/BesselJ/[MFS] +
+|https://functions.wolfram.com/Bessel-TypeFunctions/BesselJ/[MFS]
+https://mathworld.wolfram.com/BesselFunctionoftheFirstKind.html[MW] +
 https://functions.wolfram.com/Bessel-TypeFunctions/BesselY/[MFS]
+https://mathworld.wolfram.com/BesselFunctionoftheSecondKind.html[MW]
 
 |`I(n, x)` +
 `K(n, x)`
@@ -693,8 +762,10 @@ https://functions.wolfram.com/Bessel-TypeFunctions/BesselY/[MFS]
 stem:[K_n(x)]
 |The modified Bessel functions. +
 stem:[n] must be an integer or a half-integer.
-|https://functions.wolfram.com/Bessel-TypeFunctions/BesselI/[MFS] +
+|https://functions.wolfram.com/Bessel-TypeFunctions/BesselI/[MFS]
+https://mathworld.wolfram.com/ModifiedBesselFunctionoftheFirstKind.html[MW] +
 https://functions.wolfram.com/Bessel-TypeFunctions/BesselK/[MFS]
+https://mathworld.wolfram.com/ModifiedBesselFunctionoftheSecondKind.html[MW]
 
 |`Ai(x)` +
 `Bi(x)` +
@@ -705,8 +776,10 @@ stem:[\operatorname{Bi}(x)] +
 stem:[\operatorname{Ai'}(x)] +
 stem:[\operatorname{Bi'}(x)]
 |The https://en.wikipedia.org/wiki/Airy_function[Airy functions] and their derivatives.
-|https://functions.wolfram.com/Bessel-TypeFunctions/AiryAi/[MFS] +
-https://functions.wolfram.com/Bessel-TypeFunctions/AiryBi/[MFS] +
+|https://functions.wolfram.com/Bessel-TypeFunctions/AiryAi/[MFS]
+https://mathworld.wolfram.com/AiryFunctions.html[MW] +
+https://functions.wolfram.com/Bessel-TypeFunctions/AiryBi/[MFS]
+https://mathworld.wolfram.com/AiryFunctions.html[MW] +
 https://functions.wolfram.com/Bessel-TypeFunctions/AiryAiPrime/[MFS] +
 https://functions.wolfram.com/Bessel-TypeFunctions/AiryBiPrime/[MFS]
 
@@ -714,10 +787,11 @@ https://functions.wolfram.com/Bessel-TypeFunctions/AiryBiPrime/[MFS]
 |stem:[K(m)]
 |The https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_first_kind[complete elliptic integral of the first kind].
 |https://functions.wolfram.com/EllipticIntegrals/EllipticK/[MFS]
-
+https://mathworld.wolfram.com/CompleteEllipticIntegraloftheFirstKind.html[MW]
 
 |`E(m)`
 |stem:[E(m)]
 |The https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_second_kind[complete elliptic integral of the second kind].
 |https://functions.wolfram.com/EllipticIntegrals/EllipticE/[MFS]
+https://mathworld.wolfram.com/CompleteEllipticIntegraloftheSecondKind.html[MW]
 |===

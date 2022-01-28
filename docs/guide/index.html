@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16">
+<meta name="generator" content="Asciidoctor 2.0.17">
 <title>Graphest User Guide</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700">
 <style>
@@ -193,7 +193,8 @@ body.toc2.toc-right{padding-left:0;padding-right:20em}}
 #content h1>a.link:hover,h2>a.link:hover,h3>a.link:hover,#toctitle>a.link:hover,.sidebarblock>.content>.title>a.link:hover,h4>a.link:hover,h5>a.link:hover,h6>a.link:hover{color:#a53221}
 details,.audioblock,.imageblock,.literalblock,.listingblock,.stemblock,.videoblock{margin-bottom:1.25em}
 details{margin-left:1.25rem}
-details>summary{cursor:pointer;display:block;position:relative;line-height:1.6;margin-bottom:.625rem;-webkit-tap-highlight-color:transparent}
+details>summary{cursor:pointer;display:block;position:relative;line-height:1.6;margin-bottom:.625rem;outline:none;-webkit-tap-highlight-color:transparent}
+details>summary::-webkit-details-marker{display:none}
 details>summary::before{content:"";border:solid transparent;border-left:solid;border-width:.3em 0 .3em .5em;position:absolute;top:.5em;left:-1.25rem;transform:translateX(15%)}
 details[open]>summary::before{border:solid transparent;border-top:solid;border-width:.5em .3em 0;transform:translateY(15%)}
 details>summary::after{content:"";width:1.25rem;height:1em;position:absolute;top:.3em;left:-1.25rem}
@@ -235,9 +236,8 @@ pre.prettyprint li:not(:first-child) code[data-lang]::before{display:none}
 table.linenotable{border-collapse:separate;border:0;margin-bottom:0;background:none}
 table.linenotable td[class]{color:inherit;vertical-align:top;padding:0;line-height:inherit;white-space:normal}
 table.linenotable td.code{padding-left:.75em}
-table.linenotable td.linenos{border-right:1px solid;opacity:.35;padding-right:.5em}
-pre.pygments .lineno{border-right:1px solid;opacity:.35;display:inline-block;margin-right:.75em}
-pre.pygments .lineno::before{content:"";margin-right:-.125em}
+table.linenotable td.linenos,pre.pygments .linenos{border-right:1px solid;opacity:.35;padding-right:.5em;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}
+pre.pygments span.linenos{display:inline-block;margin-right:.75em}
 .quoteblock{margin:0 1em 1.25em 1.5em;display:table}
 .quoteblock:not(.excerpt)>.title{margin-left:-1.5em;margin-bottom:.75em}
 .quoteblock blockquote,.quoteblock p{color:rgba(0,0,0,.85);font-size:1.15rem;line-height:1.75;word-spacing:.1em;letter-spacing:0;font-style:italic;text-align:justify}
@@ -274,7 +274,7 @@ table.frame-none>colgroup+*>:first-child>*,table.frame-sides>colgroup+*>:first-c
 table.frame-none>:last-child>:last-child>*,table.frame-sides>:last-child>:last-child>*{border-bottom-width:0}
 table.frame-none>*>tr>:first-child,table.frame-ends>*>tr>:first-child{border-left-width:0}
 table.frame-none>*>tr>:last-child,table.frame-ends>*>tr>:last-child{border-right-width:0}
-table.stripes-all tr,table.stripes-odd tr:nth-of-type(odd),table.stripes-even tr:nth-of-type(even),table.stripes-hover tr:hover{background:#f8f8f7}
+table.stripes-all>*>tr,table.stripes-odd>*>tr:nth-of-type(odd),table.stripes-even>*>tr:nth-of-type(even),table.stripes-hover>*>tr:hover{background:#f8f8f7}
 th.halign-left,td.halign-left{text-align:left}
 th.halign-right,td.halign-right{text-align:right}
 th.halign-center,td.halign-center{text-align:center}
@@ -290,10 +290,11 @@ ol{margin-left:1.75em}
 ul li ol{margin-left:1.5em}
 dl dd{margin-left:1.125em}
 dl dd:last-child,dl dd:last-child>:last-child{margin-bottom:0}
-ol>li p,ul>li p,ul dd,ol dd,.olist .olist,.ulist .ulist,.ulist .olist,.olist .ulist{margin-bottom:.625em}
+li p,ul dd,ol dd,.olist .olist,.ulist .ulist,.ulist .olist,.olist .ulist{margin-bottom:.625em}
 ul.checklist,ul.none,ol.none,ul.no-bullet,ol.no-bullet,ol.unnumbered,ul.unstyled,ol.unstyled{list-style-type:none}
 ul.no-bullet,ol.no-bullet,ol.unnumbered{margin-left:.625em}
 ul.unstyled,ol.unstyled{margin-left:0}
+li>p:empty:only-child::before{content:"";display:inline-block}
 ul.checklist>li>p:first-child{margin-left:-1em}
 ul.checklist>li>p:first-child>.fa-square-o:first-child,ul.checklist>li>p:first-child>.fa-check-square-o:first-child{width:1.25em;font-size:.8em;position:relative;bottom:.125em}
 ul.checklist>li>p:first-child>input[type=checkbox]:first-child{margin-right:.25em}
@@ -336,8 +337,6 @@ sup.footnote a:active,sup.footnoteref a:active{text-decoration:underline}
 #footnotes .footnote a:first-of-type{font-weight:bold;text-decoration:none;margin-left:-1.05em}
 #footnotes .footnote:last-of-type{margin-bottom:0}
 #content #footnotes{margin-top:-.625em;margin-bottom:0;padding:.75em 0}
-.gist .file-data>table{border:0;background:#fff;width:100%;margin-bottom:0}
-.gist .file-data>table td.line-data{width:99%}
 div.unbreakable{page-break-inside:avoid}
 .big{font-size:larger}
 .small{font-size:smaller}
@@ -577,10 +576,10 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <h3 id="_constants"><a class="anchor" href="#_constants"></a><a class="link" href="#_constants">Constants</a></h3>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -612,7 +611,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(e ≈ 2.71828\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The base of natural logarithms.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Constants/E/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Constants/E/">MFS</a>
+<a href="https://mathworld.wolfram.com/e.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -620,7 +620,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(π ≈ 3.14159\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Constants/Pi/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Constants/Pi/">MFS</a>
+<a href="https://mathworld.wolfram.com/Pi.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -628,7 +629,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(γ ≈ 0.577216\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant">Euler–Mascheroni constant</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Constants/EulerGamma/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Constants/EulerGamma/">MFS</a>
+<a href="https://mathworld.wolfram.com/Euler-MascheroniConstant.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top" colspan="4"><p class="tableblock"><strong>Complex Numbers</strong></p></td>
@@ -639,7 +641,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(i = \sqrt{−1}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The imaginary unit.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Constants/I/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Constants/I/">MFS</a>
+<a href="https://mathworld.wolfram.com/ImaginaryUnit.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -787,10 +790,10 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <h4 id="_number_parts"><a class="anchor" href="#_number_parts"></a><a class="link" href="#_number_parts">Number Parts</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -807,7 +810,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(|x|\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The absolute value of \(x\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Abs/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Abs/">MFS</a>
+<a href="https://mathworld.wolfram.com/AbsoluteValue.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -819,7 +823,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
   1  &amp; \if x &gt; 0
  \end{cases}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Sign_function">sign function</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Sign/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Sign/">MFS</a>
+<a href="https://mathworld.wolfram.com/Sign.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -828,10 +833,10 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <h4 id="_exponentiation_and_logarithm"><a class="anchor" href="#_exponentiation_and_logarithm"></a><a class="link" href="#_exponentiation_and_logarithm">Exponentiation and Logarithm</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -848,7 +853,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sqrt{x} = x^{1/2}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Undefined for \(x &lt; 0\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sqrt/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sqrt/">MFS</a>
+<a href="https://mathworld.wolfram.com/SquareRoot.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -864,7 +870,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\exp x = e^x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Exp/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Exp/">MFS</a>
+<a href="https://mathworld.wolfram.com/ExponentialFunction.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -872,7 +879,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\ln x = \log_e x\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Undefined for \(x ≤ 0\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Log/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Log/">MFS</a>
+<a href="https://mathworld.wolfram.com/NaturalLogarithm.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -880,7 +888,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\log_b x = \dfrac{\ln x}{\ln b}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Undefined for \(x ≤ 0\), \(b ≤ 0\), and \(b = 1\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Log2/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Log2/">MFS</a>
+<a href="https://mathworld.wolfram.com/Logarithm.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -931,10 +940,10 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <h4 id="_trigonometry"><a class="anchor" href="#_trigonometry"></a><a class="link" href="#_trigonometry">Trigonometry</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -954,7 +963,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sin x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sin/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sin/">MFS</a>
+<a href="https://mathworld.wolfram.com/Sine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -962,7 +972,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\cos x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Cos/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Cos/">MFS</a>
+<a href="https://mathworld.wolfram.com/Cosine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -970,7 +981,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\tan x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Tan/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Tan/">MFS</a>
+<a href="https://mathworld.wolfram.com/Tangent.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top" colspan="4"><p class="tableblock"><strong>Inverse Trigonometric Functions</strong></p></td>
@@ -981,7 +993,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sin^{−1} x\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The range is \([−π/2, π/2]\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcSin/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcSin/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseSine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -989,7 +1002,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\cos^{−1} x\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The range is \([0, π]\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcCos/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcCos/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseCosine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -997,7 +1011,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\tan^{−1} x\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The range is \((−π/2, π/2)\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTan/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTan/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseTangent.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1007,7 +1022,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Atan2">two-argument arctangent</a>.<br>
 Undefined for \((x, y) = (0, 0)\).<br>
 The range is \((−π, π]\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTan2/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTan2/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseTangent.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top" colspan="4"><p class="tableblock"><strong>Hyperbolic Functions</strong></p></td>
@@ -1018,7 +1034,8 @@ The range is \((−π, π]\).</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sinh x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sinh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sinh/">MFS</a>
+<a href="https://mathworld.wolfram.com/HyperbolicSine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1026,7 +1043,8 @@ The range is \((−π, π]\).</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\cosh x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Cosh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Cosh/">MFS</a>
+<a href="https://mathworld.wolfram.com/HyperbolicCosine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1034,7 +1052,8 @@ The range is \((−π, π]\).</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\tanh x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Tanh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Tanh/">MFS</a>
+<a href="https://mathworld.wolfram.com/HyperbolicTangent.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top" colspan="4"><p class="tableblock"><strong>Inverse Hyperbolic Functions</strong></p></td>
@@ -1045,7 +1064,8 @@ The range is \((−π, π]\).</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sinh^{−1} x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcSinh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcSinh/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseHyperbolicSine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1053,7 +1073,8 @@ The range is \((−π, π]\).</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\cosh^{−1} x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcCosh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcCosh/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseHyperbolicCosine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1061,7 +1082,8 @@ The range is \((−π, π]\).</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\tanh^{−1} x\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTanh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTanh/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseHyperbolicTangent.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -1070,10 +1092,10 @@ The range is \((−π, π]\).</p></td>
 <h4 id="_divisibility"><a class="anchor" href="#_divisibility"></a><a class="link" href="#_divisibility">Divisibility</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -1095,7 +1117,8 @@ The range for a fixed \(y\) is \(\begin{cases}
   (y, 0] &amp; \if y &lt; 0, \\
   [0, y)  &amp; \if y &gt; 0.
  \end{cases}\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Mod/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Mod/">MFS</a>
+<a href="https://mathworld.wolfram.com/Mod.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1105,7 +1128,8 @@ The range for a fixed \(y\) is \(\begin{cases}
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Greatest_common_divisor">greatest common divisor</a> of the numbers in the set \(\set{x_1, …, x_n}\).<br>
 \(\gcd \set{x, 0}\) is defined to be \(|x|\) for any rational number \(x\).<br>
 Undefined if any of the numbers is irrational.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/GCD/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/GCD/">MFS</a>
+<a href="https://mathworld.wolfram.com/GreatestCommonDivisor.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1115,7 +1139,8 @@ Undefined if any of the numbers is irrational.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Least_common_multiple">least common multiple</a> of the numbers in the set \(\set{x_1, …, x_n}\).<br>
 \(\lcm \set{x, 0}\) is defined to be 0 for any rational number \(x\).<br>
 Undefined if any of the numbers is irrational.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/LCM/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/LCM/">MFS</a>
+<a href="https://mathworld.wolfram.com/LeastCommonMultiple.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -1124,10 +1149,10 @@ Undefined if any of the numbers is irrational.</p></td>
 <h4 id="_ordering"><a class="anchor" href="#_ordering"></a><a class="link" href="#_ordering">Ordering</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -1146,8 +1171,10 @@ Undefined if any of the numbers is irrational.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\max \set{x_1, …, x_n}\)<br>
 \(\min \set{x_1, …, x_n}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The largest and the smallest elements of the set \(\set{x_1, …, x_n}\), respectively.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Max/">MFS</a><br>
-<a href="https://functions.wolfram.com/ElementaryFunctions/Min/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Max/">MFS</a>
+<a href="https://mathworld.wolfram.com/Maximum.html">MW</a><br>
+<a href="https://functions.wolfram.com/ElementaryFunctions/Min/">MFS</a>
+<a href="https://mathworld.wolfram.com/Minimum.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1165,10 +1192,10 @@ Undefined if any of the numbers is irrational.</p></td>
 <h4 id="_rounding"><a class="anchor" href="#_rounding"></a><a class="link" href="#_rounding">Rounding</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -1185,7 +1212,8 @@ Undefined if any of the numbers is irrational.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(⌊x⌋\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Floor_and_ceiling_functions">floor function</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Floor/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Floor/">MFS</a>
+<a href="https://mathworld.wolfram.com/FloorFunction.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1193,7 +1221,8 @@ Undefined if any of the numbers is irrational.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(⌈x⌉\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Floor_and_ceiling_functions">ceiling function</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Ceiling/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/IntegerFunctions/Ceiling/">MFS</a>
+<a href="https://mathworld.wolfram.com/CeilingFunction.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -1262,10 +1291,10 @@ Undefined if any of the numbers is irrational.</p></td>
 <h4 id="_number_parts_2"><a class="anchor" href="#_number_parts_2"></a><a class="link" href="#_number_parts_2">Number Parts</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -1285,7 +1314,8 @@ Undefined if any of the numbers is irrational.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\Re z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The real part of \(z\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Re/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Re/">MFS</a>
+<a href="https://mathworld.wolfram.com/RealPart.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1293,7 +1323,8 @@ Undefined if any of the numbers is irrational.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\Im z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The imaginary part of \(z\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Im/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Im/">MFS</a>
+<a href="https://mathworld.wolfram.com/ImaginaryPart.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1301,7 +1332,8 @@ Undefined if any of the numbers is irrational.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(|z|\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The absolute value of \(z\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Abs/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Abs/">MFS</a>
+<a href="https://mathworld.wolfram.com/AbsoluteValue.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1310,7 +1342,8 @@ Undefined if any of the numbers is irrational.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\arg z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The argument of \(z\).<br>
 Undefined for \(z = 0\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Arg/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Arg/">MFS</a>
+<a href="https://mathworld.wolfram.com/ComplexArgument.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top" colspan="4"><p class="tableblock"><strong>Complex-Valued</strong></p></td>
@@ -1321,7 +1354,8 @@ Undefined for \(z = 0\).</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\bar z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The complex conjugate of \(z\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Conjugate/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Conjugate/">MFS</a>
+<a href="https://mathworld.wolfram.com/ComplexConjugate.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1332,7 +1366,8 @@ Undefined for \(z = 0\).</p></td>
   \dfrac{z}{|z|} &amp; \if z ≠ 0
  \end{cases}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The complex sign of \(z\).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Sign/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ComplexComponents/Sign/">MFS</a>
+<a href="https://mathworld.wolfram.com/Sign.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -1341,10 +1376,10 @@ Undefined for \(z = 0\).</p></td>
 <h4 id="complex-pow"><a class="anchor" href="#complex-pow"></a><a class="link" href="#complex-pow">Exponentiation and Logarithm</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -1361,7 +1396,8 @@ Undefined for \(z = 0\).</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sqrt{z} = z^{1/2}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Branch cuts: \((−∞, 0)\), continuous from above.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sqrt/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sqrt/">MFS</a>
+<a href="https://mathworld.wolfram.com/SquareRoot.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1373,7 +1409,8 @@ Undefined for \(z = 0\).</p></td>
  \end{cases}\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Undefined for \((z, w)\) if \(z = 0 ∧ \Re w ≤ 0\).<br>
 Branch cuts for a fixed non-integer \(w\): \((−∞, 0)\), continuous from above.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Power/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Power/">MFS</a>
+<a href="https://mathworld.wolfram.com/Power.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1381,7 +1418,8 @@ Branch cuts for a fixed non-integer \(w\): \((−∞, 0)\), continuous from abov
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\exp z = e^z\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Exp/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Exp/">MFS</a>
+<a href="https://mathworld.wolfram.com/ExponentialFunction.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1390,7 +1428,8 @@ Branch cuts for a fixed non-integer \(w\): \((−∞, 0)\), continuous from abov
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\ln z = \log_e z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Undefined for \(z = 0\).<br>
 Branch cuts: (−∞, 0), continuous from above.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Log/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Log/">MFS</a>
+<a href="https://mathworld.wolfram.com/NaturalLogarithm.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1400,7 +1439,8 @@ Branch cuts: (−∞, 0), continuous from above.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Undefined for \(z = 0\), \(b = 0\), and \(b = 1\).<br>
 Branch cuts for a fixed \(b\): \((−∞, 0)\), continuous from above.<br>
 Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Log2/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Log2/">MFS</a>
+<a href="https://mathworld.wolfram.com/Logarithm.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -1409,10 +1449,10 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 <h4 id="_trigonometry_2"><a class="anchor" href="#_trigonometry_2"></a><a class="link" href="#_trigonometry_2">Trigonometry</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -1432,7 +1472,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sin z\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sin/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sin/">MFS</a>
+<a href="https://mathworld.wolfram.com/Sine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1440,7 +1481,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\cos z\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Cos/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Cos/">MFS</a>
+<a href="https://mathworld.wolfram.com/Cosine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1448,7 +1490,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\tan z\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Tan/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Tan/">MFS</a>
+<a href="https://mathworld.wolfram.com/Tangent.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top" colspan="4"><p class="tableblock"><strong>Inverse Trigonometric Functions</strong></p></td>
@@ -1459,7 +1502,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sin^{−1} z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Branch cuts: \((−∞, −1)\), continuous from above; \((1, ∞)\), continuous from below.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcSin/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcSin/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseSine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1467,7 +1511,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\cos^{−1} z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Branch cuts: \((−∞, −1)\), continuous from above; \((1, ∞)\), continuous from below.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcCos/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcCos/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseCosine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1475,7 +1520,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\tan^{−1} z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Branch cuts: \((−i∞, −i)\), continuous from the left; \((i, i∞)\), continuous from the right.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTan/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTan/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseTangent.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top" colspan="4"><p class="tableblock"><strong>Hyperbolic Functions</strong></p></td>
@@ -1486,7 +1532,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sinh z\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sinh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Sinh/">MFS</a>
+<a href="https://mathworld.wolfram.com/HyperbolicSine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1494,7 +1541,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\cosh z\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Cosh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Cosh/">MFS</a>
+<a href="https://mathworld.wolfram.com/HyperbolicCosine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1502,7 +1550,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\tanh z\)</p></td>
 <td class="tableblock halign-left valign-top"></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Tanh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Tanh/">MFS</a>
+<a href="https://mathworld.wolfram.com/HyperbolicTangent.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top" colspan="4"><p class="tableblock"><strong>Inverse Hyperbolic Functions</strong></p></td>
@@ -1513,7 +1562,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\sinh^{−1} z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Branch cuts: \((−i∞, −i)\), continuous from the left; \((i, i∞)\), continuous from the right.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcSinh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcSinh/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseHyperbolicSine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1521,7 +1571,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\cosh^{−1} z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Branch cuts: \((−∞, 1)\), continuous from above.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcCosh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcCosh/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseHyperbolicCosine.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1529,7 +1580,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\tanh^{−1} z\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Branch cuts: \((−∞, −1)\), continuous from above; \((1, ∞)\), continuous from below.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTanh/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/ArcTanh/">MFS</a>
+<a href="https://mathworld.wolfram.com/InverseHyperbolicTangent.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -1675,10 +1727,10 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 0.0001%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 30%;">
+<col style="width: 10%;">
 </colgroup>
 <thead>
 <tr>
@@ -1695,7 +1747,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(Γ(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Gamma_function">gamma function</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Gamma/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Gamma/">MFS</a>
+<a href="https://mathworld.wolfram.com/GammaFunction.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1704,7 +1757,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(Γ(a, x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Incomplete_gamma_function">upper incomplete gamma function</a>.<br>
 \(a\) must be an exact number<sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Gamma2/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Gamma2/">MFS</a>
+<a href="https://mathworld.wolfram.com/IncompleteGammaFunction.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1712,7 +1766,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(ψ(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Digamma_function">digamma function</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/PolyGamma/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/PolyGamma/">MFS</a>
+<a href="https://mathworld.wolfram.com/DigammaFunction.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1720,7 +1775,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\operatorname{erf}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Error_function">error function</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Erf/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Erf/">MFS</a>
+<a href="https://mathworld.wolfram.com/Erf.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1728,7 +1784,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\operatorname{erfc}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The complementary error function.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Erfc/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Erfc/">MFS</a>
+<a href="https://mathworld.wolfram.com/Erfc.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1736,7 +1793,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\operatorname{erfi}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The imaginary error function.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Erfi/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/Erfi/">MFS</a>
+<a href="https://mathworld.wolfram.com/Erfi.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1744,7 +1802,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\operatorname{Ei}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Exponential_integral">exponential integral</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/ExpIntegralEi/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/ExpIntegralEi/">MFS</a>
+<a href="https://mathworld.wolfram.com/ExponentialIntegral.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1752,7 +1811,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\operatorname{li}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Logarithmic_integral_function">logarithmic integral</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/LogIntegral/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/LogIntegral/">MFS</a>
+<a href="https://mathworld.wolfram.com/LogarithmicIntegral.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1760,7 +1820,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\operatorname{Si}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Trigonometric_integral">sine integral</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/SinIntegral/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/SinIntegral/">MFS</a>
+<a href="https://mathworld.wolfram.com/SineIntegral.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1768,7 +1829,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\operatorname{Ci}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The cosine integral.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/CosIntegral/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/CosIntegral/">MFS</a>
+<a href="https://mathworld.wolfram.com/CosineIntegral.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1776,7 +1838,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\operatorname{Shi}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The hyperbolic sine integral.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/SinhIntegral/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/SinhIntegral/">MFS</a>
+<a href="https://mathworld.wolfram.com/Shi.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1784,7 +1847,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(\operatorname{Chi}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The hyperbolic cosine integral.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/CoshIntegral/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/CoshIntegral/">MFS</a>
+<a href="https://mathworld.wolfram.com/Chi.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1794,8 +1858,10 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(S(x)\)<br>
 \(C(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Fresnel_integral">Fresnel integrals</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/FresnelS/">MFS</a><br>
-<a href="https://functions.wolfram.com/GammaBetaErf/FresnelC/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/GammaBetaErf/FresnelS/">MFS</a>
+<a href="https://mathworld.wolfram.com/FresnelIntegrals.html">MW</a><br>
+<a href="https://functions.wolfram.com/GammaBetaErf/FresnelC/">MFS</a>
+<a href="https://mathworld.wolfram.com/FresnelIntegrals.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1806,8 +1872,10 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 \(Y_n(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Bessel_function">Bessel functions</a>.<br>
 \(n\) must be an integer or a half-integer.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Bessel-TypeFunctions/BesselJ/">MFS</a><br>
-<a href="https://functions.wolfram.com/Bessel-TypeFunctions/BesselY/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Bessel-TypeFunctions/BesselJ/">MFS</a>
+<a href="https://mathworld.wolfram.com/BesselFunctionoftheFirstKind.html">MW</a><br>
+<a href="https://functions.wolfram.com/Bessel-TypeFunctions/BesselY/">MFS</a>
+<a href="https://mathworld.wolfram.com/BesselFunctionoftheSecondKind.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1818,8 +1886,10 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 \(K_n(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The modified Bessel functions.<br>
 \(n\) must be an integer or a half-integer.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Bessel-TypeFunctions/BesselI/">MFS</a><br>
-<a href="https://functions.wolfram.com/Bessel-TypeFunctions/BesselK/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Bessel-TypeFunctions/BesselI/">MFS</a>
+<a href="https://mathworld.wolfram.com/ModifiedBesselFunctionoftheFirstKind.html">MW</a><br>
+<a href="https://functions.wolfram.com/Bessel-TypeFunctions/BesselK/">MFS</a>
+<a href="https://mathworld.wolfram.com/ModifiedBesselFunctionoftheSecondKind.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1833,8 +1903,10 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 \(\operatorname{Ai'}(x)\)<br>
 \(\operatorname{Bi'}(x)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Airy_function">Airy functions</a> and their derivatives.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Bessel-TypeFunctions/AiryAi/">MFS</a><br>
-<a href="https://functions.wolfram.com/Bessel-TypeFunctions/AiryBi/">MFS</a><br>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/Bessel-TypeFunctions/AiryAi/">MFS</a>
+<a href="https://mathworld.wolfram.com/AiryFunctions.html">MW</a><br>
+<a href="https://functions.wolfram.com/Bessel-TypeFunctions/AiryBi/">MFS</a>
+<a href="https://mathworld.wolfram.com/AiryFunctions.html">MW</a><br>
 <a href="https://functions.wolfram.com/Bessel-TypeFunctions/AiryAiPrime/">MFS</a><br>
 <a href="https://functions.wolfram.com/Bessel-TypeFunctions/AiryBiPrime/">MFS</a></p></td>
 </tr>
@@ -1844,7 +1916,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(K(m)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_first_kind">complete elliptic integral of the first kind</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/EllipticIntegrals/EllipticK/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/EllipticIntegrals/EllipticK/">MFS</a>
+<a href="https://mathworld.wolfram.com/CompleteEllipticIntegraloftheFirstKind.html">MW</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
@@ -1852,7 +1925,8 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(E(m)\)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <a href="https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_second_kind">complete elliptic integral of the second kind</a>.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/EllipticIntegrals/EllipticE/">MFS</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/EllipticIntegrals/EllipticE/">MFS</a>
+<a href="https://mathworld.wolfram.com/CompleteEllipticIntegraloftheSecondKind.html">MW</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -1868,7 +1942,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-12-28 02:34:07 +0900
+Last updated 2022-01-29 01:43:57 +0900
 </div>
 </div>
 
