@@ -851,10 +851,7 @@ impl TupperIntervalSet {
                 // x^y ≥ 0 part, which comes from
                 //   x ≥ 0;
                 //   x < 0, y = (even)/(odd) (x^y is an even function of x).
-                let mut z1 = DecInterval::set_dec(x.abs().pow(y), dec);
-                if x.contains(0.0) && y.contains(0.0) {
-                    z1 = z1.convex_hull(DI_ONE);
-                }
+                let z1 = DecInterval::set_dec(x.abs().pow(y), dec);
 
                 (z0, Some(z1))
             } else {
