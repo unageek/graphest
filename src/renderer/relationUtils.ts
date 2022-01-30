@@ -13,6 +13,8 @@ export enum TokenKind {
   Caret,
   /** `,`. */
   Comma,
+  /** `^^`. */
+  DoubleCarets,
   /** `=`. */
   Equals,
   /** `>`. */
@@ -280,6 +282,26 @@ export function* tokenize(rel: string): Generator<Token, void> {
   while (i < rel.length) {
     let kind: TokenKind | undefined = undefined;
 
+    switch (rel.slice(i, i + 2)) {
+      case "&&":
+        kind = TokenKind.And;
+        break;
+      case "^^":
+        kind = TokenKind.DoubleCarets;
+        break;
+      case ">=":
+        kind = TokenKind.GreaterThanOrEquals;
+        break;
+      case "<=":
+        kind = TokenKind.LessThanOrEquals;
+        break;
+    }
+    if (kind !== undefined) {
+      yield { kind, range: new Range(i, i + 2), source: rel.slice(i, i + 2) };
+      i += 2;
+      continue;
+    }
+
     switch (rel[i]) {
       case " ":
       case "\t":
@@ -363,23 +385,6 @@ export function* tokenize(rel: string): Generator<Token, void> {
     if (kind !== undefined) {
       yield { kind, range: new Range(i, i + 1), source: rel[i] };
       i++;
-      continue;
-    }
-
-    switch (rel.slice(i, i + 2)) {
-      case "&&":
-        kind = TokenKind.And;
-        break;
-      case ">=":
-        kind = TokenKind.GreaterThanOrEquals;
-        break;
-      case "<=":
-        kind = TokenKind.LessThanOrEquals;
-        break;
-    }
-    if (kind !== undefined) {
-      yield { kind, range: new Range(i, i + 2), source: rel.slice(i, i + 2) };
-      i += 2;
       continue;
     }
 

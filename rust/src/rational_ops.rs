@@ -88,6 +88,10 @@ pub fn pow(x: Rational, y: Rational) -> Option<Rational> {
     }
 }
 
+pub fn pow_rational(x: Rational, y: Rational) -> Option<Rational> {
+    pow(x, y)
+}
+
 // Based on `inari::parse::rational_to_f64`.
 #[allow(clippy::many_single_char_names)]
 pub fn to_interval(r: &Rational) -> Interval {
@@ -212,28 +216,28 @@ mod tests {
     }
 
     #[test]
-    fn pow() {
-        use super::pow;
-        test!(pow, r!(0), r!(-4), None);
-        test!(pow, r!(0), r!(-3), None);
-        test!(pow, r!(0), r!(-4 / 5), None);
-        test!(pow, r!(0), r!(-3 / 5), None);
-        test!(pow, r!(0), r!(0), None);
-        test!(pow, r!(0), r!(3 / 5), Some(r!(0)));
-        test!(pow, r!(0), r!(4 / 5), Some(r!(0)));
-        test!(pow, r!(0), r!(3), Some(r!(0)));
-        test!(pow, r!(0), r!(4), Some(r!(0)));
-        test!(pow, @even r!(2 / 3), r!(-4), Some(r!(81 / 16)));
-        test!(pow, @odd r!(2 / 3), r!(-3), Some(r!(27 / 8)));
-        test!(pow, @even r!(2 / 3), r!(-4 / 5), None);
-        test!(pow, @odd r!(2 / 3), r!(-3 / 5), None);
-        test!(pow, @even r!(2 / 3), r!(0), Some(r!(1)));
-        test!(pow, @odd r!(2 / 3), r!(3 / 5), None);
-        test!(pow, @even r!(2 / 3), r!(4 / 5), None);
-        test!(pow, @odd r!(2 / 3), r!(3), Some(r!(8 / 27)));
-        test!(pow, @even r!(2 / 3), r!(4), Some(r!(16 / 81)));
+    fn pow_rational() {
+        use super::pow_rational;
+        test!(pow_rational, r!(0), r!(-4), None);
+        test!(pow_rational, r!(0), r!(-3), None);
+        test!(pow_rational, r!(0), r!(-4 / 5), None);
+        test!(pow_rational, r!(0), r!(-3 / 5), None);
+        test!(pow_rational, r!(0), r!(0), None);
+        test!(pow_rational, r!(0), r!(3 / 5), Some(r!(0)));
+        test!(pow_rational, r!(0), r!(4 / 5), Some(r!(0)));
+        test!(pow_rational, r!(0), r!(3), Some(r!(0)));
+        test!(pow_rational, r!(0), r!(4), Some(r!(0)));
+        test!(pow_rational, @even r!(2 / 3), r!(-4), Some(r!(81 / 16)));
+        test!(pow_rational, @odd r!(2 / 3), r!(-3), Some(r!(27 / 8)));
+        test!(pow_rational, @even r!(2 / 3), r!(-4 / 5), None);
+        test!(pow_rational, @odd r!(2 / 3), r!(-3 / 5), None);
+        test!(pow_rational, @even r!(2 / 3), r!(0), Some(r!(1)));
+        test!(pow_rational, @odd r!(2 / 3), r!(3 / 5), None);
+        test!(pow_rational, @even r!(2 / 3), r!(4 / 5), None);
+        test!(pow_rational, @odd r!(2 / 3), r!(3), Some(r!(8 / 27)));
+        test!(pow_rational, @even r!(2 / 3), r!(4), Some(r!(16 / 81)));
 
         // The result is rational, but not computed.
-        test!(pow, r!(1), r!(1 / 2), None);
+        test!(pow_rational, r!(1), r!(1 / 2), None);
     }
 }

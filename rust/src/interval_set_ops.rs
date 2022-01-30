@@ -5,7 +5,9 @@ use crate::{
     Ternary,
 };
 use gmp_mpfr_sys::mpfr;
-use inari::{const_dec_interval, const_interval, interval, DecInterval, Decoration, Interval};
+use inari::{
+    const_dec_interval, const_interval, dec_interval, interval, DecInterval, Decoration, Interval,
+};
 use itertools::Itertools;
 use rug::Float;
 use smallvec::{smallvec, SmallVec};
@@ -752,11 +754,95 @@ impl TupperIntervalSet {
         rs
     }
 
-    // For any coprime integers p and q (q > 0), we define
+    // For any integer n,
     //
-    //   x^(p/q) = rootn(x, q)^p,
+    //         | x × ⋯ × x (n copies)  if n > 0,
+    //   x^n = | 1                     if n = 0 ∧ x ≠ 0,
+    //         | 1 / x^-n              if n < 0,
     //
-    // where rootn(x, q) is the real-valued qth root of x for odd q,
+    // and for any non-integer y,
+    //
+    //   x^y = exp(y ln(x)).
+    //
+    // 0^0 is left undefined.
+    impl_op_cut!(pow(x, y), {
+        let a = x.inf();
+        let b = x.sup();
+        let c = y.inf();
+        let d = y.sup();
+        if y.is_singleton() {
+            Self::pow_singleton(x, y)
+        } else if a < 0.0 {
+            // a < 0.
+            let dec = Decoration::Trv;
+
+            let nc = c.ceil();
+            let nd = d.floor();
+            let x_neg = x.min(DI_ZERO);
+            let (z0, z1) = if nc > nd {
+                (DecInterval::EMPTY, None)
+            } else if nc == nd {
+                let y = dec_interval!(nc, nc).unwrap();
+                let z = Self::pow_singleton(x_neg, y).0;
+                let z = DecInterval::set_dec(z.interval().unwrap(), dec);
+                (z, None)
+            } else if nd - nc == 1.0 {
+                let y0 = dec_interval!(nc, nc).unwrap();
+                let y1 = dec_interval!(nd, nd).unwrap();
+                let z0 = Self::pow_singleton(x_neg, y0).0;
+                let z1 = Self::pow_singleton(x_neg, y1).0;
+                let z0 = DecInterval::set_dec(z0.interval().unwrap(), dec);
+                let z1 = DecInterval::set_dec(z1.interval().unwrap(), dec);
+                (z0, Some(z1))
+            } else {
+                //                    |x^y|
+                //     ⋮    |    ⋮    ↑
+                // y = 1    |   -1    |
+                //     0    |    0   -+- 1
+                //    -1    |    1    |
+                //     ⋮    |    ⋮    |
+                // ---------+---------+- 0 -→
+                //         -1         0     x
+
+                let z0 = if nd == f64::INFINITY {
+                    DecInterval::ENTIRE
+                } else {
+                    let x = x.intersection(const_dec_interval!(f64::NEG_INFINITY, -1.0));
+                    let y = dec_interval!(nd, nd).unwrap();
+                    let z = Self::pow_singleton(x, y).0;
+                    z.convex_hull(-z)
+                };
+                let z1 = if nc == f64::NEG_INFINITY {
+                    DecInterval::ENTIRE
+                } else {
+                    let x = x.intersection(const_dec_interval!(-1.0, 0.0));
+                    let y = dec_interval!(nc, nc).unwrap();
+                    let z = Self::pow_singleton(x, y).0;
+                    z.convex_hull(-z)
+                };
+                let z = z0.convex_hull(z1);
+                (z, None)
+            };
+
+            if b < 0.0 {
+                (z0, z1)
+            } else {
+                let z = z0
+                    .convex_hull(z1.unwrap_or(DecInterval::EMPTY))
+                    .convex_hull(x.pow(y));
+                (z, None)
+            }
+        } else {
+            // a ≥ 0.
+            (x.pow(y), None)
+        }
+    });
+
+    // For any rational number y = p/q where p and q (> 0) are coprime integers,
+    //
+    //   x^y = surd(x, q)^p.
+    //
+    // surd(x, q) is the real-valued qth root of x for odd q,
     // and is the principal qth root of x ≥ 0 for even q. Therefore, for x < 0,
     //
     //         | (-x)^y     if y = (even)/(odd)
@@ -765,101 +851,108 @@ impl TupperIntervalSet {
     //         |            (x^y is an odd function of x),
     //         | undefined  otherwise (y = (odd)/(even) or irrational).
     //
+    // And for any irrational number y,
+    //
+    //   x^y = exp(y ln(x)).
+    //
     // 0^0 is left undefined.
-    impl_op_cut!(
-        #[allow(clippy::many_single_char_names)]
-        pow(x, y),
-        {
-            let a = x.inf();
-            let c = y.inf();
-            if y.is_singleton() {
-                match exponentiation_parity(c) {
-                    Parity::None => (x.pow(y), None),
-                    Parity::Even => {
-                        let dec = if x.contains(0.0) && c <= 0.0 {
-                            Decoration::Trv
-                        } else {
-                            if a > 0.0 || a >= 0.0 && c > 0.0 {
-                                Decoration::Com
-                            } else {
-                                Decoration::Dac
-                            }
-                            .min(x.decoration())
-                            .min(y.decoration())
-                        };
+    impl_op_cut!(pow_rational(x, y), {
+        let a = x.inf();
+        if y.is_singleton() {
+            Self::pow_singleton(x, y)
+        } else if a < 0.0 {
+            // a < 0.
+            let dec = Decoration::Trv;
 
-                        let x = x.interval().unwrap();
-                        let y = y.interval().unwrap();
-                        let z = DecInterval::set_dec(x.abs().pow(y), dec);
-                        (z, None)
+            let x = x.interval().unwrap();
+            let y = y.interval().unwrap();
+
+            // x^y < 0 part, which comes from
+            //   x < 0, y = (odd)/(odd) (x^y is an odd function of x).
+            let x0 = x.min(I_ZERO);
+            let z0 = DecInterval::set_dec(-(-x0).pow(y), dec);
+
+            // x^y ≥ 0 part, which comes from
+            //   x ≥ 0;
+            //   x < 0, y = (even)/(odd) (x^y is an even function of x).
+            let z1 = DecInterval::set_dec(x.abs().pow(y), dec);
+
+            (z0, Some(z1))
+        } else {
+            // a ≥ 0.
+            (x.pow(y), None)
+        }
+    });
+
+    #[allow(clippy::many_single_char_names)]
+    fn pow_singleton(x: DecInterval, y: DecInterval) -> (DecInterval, Option<DecInterval>) {
+        assert!(y.is_singleton());
+        let a = x.inf();
+        let c = y.inf();
+        match exponentiation_parity(c) {
+            Parity::None => (x.pow(y), None),
+            Parity::Even => {
+                let dec = if x.contains(0.0) && c <= 0.0 {
+                    Decoration::Trv
+                } else {
+                    if a > 0.0 || a >= 0.0 && c > 0.0 {
+                        Decoration::Com
+                    } else {
+                        Decoration::Dac
                     }
-                    Parity::Odd => {
-                        let dec = if x.contains(0.0) && c < 0.0 {
-                            Decoration::Trv
-                        } else {
-                            if a >= 0.0 {
-                                Decoration::Com
-                            } else {
-                                Decoration::Dac
-                            }
-                            .min(x.decoration())
-                            .min(y.decoration())
-                        };
-
-                        let x = x.interval().unwrap();
-                        let y = y.interval().unwrap();
-                        let x0 = x.intersection(const_interval!(f64::NEG_INFINITY, 0.0));
-                        let z0 = if x0.is_empty() {
-                            None
-                        } else {
-                            Some(DecInterval::set_dec(-(-x0).pow(y), dec))
-                        };
-                        let x1 = x.intersection(const_interval!(0.0, f64::INFINITY));
-                        let z1 = if x1.is_empty() {
-                            None
-                        } else {
-                            Some(DecInterval::set_dec(x1.pow(y), dec))
-                        };
-
-                        if c < 0.0 {
-                            match (z0, z1) {
-                                (Some(z0), _) => (z0, z1),
-                                (_, Some(z1)) => (z1, z0),
-                                _ => panic!(),
-                            }
-                        } else {
-                            let z = z0
-                                .unwrap_or(DecInterval::EMPTY)
-                                .convex_hull(z1.unwrap_or(DecInterval::EMPTY));
-                            let z = DecInterval::set_dec(z.interval().unwrap(), dec);
-                            (z, None)
-                        }
-                    }
-                }
-            } else if a < 0.0 {
-                // a < 0.
-                let dec = Decoration::Trv;
+                    .min(x.decoration())
+                    .min(y.decoration())
+                };
 
                 let x = x.interval().unwrap();
                 let y = y.interval().unwrap();
+                let z = DecInterval::set_dec(x.abs().pow(y), dec);
+                (z, None)
+            }
+            Parity::Odd => {
+                let dec = if x.contains(0.0) && c < 0.0 {
+                    Decoration::Trv
+                } else {
+                    if a >= 0.0 {
+                        Decoration::Com
+                    } else {
+                        Decoration::Dac
+                    }
+                    .min(x.decoration())
+                    .min(y.decoration())
+                };
 
-                // x^y < 0 part, which comes from
-                //   x < 0, y = (odd)/(odd) (x^y is an odd function of x).
-                let x0 = x.min(I_ZERO);
-                let z0 = DecInterval::set_dec(-(-x0).pow(y), dec);
+                let x = x.interval().unwrap();
+                let y = y.interval().unwrap();
+                let x0 = x.intersection(const_interval!(f64::NEG_INFINITY, 0.0));
+                let z0 = if x0.is_empty() {
+                    None
+                } else {
+                    Some(DecInterval::set_dec(-(-x0).pow(y), dec))
+                };
+                let x1 = x.intersection(const_interval!(0.0, f64::INFINITY));
+                let z1 = if x1.is_empty() {
+                    None
+                } else {
+                    Some(DecInterval::set_dec(x1.pow(y), dec))
+                };
 
-                // x^y ≥ 0 part, which comes from
-                //   x ≥ 0;
-                //   x < 0, y = (even)/(odd) (x^y is an even function of x).
-                let z1 = DecInterval::set_dec(x.abs().pow(y), dec);
-
-                (z0, Some(z1))
-            } else {
-                // a ≥ 0.
-                (x.pow(y), None)
+                if c < 0.0 {
+                    match (z0, z1) {
+                        (Some(z0), _) => (z0, z1),
+                        (_, Some(z1)) => (z1, z0),
+                        _ => panic!(),
+                    }
+                } else {
+                    let z = z0
+                        .unwrap_or(DecInterval::EMPTY)
+                        .convex_hull(z1.unwrap_or(DecInterval::EMPTY));
+                    let z = DecInterval::set_dec(z.interval().unwrap(), dec);
+                    (z, None)
+                }
             }
         }
-    );
+    }
 
     //       | x × ⋯ × x (n copies)  if n > 0,
     // x^n = | 1                     if n = 0 ∧ x ≠ 0,
@@ -1347,7 +1440,7 @@ pub(crate) fn sinc(x: Interval) -> Interval {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use inari::{Decoration::*, *};
+    use inari::Decoration::*;
     use Ternary::*;
 
     macro_rules! i {
@@ -2075,6 +2168,151 @@ mod tests {
 
         // x^e (or any inexact positive number)
         let y = Interval::E;
+        test!(f, i!(-1.0), y, (vec![], Trv));
+        test!(f, i!(0.0), y, (vec![i!(0.0)], Com));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 0.0), y, (vec![i!(0.0)], Trv));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Trv));
+
+        // x^-e (or any inexact negative number)
+        let y = -Interval::E;
+        test!(f, i!(-1.0), y, (vec![], Trv));
+        test!(f, i!(0.0), y, (vec![], Trv));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 0.0), y, (vec![], Trv));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+
+        // 0^y
+        let x = i!(0.0);
+        test!(f, x, i!(-1.0), (vec![], Trv));
+        test!(f, x, i!(0.0), (vec![], Trv));
+        test!(f, x, i!(1.0), (vec![i!(0.0)], Com));
+        test!(f, x, i!(-1.0, 0.0), (vec![], Trv));
+        test!(f, x, i!(0.0, 1.0), (vec![i!(0.0)], Trv));
+        test!(f, x, i!(-1.0, 1.0), (vec![i!(0.0)], Trv));
+
+        // Others
+        let x = i!(0.0, 1.0);
+        test!(f, x, i!(-1.0, 0.0), (vec![i!(1.0, f64::INFINITY)], Trv));
+        test!(f, x, i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
+        test!(f, x, i!(-1.0, 1.0), (vec![i!(0.0, f64::INFINITY)], Trv));
+    }
+
+    #[test]
+    fn pow_rational() {
+        fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
+            x.pow_rational(y, None)
+        }
+
+        // x^-3
+        let y = i!(-3.0);
+        test!(f, i!(-1.0), y, (vec![i!(-1.0)], Dac));
+        test!(f, i!(0.0), y, (vec![], Trv));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 0.0), y, (vec![i!(-f64::INFINITY, -1.0)], Trv));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test!(
+            f,
+            i!(-1.0, 1.0),
+            y,
+            (vec![i!(-f64::INFINITY, -1.0), i!(1.0, f64::INFINITY)], Trv)
+        );
+        test!(
+            f,
+            i!(-3.0, -2.0),
+            y,
+            (vec![interval!("[-1/8, -1/27]").unwrap()], Dac)
+        );
+        test!(
+            f,
+            i!(2.0, 3.0),
+            y,
+            (vec![interval!("[1/27, 1/8]").unwrap()], Com)
+        );
+
+        // x^-2
+        let y = i!(-2.0);
+        test!(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
+        test!(f, i!(0.0), y, (vec![], Trv));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 0.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test!(
+            f,
+            i!(-3.0, -2.0),
+            y,
+            (vec![interval!("[1/9, 1/4]").unwrap()], Dac)
+        );
+        test!(
+            f,
+            i!(2.0, 3.0),
+            y,
+            (vec![interval!("[1/9, 1/4]").unwrap()], Com)
+        );
+
+        // x^(-1/2)
+        let y = i!(-0.5);
+        test!(f, i!(-1.0), y, (vec![], Trv));
+        test!(f, i!(0.0), y, (vec![], Trv));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 0.0), y, (vec![], Trv));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(1.0, f64::INFINITY)], Trv));
+        test!(
+            f,
+            i!(4.0, 9.0),
+            y,
+            (vec![interval!("[1/3, 1/2]").unwrap()], Com)
+        );
+
+        // x^0
+        let y = i!(0.0);
+        test!(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
+        test!(f, i!(0.0), y, (vec![], Trv));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 0.0), y, (vec![i!(1.0)], Trv));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(1.0)], Trv));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(1.0)], Trv));
+        test!(f, i!(-3.0, -2.0), y, (vec![i!(1.0)], Dac));
+        test!(f, i!(2.0, 3.0), y, (vec![i!(1.0)], Com));
+
+        // x^(1/2)
+        let y = i!(0.5);
+        test!(f, i!(-1.0), y, (vec![], Trv));
+        test!(f, i!(0.0), y, (vec![i!(0.0)], Com));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 0.0), y, (vec![i!(0.0)], Trv));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Trv));
+        test!(f, i!(4.0, 9.0), y, (vec![i!(2.0, 3.0)], Com));
+
+        // x^2
+        let y = i!(2.0);
+        test!(f, i!(-1.0), y, (vec![i!(1.0)], Dac));
+        test!(f, i!(0.0), y, (vec![i!(0.0)], Com));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 0.0), y, (vec![i!(0.0, 1.0)], Dac));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Dac));
+        test!(f, i!(-3.0, -2.0), y, (vec![i!(4.0, 9.0)], Dac));
+        test!(f, i!(2.0, 3.0), y, (vec![i!(4.0, 9.0)], Com));
+
+        // x^3
+        let y = i!(3.0);
+        test!(f, i!(-1.0), y, (vec![i!(-1.0)], Dac));
+        test!(f, i!(0.0), y, (vec![i!(0.0)], Com));
+        test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
+        test!(f, i!(-1.0, 0.0), y, (vec![i!(-1.0, 0.0)], Dac));
+        test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
+        test!(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Dac));
+        test!(f, i!(-3.0, -2.0), y, (vec![i!(-27.0, -8.0)], Dac));
+        test!(f, i!(2.0, 3.0), y, (vec![i!(8.0, 27.0)], Com));
+
+        // x^e (or any inexact positive number)
+        let y = Interval::E;
         test!(f, i!(-1.0), y, (vec![i!(-1.0), i!(1.0)], Trv));
         test!(f, i!(0.0), y, (vec![i!(0.0)], Com));
         test!(f, i!(1.0), y, (vec![i!(1.0)], Com));
@@ -2350,6 +2588,7 @@ mod tests {
             TupperIntervalSet::log,
             TupperIntervalSet::modulo,
             TupperIntervalSet::pow,
+            TupperIntervalSet::pow_rational,
             TupperIntervalSet::re_sign_nonnegative,
         ];
         for f in &fs {

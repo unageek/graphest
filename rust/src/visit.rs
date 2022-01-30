@@ -1035,7 +1035,7 @@ impl VisitMut for Transform {
                 };
                 self.modified = true;
             }
-            binary!(Pow, x, constant!(a)) if a.to_f64() == Some(1.0) => {
+            binary!(Pow | PowRational, x, constant!(a)) if a.to_f64() == Some(1.0) => {
                 // x^1 → x
                 *e = take(x);
                 self.modified = true;
@@ -1316,6 +1316,21 @@ impl VisitMut for PostTransform {
 
         match e {
             binary!(Pow, x, constant!(a)) => {
+                if let Some(a) = a.to_f64() {
+                    if a == -1.0 {
+                        *e = Expr::unary(Recip, box take(x));
+                    } else if a == 0.5 {
+                        *e = Expr::unary(Sqrt, box take(x));
+                    } else if a == 1.0 {
+                        *e = take(x);
+                    } else if a == 2.0 {
+                        *e = Expr::unary(Sqr, box take(x));
+                    } else if a as i32 as f64 == a {
+                        *e = Expr::pown(box take(x), a as i32);
+                    }
+                }
+            }
+            binary!(PowRational, x, constant!(a)) => {
                 if let Some(a) = a.rational() {
                     if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
                         let root = match d {
@@ -1450,6 +1465,7 @@ impl AssignId {
                     | Log
                     | Mod
                     | Pow
+                    | PowRational
                     | RankedMax
                     | RankedMin
                     | ReSignNonnegative,
@@ -1612,6 +1628,7 @@ impl<'a> CollectStatic<'a> {
                         Mod => ScalarBinaryOp::Mod,
                         Mul => ScalarBinaryOp::Mul,
                         Pow => ScalarBinaryOp::Pow,
+                        PowRational => ScalarBinaryOp::PowRational,
                         ReSignNonnegative => ScalarBinaryOp::ReSignNonnegative,
                         Sub => ScalarBinaryOp::Sub,
                         And | Complex | Eq | ExplicitRel | Ge | Gt | Le | Lt | Or | RankedMax
@@ -2110,17 +2127,26 @@ mod tests {
 
         test("x^-1", "(Recip x)");
         test("x^0", "(Pown x 0)");
+        test("x^(1/2)", "(Sqrt x)");
         test("x^1", "x");
         test("x^2", "(Sqr x)");
         test("x^3", "(Pown x 3)");
-        test("x^(1/2)", "(Sqrt x)");
-        test("x^(3/2)", "(Pown (Sqrt x) 3)");
-        test("x^(-2/3)", "(Pown (Rootn x 3) -2)");
-        test("x^(-1/3)", "(Recip (Rootn x 3))");
-        test("x^(1/3)", "(Rootn x 3)");
-        test("x^(2/3)", "(Sqr (Rootn x 3))");
+
+        test("x^^-1", "(Recip x)");
+        test("x^^0", "(Pown x 0)");
+        test("x^^1", "x");
+        test("x^^2", "(Sqr x)");
+        test("x^^3", "(Pown x 3)");
+        test("x^^(1/2)", "(Sqrt x)");
+        test("x^^(3/2)", "(Pown (Sqrt x) 3)");
+        test("x^^(-2/3)", "(Pown (Rootn x 3) -2)");
+        test("x^^(-1/3)", "(Recip (Rootn x 3))");
+        test("x^^(1/3)", "(Rootn x 3)");
+        test("x^^(2/3)", "(Sqr (Rootn x 3))");
+
         test("x + y", "(Add x y)");
         test("x + y + z", "(Add (Add x y) z)");
+
         test("x y", "(Mul x y)");
         test("x y z", "(Mul (Mul x y) z)");
     }
