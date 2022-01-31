@@ -174,7 +174,15 @@ https://mathworld.wolfram.com/SquareRoot.html[MW]
 
 |`x^y`
 |stem:[x^y]
-|`^` is right-associative; `x\^y^z` is equivalent to `x\^(y^z)`.
+|See notes below the table. +
+`x\^y^z` is equivalent to `x\^(y^z)`.
+|https://functions.wolfram.com/ElementaryFunctions/Power/[MFS]
+https://mathworld.wolfram.com/Power.html[MW]
+
+|`x^^y`
+|stem:[x^y] with some extension
+|See notes below the table. +
+`x\^^y^^z` is equivalent to `x\^^(y^^z)`.
 |
 
 |`exp(x)`
@@ -196,19 +204,27 @@ https://mathworld.wolfram.com/NaturalLogarithm.html[MW]
 https://mathworld.wolfram.com/Logarithm.html[MW]
 |===
 
-For real stem:[x] and stem:[y], stem:[x^y] is defined as follows:
+===== Comparison of `x^y` and `x^^y`
 
-* For any coprime integers stem:[p] and stem:[q] stem:[(q > 0)], stem:[x^{p/q}] is defined to be stem:[(\sqrt[q\]{x})^p].
-** stem:[\sqrt[q\]{x}] is defined as follows:
-*** For odd stem:[q], stem:[\sqrt[q\]{x}] is the real-valued stem:[q]th root of stem:[x]. For example, stem:[\sqrt[3\]{8} = 2] and stem:[\sqrt[3\]{-8} = -2].
-*** For even stem:[q], stem:[\sqrt[q\]{x}] is the principal stem:[q]th root of stem:[x ≥ 0]. For example, stem:[\sqrt{9} = 3]. It is undefined for stem:[x < 0].
-** stem:[x^{p/q}] is an even (or odd) function of stem:[x] if stem:[p] is even (or odd).
-* For irrational stem:[y], stem:[x^y] is defined to be stem:[e^{y \ln x}].
-* stem:[0^0] is defined to be 1.
+For stem:[x ≥ 0], both `x^y` and `x^^y` gives the same value, stem:[x] raised to the power of stem:[y]. For stem:[x < 0], `x^y` is only defined for integer exponents, while `x^^y` is also defined for rational number exponents with odd denominators. The exact definition of these operators are as follows.
 
-By above definition, for stem:[x < 0], stem:[x^y] is defined only if stem:[y] is a rational number with an odd denominator.
+* For an integer stem:[n], both `x^n` and `x^^n` gives:
++
+stem:[x^n = \begin{cases}
+  \overbrace{x × ⋯ × x}^{(n \text{ copies})} & \if n > 0, \\
+  1 & \if n = 0 ∧ x ≠ 0, \\
+  1 / x^{-n} & \if n < 0.
+ \end{cases}]
++
+stem:[0^0] is left undefined.
 
-If stem:[x] and/or stem:[y] are complex, the principal value of stem:[e^{y \ln x}] is returned. See the complex <<complex-pow>> for details.
+* For a non-integer stem:[y]:
+
+** `x^y` gives the principal value of stem:[e^{y \ln x}].
+
+** If stem:[y] is a rational number stem:[p/q] with odd stem:[q], assuming stem:[p] and stem:[q] stem:[(> 0)] be coprime integers, `x^^y` gives stem:[(\sqrt[q\]{x})^p], where stem:[\sqrt[q\]{x}] is the real-valued stem:[q]th root of stem:[x].
+
+** Otherwise, `x^^y` gives the principal value of stem:[e^{y \ln x}], thus the same as `x^y`.
 
 ==== Trigonometry
 
