@@ -799,6 +799,15 @@ https://mathworld.wolfram.com/AiryFunctions.html[MW] +
 https://functions.wolfram.com/Bessel-TypeFunctions/AiryAiPrime/[MFS] +
 https://functions.wolfram.com/Bessel-TypeFunctions/AiryBiPrime/[MFS]
 
+|`sinc(x)`
+|stem:[\operatorname{sinc}(x) = \begin{cases}
+  1                 & \if x = 0, \\
+  \dfrac{\sin x}{x} & \if x ≠ 0
+ \end{cases}]
+|The (unnormalized) https://en.wikipedia.org/wiki/Sinc_function[sinc function].
+|https://functions.wolfram.com/ElementaryFunctions/Sinc/[MFS]
+https://mathworld.wolfram.com/SincFunction.html[MW]
+
 |`K(m)`
 |stem:[K(m)]
 |The https://en.wikipedia.org/wiki/Elliptic_integral#Complete_elliptic_integral_of_the_first_kind[complete elliptic integral of the first kind].

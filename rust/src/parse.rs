@@ -634,6 +634,7 @@ mod tests {
         test("sgn(x)", "(Sign x)");
         test("sign(x)", "(Sign x)");
         test("sin(x)", "(Sin x)");
+        test("sinc(x)", "(Sinc x)");
         test("sinh(x)", "(Sinh x)");
         test("sqrt(x)", "(Sqrt x)");
         test("tan(x)", "(Tan x)");

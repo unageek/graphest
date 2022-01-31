@@ -41,6 +41,7 @@ t!(
 t!(t_15e48b4aa9864b56bc295596008ced2f, "y = sgn(x)");
 t!(t_c6e28ae9902e4517885c39c5c776e26a, "y = Shi(x)");
 t!(t_b9fb18d5692e4ae6ab6e011ee31e32e6, "y = sin(x)");
+t!(t_2167a4da30594e209d49215d180c6edb, "y = sinc(x)");
 t!(t_5ac006668e084891a8394362499446ea, "y = sinh(x)");
 t!(t_58ee894ce5fb4164ac0e3c422ac7948f, "y = sqrt(x)");
 t!(t_51f6423ada6a45eba368eb03b57e10ee, "y = tan(x)");
