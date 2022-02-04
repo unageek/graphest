@@ -207,7 +207,7 @@ https://mathworld.wolfram.com/Logarithm.html[MW]
 
 For stem:[x ≥ 0], both `x^y` and `x^^y` gives the same value, stem:[x^y]. For stem:[x < 0], `x^y` is only defined for integer exponents, while `x^^y` is also defined for rational number exponents with odd denominators. The exact definition of these operators are as follows.
 
-* For an integer stem:[n], both `x^n` and `x^^n` gives:
+* For an _integer_ stem:[n], both `x^n` and `x^^n` gives:
 +
 stem:[x^n = \begin{cases}
   \overbrace{x × ⋯ × x}^{(n \text{ copies})} & \if n > 0, \\
@@ -217,15 +217,19 @@ stem:[x^n = \begin{cases}
 +
 stem:[0^0] is left undefined.
 
-* For a non-integer stem:[y], the behaviors are different:
+* For a _non-integer_ stem:[y], they can give different results:
 
-** `x^y` gives the principal value of stem:[e^{y \ln x}].
-
-** `0^y` gives stem:[\lim_{x→0} e^{y \ln x} = 1] for stem:[y ≠ 0].
+** `x^y` gives the principal value of stem:[e^{y \ln x}] or its limit as stem:[x → 0]:
++
+stem:[x^y = \begin{cases}
+  0           & \if x = 0 ∧ y > 0, \\
+  e^{y \ln x} & \otherwise.
+ \end{cases}]
++
 
 ** If stem:[y] is a rational number stem:[p/q] with odd stem:[q], assuming stem:[p] and stem:[q] stem:[(> 0)] be coprime integers, `x^^y` gives stem:[(\sqrt[q\]{x})^p], where stem:[\sqrt[q\]{x}] is the real-valued stem:[q]th root of stem:[x].
 
-** Otherwise, `x^^y` gives the principal value of stem:[e^{y \ln x}], thus the same as `x^y`.
+** Otherwise, `x^^y` gives the same result as `x^y` described above.
 
 ==== Trigonometry
 

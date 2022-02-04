@@ -911,7 +911,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="ulist">
 <ul>
 <li>
-<p>For an integer \(n\), both <code>x^n</code> and <code>x^^n</code> gives:</p>
+<p>For an <em>integer</em> \(n\), both <code>x^n</code> and <code>x^^n</code> gives:</p>
 <div class="paragraph">
 <p>\(x^n = \begin{cases}
   \overbrace{x × ⋯ × x}^{(n \text{ copies})} &amp; \if n &gt; 0, \\
@@ -924,20 +924,23 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div>
 </li>
 <li>
-<p>For a non-integer \(y\), the behaviors are different:</p>
+<p>For a <em>non-integer</em> \(y\), they can give different results:</p>
 <div class="ulist">
 <ul>
 <li>
-<p><code>x^y</code> gives the principal value of \(e^{y \ln x}\).</p>
-</li>
-<li>
-<p><code>0^y</code> gives \(\lim_{x→0} e^{y \ln x} = 1\) for \(y ≠ 0\).</p>
+<p><code>x^y</code> gives the principal value of \(e^{y \ln x}\) or its limit as \(x → 0\):</p>
+<div class="paragraph">
+<p>\(x^y = \begin{cases}
+  0           &amp; \if x = 0 ∧ y &gt; 0, \\
+  e^{y \ln x} &amp; \otherwise.
+ \end{cases}\)</p>
+</div>
 </li>
 <li>
 <p>If \(y\) is a rational number \(p/q\) with odd \(q\), assuming \(p\) and \(q\) \((&gt; 0)\) be coprime integers, <code>x^^y</code> gives \((\sqrt[q]{x})^p\), where \(\sqrt[q]{x}\) is the real-valued \(q\)th root of \(x\).</p>
 </li>
 <li>
-<p>Otherwise, <code>x^^y</code> gives the principal value of \(e^{y \ln x}\), thus the same as <code>x^y</code>.</p>
+<p>Otherwise, <code>x^^y</code> gives the same result as <code>x^y</code> described above.</p>
 </li>
 </ul>
 </div>
@@ -1964,7 +1967,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-02-04 18:12:57 +0900
+Last updated 2022-02-04 23:33:05 +0900
 </div>
 </div>
 

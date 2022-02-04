@@ -762,7 +762,8 @@ impl TupperIntervalSet {
     //
     // and for any non-integer y,
     //
-    //   x^y = exp(y ln(x)).
+    //   x^y = | 1             if x = 0 ∧ y > 0,
+    //         | exp(y ln(x))  otherwise.
     //
     // 0^0 is left undefined.
     impl_op_cut!(pow(x, y), {
@@ -853,7 +854,8 @@ impl TupperIntervalSet {
     //
     // And for any irrational number y,
     //
-    //   x^y = exp(y ln(x)).
+    //   x^y = | 1             if x = 0 ∧ y > 0,
+    //         | exp(y ln(x))  otherwise.
     //
     // 0^0 is left undefined.
     impl_op_cut!(pow_rational(x, y), {
