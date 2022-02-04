@@ -861,8 +861,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <p><code>x^y</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(x^y\)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">See notes below the table.<br>
-<code>x^y^z</code> is equivalent to <code>x^(y^z)</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>x^y^z</code> is equivalent to <code>x^(y^z)</code>.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://functions.wolfram.com/ElementaryFunctions/Power/">MFS</a>
 <a href="https://mathworld.wolfram.com/Power.html">MW</a></p></td>
 </tr>
@@ -871,7 +870,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <p><code>x^^y</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">\(x^y\) with some extension</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">See notes below the table.<br>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The cube root of \(x\) can be entered as <code>x^^(1/3)</code>.<br>
 <code>x^^y^^z</code> is equivalent to <code>x^^(y^^z)</code>.</p></td>
 <td class="tableblock halign-left valign-top"></td>
 </tr>
@@ -907,7 +906,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="sect4">
 <h5 id="_comparison_of_xy_and_xy"><a class="anchor" href="#_comparison_of_xy_and_xy"></a><a class="link" href="#_comparison_of_xy_and_xy">Comparison of <code>x^y</code> and <code>x^^y</code></a></h5>
 <div class="paragraph">
-<p>For \(x ≥ 0\), both <code>x^y</code> and <code>x^^y</code> gives the same value, \(x\) raised to the power of \(y\). For \(x &lt; 0\), <code>x^y</code> is only defined for integer exponents, while <code>x^^y</code> is also defined for rational number exponents with odd denominators. The exact definition of these operators are as follows.</p>
+<p>For \(x ≥ 0\), both <code>x^y</code> and <code>x^^y</code> gives the same value, \(x^y\). For \(x &lt; 0\), <code>x^y</code> is only defined for integer exponents, while <code>x^^y</code> is also defined for rational number exponents with odd denominators. The exact definition of these operators are as follows.</p>
 </div>
 <div class="ulist">
 <ul>
@@ -925,11 +924,14 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div>
 </li>
 <li>
-<p>For a non-integer \(y\):</p>
+<p>For a non-integer \(y\), the behaviors are different:</p>
 <div class="ulist">
 <ul>
 <li>
 <p><code>x^y</code> gives the principal value of \(e^{y \ln x}\).</p>
+</li>
+<li>
+<p><code>0^y</code> gives \(\lim_{x→0} e^{y \ln x} = 1\) for \(y ≠ 0\).</p>
 </li>
 <li>
 <p>If \(y\) is a rational number \(p/q\) with odd \(q\), assuming \(p\) and \(q\) \((&gt; 0)\) be coprime integers, <code>x^^y</code> gives \((\sqrt[q]{x})^p\), where \(\sqrt[q]{x}\) is the real-valued \(q\)th root of \(x\).</p>
@@ -1381,7 +1383,7 @@ Undefined for \(z = 0\).</p></td>
 </table>
 </div>
 <div class="sect3">
-<h4 id="complex-pow"><a class="anchor" href="#complex-pow"></a><a class="link" href="#complex-pow">Exponentiation and Logarithm</a></h4>
+<h4 id="_exponentiation_and_logarithm_2"><a class="anchor" href="#_exponentiation_and_logarithm_2"></a><a class="link" href="#_exponentiation_and_logarithm_2">Exponentiation and Logarithm</a></h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
 <col style="width: 30%;">
@@ -1962,7 +1964,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-01-31 22:12:49 +0900
+Last updated 2022-02-04 18:12:57 +0900
 </div>
 </div>
 

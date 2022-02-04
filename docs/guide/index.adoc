@@ -174,14 +174,13 @@ https://mathworld.wolfram.com/SquareRoot.html[MW]
 
 |`x^y`
 |stem:[x^y]
-|See notes below the table. +
-`x\^y^z` is equivalent to `x\^(y^z)`.
+|`x\^y^z` is equivalent to `x\^(y^z)`.
 |https://functions.wolfram.com/ElementaryFunctions/Power/[MFS]
 https://mathworld.wolfram.com/Power.html[MW]
 
 |`x^^y`
 |stem:[x^y] with some extension
-|See notes below the table. +
+|The cube root of stem:[x] can be entered as `x^^(1/3)`. +
 `x\^^y^^z` is equivalent to `x\^^(y^^z)`.
 |
 
@@ -206,7 +205,7 @@ https://mathworld.wolfram.com/Logarithm.html[MW]
 
 ===== Comparison of `x^y` and `x^^y`
 
-For stem:[x ≥ 0], both `x^y` and `x^^y` gives the same value, stem:[x] raised to the power of stem:[y]. For stem:[x < 0], `x^y` is only defined for integer exponents, while `x^^y` is also defined for rational number exponents with odd denominators. The exact definition of these operators are as follows.
+For stem:[x ≥ 0], both `x^y` and `x^^y` gives the same value, stem:[x^y]. For stem:[x < 0], `x^y` is only defined for integer exponents, while `x^^y` is also defined for rational number exponents with odd denominators. The exact definition of these operators are as follows.
 
 * For an integer stem:[n], both `x^n` and `x^^n` gives:
 +
@@ -218,9 +217,11 @@ stem:[x^n = \begin{cases}
 +
 stem:[0^0] is left undefined.
 
-* For a non-integer stem:[y]:
+* For a non-integer stem:[y], the behaviors are different:
 
 ** `x^y` gives the principal value of stem:[e^{y \ln x}].
+
+** `0^y` gives stem:[\lim_{x→0} e^{y \ln x} = 1] for stem:[y ≠ 0].
 
 ** If stem:[y] is a rational number stem:[p/q] with odd stem:[q], assuming stem:[p] and stem:[q] stem:[(> 0)] be coprime integers, `x^^y` gives stem:[(\sqrt[q\]{x})^p], where stem:[\sqrt[q\]{x}] is the real-valued stem:[q]th root of stem:[x].
 
@@ -473,7 +474,6 @@ https://mathworld.wolfram.com/ComplexConjugate.html[MW]
 https://mathworld.wolfram.com/Sign.html[MW]
 |===
 
-[#complex-pow]
 ==== Exponentiation and Logarithm
 
 [cols="3a,3,3,1"]
