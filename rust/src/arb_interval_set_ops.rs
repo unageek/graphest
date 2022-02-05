@@ -804,6 +804,43 @@ impl TupperIntervalSet {
         gt!(x, 0.0)
     );
 
+    pub fn pow(&self, rhs: &Self, site: Option<Site>) -> Self {
+        if self.iter().all(|x| {
+            let a = x.x.inf();
+            a > 0.0
+        }) {
+            self.pow_common(rhs)
+        } else {
+            self.pow_impl(rhs, site)
+        }
+    }
+
+    pub fn pow_rational(&self, rhs: &Self, site: Option<Site>) -> Self {
+        if self.iter().all(|x| {
+            let a = x.x.inf();
+            a > 0.0
+        }) {
+            self.pow_common(rhs)
+        } else {
+            self.pow_rational_impl(rhs, site)
+        }
+    }
+
+    fn pow_common(&self, rhs: &Self) -> Self {
+        let mut rs = Self::new();
+        for x in self {
+            for y in rhs {
+                if let Some(g) = x.g.union(y.g) {
+                    let dec = Decoration::Com.min(x.d).min(y.d);
+                    let z = arb_pow(x.x, y.x);
+                    rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), g));
+                }
+            }
+        }
+        rs.normalize(false);
+        rs
+    }
+
     impl_arb_op!(shi(x), {
         let a = x.inf();
         let b = x.sup();
@@ -1082,6 +1119,11 @@ arb_fn!(
 arb_fn!(
     arb_ln(x),
     arb_log(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
+    arb_pow(x, y),
+    arb_pow(x, x, y, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE
 );
 arb_fn!(

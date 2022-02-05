@@ -754,6 +754,11 @@ impl TupperIntervalSet {
         rs
     }
 
+    #[cfg(not(feature = "arb"))]
+    pub fn pow(&self, rhs: &Self, site: Option<Site>) -> Self {
+        self.pow_impl(rhs, site)
+    }
+
     // For any integer n,
     //
     //         | x × ⋯ × x (n copies)  if n > 0,
@@ -766,7 +771,7 @@ impl TupperIntervalSet {
     //         | exp(y ln(x))  otherwise.
     //
     // 0^0 is left undefined.
-    impl_op_cut!(pow(x, y), {
+    impl_op_cut!(pow_impl(x, y), {
         let a = x.inf();
         let b = x.sup();
         let c = y.inf();
@@ -847,6 +852,11 @@ impl TupperIntervalSet {
         }
     });
 
+    #[cfg(not(feature = "arb"))]
+    pub fn pow_rational(&self, rhs: &Self, site: Option<Site>) -> Self {
+        self.pow_rational_impl(rhs, site)
+    }
+
     // For any rational number y = p/q where p and q (> 0) are coprime integers,
     //
     //   x^y = surd(x, q)^p.
@@ -866,7 +876,7 @@ impl TupperIntervalSet {
     //         | exp(y ln(x))  otherwise.
     //
     // 0^0 is left undefined.
-    impl_op_cut!(pow_rational(x, y), {
+    impl_op_cut!(pow_rational_impl(x, y), {
         let a = x.inf();
         if y.is_singleton() {
             Self::pow_singleton(x, y)
@@ -1463,10 +1473,11 @@ mod tests {
         };
     }
 
-    fn test1<F>(f: F, x: Interval, expected: (Vec<Interval>, Decoration))
+    fn test1<F>(f: F, x: Interval, expected: (Vec<Interval>, Decoration), loose: bool)
     where
         F: Fn(&TupperIntervalSet) -> TupperIntervalSet,
     {
+        let empty = TupperIntervalSet::new();
         let decs = [Com, Dac, Def, Trv];
         for &dx in &decs {
             let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
@@ -1482,6 +1493,7 @@ mod tests {
                     .0
                     .iter()
                     .map(|&y| TupperInterval::from(DecInterval::set_dec(y, dy)))
+                    .chain((if loose { &y } else { &empty }).iter().copied())
                     .collect::<TupperIntervalSet>();
                 y.normalize(true);
                 y
@@ -1491,10 +1503,11 @@ mod tests {
         }
     }
 
-    fn test2<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration))
+    fn test2<F>(f: F, x: Interval, y: Interval, expected: (Vec<Interval>, Decoration), loose: bool)
     where
         F: Fn(&TupperIntervalSet, &TupperIntervalSet) -> TupperIntervalSet,
     {
+        let empty = TupperIntervalSet::new();
         let decs = [Com, Dac, Def, Trv];
         for &dx in &decs {
             let x = TupperIntervalSet::from(DecInterval::set_dec(x, dx));
@@ -1512,6 +1525,7 @@ mod tests {
                         .0
                         .iter()
                         .map(|&z| TupperInterval::from(DecInterval::set_dec(z, dz)))
+                        .chain((if loose { &z } else { &empty }).iter().copied())
                         .collect::<TupperIntervalSet>();
                     z.normalize(true);
                     z
@@ -1528,46 +1542,54 @@ mod tests {
 
     macro_rules! test {
         ($f:expr, $x:expr, $expected:expr) => {
-            test1($f, $x, $expected);
+            test1($f, $x, $expected, false);
         };
 
-        ($(@$af:ident)* $f:expr, @even $(@$ax:ident)* $x:expr, $expected:expr) => {
-            test!($(@$af)* $f, $(@$ax)* $x, $expected);
-            test!($(@$af)* $f, $(@$ax)* -$x, $expected);
+        ($f:expr, $x:expr, @loose_for_arb $expected:expr) => {
+            test1($f, $x, $expected, cfg!(feature = "arb"));
         };
 
-        ($(@$af:ident)* $f:expr, @odd $(@$ax:ident)* $x:expr, $expected:expr) => {
-            test!($(@$af)* $f, $(@$ax)* $x, $expected);
-            test!($(@$af)* $f, $(@$ax)* -$x, neg($expected));
+        ($(@$af:ident)* $f:expr, @even $(@$ax:ident)* $x:expr, $(@$aexp:ident)* $expected:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$aexp)* $expected);
+            test!($(@$af)* $f, $(@$ax)* -$x, $(@$aexp)* $expected);
+        };
+
+        ($(@$af:ident)* $f:expr, @odd $(@$ax:ident)* $x:expr, $(@$aexp:ident)* $expected:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$aexp)* $expected);
+            test!($(@$af)* $f, $(@$ax)* -$x, $(@$aexp)* neg($expected));
         };
 
         ($f:expr, $x:expr, $y:expr, $expected:expr) => {
-            test2($f, $x, $y, $expected);
+            test2($f, $x, $y, $expected, false);
         };
 
-        (@commut $(@$af:ident)* $f:expr, $(@$ax:ident)* $x:expr, $(@$ay:ident)* $y:expr, $expected:expr) => {
-            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $expected);
-            test!($(@$af)* $f, $(@$ax)* $y, $(@$ay)* $x, $expected);
+        ($f:expr, $x:expr, $y:expr, @loose_for_arb $expected:expr) => {
+            test2($f, $x, $y, $expected, cfg!(feature = "arb"));
         };
 
-        ($(@$af:ident)* $f:expr, @even $(@$ax:ident)* $x:expr, $(@$ay:ident)* $y:expr, $expected:expr) => {
-            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $expected);
-            test!($(@$af)* $f, $(@$ax)* -$x, $(@$ay)* $y, $expected);
+        (@commut $(@$af:ident)* $f:expr, $(@$ax:ident)* $x:expr, $(@$ay:ident)* $y:expr, $(@$aexp:ident)* $expected:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $(@$aexp)* $expected);
+            test!($(@$af)* $f, $(@$ax)* $y, $(@$ay)* $x, $(@$aexp)* $expected);
         };
 
-        ($(@$af:ident)* $f:expr, @odd $(@$ax:ident)* $x:expr, $(@$ay:ident)* $y:expr, $expected:expr) => {
-            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $expected);
-            test!($(@$af)* $f, $(@$ax)* -$x, $(@$ay)* $y, neg($expected));
+        ($(@$af:ident)* $f:expr, @even $(@$ax:ident)* $x:expr, $(@$ay:ident)* $y:expr, $(@$aexp:ident)* $expected:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $(@$aexp)* $expected);
+            test!($(@$af)* $f, $(@$ax)* -$x, $(@$ay)* $y, $(@$aexp)* $expected);
         };
 
-        ($(@$af:ident)* $f:expr, $(@$ax:ident)* $x:expr, @even $(@$ay:ident)* $y:expr, $expected:expr) => {
-            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $expected);
-            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* -$y, $expected);
+        ($(@$af:ident)* $f:expr, @odd $(@$ax:ident)* $x:expr, $(@$ay:ident)* $y:expr, $(@$aexp:ident)* $expected:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $(@$aexp)* $expected);
+            test!($(@$af)* $f, $(@$ax)* -$x, $(@$ay)* $y, $(@$aexp)* neg($expected));
         };
 
-        ($(@$af:ident)* $f:expr, $(@$ax:ident)* $x:expr, @odd $(@$ay:ident)* $y:expr, $expected:expr) => {
-            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $expected);
-            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* -$y, neg($expected));
+        ($(@$af:ident)* $f:expr, $(@$ax:ident)* $x:expr, @even $(@$ay:ident)* $y:expr, $(@$aexp:ident)* $expected:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $(@$aexp)* $expected);
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* -$y, $(@$aexp)* $expected);
+        };
+
+        ($(@$af:ident)* $f:expr, $(@$ax:ident)* $x:expr, @odd $(@$ay:ident)* $y:expr, $(@$aexp:ident)* $expected:expr) => {
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $(@$aexp)* $expected);
+            test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* -$y, $(@$aexp)* neg($expected));
         };
     }
 
@@ -2088,13 +2110,13 @@ mod tests {
             f,
             i!(-3.0, -2.0),
             y,
-            (vec![interval!("[-1/8, -1/27]").unwrap()], Dac)
+            @loose_for_arb (vec![interval!("[-1/8, -1/27]").unwrap()], Dac)
         );
         test!(
             f,
             i!(2.0, 3.0),
             y,
-            (vec![interval!("[1/27, 1/8]").unwrap()], Com)
+            @loose_for_arb (vec![interval!("[1/27, 1/8]").unwrap()], Com)
         );
 
         // x^-2
@@ -2109,13 +2131,13 @@ mod tests {
             f,
             i!(-3.0, -2.0),
             y,
-            (vec![interval!("[1/9, 1/4]").unwrap()], Dac)
+            @loose_for_arb (vec![interval!("[1/9, 1/4]").unwrap()], Dac)
         );
         test!(
             f,
             i!(2.0, 3.0),
             y,
-            (vec![interval!("[1/9, 1/4]").unwrap()], Com)
+            @loose_for_arb (vec![interval!("[1/9, 1/4]").unwrap()], Com)
         );
 
         // x^(-1/2)
@@ -2130,7 +2152,7 @@ mod tests {
             f,
             i!(4.0, 9.0),
             y,
-            (vec![interval!("[1/3, 1/2]").unwrap()], Com)
+            @loose_for_arb (vec![interval!("[1/3, 1/2]").unwrap()], Com)
         );
 
         // x^0
@@ -2152,7 +2174,7 @@ mod tests {
         test!(f, i!(-1.0, 0.0), y, (vec![i!(0.0)], Trv));
         test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
         test!(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Trv));
-        test!(f, i!(4.0, 9.0), y, (vec![i!(2.0, 3.0)], Com));
+        test!(f, i!(4.0, 9.0), y, @loose_for_arb (vec![i!(2.0, 3.0)], Com));
 
         // x^2
         let y = i!(2.0);
@@ -2163,7 +2185,7 @@ mod tests {
         test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
         test!(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Dac));
         test!(f, i!(-3.0, -2.0), y, (vec![i!(4.0, 9.0)], Dac));
-        test!(f, i!(2.0, 3.0), y, (vec![i!(4.0, 9.0)], Com));
+        test!(f, i!(2.0, 3.0), y, @loose_for_arb (vec![i!(4.0, 9.0)], Com));
 
         // x^3
         let y = i!(3.0);
@@ -2174,7 +2196,7 @@ mod tests {
         test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
         test!(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Dac));
         test!(f, i!(-3.0, -2.0), y, (vec![i!(-27.0, -8.0)], Dac));
-        test!(f, i!(2.0, 3.0), y, (vec![i!(8.0, 27.0)], Com));
+        test!(f, i!(2.0, 3.0), y, @loose_for_arb (vec![i!(8.0, 27.0)], Com));
 
         // x^e (or any inexact positive number)
         let y = Interval::E;
@@ -2233,13 +2255,13 @@ mod tests {
             f,
             i!(-3.0, -2.0),
             y,
-            (vec![interval!("[-1/8, -1/27]").unwrap()], Dac)
+            @loose_for_arb (vec![interval!("[-1/8, -1/27]").unwrap()], Dac)
         );
         test!(
             f,
             i!(2.0, 3.0),
             y,
-            (vec![interval!("[1/27, 1/8]").unwrap()], Com)
+            @loose_for_arb (vec![interval!("[1/27, 1/8]").unwrap()], Com)
         );
 
         // x^-2
@@ -2254,13 +2276,13 @@ mod tests {
             f,
             i!(-3.0, -2.0),
             y,
-            (vec![interval!("[1/9, 1/4]").unwrap()], Dac)
+            @loose_for_arb (vec![interval!("[1/9, 1/4]").unwrap()], Dac)
         );
         test!(
             f,
             i!(2.0, 3.0),
             y,
-            (vec![interval!("[1/9, 1/4]").unwrap()], Com)
+            @loose_for_arb (vec![interval!("[1/9, 1/4]").unwrap()], Com)
         );
 
         // x^(-1/2)
@@ -2275,7 +2297,7 @@ mod tests {
             f,
             i!(4.0, 9.0),
             y,
-            (vec![interval!("[1/3, 1/2]").unwrap()], Com)
+            @loose_for_arb (vec![interval!("[1/3, 1/2]").unwrap()], Com)
         );
 
         // x^0
@@ -2297,7 +2319,7 @@ mod tests {
         test!(f, i!(-1.0, 0.0), y, (vec![i!(0.0)], Trv));
         test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
         test!(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Trv));
-        test!(f, i!(4.0, 9.0), y, (vec![i!(2.0, 3.0)], Com));
+        test!(f, i!(4.0, 9.0), y, @loose_for_arb (vec![i!(2.0, 3.0)], Com));
 
         // x^2
         let y = i!(2.0);
@@ -2308,7 +2330,7 @@ mod tests {
         test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
         test!(f, i!(-1.0, 1.0), y, (vec![i!(0.0, 1.0)], Dac));
         test!(f, i!(-3.0, -2.0), y, (vec![i!(4.0, 9.0)], Dac));
-        test!(f, i!(2.0, 3.0), y, (vec![i!(4.0, 9.0)], Com));
+        test!(f, i!(2.0, 3.0), y, @loose_for_arb (vec![i!(4.0, 9.0)], Com));
 
         // x^3
         let y = i!(3.0);
@@ -2318,8 +2340,8 @@ mod tests {
         test!(f, i!(-1.0, 0.0), y, (vec![i!(-1.0, 0.0)], Dac));
         test!(f, i!(0.0, 1.0), y, (vec![i!(0.0, 1.0)], Com));
         test!(f, i!(-1.0, 1.0), y, (vec![i!(-1.0, 1.0)], Dac));
-        test!(f, i!(-3.0, -2.0), y, (vec![i!(-27.0, -8.0)], Dac));
-        test!(f, i!(2.0, 3.0), y, (vec![i!(8.0, 27.0)], Com));
+        test!(f, i!(-3.0, -2.0), y, @loose_for_arb (vec![i!(-27.0, -8.0)], Dac));
+        test!(f, i!(2.0, 3.0), y, @loose_for_arb (vec![i!(8.0, 27.0)], Com));
 
         // x^e (or any inexact positive number)
         let y = Interval::E;
