@@ -1625,7 +1625,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "arb"))]
     #[test]
     fn atan2() {
         fn f(x: &TupperIntervalSet, y: &TupperIntervalSet) -> TupperIntervalSet {
@@ -1641,7 +1640,7 @@ mod tests {
         test!(f, y, i!(-1.0, 1.0), (vec![i!(0.0), Interval::PI], Trv));
 
         let y = i!(-1.0, -0.5);
-        test!(f, y, i!(0.0), (vec![-Interval::FRAC_PI_2], Com));
+        test!(f, y, i!(0.0), @loose_for_arb (vec![-Interval::FRAC_PI_2], Com));
 
         let y = i!(-1.0, 0.0);
         test!(
@@ -1659,7 +1658,7 @@ mod tests {
         test!(f, y, i!(0.0), (vec![-Interval::FRAC_PI_2], Trv));
 
         let y = i!(0.5, 1.0);
-        test!(f, y, i!(0.0), (vec![Interval::FRAC_PI_2], Com));
+        test!(f, y, i!(0.0), @loose_for_arb (vec![Interval::FRAC_PI_2], Com));
 
         let y = i!(0.0, 1.0);
         test!(
@@ -1696,7 +1695,7 @@ mod tests {
             f,
             y,
             i!(1.0),
-            (
+            @loose_for_arb (
                 vec![(-Interval::FRAC_PI_4).convex_hull(Interval::FRAC_PI_4)],
                 Com,
             )
@@ -1925,11 +1924,10 @@ mod tests {
         test!(f, i!(1.0), (vec![i!(1.0)], Com));
         test!(f, i!(2.0), (vec![i!(1.0)], Com));
         test!(f, i!(3.0), (vec![i!(2.0)], Com));
-        #[cfg(not(feature = "arb"))]
         test!(
             f,
             i!(30.0),
-            (
+            @loose_for_arb (
                 vec![interval!("[8.841761993739701954543616e30]").unwrap()],
                 Com,
             )

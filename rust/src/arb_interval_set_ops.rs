@@ -215,7 +215,7 @@ impl TupperIntervalSet {
                 for y in rhs {
                     if let Some(g) = x.g.union(y.g) {
                         let (y, x) = (x, y);
-                        let dec = Decoration::Dac.min(x.d).min(y.d);
+                        let dec = Decoration::Com.min(x.d).min(y.d);
                         let z = arb_atan2(y.x, x.x);
                         rs.insert(TupperInterval::new(DecInterval::set_dec(z, dec), g));
                     }
