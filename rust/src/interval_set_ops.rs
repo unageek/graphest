@@ -809,17 +809,25 @@ impl TupperIntervalSet {
                     DecInterval::ENTIRE
                 } else {
                     let x = x.intersection(const_dec_interval!(f64::NEG_INFINITY, -1.0));
-                    let y = dec_interval!(nd, nd).unwrap();
-                    let z = Self::pow_singleton(x, y).0;
-                    z.convex_hull(-z)
+                    if x.is_empty() {
+                        DecInterval::EMPTY
+                    } else {
+                        let y = dec_interval!(nd, nd).unwrap();
+                        let z = Self::pow_singleton(x, y).0;
+                        z.convex_hull(-z)
+                    }
                 };
                 let z1 = if nc == f64::NEG_INFINITY {
                     DecInterval::ENTIRE
                 } else {
                     let x = x.intersection(const_dec_interval!(-1.0, 0.0));
-                    let y = dec_interval!(nc, nc).unwrap();
-                    let z = Self::pow_singleton(x, y).0;
-                    z.convex_hull(-z)
+                    if x.is_empty() {
+                        DecInterval::EMPTY
+                    } else {
+                        let y = dec_interval!(nc, nc).unwrap();
+                        let z = Self::pow_singleton(x, y).0;
+                        z.convex_hull(-z)
+                    }
                 };
                 let z = z0.convex_hull(z1);
                 (z, None)
