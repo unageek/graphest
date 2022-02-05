@@ -807,8 +807,10 @@ impl TupperIntervalSet {
     pub fn pow(&self, rhs: &Self, site: Option<Site>) -> Self {
         if self.iter().all(|x| {
             let a = x.x.inf();
-            a > 0.0
-        }) {
+            let b = x.x.sup();
+            a > 0.0 && b < f64::INFINITY
+        }) && rhs.iter().all(|y| y.x.is_common_interval())
+        {
             self.pow_common(rhs)
         } else {
             self.pow_impl(rhs, site)
@@ -818,8 +820,10 @@ impl TupperIntervalSet {
     pub fn pow_rational(&self, rhs: &Self, site: Option<Site>) -> Self {
         if self.iter().all(|x| {
             let a = x.x.inf();
-            a > 0.0
-        }) {
+            let b = x.x.sup();
+            a > 0.0 && b < f64::INFINITY
+        }) && rhs.iter().all(|y| y.x.is_common_interval())
+        {
             self.pow_common(rhs)
         } else {
             self.pow_rational_impl(rhs, site)
