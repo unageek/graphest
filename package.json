@@ -22,7 +22,7 @@
   "repository": "github:unageek/graphest",
   "private": true,
   "devDependencies": {
-    "@types/color": "^3.0.2",
+    "@types/color": "^3.0.3",
     "@types/css-font-loading-module": "0.0.7",
     "@types/jest": "^27.4.0",
     "@types/leaflet": "^1.7.9",
