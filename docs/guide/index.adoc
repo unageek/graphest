@@ -719,6 +719,18 @@ https://mathworld.wolfram.com/Erfc.html[MW]
 |https://functions.wolfram.com/GammaBetaErf/Erfi/[MFS]
 https://mathworld.wolfram.com/Erfi.html[MW]
 
+|`erfinv(x)`
+|stem:[\operatorname{erf}^{-1}(x)]
+|The inverse error function.
+|https://functions.wolfram.com/GammaBetaErf/InverseErf/[MFS]
+https://mathworld.wolfram.com/InverseErf.html[MW]
+
+|`erfcinv(x)`
+|stem:[\operatorname{erfc}^{-1}(x)]
+|The inverse complementary error function.
+|https://functions.wolfram.com/GammaBetaErf/InverseErfc/[MFS]
+https://mathworld.wolfram.com/InverseErfc.html[MW]
+
 |`Ei(x)`
 |stem:[\operatorname{Ei}(x)]
 |The https://en.wikipedia.org/wiki/Exponential_integral[exponential integral].
