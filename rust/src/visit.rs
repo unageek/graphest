@@ -1580,6 +1580,8 @@ impl<'a> CollectStatic<'a> {
                         FresnelC => ScalarUnaryOp::FresnelC,
                         FresnelS => ScalarUnaryOp::FresnelS,
                         Gamma => ScalarUnaryOp::Gamma,
+                        InverseErf => ScalarUnaryOp::InverseErf,
+                        InverseErfc => ScalarUnaryOp::InverseErfc,
                         Li => ScalarUnaryOp::Li,
                         Ln => ScalarUnaryOp::Ln,
                         Neg => ScalarUnaryOp::Neg,

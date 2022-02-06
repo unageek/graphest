@@ -160,6 +160,8 @@ impl Real {
     impl_op!(gamma_inc(a, x));
     impl_op!(gcd(x, y), x.gcd(&y, None), rational_ops::gcd(x, y));
     impl_op!(if_then_else(cond, t, f));
+    impl_op!(inverse_erf(x));
+    impl_op!(inverse_erfc(x));
     impl_op!(lcm(x, y), x.lcm(&y, None), rational_ops::lcm(x, y));
     impl_op!(li(x));
     impl_op!(ln(x));

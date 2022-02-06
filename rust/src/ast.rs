@@ -47,6 +47,8 @@ pub enum UnaryOp {
     FresnelS,
     Gamma,
     Im,
+    InverseErf,
+    InverseErfc,
     Li,
     Ln,
     Neg,
@@ -428,6 +430,8 @@ impl Expr {
             unary!(FresnelC, x) => Some(x.eval()?.fresnel_c()),
             unary!(FresnelS, x) => Some(x.eval()?.fresnel_s()),
             unary!(Gamma, x) => Some(x.eval()?.gamma()),
+            unary!(InverseErf, x) => Some(x.eval()?.inverse_erf()),
+            unary!(InverseErfc, x) => Some(x.eval()?.inverse_erfc()),
             unary!(Li, x) => Some(x.eval()?.li()),
             unary!(Ln, x) => Some(x.eval()?.ln()),
             unary!(Shi, x) => Some(x.eval()?.shi()),
@@ -698,6 +702,8 @@ impl Expr {
                     | FresnelS
                     | Gamma
                     | Im
+                    | InverseErf
+                    | InverseErfc
                     | Li
                     | Ln
                     | Neg

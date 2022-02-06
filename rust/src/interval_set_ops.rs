@@ -1259,6 +1259,8 @@ impl TupperIntervalSet {
     requires_arb!(fresnel_c(x));
     requires_arb!(fresnel_s(x));
     requires_arb!(gamma_inc(a, x));
+    requires_arb!(inverse_erf(x));
+    requires_arb!(inverse_erfc(x));
     requires_arb!(li(x));
     requires_arb!(shi(x));
     requires_arb!(si(x));

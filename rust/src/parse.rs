@@ -624,6 +624,8 @@ mod tests {
         test("Gamma(x)", "(Gamma x)");
         test("Γ(x)", "(Gamma x)");
         test("Im(x)", "(Im x)");
+        test("erfinv(x)", "(InverseErf x)");
+        test("erfcinv(x)", "(InverseErfc x)");
         test("li(x)", "(Li x)");
         test("ln(x)", "(Ln x)");
         test("-x", "(Neg x)"); // hyphen-minus

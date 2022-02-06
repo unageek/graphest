@@ -25,7 +25,10 @@ t!(
 );
 t!(t_db337020ebbb4d4f82d930d38c09ee7c, "y = Ei(x)");
 t!(t_ae7ed0eb236e4e579b04aadf26a2d767, "y = erf(x)");
+t!(t_93156a90660c43ce987d0cab7316cba3, "y = erfc(x)");
+t!(t_1cc0b236a5c34d2a81bc5dc6f3152fcf, "y = erfcinv(x)");
 t!(t_99de97a06c824edfbccd3e425633a290, "y = erfi(x)");
+t!(t_41c51c4052894908ad252aa1f45f30ac, "y = erfinv(x)");
 t!(t_944c89064a004af9bcda883f98785d4c, "y = exp(x)");
 t!(t_0d3db3fb75604b85893ef6935b6f6ce8, "y = floor(x)");
 t!(t_4e62c6b2dc704f47a8275b5f412b6f6c, "y = Gamma(x)");

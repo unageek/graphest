@@ -763,6 +763,36 @@ impl TupperIntervalSet {
     );
 
     impl_arb_op!(
+        inverse_erf(x),
+        {
+            let x = x.intersection(const_interval!(-1.0, 1.0));
+            if x.is_empty() {
+                x
+            } else {
+                let a = x.inf();
+                let b = x.sup();
+                interval!(arb_erfinv(i(a)).inf(), arb_erfinv(i(b)).sup()).unwrap()
+            }
+        },
+        ge!(x, -1.0) & le!(x, 1.0)
+    );
+
+    impl_arb_op!(
+        inverse_erfc(x),
+        {
+            let x = x.intersection(const_interval!(0.0, 2.0));
+            if x.is_empty() {
+                x
+            } else {
+                let a = x.inf();
+                let b = x.sup();
+                interval!(arb_erfcinv(i(b)).inf(), arb_erfcinv(i(a)).sup()).unwrap()
+            }
+        },
+        ge!(x, 0.0) & le!(x, 2.0)
+    );
+
+    impl_arb_op!(
         li(x),
         {
             let x = x.intersection(ZERO_TO_INF);
@@ -1086,8 +1116,18 @@ arb_fn!(
     const_interval!(0.0, 2.0)
 );
 arb_fn!(
+    arb_erfcinv(x),
+    arb_hypgeom_erfcinv(x, x, (f64::MANTISSA_DIGITS).into()),
+    Interval::ENTIRE
+);
+arb_fn!(
     arb_erfi(x),
     arb_hypgeom_erfi(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE
+);
+arb_fn!(
+    arb_erfinv(x),
+    arb_hypgeom_erfinv(x, x, (f64::MANTISSA_DIGITS).into()),
     Interval::ENTIRE
 );
 arb_fn!(
@@ -1246,6 +1286,8 @@ mod tests {
             TupperIntervalSet::erfi,
             TupperIntervalSet::fresnel_c,
             TupperIntervalSet::fresnel_s,
+            TupperIntervalSet::inverse_erf,
+            TupperIntervalSet::inverse_erfc,
             TupperIntervalSet::li,
             TupperIntervalSet::shi,
             TupperIntervalSet::si,
