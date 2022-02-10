@@ -55,6 +55,7 @@ pub struct VarIndices {
 /// A mathematical relation whose graph is to be plotted.
 #[derive(Clone, Debug)]
 pub struct Relation {
+    ast: Expr,
     terms: Vec<StaticTerm>,
     forms: Vec<StaticForm>,
     n_atom_forms: usize,
@@ -72,6 +73,11 @@ pub struct Relation {
 }
 
 impl Relation {
+    /// Returns the processed AST of the relation.
+    pub fn ast(&self) -> &Expr {
+        &self.ast
+    }
+
     /// Creates a new [`Vec<Interval>`] with all elements initialized to [`Interval::ENTIRE`].
     pub fn create_args(&self) -> Vec<Interval> {
         vec![Interval::ENTIRE; self.vars_ordered.len()]
@@ -374,6 +380,7 @@ impl FromStr for Relation {
         let cached_terms = v.get();
 
         let mut slf = Self {
+            ast: e,
             terms,
             forms,
             n_atom_forms,
