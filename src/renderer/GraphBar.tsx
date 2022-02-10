@@ -20,6 +20,7 @@ export interface GraphBarProps {
 export const GraphBar = (props: GraphBarProps): JSX.Element => {
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
+  const highRes = useSelector((s) => s.highRes);
   const theme = useTheme();
   const relationInputActionsRef = useRef<RelationInputActions>(null);
 
@@ -45,9 +46,10 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
       <RelationInput
         actionsRef={relationInputActionsRef}
         grow
+        highRes={highRes}
         onEnterKeyPressed={props.focusGraphView}
-        onRelationChanged={(r) =>
-          dispatch(setGraphRelation(props.graphId, r, true))
+        onRelationChanged={(relId, rel) =>
+          dispatch(setGraphRelation(props.graphId, relId, rel, true))
         }
         processing={graph.isProcessing}
         relation={graph.relation}

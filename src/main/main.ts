@@ -29,7 +29,7 @@ import {
 import * as ipc from "../common/ipc";
 import { MenuItem } from "../common/MenuItem";
 import { Range } from "../common/range";
-import { ValidationResult } from "../common/validationResult";
+import * as result from "../common/result";
 
 const fsPromises = fs.promises;
 
@@ -99,6 +99,8 @@ let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
 let nextRelId = 0;
 const relationById = new Map<string, Relation>();
+const astToRelationId = new Map<string, string>();
+const astToRelationIdHighRes = new Map<string, string>();
 
 function createMainMenu(): Menu {
   // https://www.electronjs.org/docs/api/menu#examples
@@ -281,127 +283,131 @@ app.on("window-all-closed", () => {
   app.quit();
 });
 
-ipcMain.handle(ipc.abortGraphing, async (_, relId, tileId) => {
-  abortJobs(
-    (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId)
-  );
-});
-
-ipcMain.handle(ipc.newRelation, async (_, rel, highRes) => {
-  const relId = nextRelId.toString();
-  nextRelId++;
-  const outDir = path.join(baseOutDir, relId);
-  await fsPromises.mkdir(outDir);
-  relationById.set(relId, {
-    highRes,
-    id: relId,
-    nextTileNumber: 0,
-    outDir,
-    rel,
-    tiles: new Map(),
-  });
-  return { relId };
-});
-
-ipcMain.handle(ipc.openUrl, async (_, url) => {
-  if (!url.startsWith("https://")) return;
-  shell.openExternal(url);
-});
-
-ipcMain.handle(ipc.requestTile, async (_, relId, tileId, coords) => {
-  const rel = relationById.get(relId);
-  if (rel === undefined) {
-    return;
-  }
-
-  const tile = rel.tiles.get(tileId);
-  const retinaScale = rel.highRes ? 2 : 1;
-  if (tile === undefined) {
-    // We offset the graph by 0.5px to place the origin at the center of a pixel.
-    // The direction of offsetting must be coherent with the configuration of `GridLayer`.
-    // We also add asymmetric perturbation to the offset so that
-    // points with simple coordinates may not be located on pixel boundaries,
-    // which could make lines such as `y = x` look thicker.
-    const pixelOffsetX = bignum(
-      (0.5 + 1.2345678901234567e-3) / (retinaScale * GRAPH_TILE_SIZE)
-    );
-    const pixelOffsetY = bignum(
-      (0.5 + 1.3456789012345678e-3) / (retinaScale * GRAPH_TILE_SIZE)
-    );
-    const widthPerTile = bignum(2 ** (BASE_ZOOM_LEVEL - coords.z));
-    const x0 = widthPerTile.times(bignum(coords.x).minus(pixelOffsetX));
-    const x1 = widthPerTile.times(bignum(coords.x + 1).minus(pixelOffsetX));
-    const y0 = widthPerTile.times(bignum(-coords.y - 1).plus(pixelOffsetY));
-    const y1 = widthPerTile.times(bignum(-coords.y).plus(pixelOffsetY));
-
-    const outFile = path.join(rel.outDir, rel.nextTileNumber + ".png");
-    rel.nextTileNumber++;
-
-    const newTile: Tile = {
-      id: tileId,
-      url: pathToFileURL(outFile).href,
-    };
-    rel.tiles.set(tileId, newTile);
-
-    const job: Job = {
-      aborted: false,
-      args: [
-        "--bounds",
-        x0.toString(),
-        x1.toString(),
-        y0.toString(),
-        y1.toString(),
-        "--size",
-        (retinaScale * EXTENDED_GRAPH_TILE_SIZE).toString(),
-        (retinaScale * EXTENDED_GRAPH_TILE_SIZE).toString(),
-        "--padding-right",
-        (retinaScale * GRAPH_TILE_EXTENSION).toString(),
-        "--padding-bottom",
-        (retinaScale * GRAPH_TILE_EXTENSION).toString(),
-        "--dilate",
-        retinaScale === 2 ? "1,1,0;1,1,0;0,0,0" : "1",
-        "--gray-alpha",
-        "--output",
-        outFile,
-        "--mem-limit",
-        JOB_MEM_LIMIT.toString(),
-        "--pause-per-output",
-        "--",
-        rel.rel,
-      ],
-      outFile,
-      relId,
-      tileId,
-    };
-    pushJob(job);
-    updateQueue();
-  } else {
-    if (tile.version !== undefined) {
-      notifyTileReady(relId, tileId, false);
-    }
-  }
+ipcMain.handle(ipc.abortGraphing, async (_, relId: string, tileId?: string) => {
+  abortJobs((j) => j.relId === relId && j.tileId === tileId);
 });
 
 ipcMain.handle(
-  ipc.validateRelation,
-  async (_, rel): Promise<ValidationResult> => {
+  ipc.requestRelation,
+  async (
+    _,
+    rel: string,
+    highRes: boolean
+  ): Promise<ipc.RequestRelationResult> => {
     try {
-      await util.promisify(execFile)(graphExec, ["--parse", "--", rel]);
+      const args = ["--parse", "--dump-ast", "--", rel];
+      const { stdout } = await util.promisify(execFile)(graphExec, args);
+      const ast = stdout.split("\n")[0];
+      let relId = highRes
+        ? astToRelationIdHighRes.get(ast)
+        : astToRelationId.get(ast);
+      if (relId === undefined) {
+        relId = nextRelId.toString();
+        nextRelId++;
+        const outDir = path.join(baseOutDir, relId);
+        await fsPromises.mkdir(outDir);
+        relationById.set(relId, {
+          highRes,
+          id: relId,
+          nextTileNumber: 0,
+          outDir,
+          rel,
+          tiles: new Map(),
+        });
+        (highRes ? astToRelationIdHighRes : astToRelationId).set(ast, relId);
+      }
+      return result.ok(relId);
     } catch ({ stderr }) {
-      if (typeof stderr === "string") {
-        const lines = stderr.split("\n");
-        const start =
-          parseInt((lines[1].match(/^.*:\d+:(\d+)/) as RegExpMatchArray)[1]) -
-          1;
-        const len = (lines[3].match(/~*$/) as RegExpMatchArray)[0].length;
-        const message = (lines[1].match(/error: (.*)$/) as RegExpMatchArray)[1];
-        return {
-          range: new Range(start, start + len),
-          message,
-        };
+      if (typeof stderr !== "string") {
+        throw new Error("`stderr` must be a string");
+      }
+      const lines = stderr.split("\n");
+      const start =
+        parseInt((lines[1].match(/^.*:\d+:(\d+)/) as RegExpMatchArray)[1]) - 1;
+      const len = (lines[3].match(/~*$/) as RegExpMatchArray)[0].length;
+      const message = (lines[1].match(/error: (.*)$/) as RegExpMatchArray)[1];
+      return result.err({
+        range: new Range(start, start + len),
+        message,
+      });
+    }
+  }
+);
+
+ipcMain.handle(
+  ipc.requestTile,
+  async (_, relId: string, tileId: string, coords: L.Coords) => {
+    const rel = relationById.get(relId);
+    if (rel === undefined) {
+      return;
+    }
+
+    const tile = rel.tiles.get(tileId);
+    const retinaScale = rel.highRes ? 2 : 1;
+    if (tile === undefined) {
+      // We offset the graph by 0.5px to place the origin at the center of a pixel.
+      // The direction of offsetting must be coherent with the configuration of `GridLayer`.
+      // We also add asymmetric perturbation to the offset so that
+      // points with simple coordinates may not be located on pixel boundaries,
+      // which could make lines such as `y = x` look thicker.
+      const pixelOffsetX = bignum(
+        (0.5 + 1.2345678901234567e-3) / (retinaScale * GRAPH_TILE_SIZE)
+      );
+      const pixelOffsetY = bignum(
+        (0.5 + 1.3456789012345678e-3) / (retinaScale * GRAPH_TILE_SIZE)
+      );
+      const widthPerTile = bignum(2 ** (BASE_ZOOM_LEVEL - coords.z));
+      const x0 = widthPerTile.times(bignum(coords.x).minus(pixelOffsetX));
+      const x1 = widthPerTile.times(bignum(coords.x + 1).minus(pixelOffsetX));
+      const y0 = widthPerTile.times(bignum(-coords.y - 1).plus(pixelOffsetY));
+      const y1 = widthPerTile.times(bignum(-coords.y).plus(pixelOffsetY));
+
+      const outFile = path.join(rel.outDir, rel.nextTileNumber + ".png");
+      rel.nextTileNumber++;
+
+      const newTile: Tile = {
+        id: tileId,
+        url: pathToFileURL(outFile).href,
+      };
+      rel.tiles.set(tileId, newTile);
+
+      const job: Job = {
+        aborted: false,
+        args: [
+          "--bounds",
+          x0.toString(),
+          x1.toString(),
+          y0.toString(),
+          y1.toString(),
+          "--size",
+          (retinaScale * EXTENDED_GRAPH_TILE_SIZE).toString(),
+          (retinaScale * EXTENDED_GRAPH_TILE_SIZE).toString(),
+          "--padding-right",
+          (retinaScale * GRAPH_TILE_EXTENSION).toString(),
+          "--padding-bottom",
+          (retinaScale * GRAPH_TILE_EXTENSION).toString(),
+          "--dilate",
+          retinaScale === 2 ? "1,1,0;1,1,0;0,0,0" : "1",
+          "--gray-alpha",
+          "--output",
+          outFile,
+          "--mem-limit",
+          JOB_MEM_LIMIT.toString(),
+          "--pause-per-output",
+          "--",
+          rel.rel,
+        ],
+        outFile,
+        relId,
+        tileId,
+      };
+      pushJob(job);
+      updateQueue();
+    } else {
+      if (tile.version !== undefined) {
+        notifyTileReady(relId, tileId, false);
       }
     }
-    return null;
   }
 );
 
