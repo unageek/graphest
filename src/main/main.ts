@@ -98,7 +98,7 @@ const graphExec: string = path.join(
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
 let nextRelId = 0;
-const relations = new Map<string, Relation>();
+const relationById = new Map<string, Relation>();
 
 function createMainMenu(): Menu {
   // https://www.electronjs.org/docs/api/menu#examples
@@ -292,7 +292,7 @@ ipcMain.handle(ipc.newRelation, async (_, rel, highRes) => {
   nextRelId++;
   const outDir = path.join(baseOutDir, relId);
   await fsPromises.mkdir(outDir);
-  relations.set(relId, {
+  relationById.set(relId, {
     highRes,
     id: relId,
     nextTileNumber: 0,
@@ -309,7 +309,7 @@ ipcMain.handle(ipc.openUrl, async (_, url) => {
 });
 
 ipcMain.handle(ipc.requestTile, async (_, relId, tileId, coords) => {
-  const rel = relations.get(relId);
+  const rel = relationById.get(relId);
   if (rel === undefined) {
     return;
   }
@@ -415,7 +415,7 @@ function abortJobs(filter: JobFilter = () => true) {
       proc.kill("SIGKILL");
     }
     job.aborted = true;
-    relations.get(job.relId)?.tiles.delete(job.tileId);
+    relationById.get(job.relId)?.tiles.delete(job.tileId);
     popJob(job);
   }
   updateQueue();
@@ -469,7 +469,7 @@ function notifyTileReady(
   tileId: string,
   incrementVersion: boolean
 ) {
-  const tile = relations.get(relId)?.tiles.get(tileId);
+  const tile = relationById.get(relId)?.tiles.get(tileId);
   if (tile === undefined) {
     return;
   }
