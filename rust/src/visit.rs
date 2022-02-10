@@ -1633,8 +1633,8 @@ impl<'a> CollectStatic<'a> {
                         PowRational => ScalarBinaryOp::PowRational,
                         ReSignNonnegative => ScalarBinaryOp::ReSignNonnegative,
                         Sub => ScalarBinaryOp::Sub,
-                        And | Complex | Eq | ExplicitRel | Ge | Gt | Le | Lt | Or | RankedMax
-                        | RankedMin => return None,
+                        And | Complex | Eq | ExplicitRel(_) | Ge | Gt | Le | Lt | Or
+                        | RankedMax | RankedMin => return None,
                     })
                 })()
                 .map(|op| StaticTermKind::Binary(op, self.store_index(x), self.store_index(y))),
@@ -1703,7 +1703,7 @@ impl<'a> CollectStatic<'a> {
         for t in self.exprs.iter().copied() {
             let k = match &*t {
                 bool_constant!(a) => Some(StaticFormKind::Constant(*a)),
-                binary!(ExplicitRel, _, _) => Some(StaticFormKind::Constant(true)),
+                binary!(ExplicitRel(_), _, _) => Some(StaticFormKind::Constant(true)),
                 unary!(Not, x) => Some(StaticFormKind::Not(self.form_index(x))),
                 binary!(And, x, y) => {
                     Some(StaticFormKind::And(self.form_index(x), self.form_index(y)))
@@ -1757,7 +1757,7 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
         use BinaryOp::*;
         match e {
             binary!(And, _, _) => traverse_expr(self, e),
-            binary!(ExplicitRel, x @ var!(_), e) if x.vars == self.variable => {
+            binary!(ExplicitRel(_), x @ var!(_), e) if x.vars == self.variable => {
                 self.store_index =
                     Some(self.collector.terms[self.collector.term_index[&e.id]].store_index);
             }

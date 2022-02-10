@@ -1,4 +1,5 @@
 use crate::{
+    ast::ExplicitRelOp,
     block::{Block, BlockQueue, Coordinate},
     eval_cache::{EvalCacheLevel, EvalExplicitCache},
     eval_result::EvalArgs,
@@ -8,7 +9,7 @@ use crate::{
     },
     image::{Image, PixelIndex, PixelRange},
     region::Region,
-    relation::{ExplicitRelationOp, Relation, RelationType},
+    relation::{Relation, RelationType},
     set_arg,
     traits::BytesAllocated,
     vars::{VarIndex, VarSet},
@@ -26,7 +27,7 @@ use std::{
 /// The graphing algorithm for explicit relations.
 pub struct Explicit {
     rel: Relation,
-    op: ExplicitRelationOp,
+    op: ExplicitRelOp,
     transpose: bool,
     x_index: Option<VarIndex>,
     im: Image<PixelState>,
@@ -407,7 +408,7 @@ impl Explicit {
     ///
     /// If every member of `y` is a solution, all the pixels contain solutions.
     fn possibly_true_pixels(&self, px: Interval, y: Interval) -> PixelRange {
-        use ExplicitRelationOp::*;
+        use ExplicitRelOp::*;
 
         if y.is_empty() {
             return PixelRange::EMPTY;
@@ -494,7 +495,7 @@ impl Explicit {
     ///
     /// Panics if `y` is empty.
     fn true_pixels(&self, px: Interval, y: Interval) -> PixelRange {
-        use ExplicitRelationOp::*;
+        use ExplicitRelOp::*;
 
         assert!(!y.is_empty());
 

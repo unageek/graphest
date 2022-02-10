@@ -11,6 +11,15 @@ pub type ExprId = u32;
 pub const UNINIT_EXPR_ID: ExprId = ExprId::MAX;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ExplicitRelOp {
+    Eq,
+    Ge,
+    Gt,
+    Le,
+    Lt,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
     Abs,
     Acos,
@@ -80,7 +89,7 @@ pub enum BinaryOp {
     Complex,
     Div,
     Eq,
-    ExplicitRel,
+    ExplicitRel(ExplicitRelOp),
     GammaInc,
     Gcd,
     Ge,
@@ -487,7 +496,7 @@ impl Expr {
                 And | Complex
                     | Div
                     | Eq
-                    | ExplicitRel
+                    | ExplicitRel(_)
                     | Ge
                     | Gt
                     | Le
@@ -638,7 +647,7 @@ impl Expr {
             unary!(Not, x) if boolean(x) => Boolean,
             binary!(And | Or, x, y) if boolean(x) && boolean(y) => Boolean,
             binary!(Eq, x, y) if real_or_complex(x) && real_or_complex(y) => Boolean,
-            binary!(ExplicitRel | Ge | Gt | Le | Lt, x, y) if real(x) && real(y) => Boolean,
+            binary!(ExplicitRel(_) | Ge | Gt | Le | Lt, x, y) if real(x) && real(y) => Boolean,
             // Complex
             unary!(
                 Acos | Acosh

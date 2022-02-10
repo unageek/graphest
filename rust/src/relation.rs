@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, NaryOp, UnaryOp, ValueType},
+    ast::{BinaryOp, ExplicitRelOp, Expr, NaryOp, UnaryOp, ValueType},
     binary, bool_constant, constant,
     context::Context,
     eval_cache::{EvalExplicitCache, EvalImplicitCache, EvalParametricCache, UnivariateCache},
@@ -17,24 +17,15 @@ use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use rug::Integer;
 use std::{collections::HashMap, iter::once, mem::take, str::FromStr};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ExplicitRelationOp {
-    Eq,
-    Ge,
-    Gt,
-    Le,
-    Lt,
-}
-
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
     /// The relation contains no variables.
     Constant,
     /// The relation is of the form y op f(x) ∧ P(x), where P(x) is an optional constraint on x.
-    ExplicitFunctionOfX(ExplicitRelationOp),
+    ExplicitFunctionOfX(ExplicitRelOp),
     /// The relation is of the form x op f(y) ∧ P(y), where P(y) is an optional constraint on y.
-    ExplicitFunctionOfY(ExplicitRelationOp),
+    ExplicitFunctionOfY(ExplicitRelOp),
     /// The relation is of a general form.
     Implicit,
     /// The relation is of the form x = f(n, t) ∧ y = g(n, t) ∧ P(n, t),
@@ -600,7 +591,7 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
 }
 
 struct ExplicitRelationParts {
-    op: ExplicitRelationOp,
+    op: ExplicitRelOp,
     y: Option<Expr>, // y op f(x)
     px: Vec<Expr>,   // P(x)
 }
@@ -610,11 +601,11 @@ fn normalize_explicit_relation(
     e: &mut Expr,
     y_var: VarSet,
     x_var: VarSet,
-) -> Option<ExplicitRelationOp> {
+) -> Option<ExplicitRelOp> {
     use BinaryOp::*;
 
     let mut parts = ExplicitRelationParts {
-        op: ExplicitRelationOp::Eq,
+        op: ExplicitRelOp::Eq,
         y: None,
         px: vec![],
     };
@@ -659,14 +650,18 @@ fn normalize_explicit_relation_impl(
         {
             parts.y.is_none() && {
                 parts.op = match op {
-                    Eq => ExplicitRelationOp::Eq,
-                    Ge => ExplicitRelationOp::Ge,
-                    Gt => ExplicitRelationOp::Gt,
-                    Le => ExplicitRelationOp::Le,
-                    Lt => ExplicitRelationOp::Lt,
+                    Eq => ExplicitRelOp::Eq,
+                    Ge => ExplicitRelOp::Ge,
+                    Gt => ExplicitRelOp::Gt,
+                    Le => ExplicitRelOp::Le,
+                    Lt => ExplicitRelOp::Lt,
                     _ => unreachable!(),
                 };
-                parts.y = Some(Expr::binary(ExplicitRel, box take(y), box take(e)));
+                parts.y = Some(Expr::binary(
+                    ExplicitRel(parts.op),
+                    box take(y),
+                    box take(e),
+                ));
                 true
             }
         }
@@ -724,7 +719,11 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
             if x.vars == VarSet::X && PARAMS.contains(e.vars) =>
         {
             parts.xt.is_none() && {
-                parts.xt = Some(Expr::binary(ExplicitRel, box take(x), box take(e)));
+                parts.xt = Some(Expr::binary(
+                    ExplicitRel(ExplicitRelOp::Eq),
+                    box take(x),
+                    box take(e),
+                ));
                 true
             }
         }
@@ -732,7 +731,11 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
             if y.vars == VarSet::Y && PARAMS.contains(e.vars) =>
         {
             parts.yt.is_none() && {
-                parts.yt = Some(Expr::binary(ExplicitRel, box take(y), box take(e)));
+                parts.yt = Some(Expr::binary(
+                    ExplicitRel(ExplicitRelOp::Eq),
+                    box take(y),
+                    box take(e),
+                ));
                 true
             }
         }
@@ -799,7 +802,7 @@ mod tests {
 
     #[test]
     fn relation_type() {
-        use {ExplicitRelationOp::*, RelationType::*};
+        use {ExplicitRelOp::*, RelationType::*};
 
         fn f(rel: &str) -> RelationType {
             rel.parse::<Relation>().unwrap().relation_type()
