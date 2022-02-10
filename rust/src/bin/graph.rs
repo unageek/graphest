@@ -68,6 +68,7 @@ fn main() {
                 .default_value("1")
                 .forbid_empty_values(true),
         )
+        .arg(Arg::new("dump-ast").long("dump-ast").hide(true))
         .arg(Arg::new("gray-alpha").long("gray-alpha").hide(true))
         .arg(
             Arg::new("mem-limit")
@@ -145,6 +146,9 @@ fn main() {
         .get_matches();
 
     let rel = matches.value_of_t_or_exit::<Relation>("relation");
+    if matches.is_present("dump-ast") {
+        println!("{}", rel.ast().dump_full());
+    }
     if matches.is_present("parse") {
         return;
     }

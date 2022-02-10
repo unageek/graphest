@@ -379,14 +379,25 @@ impl Expr {
         Self::constant(const_dec_interval!(0.0, 0.0).into())
     }
 
-    /// Formats the AST in a fashion similar to S-expressions.
+    /// Formats the AST in a fashion similar to an S-expression.
     ///
-    /// If a real constant is convertible to a [`f64`] number with [`TupperIntervalSet::to_f64`],
-    /// it is represented as the number; otherwise, by a symbol `@`.
+    /// A real constant is formatted either as a decimal number
+    /// or as a set of hexadecimal interval literals, so it is not necessarily human-readable.
+    ///
+    /// The representation can change across versions;
+    /// thus, you _must not_ use the output for serialization, etc.
+    pub fn dump_full(&self) -> impl fmt::Display + '_ {
+        self.dump(DumpKind::Full)
+    }
+
+    /// Formats the AST in a fashion similar to an S-expression.
+    ///
+    /// When a real constant is convertible to a [`f64`] number with [`TupperIntervalSet::to_f64`],
+    /// it is formatted as a decimal number; otherwise, as an `@`.
     ///
     /// [`TupperIntervalSet::to_f64`]: crate::interval_set::TupperIntervalSet::to_f64
     pub fn dump_short(&self) -> impl fmt::Display + '_ {
-        DumpShort(self)
+        self.dump(DumpKind::Short)
     }
 
     /// Evaluates `self` if it is a real-valued constant expression.
@@ -520,6 +531,10 @@ impl Expr {
     pub fn with_source_range(mut self, range: Range<usize>) -> Self {
         self.source_range = range;
         self
+    }
+
+    fn dump(&self, kind: DumpKind) -> impl fmt::Display + '_ {
+        Dump { e: self, kind }
     }
 
     /// Returns `true` if the expression is real-valued and is defined on the entire domain.
@@ -795,11 +810,21 @@ impl Hash for Expr {
     }
 }
 
-struct DumpShort<'a>(&'a Expr);
+#[derive(Clone, Copy, Debug)]
+enum DumpKind {
+    Short,
+    Full,
+}
 
-impl<'a> fmt::Display for DumpShort<'a> {
+struct Dump<'a> {
+    e: &'a Expr,
+    kind: DumpKind,
+}
+
+impl<'a> fmt::Display for Dump<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.0 {
+        let k = self.kind;
+        match self.e {
             bool_constant!(false) => {
                 write!(f, "False")
             }
@@ -810,33 +835,37 @@ impl<'a> fmt::Display for DumpShort<'a> {
                 if let Some(a) = a.to_f64() {
                     write!(f, "{}", a)
                 } else {
-                    write!(f, "@")
+                    match self.kind {
+                        DumpKind::Short => write!(f, "@"),
+                        DumpKind::Full => {
+                            write!(f, "@{{")?;
+                            for x in a.interval() {
+                                write!(f, "{:x},", x.dec_interval())?
+                            }
+                            write!(f, "}}")
+                        }
+                    }
                 }
             }
             var!(name) => write!(f, "{}", name),
-            unary!(op, x) => write!(f, "({:?} {})", op, x.dump_short()),
-            binary!(op, x, y) => write!(f, "({:?} {} {})", op, x.dump_short(), y.dump_short()),
-            ternary!(op, x, y, z) => write!(
-                f,
-                "({:?} {} {} {})",
-                op,
-                x.dump_short(),
-                y.dump_short(),
-                z.dump_short()
-            ),
+            unary!(op, x) => write!(f, "({:?} {})", op, x.dump(k)),
+            binary!(op, x, y) => write!(f, "({:?} {} {})", op, x.dump(k), y.dump(k)),
+            ternary!(op, x, y, z) => {
+                write!(f, "({:?} {} {} {})", op, x.dump(k), y.dump(k), z.dump(k))
+            }
             nary!(op, xs) => {
                 write!(
                     f,
                     "({:?} {})",
                     op,
                     xs.iter()
-                        .map(|x| format!("{}", x.dump_short()))
+                        .map(|x| format!("{}", x.dump(k)))
                         .collect::<Vec<_>>()
                         .join(" ")
                 )
             }
-            pown!(x, n) => write!(f, "(Pown {} {})", x.dump_short(), n),
-            rootn!(x, n) => write!(f, "(Rootn {} {})", x.dump_short(), n),
+            pown!(x, n) => write!(f, "(Pown {} {})", x.dump(k), n),
+            rootn!(x, n) => write!(f, "(Rootn {} {})", x.dump(k), n),
             error!() => write!(f, "Error"),
             uninit!() => panic!(),
         }
