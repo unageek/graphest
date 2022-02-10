@@ -1,6 +1,6 @@
 import * as ipc from "../common/ipc";
+import { RequestRelationResult } from "../common/ipc";
 import { Range } from "../common/range";
-import { ValidationResult } from "../common/validationResult";
 
 export enum TokenKind {
   /** `&&` or `∧`. */
@@ -274,6 +274,17 @@ export function isRightBracket(ch: string): boolean {
   return rightBracketToLeft.has(ch);
 }
 
+export async function requestRelation(
+  rel: string,
+  highRes: boolean
+): Promise<RequestRelationResult> {
+  return await window.ipcRenderer.invoke<ipc.RequestRelation>(
+    ipc.requestRelation,
+    rel,
+    highRes
+  );
+}
+
 const IDENTIFIER = /^\p{Alphabetic}[\p{Alphabetic}\p{N}']*/u;
 const NUMBER_LITERAL = /^(?:\d+\.?\d*|\.\d+)/;
 
@@ -421,11 +432,4 @@ export function* tokenize(rel: string): Generator<Token, void> {
     };
     i++;
   }
-}
-
-export async function validateRelation(rel: string): Promise<ValidationResult> {
-  return await window.ipcRenderer.invoke<ipc.ValidateRelation>(
-    ipc.validateRelation,
-    rel
-  );
 }

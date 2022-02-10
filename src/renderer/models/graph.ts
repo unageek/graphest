@@ -6,6 +6,7 @@ export interface Graph {
   isProcessing: boolean;
   relation: string;
   relationInputByUser: boolean;
+  relId: string;
 }
 
 const initialState: Graph = {
@@ -14,6 +15,7 @@ const initialState: Graph = {
   isProcessing: false,
   relation: "",
   relationInputByUser: false,
+  relId: "",
 };
 
 const slice = createSlice({
@@ -43,18 +45,29 @@ const slice = createSlice({
           : s,
     },
     setGraphRelation: {
-      prepare: (id: string, relation: string, inputByUser: boolean) => ({
-        payload: { id, relation, inputByUser: inputByUser },
+      prepare: (
+        id: string,
+        relId: string,
+        rel: string,
+        inputByUser: boolean
+      ) => ({
+        payload: { id, relId, rel, inputByUser },
       }),
       reducer: (
         s,
-        a: PayloadAction<{ id: string; relation: string; inputByUser: boolean }>
+        a: PayloadAction<{
+          id: string;
+          relId: string;
+          rel: string;
+          inputByUser: boolean;
+        }>
       ) =>
         a.payload.id === s.id
           ? {
               ...s,
-              relation: a.payload.relation,
+              relation: a.payload.rel,
               relationInputByUser: a.payload.inputByUser,
+              relId: a.payload.relId,
             }
           : s,
     },

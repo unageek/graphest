@@ -1,6 +1,14 @@
 import { IpcRendererEvent } from "electron";
 import { MenuItem } from "./MenuItem";
-import { ValidationResult } from "./validationResult";
+import { Range } from "./range";
+import { Result } from "./result";
+
+export interface RelationError {
+  range: Range;
+  message: string;
+}
+
+export type RequestRelationResult = Result<string, RelationError>;
 
 export interface MessageToMain {
   channel: string;
@@ -15,13 +23,6 @@ export interface AbortGraphing extends MessageToMain {
   result: void;
 }
 
-export const newRelation = "new-relation";
-export interface NewRelation extends MessageToMain {
-  channel: typeof newRelation;
-  args: [rel: string, highRes: boolean];
-  result: { relId: string };
-}
-
 export const openUrl = "open-url";
 export interface OpenUrl extends MessageToMain {
   channel: typeof openUrl;
@@ -29,18 +30,18 @@ export interface OpenUrl extends MessageToMain {
   result: void;
 }
 
+export const requestRelation = "request-relation";
+export interface RequestRelation extends MessageToMain {
+  channel: typeof requestRelation;
+  args: [rel: string, highRes: boolean];
+  result: RequestRelationResult;
+}
+
 export const requestTile = "request-tile";
 export interface RequestTile extends MessageToMain {
   channel: typeof requestTile;
   args: [relId: string, tileId: string, coords: L.Coords];
   result: void;
-}
-
-export const validateRelation = "validate-relation";
-export interface ValidateRelation extends MessageToMain {
-  channel: typeof validateRelation;
-  args: [rel: string];
-  result: ValidationResult;
 }
 
 export interface MessageToRenderer {

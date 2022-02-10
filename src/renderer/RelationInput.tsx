@@ -16,8 +16,8 @@ import {
   Slate,
   withReact,
 } from "slate-react";
+import { RelationError, RequestRelationResult } from "../common/ipc";
 import { Range } from "../common/range";
-import { ValidationResult } from "../common/validationResult";
 import {
   areBracketsBalanced,
   getDecorations,
@@ -25,9 +25,9 @@ import {
   isLeftBracket,
   isRightBracket,
   NormalizationRules,
+  requestRelation,
   Token,
   tokenize,
-  validateRelation,
 } from "./relationUtils";
 
 export interface RelationInputActions {
@@ -38,8 +38,9 @@ export interface RelationInputActions {
 export interface RelationInputProps {
   actionsRef?: RefObject<RelationInputActions>;
   grow?: boolean;
+  highRes: boolean;
   onEnterKeyPressed: () => void;
-  onRelationChanged: (relation: string) => void;
+  onRelationChanged: (relId: string, rel: string) => void;
   processing: boolean;
   relation: string;
   relationInputByUser: boolean;
@@ -276,8 +277,7 @@ export const RelationInput = (props: RelationInputProps) => {
   const [editor] = useState(
     withRelationEditingExtensions(withHistory(withReact(S.createEditor())))
   );
-  const [validationError, setValidationError] =
-    useState<ValidationResult>(null);
+  const [validationError, setValidationError] = useState<RelationError>();
   const [showValidationError, setShowValidationError] = useState(false);
   const [value, setValue] = useState<S.Descendant[]>([
     {
@@ -370,18 +370,18 @@ export const RelationInput = (props: RelationInputProps) => {
     S.Transforms.select(editor, end);
   }
 
+  async function updateRelationImmediately() {
+    const rel = S.Node.string(editor);
+    const result = await requestRelation(rel, props.highRes);
+    props.onRelationChanged(result.ok ?? "", rel);
+    setValidationError(result.err);
+    // For immediate use of the result.
+    return result;
+  }
+
   const updateRelation = useCallback(
-    debounce(async (): Promise<ValidationResult> => {
-      const rel = S.Node.string(editor);
-      const error = await validateRelation(rel);
-      if (!error) {
-        props.onRelationChanged(rel);
-      } else {
-        props.onRelationChanged("false");
-      }
-      setValidationError(error);
-      // For immediate use of the result.
-      return error;
+    debounce(async (): Promise<RequestRelationResult> => {
+      return updateRelationImmediately();
     }, 200),
     []
   );
@@ -396,6 +396,10 @@ export const RelationInput = (props: RelationInputProps) => {
     ReactEditor.focus(editor);
     moveCursorToTheEnd();
   }, []);
+
+  useEffect(() => {
+    updateRelationImmediately();
+  }, [props.highRes]);
 
   useEffect(() => {
     if (props.relationInputByUser) return;
@@ -460,11 +464,11 @@ export const RelationInput = (props: RelationInputProps) => {
             if (e.key === "Enter") {
               e.preventDefault();
               updateRelation();
-              updateRelation.flush()?.then((error) => {
-                if (error) {
-                  setShowValidationError(true);
-                } else {
+              updateRelation.flush()?.then((result) => {
+                if (result.ok !== undefined) {
                   props.onEnterKeyPressed();
+                } else {
+                  setShowValidationError(true);
                 }
               });
             }
