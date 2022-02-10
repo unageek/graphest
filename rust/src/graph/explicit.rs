@@ -282,9 +282,9 @@ impl Explicit {
         if !inter.is_empty() {
             // To dedup, points must be sorted.
             let rs = [inter.inf(), simple_fraction(inter), inter.sup()]
-                .iter()
+                .into_iter()
                 .dedup()
-                .map(|&x| {
+                .map(|x| {
                     set_arg!(args, self.x_index, point_interval(x));
                     self.rel
                         .eval_explicit(args, &self.real_to_im_y, &mut self.cache)
