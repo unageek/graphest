@@ -128,7 +128,7 @@ impl Arb {
 
     /// Returns the lower bound of the interval.
     ///
-    /// This is faster than `self.interval().sup()` if you don't need the upper bound.
+    /// This is faster than `self.to_interval().sup()` if you don't need the upper bound.
     #[allow(dead_code)]
     pub fn inf(&self) -> f64 {
         let mut x = Arf::new();
@@ -149,7 +149,7 @@ impl Arb {
 
     /// Returns the upper bound of the interval.
     ///
-    /// This is faster than `self.interval().sup()` if you don't need the lower bound.
+    /// This is faster than `self.to_interval().sup()` if you don't need the lower bound.
     #[allow(dead_code)]
     pub fn sup(&self) -> f64 {
         let mut x = Arf::new();
