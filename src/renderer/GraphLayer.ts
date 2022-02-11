@@ -60,7 +60,9 @@ export class GraphLayer extends L.GridLayer {
     super._removeTile(key);
 
     const tileId = key;
-    this.abortGraphing(tileId);
+    if (this.graph) {
+      this.abortGraphing(this.graph.relId, tileId);
+    }
   }
 
   // https://github.com/Leaflet/Leaflet/blob/0f904a515879fcd08f69b7f51799ee7f18f23fd8/src/layer/tile/GridLayer.js#L816-L817
