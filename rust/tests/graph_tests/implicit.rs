@@ -10,7 +10,7 @@ t!(
     @size(789, 456)
 );
 
-// Check if `arb_sin_precise`/`arb_cos_precise` are used properly.
+// Check if MPFR's sin/cos is used instead of the Arb's functions around extrema.
 t!(
     t_250a7184c7444a3a928fdcb92bc75bf9,
     "sin(x) = cos(y)",

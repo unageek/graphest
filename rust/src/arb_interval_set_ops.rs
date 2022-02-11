@@ -97,9 +97,9 @@ fn i(x: f64) -> Interval {
     interval!(x, x).unwrap()
 }
 
-// `arb_sin` and `arb_cos` return relatively wide intervals around extrema.
-// In that case, we use `arb_sin_precise` and `arb_cos_precise` instead.
-const USE_ARB_SIN_COS_PRECISE_ABOVE: f64 = 0.999999;
+// Arb's sin/cos return relatively wide intervals around extrema.
+// In that case, we should use the MPFR's functions instead.
+const USE_MPFR_SIN_COS_ABOVE: f64 = 0.999999;
 
 const M_ONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
 const N_INF_TO_ZERO: Interval = const_interval!(f64::NEG_INFINITY, 0.0);
@@ -519,8 +519,8 @@ impl TupperIntervalSet {
 
     impl_arb_op!(cos(x), {
         let y = arb_cos(x);
-        if y.abs().inf() > USE_ARB_SIN_COS_PRECISE_ABOVE {
-            arb_cos_precise(x)
+        if y.abs().inf() > USE_MPFR_SIN_COS_ABOVE {
+            x.cos()
         } else {
             y
         }
@@ -913,8 +913,8 @@ impl TupperIntervalSet {
 
     impl_arb_op!(sin(x), {
         let y = arb_sin(x);
-        if y.abs().inf() > USE_ARB_SIN_COS_PRECISE_ABOVE {
-            arb_sin_precise(x)
+        if y.abs().inf() > USE_MPFR_SIN_COS_ABOVE {
+            x.sin()
         } else {
             y
         }
@@ -1154,9 +1154,7 @@ arb_fn!(
 arb_fn!(
     arb_cos(x),
     arb_cos(x, x, f64::MANTISSA_DIGITS.into()),
-    M_ONE_TO_ONE,
-    arb_cos_rd,
-    arb_cos_ru
+    M_ONE_TO_ONE
 );
 arb_fn!(
     arb_cosh(x),
@@ -1268,9 +1266,7 @@ arb_fn!(
 arb_fn!(
     arb_sin(x),
     arb_sin(x, x, f64::MANTISSA_DIGITS.into()),
-    M_ONE_TO_ONE,
-    arb_sin_rd,
-    arb_sin_ru
+    M_ONE_TO_ONE
 );
 arb_fn!(
     arb_sinc(x),
@@ -1292,85 +1288,6 @@ arb_fn!(
     arb_tanh(x, x, f64::MANTISSA_DIGITS.into()),
     M_ONE_TO_ONE
 );
-
-// The implementation is almost a copy-paste of `inari::Interval::cos`.
-fn arb_cos_precise(x: Interval) -> Interval {
-    if x.is_common_interval() {
-        let a = x.inf();
-        let b = x.sup();
-        let q_nowrap = (x / Interval::PI).floor();
-        let qa = q_nowrap.inf();
-        let qb = q_nowrap.sup();
-        // n and q are valid for small values.
-        let n = if a == b {
-            // For strict test cases on huge values.
-            0.0
-        } else {
-            qb - qa
-        };
-        let q = qa.rem_euclid(2.0);
-
-        let a = interval!(a, a).unwrap();
-        let b = interval!(b, b).unwrap();
-
-        // Overestimation is fine.
-        if n == 0.0 {
-            if q == 0.0 {
-                // monotonically decreasing
-                interval!(arb_cos_rd(b), arb_cos_ru(a)).unwrap()
-            } else {
-                // monotonically increasing
-                interval!(arb_cos_rd(a), arb_cos_ru(b)).unwrap()
-            }
-        } else if n <= 1.0 {
-            if q == 0.0 {
-                // decreasing, then increasing
-                interval!(-1.0, arb_cos_ru(a).max(arb_cos_ru(b))).unwrap()
-            } else {
-                // increasing, then decreasing
-                interval!(arb_cos_rd(a).min(arb_cos_rd(b)), 1.0).unwrap()
-            }
-        } else {
-            const_interval!(-1.0, 1.0)
-        }
-    } else {
-        x.cos()
-    }
-}
-
-// The implementation is almost a copy-paste of `inari::Interval::sin`.
-fn arb_sin_precise(x: Interval) -> Interval {
-    if x.is_common_interval() {
-        let a = x.inf();
-        let b = x.sup();
-        let q_nowrap = (x / Interval::FRAC_PI_2).floor();
-        let qa = q_nowrap.inf();
-        let qb = q_nowrap.sup();
-        let n = if a == b { 0.0 } else { qb - qa };
-        let q = qa.rem_euclid(4.0);
-
-        let a = interval!(a, a).unwrap();
-        let b = interval!(b, b).unwrap();
-
-        if q == 0.0 && n < 1.0 || q == 3.0 && n < 2.0 {
-            // monotonically increasing
-            interval!(arb_sin_rd(a), arb_sin_ru(b)).unwrap()
-        } else if q == 1.0 && n < 2.0 || q == 2.0 && n < 1.0 {
-            // monotonically decreasing
-            interval!(arb_sin_rd(b), arb_sin_ru(a)).unwrap()
-        } else if q == 0.0 && n < 3.0 || q == 3.0 && n < 4.0 {
-            // increasing, then decreasing
-            interval!(arb_sin_rd(a).min(arb_sin_rd(b)), 1.0).unwrap()
-        } else if q == 1.0 && n < 4.0 || q == 2.0 && n < 3.0 {
-            // decreasing, then increasing
-            interval!(-1.0, arb_sin_ru(a).max(arb_sin_ru(b))).unwrap()
-        } else {
-            const_interval!(-1.0, 1.0)
-        }
-    } else {
-        x.sin()
-    }
-}
 
 // Envelope functions
 
