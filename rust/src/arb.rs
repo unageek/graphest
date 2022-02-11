@@ -47,7 +47,6 @@ impl Arf {
     }
 
     /// Rounds `self` to a [`f64`] number using the given rounding mode.
-    #[allow(clippy::wrong_self_convention)]
     pub fn to_f64_round(&self, round: ArfRound) -> f64 {
         unsafe { arf_get_d(self.as_ptr() as arf_ptr, round as i32) }
     }
@@ -126,8 +125,49 @@ impl Arb {
         y
     }
 
+    /// Returns the lower bound of the interval.
+    ///
+    /// This is faster than `self.to_interval().sup()` if you don't need the upper bound.
+    #[allow(dead_code)]
+    pub fn inf(&self) -> f64 {
+        let mut x = Arf::new();
+        unsafe {
+            arb_get_lbound_arf(
+                x.as_mut_ptr(),
+                self.as_ptr() as arb_ptr,
+                f64::MANTISSA_DIGITS.into(),
+            );
+        }
+        let x = x.to_f64_round(ArfRound::Floor);
+        if x.is_nan() {
+            f64::NEG_INFINITY
+        } else {
+            x
+        }
+    }
+
+    /// Returns the upper bound of the interval.
+    ///
+    /// This is faster than `self.to_interval().sup()` if you don't need the lower bound.
+    #[allow(dead_code)]
+    pub fn sup(&self) -> f64 {
+        let mut x = Arf::new();
+        unsafe {
+            arb_get_ubound_arf(
+                x.as_mut_ptr(),
+                self.as_ptr() as arb_ptr,
+                f64::MANTISSA_DIGITS.into(),
+            );
+        }
+        let x = x.to_f64_round(ArfRound::Ceil);
+        if x.is_nan() {
+            f64::INFINITY
+        } else {
+            x
+        }
+    }
+
     /// Returns an [`Interval`] that encloses `self`.
-    #[allow(clippy::wrong_self_convention)]
     pub fn to_interval(&self) -> Interval {
         let mut a = Arf::new();
         let mut b = Arf::new();
@@ -261,7 +301,12 @@ mod tests {
             const_interval!(0.0, 1.9999999990686774),
         ];
         for x in xs {
-            let y = Arb::from_interval(x).to_interval();
+            let x_arb = Arb::from_interval(x);
+            let a = x_arb.inf();
+            let b = x_arb.sup();
+            let y = x_arb.to_interval();
+            assert_eq!(a, y.inf());
+            assert_eq!(b, y.sup());
             assert!(x.subset(y));
         }
     }
