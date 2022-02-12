@@ -23,7 +23,11 @@ export class GraphLayer extends L.GridLayer {
     readonly graphId: string,
     options?: L.GridLayerOptions
   ) {
-    super({ keepBuffer: 0, updateWhenZooming: false, ...options });
+    super({
+      keepBuffer: 0,
+      updateWhenZooming: false,
+      ...options,
+    });
     this.onGraphingStatusChangedBound = this.onGraphingStatusChanged.bind(this);
     this.onTileReadyBound = this.onTileReady.bind(this);
   }
@@ -58,7 +62,6 @@ export class GraphLayer extends L.GridLayer {
 
   _removeTile(key: string): void {
     super._removeTile(key);
-
     const tileId = key;
     if (this.graph) {
       this.abortGraphing(this.graph.relId, tileId);
@@ -112,15 +115,15 @@ export class GraphLayer extends L.GridLayer {
   private onAppStateChanged() {
     const state = this.store.getState();
 
-    const lastGraph = this.graph;
+    const oldGraph = this.graph;
     this.graph = state.graphs.byId[this.graphId];
 
-    if (this.graph.color !== lastGraph?.color) {
+    if (this.graph.color !== oldGraph?.color) {
       this.updateColor();
     }
 
-    if (this.graph.relId !== lastGraph?.relId) {
-      this.updateRelation(lastGraph?.relId);
+    if (this.graph.relId !== oldGraph?.relId) {
+      this.updateRelation(oldGraph?.relId);
     }
   }
 
@@ -141,7 +144,9 @@ export class GraphLayer extends L.GridLayer {
   };
 
   private updateColor() {
-    if (!this.graph) return;
+    if (!this.graph) {
+      throw new Error("`this.graph` must not be undefined");
+    }
 
     for (const key in this._tiles) {
       const tile = this._tiles[key];
