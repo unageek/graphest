@@ -55,6 +55,11 @@ t!(t_c88349f5b4a74502b82b56c56ffd9ea7, "y = tanh(x)");
 
 // Bessel functions
 t!(
+    t_1766086ff8d848829170cead2dc18e7b,
+    "y = J(-3/2, x)",
+    @bounds(-4, 4, -4, 4),
+);
+t!(
     t_4f55a2d3f14b4539b5a1c38277a1aaf1,
     "y = J(-1, x)",
     @bounds(-4, 4, -4, 4),
@@ -82,7 +87,17 @@ t!(
     @bounds(-4, 4, -4, 4),
     @timeout(2000),
 );
+t!(
+    t_49dd5ac993f24e078ae1a0606b95a49f,
+    "y = J(3/2, x)",
+    @bounds(-4, 4, -4, 4),
+);
 
+t!(
+    t_19532c1221be449481385eaf7c42a279,
+    "y = Y(-3/2, x)",
+    @bounds(-4, 4, -4, 4),
+);
 t!(
     t_2bba64e6e7d24423bbd3d2a08fe5c780,
     "y = Y(-1, x)",
@@ -112,15 +127,24 @@ t!(
     @bounds(-4, 4, -4, 4),
     @timeout(4000),
 );
+t!(
+    t_7432071d9b3c4526bfe61c05f91e1964,
+    "y = Y(3/2, x)",
+    @bounds(-4, 4, -4, 4),
+);
 
+t!(t_27eebd1d353b4aada53c8dfd22f7e08c, "y = I(-3/2, x)",);
 t!(t_eaa5ae3d73ac4599a0dcb865278684f2, "y = I(-1, x)",);
 t!(t_a495cd2e3ac141729ce70da2bbf69005, "y = I(-1/2, x)",);
 t!(t_8355dc4b93bf4a8896db89c7abdb804f, "y = I(0, x)",);
 t!(t_6a5ff0062f8c46ad9bbb4c8dc7d9681c, "y = I(1/2, x)",);
 t!(t_961ac5f68d8747db8b1e701cd0138931, "y = I(1, x)",);
+t!(t_6a99a6054e314aedb19af97d03ca66f8, "y = I(3/2, x)",);
 
+t!(t_0c5785ed91294fd9b87815926fb92c4a, "y = K(-3/2, x)",);
 t!(t_24fee629fc8d49008760b5da7a2122c6, "y = K(-1, x)",);
 t!(t_17e51ff3f84d463384561a781a909c5c, "y = K(-1/2, x)",);
 t!(t_52c7fee2d49a4cc7ab8500dc20bc917d, "y = K(0, x)",);
 t!(t_d90cfe5768e045d2b2f06f6a17de8f45, "y = K(1/2, x)",);
 t!(t_2a7837af7fa54a4ca9da271ac72f339b, "y = K(1, x)",);
+t!(t_b81dbc5c9ffa4286922c2989ef730638, "y = K(3/2, x)",);
