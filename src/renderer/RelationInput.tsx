@@ -37,6 +37,7 @@ export interface RelationInputActions {
 
 export interface RelationInputProps {
   actionsRef?: RefObject<RelationInputActions>;
+  graphId: string;
   grow?: boolean;
   highRes: boolean;
   onEnterKeyPressed: () => void;
@@ -372,7 +373,7 @@ export const RelationInput = (props: RelationInputProps) => {
 
   async function updateRelationImmediately() {
     const rel = S.Node.string(editor);
-    const result = await requestRelation(rel, props.highRes);
+    const result = await requestRelation(rel, props.graphId, props.highRes);
     props.onRelationChanged(result.ok ?? "", rel);
     setValidationError(result.err);
     // For immediate use of the result.
@@ -383,7 +384,7 @@ export const RelationInput = (props: RelationInputProps) => {
     debounce(async (): Promise<RequestRelationResult> => {
       return updateRelationImmediately();
     }, 200),
-    []
+    [props.graphId, props.highRes]
   );
 
   function updateTokens() {
@@ -399,7 +400,7 @@ export const RelationInput = (props: RelationInputProps) => {
 
   useEffect(() => {
     updateRelationImmediately();
-  }, [props.highRes]);
+  }, [props.graphId, props.highRes]);
 
   useEffect(() => {
     if (props.relationInputByUser) return;

@@ -33,7 +33,7 @@ export interface OpenUrl extends MessageToMain {
 export const requestRelation = "request-relation";
 export interface RequestRelation extends MessageToMain {
   channel: typeof requestRelation;
-  args: [rel: string, highRes: boolean];
+  args: [rel: string, graphId: string, highRes: boolean];
   result: RequestRelationResult;
 }
 

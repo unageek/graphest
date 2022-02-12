@@ -276,11 +276,13 @@ export function isRightBracket(ch: string): boolean {
 
 export async function requestRelation(
   rel: string,
+  graphId: string,
   highRes: boolean
 ): Promise<RequestRelationResult> {
   return await window.ipcRenderer.invoke<ipc.RequestRelation>(
     ipc.requestRelation,
     rel,
+    graphId,
     highRes
   );
 }

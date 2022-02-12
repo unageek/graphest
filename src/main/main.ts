@@ -99,8 +99,7 @@ let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
 let nextRelId = 0;
 const relationById = new Map<string, Relation>();
-const astToRelationId = new Map<string, string>();
-const astToRelationIdHighRes = new Map<string, string>();
+const relKeyToRelId = new Map<string, string>();
 
 function createMainMenu(): Menu {
   // https://www.electronjs.org/docs/api/menu#examples
@@ -294,15 +293,15 @@ ipcMain.handle(
   async (
     _,
     rel: string,
+    graphId: string,
     highRes: boolean
   ): Promise<ipc.RequestRelationResult> => {
     try {
       const args = ["--parse", "--dump-ast", "--", rel];
       const { stdout } = await util.promisify(execFile)(graphExec, args);
       const ast = stdout.split("\n")[0];
-      let relId = highRes
-        ? astToRelationIdHighRes.get(ast)
-        : astToRelationId.get(ast);
+      const relKey = graphId + ":" + highRes.toString() + ":" + ast;
+      let relId = relKeyToRelId.get(relKey);
       if (relId === undefined) {
         relId = nextRelId.toString();
         nextRelId++;
@@ -316,7 +315,7 @@ ipcMain.handle(
           rel,
           tiles: new Map(),
         });
-        (highRes ? astToRelationIdHighRes : astToRelationId).set(ast, relId);
+        relKeyToRelId.set(relKey, relId);
       }
       return result.ok(relId);
     } catch ({ stderr }) {

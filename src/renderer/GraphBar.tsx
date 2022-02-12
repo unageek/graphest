@@ -45,6 +45,7 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
       />
       <RelationInput
         actionsRef={relationInputActionsRef}
+        graphId={props.graphId}
         grow
         highRes={highRes}
         onEnterKeyPressed={props.focusGraphView}
