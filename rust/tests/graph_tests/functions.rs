@@ -131,6 +131,7 @@ t!(
     t_7432071d9b3c4526bfe61c05f91e1964,
     "y = Y(3/2, x)",
     @bounds(-4, 4, -4, 4),
+    @timeout(2000),
 );
 
 t!(t_27eebd1d353b4aada53c8dfd22f7e08c, "y = I(-3/2, x)",);
