@@ -69,7 +69,7 @@ t!(
     t_f8780e7966644953b23ded3a6ce8e2a6,
     "y = J(0, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(3000),
+    @timeout(4000),
 );
 t!(
     t_b7e50ea47abe42559b286b66964498d7,
@@ -104,7 +104,7 @@ t!(
     t_795e8b2422db48ca86b5de4a2de94b4c,
     "y = Y(1/2, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(2000),
+    @timeout(3000),
 );
 t!(
     t_a95ce899a2c24239b21bd1f787610d4b,
