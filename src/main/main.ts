@@ -284,7 +284,9 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle(ipc.abortGraphing, async (_, relId: string, tileId?: string) => {
-  abortJobs((j) => j.relId === relId && j.tileId === tileId);
+  abortJobs(
+    (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId)
+  );
 });
 
 ipcMain.handle(
