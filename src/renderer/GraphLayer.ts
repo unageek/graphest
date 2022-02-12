@@ -117,6 +117,7 @@ export class GraphLayer extends L.GridLayer {
 
     const oldGraph = this.graph;
     this.graph = state.graphs.byId[this.graphId];
+    if (!this.graph) return;
 
     if (this.graph.color !== oldGraph?.color) {
       this.updateColor();
