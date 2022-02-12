@@ -57,7 +57,7 @@ export const ColorButton = (props: ColorButtonProps): JSX.Element => {
             selectedId={id}
           />
         </PivotItem>
-        <PivotItem headerText="Picker">
+        <PivotItem headerText="Custom">
           <ColorPicker
             color={props.color}
             onChange={(_, c) => props.onColorChanged(c.str)}
