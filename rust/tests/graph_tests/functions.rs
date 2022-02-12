@@ -87,7 +87,7 @@ t!(
     t_2bba64e6e7d24423bbd3d2a08fe5c780,
     "y = Y(-1, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(3000),
+    @timeout(4000),
 );
 t!(
     t_1d96ba0ba09f44e7a9e3f497526013fa,
@@ -98,7 +98,7 @@ t!(
     t_9359b338708e4df1a8bdc6220b95e527,
     "y = Y(0, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(2000),
+    @timeout(3000),
 );
 t!(
     t_795e8b2422db48ca86b5de4a2de94b4c,
@@ -109,7 +109,7 @@ t!(
     t_a95ce899a2c24239b21bd1f787610d4b,
     "y = Y(1, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(3000),
+    @timeout(4000),
 );
 
 t!(t_eaa5ae3d73ac4599a0dcb865278684f2, "y = I(-1, x)",);
