@@ -36,7 +36,8 @@ const slice = createSlice({
           byId: {
             ...s.graphs.byId,
             [id]: {
-              color: "rgba(0, 0, 0, 0.75)",
+              // `SharedColors.cyanBlue20`
+              color: "rgba(0, 78, 140, 0.8)",
               id,
               isProcessing: false,
               relationInputByUser: false,
