@@ -1,5 +1,3 @@
-import * as ipc from "../common/ipc";
-import { RequestRelationResult } from "../common/ipc";
 import { Range } from "../common/range";
 
 export enum TokenKind {
@@ -272,19 +270,6 @@ export function isLeftBracket(ch: string): boolean {
 
 export function isRightBracket(ch: string): boolean {
   return rightBracketToLeft.has(ch);
-}
-
-export async function requestRelation(
-  rel: string,
-  graphId: string,
-  highRes: boolean
-): Promise<RequestRelationResult> {
-  return await window.ipcRenderer.invoke<ipc.RequestRelation>(
-    ipc.requestRelation,
-    rel,
-    graphId,
-    highRes
-  );
 }
 
 const IDENTIFIER = /^\p{Alphabetic}[\p{Alphabetic}\p{N}']*/u;

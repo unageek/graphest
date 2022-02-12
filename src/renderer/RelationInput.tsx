@@ -25,7 +25,6 @@ import {
   isLeftBracket,
   isRightBracket,
   NormalizationRules,
-  requestRelation,
   Token,
   tokenize,
 } from "./relationUtils";
@@ -45,6 +44,10 @@ export interface RelationInputProps {
   processing: boolean;
   relation: string;
   relationInputByUser: boolean;
+  requestRelation: (
+    rel: string,
+    highRes: boolean
+  ) => Promise<RequestRelationResult>;
 }
 
 type CustomElement = {
@@ -373,7 +376,7 @@ export const RelationInput = (props: RelationInputProps) => {
 
   async function updateRelationImmediately() {
     const rel = S.Node.string(editor);
-    const result = await requestRelation(rel, props.graphId, props.highRes);
+    const result = await props.requestRelation(rel, props.highRes);
     props.onRelationChanged(result.ok ?? "", rel);
     setValidationError(result.err);
     // For immediate use of the result.
@@ -384,7 +387,7 @@ export const RelationInput = (props: RelationInputProps) => {
     debounce(async (): Promise<RequestRelationResult> => {
       return updateRelationImmediately();
     }, 200),
-    [props.graphId, props.highRes]
+    [props.highRes]
   );
 
   function updateTokens() {
@@ -400,7 +403,7 @@ export const RelationInput = (props: RelationInputProps) => {
 
   useEffect(() => {
     updateRelationImmediately();
-  }, [props.graphId, props.highRes]);
+  }, [props.highRes]);
 
   useEffect(() => {
     if (props.relationInputByUser) return;

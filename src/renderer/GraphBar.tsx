@@ -3,6 +3,7 @@ import * as React from "react";
 import { useRef } from "react";
 import { DraggableProvidedDragHandleProps } from "react-beautiful-dnd";
 import { useDispatch } from "react-redux";
+import { RequestRelationResult } from "../common/ipc";
 import { Bar } from "./Bar";
 import { BarIconButton } from "./BarIconButton";
 import { ColorButton } from "./ColorButton";
@@ -15,6 +16,11 @@ export interface GraphBarProps {
   dragHandleProps?: DraggableProvidedDragHandleProps;
   focusGraphView: () => void;
   graphId: string;
+  requestRelation: (
+    rel: string,
+    graphId: string,
+    highRes: boolean
+  ) => Promise<RequestRelationResult>;
 }
 
 export const GraphBar = (props: GraphBarProps): JSX.Element => {
@@ -55,6 +61,9 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
         processing={graph.isProcessing}
         relation={graph.relation}
         relationInputByUser={graph.relationInputByUser}
+        requestRelation={(rel: string, highRes: boolean) => {
+          return props.requestRelation(rel, props.graphId, highRes);
+        }}
       />
       <SymbolsButton
         onSymbolChosen={(symbol: string) =>

@@ -7,6 +7,7 @@ import { useRef } from "react";
 import * as ReactDOM from "react-dom";
 import { Provider } from "react-redux";
 import * as ipc from "../common/ipc";
+import { RequestRelationResult } from "../common/ipc";
 import { MenuItem } from "../common/MenuItem";
 import "./App.css";
 import { GraphBars } from "./GraphBars";
@@ -14,6 +15,19 @@ import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
 import { setHighRes, setShowAxes, setShowGrid } from "./models/app";
 import { store } from "./models/store";
+
+const requestRelation = async (
+  rel: string,
+  graphId: string,
+  highRes: boolean
+): Promise<RequestRelationResult> => {
+  return await window.ipcRenderer.invoke<ipc.RequestRelation>(
+    ipc.requestRelation,
+    rel,
+    graphId,
+    highRes
+  );
+};
 
 const App = () => {
   const graphViewRef = useRef<HTMLDivElement>(null);
@@ -33,7 +47,10 @@ const App = () => {
           },
         }}
       >
-        <GraphBars focusGraphView={focusGraphView} />
+        <GraphBars
+          focusGraphView={focusGraphView}
+          requestRelation={requestRelation}
+        />
         <GraphCommandBar />
       </Stack>
       <GraphView grow ref={graphViewRef} />

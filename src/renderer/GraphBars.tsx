@@ -7,11 +7,17 @@ import {
   DropResult,
 } from "react-beautiful-dnd";
 import { useDispatch } from "react-redux";
+import { RequestRelationResult } from "../common/ipc";
 import { GraphBar } from "./GraphBar";
 import { reorderGraph, useSelector } from "./models/app";
 
 export interface GraphBarsProps {
   focusGraphView: () => void;
+  requestRelation: (
+    rel: string,
+    graphId: string,
+    highRes: boolean
+  ) => Promise<RequestRelationResult>;
 }
 
 export const GraphBars = (props: GraphBarsProps): JSX.Element => {
@@ -50,6 +56,7 @@ export const GraphBars = (props: GraphBarsProps): JSX.Element => {
                       dragHandleProps={provided.dragHandleProps}
                       focusGraphView={props.focusGraphView}
                       graphId={id}
+                      requestRelation={props.requestRelation}
                     />
                   </div>
                 )}
