@@ -102,7 +102,7 @@ t!(
     t_2bba64e6e7d24423bbd3d2a08fe5c780,
     "y = Y(-1, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(4000),
+    @timeout(5000),
 );
 t!(
     t_1d96ba0ba09f44e7a9e3f497526013fa,
@@ -125,7 +125,7 @@ t!(
     t_a95ce899a2c24239b21bd1f787610d4b,
     "y = Y(1, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(4000),
+    @timeout(5000),
 );
 t!(
     t_7432071d9b3c4526bfe61c05f91e1964,
