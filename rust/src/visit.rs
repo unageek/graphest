@@ -826,6 +826,47 @@ impl VisitMut for ExpandBoole {
     }
 }
 
+/// Transforms `mod(x, y) = 0` into `mod(x + y / 2, a) - y / 2 = 0`.
+///
+/// Precondition: [`NormalizeRelationalExprs`] has been applied to the expression,
+/// and then the expression has been simplified.
+///
+/// It might be better to also apply [`ExpandBoole`] before this one,
+/// since transforming equations in the conditions of `if` expressions
+/// will not likely to help improve quality of the output.
+pub struct ModEqTransform;
+
+impl VisitMut for ModEqTransform {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use {BinaryOp::*, NaryOp::*};
+        traverse_expr_mut(self, e);
+
+        if let binary!(Eq, binary!(Mod, x, y), rhs) = e {
+            *e = Expr::binary(
+                Eq,
+                box Expr::nary(
+                    Plus,
+                    vec![
+                        Expr::binary(
+                            Mod,
+                            box Expr::nary(
+                                Plus,
+                                vec![
+                                    take(x),
+                                    Expr::nary(Times, vec![Expr::one_half(), y.clone()]),
+                                ],
+                            ),
+                            box y.clone(),
+                        ),
+                        Expr::nary(Times, vec![Expr::minus_one_half(), y.clone()]),
+                    ],
+                ),
+                box take(rhs),
+            );
+        }
+    }
+}
+
 /// Flattens out nested expressions of kind [`NaryOp::Plus`]/[`NaryOp::Times`].
 ///
 /// To any expression that contains zero or one term, the following rules are applied:
@@ -1980,6 +2021,20 @@ mod tests {
         test("x = 0", "(BooleEqZero x)");
         test("x ≤ 0", "(BooleLeZero x)");
         test("x < 0", "(BooleLtZero x)");
+    }
+
+    #[test]
+    fn mod_eq_transform() {
+        fn test(input: &str, expected: &str) {
+            let mut e = parse_expr(input, &[Context::builtin()]).unwrap();
+            ModEqTransform.visit_expr_mut(&mut e);
+            assert_eq!(format!("{}", e.dump_short()), expected);
+        }
+
+        test(
+            "mod(x, y) = 0",
+            "(Eq (Plus (Mod (Plus x (Times 0.5 y)) y) (Times -0.5 y)) 0)",
+        );
     }
 
     #[test]

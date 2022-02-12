@@ -13,3 +13,6 @@ t!(t_12ec2e045b3c497bb3e16a73dd07e7d6, "y < sqrt(x)");
 t!(t_efde3acd852446e689c48f1490506d24, "y ≤ sqrt(x)");
 t!(t_db32206574674f008c1db254e97f2742, "y > sqrt(x)");
 t!(t_c8bcbe5b1ca849a9bf413518c22d4fa4, "y ≥ sqrt(x)");
+
+// Check if `ModEqTransform` is applied.
+t!(t_531465e0b09043fd9a61a215df79afab, "mod(x, π) = 0");

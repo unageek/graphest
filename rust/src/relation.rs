@@ -291,6 +291,8 @@ impl FromStr for Relation {
         NormalizeRelationalExprs.visit_expr_mut(&mut e);
         ExpandBoole.visit_expr_mut(&mut e);
         simplify(&mut e);
+        ModEqTransform.visit_expr_mut(&mut e);
+        simplify(&mut e);
 
         let n_theta_range = {
             let period = function_period(&e, VarSet::N_THETA);

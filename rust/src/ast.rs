@@ -333,6 +333,11 @@ impl Expr {
         Self::constant(const_dec_interval!(-1.0, -1.0).into())
     }
 
+    /// Creates a constant node with value -1/2.
+    pub fn minus_one_half() -> Self {
+        Self::constant(const_dec_interval!(-0.5, -0.5).into())
+    }
+
     /// Creates a new expression of kind [`ExprKind::Nary`].
     pub fn nary(op: NaryOp, xs: Vec<Expr>) -> Self {
         Self::new(ExprKind::Nary(op, xs))
