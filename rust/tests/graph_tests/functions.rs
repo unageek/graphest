@@ -32,12 +32,16 @@ t!(t_99de97a06c824edfbccd3e425633a290, "y = erfi(x)");
 t!(t_41c51c4052894908ad252aa1f45f30ac, "y = erfinv(x)");
 t!(t_944c89064a004af9bcda883f98785d4c, "y = exp(x)");
 t!(t_0d3db3fb75604b85893ef6935b6f6ce8, "y = floor(x)");
-t!(t_4e62c6b2dc704f47a8275b5f412b6f6c, "y = Gamma(x)");
+t!(t_4e62c6b2dc704f47a8275b5f412b6f6c, "y = Γ(x)");
+t!(t_9903294009524c4aa671b035804cd213, "y = Γ(-1, x)");
+t!(t_7ba9b50587f64182a5fb7130232843f6, "y = Γ(0, x)");
+t!(t_3d165e6f280540cf88da4b1ececeb299, "y = Γ(1, x)");
+t!(t_eafdf80bfc1d45f6a244dfa827b389f9, "y = Γ(2, x)");
 t!(t_4f6d9c9c7b8d484993cb265a88322897, "y = K(x)");
 t!(t_a1781b46eb8c45f58d656f455677c84c, "y = li(x)");
 t!(t_6c486f3c2aef49dead6acd55f3848433, "y = ln(x)");
 t!(t_09177d1cf2fb44af91b5e47a7213019d, "y = log(10, x)");
-t!(t_0e998089005f4afda4752098d63cd55a, "y = psi(x)");
+t!(t_0e998089005f4afda4752098d63cd55a, "y = ψ(x)");
 t!(
     t_a99a60361a8d4b69a1461484c0622e10,
     "y = S(x)",

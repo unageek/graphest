@@ -704,7 +704,7 @@ impl TupperIntervalSet {
     impl_arb_op!(
         gamma_inc(s, x),
         if s.inf() % 2.0 == 1.0 {
-            // n = 1, 3, …
+            // s = 1, 3, 5, …
             let a = x.inf();
             let b = x.sup();
             let inf = if b == f64::INFINITY {
@@ -719,9 +719,9 @@ impl TupperIntervalSet {
             };
             interval!(inf, sup).unwrap()
         } else {
-            // n ≠ 1, 3, …
+            // s ≠ 1, 3, 5, …
             let y0 = if s.inf() > 0.0 && s.inf() % 2.0 == 0.0 {
-                // n = 2, 4, …
+                // s = 2, 4, 6, …
                 let x = x.intersection(N_INF_TO_ZERO);
                 if x.is_empty() {
                     Interval::EMPTY
@@ -736,7 +736,7 @@ impl TupperIntervalSet {
                     interval!(inf, arb_gamma_inc(s, i(b)).sup()).unwrap()
                 }
             } else {
-                // n ≠ 1, 2, …
+                // s ≠ 1, 2, 3, …
                 Interval::EMPTY
             };
             let y1 = {
