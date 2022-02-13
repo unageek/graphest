@@ -61,7 +61,7 @@
     "@fontsource/noto-sans": "^4.5.3",
     "@reduxjs/toolkit": "^1.7.2",
     "bignumber.js": "^9.0.2",
-    "color": "^4.2.0",
+    "color": "^4.2.1",
     "leaflet": "^1.7.1",
     "leaflet-easybutton": "^2.4.0",
     "lodash": "^4.17.21",
