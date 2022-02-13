@@ -33,22 +33,27 @@ import * as result from "../common/result";
 
 const fsPromises = fs.promises;
 
-// Lifecycle of a job
+// The Lifecycle of a Job
 //
-//        +----------+        +----------+        +----------+
-//   ●--->|  Queued  +------->|  Active  +------->|  Exited  |
-//        +----------+        +--+----+--+        +----------+
-//                               | Λ  |
-//                               | |  +--------------+
-//                      Pause *1 | | Resume *2       | SIGKILL
-//                               V |                 V
-//                            +----+-----+        +----------+
-//                            | Sleeping +------->| Aborted  |
-//                            +----------+  SIG-  +----------+
-//                                          KILL
+//                        |  Running graph(1)  |
+//                        |                    |
+//                        |                    |
+//        +----------+    |    +----------+    |    +----------+
+//   ●--->|  Queued  +-------->|  Active  +-------->|  Exited  |
+//        +----------+    |    +--+----+--+    |    +----------+
+//                        |       | Λ  |       |
+//                        |       | |  +---------------+
+//                       Pause *1 | | Resume *2|       | SIGKILL
+//                        |       V |          |       V
+//                        |    +----+-----+    |    +----------+
+//                        |    | Sleeping +-------->| Aborted  |
+//                        |    +----------+  SIG-   +----------+
+//                        |                  KILL
+//                        |                    |
 //
-// *1. `graph` pauses execution right after initialization and every time it finishes writing the output image.
-// *2. `graph` resumes execution when a newline character is written to its stdin.
+// *1. graph(1) pauses execution right after initialization and every after it finishes
+//     writing to the output image.
+// *2. graph(1) resumes execution when it receives a newline character from stdin.
 
 /** The maximum number of running (both active and sleeping) jobs. */
 const MAX_JOBS = 32;
