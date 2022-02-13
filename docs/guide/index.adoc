@@ -682,6 +682,17 @@ All functions accept only real inputs at the moment.
 |===
 |Input |Interpreted as |Notes |Links
 
+|`W(x)` +
+`W(k, x)`
+|stem:[W(x) = W_0(x)] +
+stem:[W_k(x)]
+|The https://en.wikipedia.org/wiki/Lambert_W_function[Lambert W function]. +
+stem:[k] must be either 0 or −1.
+|https://functions.wolfram.com/ElementaryFunctions/ProductLog/[MFS]
+https://mathworld.wolfram.com/LambertW-Function.html[MW] +
+https://functions.wolfram.com/ElementaryFunctions/ProductLog2/[MFS]
+https://mathworld.wolfram.com/LambertW-Function.html[MW]
+
 |`Gamma(x)` or `Γ(x)`
 |stem:[Γ(x)]
 |The https://en.wikipedia.org/wiki/Gamma_function[gamma function].

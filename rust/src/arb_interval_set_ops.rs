@@ -334,7 +334,7 @@ impl TupperIntervalSet {
         {
             assert!(
                 n.is_singleton() && n.inf() % 0.5 == 0.0,
-                "`I(n, x)` only permits integers and half-integers for `n`"
+                "`n` must be an integer or a half-integer in `I(n, x)`"
             );
             if n.inf() % 1.0 == 0.0 {
                 Ternary::True
@@ -392,7 +392,7 @@ impl TupperIntervalSet {
         {
             assert!(
                 n.is_singleton() && n.inf() % 0.5 == 0.0,
-                "`J(n, x)` only permits integers and half-integers for `n`"
+                "`n` must be an integer or a half-integer in `J(n, x)`"
             );
             if n.inf() % 1.0 == 0.0 {
                 Ternary::True
@@ -419,7 +419,7 @@ impl TupperIntervalSet {
         {
             assert!(
                 n.is_singleton() && n.inf() % 0.5 == 0.0,
-                "`K(n, x)` only permits integers and half-integers for `n`"
+                "`n` must be an integer or a half-integer in `K(n, x)`"
             );
             gt!(x, 0.0)
         }
@@ -474,7 +474,7 @@ impl TupperIntervalSet {
         {
             assert!(
                 n.is_singleton() && n.inf() % 0.5 == 0.0,
-                "`Y(n, x)` only permits integers and half-integers for `n`"
+                "`n` must be an integer or a half-integer in `Y(n, x)`"
             );
             gt!(x, 0.0)
         }
@@ -759,7 +759,7 @@ impl TupperIntervalSet {
         {
             assert!(
                 s.is_singleton(),
-                "`Gamma(a, x)` only permits exact numbers for `a`"
+                "`a` must be an exact number in `Gamma(a, x)`"
             );
             let s = s.inf();
             if s > 0.0 && s % 1.0 == 0.0 {
@@ -799,6 +799,83 @@ impl TupperIntervalSet {
         },
         ge!(x, 0.0) & le!(x, 2.0)
     );
+
+    pub fn lambert_w(&self, rhs: &Self) -> Self {
+        const FRAC_M_ONE_E_RD: f64 = -0.36787944117144233;
+        const FRAC_M_ONE_E_RU: f64 = -0.3678794411714423;
+        let mut rs = Self::new();
+        if self.to_f64() == Some(0.0) {
+            for k in self {
+                for x in rhs {
+                    if let Some(g) = k.g.union(x.g) {
+                        let a = x.x.inf();
+                        let dec = if a >= FRAC_M_ONE_E_RU {
+                            Decoration::Com.min(k.d).min(x.d)
+                        } else {
+                            Decoration::Trv
+                        };
+                        let x =
+                            x.x.intersection(const_interval!(FRAC_M_ONE_E_RD, f64::INFINITY));
+                        let a = x.inf();
+                        let b = x.sup();
+                        let y = if x.is_empty() {
+                            Interval::EMPTY
+                        } else {
+                            let inf = {
+                                let a = interval!(a, a).unwrap();
+                                arb_lambert_w_0(a).inf()
+                            };
+                            let sup = if b == f64::INFINITY {
+                                f64::INFINITY
+                            } else {
+                                let b = interval!(b, b).unwrap();
+                                arb_lambert_w_0(b).sup()
+                            };
+                            interval!(inf, sup).unwrap()
+                        };
+                        rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), g));
+                    }
+                }
+            }
+        } else if self.to_f64() == Some(-1.0) {
+            for k in self {
+                for x in rhs {
+                    if let Some(g) = k.g.union(x.g) {
+                        let a = x.x.inf();
+                        let b = x.x.sup();
+                        let dec = if a >= FRAC_M_ONE_E_RU && b < 0.0 {
+                            Decoration::Com.min(k.d).min(x.d)
+                        } else {
+                            Decoration::Trv
+                        };
+                        let x = x.x.intersection(const_interval!(FRAC_M_ONE_E_RD, 0.0));
+                        let a = x.inf();
+                        let b = x.sup();
+                        let y = if a == 0.0 || x.is_empty() {
+                            Interval::EMPTY
+                        } else {
+                            let inf = if b == 0.0 {
+                                f64::NEG_INFINITY
+                            } else {
+                                let b = interval!(b, b).unwrap();
+                                arb_lambert_w_m1(b).inf()
+                            };
+                            let sup = {
+                                let a = interval!(a, a).unwrap();
+                                arb_lambert_w_m1(a).sup()
+                            };
+                            interval!(inf, sup).unwrap()
+                        };
+                        rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), g));
+                    }
+                }
+            }
+        } else {
+            panic!("`k` must be either 0 or -1 in `W(k, x)`");
+        }
+        rs.normalize(false);
+        rs
+    }
 
     impl_arb_op!(
         li(x),
@@ -1235,6 +1312,16 @@ arb_fn!(
     Interval::ENTIRE
 );
 arb_fn!(
+    arb_lambert_w_0(x),
+    arb_lambertw(x, x, 0, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-1.0, f64::INFINITY)
+);
+arb_fn!(
+    arb_lambert_w_m1(x),
+    arb_lambertw(x, x, 1, f64::MANTISSA_DIGITS.into()),
+    const_interval!(f64::NEG_INFINITY, -1.0)
+);
+arb_fn!(
     _arb_li(x),
     arb_hypgeom_li(x, x, 0, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE,
@@ -1397,6 +1484,16 @@ mod tests {
                 for x in &xs {
                     f(n, x);
                 }
+            }
+        }
+
+        let ks = vec![-1.0, 0.0]
+            .into_iter()
+            .map(|k| TupperIntervalSet::from(dec_interval!(k, k).unwrap()))
+            .collect::<Vec<_>>();
+        for k in &ks {
+            for x in &xs {
+                TupperIntervalSet::lambert_w(k, x);
             }
         }
     }

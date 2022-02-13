@@ -94,6 +94,7 @@ pub enum BinaryOp {
     Gcd,
     Ge,
     Gt,
+    LambertW,
     Lcm,
     Le,
     Log,
@@ -479,6 +480,7 @@ impl Expr {
             binary!(BesselY, n, x) => Some(n.eval()?.bessel_y(x.eval()?)),
             binary!(GammaInc, a, x) => Some(a.eval()?.gamma_inc(x.eval()?)),
             binary!(Gcd, x, y) => Some(x.eval()?.gcd(y.eval()?)),
+            binary!(LambertW, k, x) => Some(k.eval()?.lambert_w(x.eval()?)),
             binary!(Lcm, x, y) => Some(x.eval()?.lcm(y.eval()?)),
             // Beware the order of arguments.
             binary!(Log, b, x) => Some(x.eval()?.log(b.eval()?)),
@@ -760,6 +762,7 @@ impl Expr {
                     | Div
                     | GammaInc
                     | Gcd
+                    | LambertW
                     | Lcm
                     | Log
                     | Max

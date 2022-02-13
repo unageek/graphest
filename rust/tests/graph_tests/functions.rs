@@ -56,6 +56,8 @@ t!(t_5ac006668e084891a8394362499446ea, "y = sinh(x)");
 t!(t_58ee894ce5fb4164ac0e3c422ac7948f, "y = sqrt(x)");
 t!(t_51f6423ada6a45eba368eb03b57e10ee, "y = tan(x)");
 t!(t_c88349f5b4a74502b82b56c56ffd9ea7, "y = tanh(x)");
+t!(t_0a655aecc017422a8a829bb33f8ff280, "y = W(x)");
+t!(t_91b4b44592264430835999d3ec1b0363, "y = W(-1, x)");
 
 // Bessel functions
 t!(

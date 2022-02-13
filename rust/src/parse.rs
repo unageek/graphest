@@ -648,6 +648,8 @@ mod tests {
         test("Y(n, x)", "(BesselY n x)");
         test("Gamma(a, x)", "(GammaInc a x)");
         test("Γ(a, x)", "(GammaInc a x)");
+        test("W(x)", "(LambertW 0 x)");
+        test("W(k, x)", "(LambertW k x)");
         test("log(b, x)", "(Log b x)");
         test("mod(x, y)", "(Mod x y)");
         test("gcd(x, y, z)", "(Gcd (Gcd x y) z)");

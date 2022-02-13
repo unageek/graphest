@@ -1664,6 +1664,7 @@ impl<'a> CollectStatic<'a> {
                         Div => ScalarBinaryOp::Div,
                         GammaInc => ScalarBinaryOp::GammaInc,
                         Gcd => ScalarBinaryOp::Gcd,
+                        LambertW => ScalarBinaryOp::LambertW,
                         Lcm => ScalarBinaryOp::Lcm,
                         Log => ScalarBinaryOp::Log,
                         Max => ScalarBinaryOp::Max,

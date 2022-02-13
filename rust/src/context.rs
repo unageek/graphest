@@ -343,6 +343,15 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("gcd", Def::binary(Gcd).left_associative())
         .def(">=", Def::binary(Ge))
         .def(">", Def::binary(Gt))
+        .def(
+            "W",
+            Def::Function {
+                arity: 1,
+                body: { Expr::binary(LambertW, box Expr::zero(), box Expr::var("#0")) },
+                left_associative: false,
+            },
+        )
+        .def("W", Def::binary(LambertW))
         .def("lcm", Def::binary(Lcm).left_associative())
         .def("<=", Def::binary(Le))
         .def("log", Def::binary(Log))

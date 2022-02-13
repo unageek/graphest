@@ -100,6 +100,7 @@ pub enum ScalarBinaryOp {
     Div,
     GammaInc,
     Gcd,
+    LambertW,
     Lcm,
     Log,
     Max,
@@ -227,6 +228,7 @@ impl StaticTerm {
             Binary(Div, x, y) => self.put(ts, ts[*x].div(&ts[*y], self.site)),
             Binary(GammaInc, a, x) => self.put(ts, ts[*a].gamma_inc(&ts[*x])),
             Binary(Gcd, x, y) => self.put(ts, ts[*x].gcd(&ts[*y], self.site)),
+            Binary(LambertW, k, x) => self.put(ts, ts[*k].lambert_w(&ts[*x])),
             Binary(Lcm, x, y) => self.put(ts, ts[*x].lcm(&ts[*y], self.site)),
             // Beware the order of arguments.
             Binary(Log, b, x) => self.put(ts, ts[*x].log(&ts[*b], self.site)),
