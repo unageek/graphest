@@ -1265,6 +1265,7 @@ impl TupperIntervalSet {
     requires_arb!(li(x));
     requires_arb!(shi(x));
     requires_arb!(si(x));
+    requires_arb!(zeta(x));
 }
 
 impl TupperIntervalSet {

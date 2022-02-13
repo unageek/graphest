@@ -1047,6 +1047,39 @@ impl TupperIntervalSet {
             x.tanh()
         }
     );
+
+    impl_arb_op!(
+        zeta(x),
+        {
+            let x0 = x.intersection(const_interval!(f64::NEG_INFINITY, 1.0));
+            let x1 = x.intersection(const_interval!(1.0, f64::INFINITY));
+            let y0 = if x0.is_empty() {
+                Interval::EMPTY
+            } else {
+                // We don't know the monotonicity of ζ(s) for s < 1.
+                arb_zeta(x0)
+            };
+            let y1 = if x1.is_empty() {
+                Interval::EMPTY
+            } else {
+                let a = x1.inf();
+                let b = x1.sup();
+                if a == 1.0 && b == f64::INFINITY {
+                    const_interval!(1.0, f64::INFINITY)
+                } else if a == 1.0 {
+                    let b = interval!(b, b).unwrap();
+                    interval!(arb_zeta_rd(b), f64::INFINITY).unwrap()
+                } else if b == f64::INFINITY {
+                    let a = interval!(a, a).unwrap();
+                    interval!(1.0, arb_zeta_ru(a)).unwrap()
+                } else {
+                    arb_zeta(x1)
+                }
+            };
+            y0.convex_hull(y1)
+        },
+        lt!(x, 1.0) | gt!(x, 1.0)
+    );
 }
 
 macro_rules! arb_fn {
@@ -1379,6 +1412,13 @@ arb_fn!(
     arb_tanh(x, x, f64::MANTISSA_DIGITS.into()),
     M_ONE_TO_ONE
 );
+arb_fn!(
+    arb_zeta(x),
+    arb_zeta(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE,
+    arb_zeta_rd,
+    arb_zeta_ru
+);
 
 // Envelope functions
 
@@ -1465,6 +1505,7 @@ mod tests {
             TupperIntervalSet::li,
             TupperIntervalSet::shi,
             TupperIntervalSet::si,
+            TupperIntervalSet::zeta,
         ];
         for f in &fs {
             for x in &xs {

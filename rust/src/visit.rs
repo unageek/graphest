@@ -1637,6 +1637,7 @@ impl<'a> CollectStatic<'a> {
                         Tan => ScalarUnaryOp::Tan,
                         Tanh => ScalarUnaryOp::Tanh,
                         UndefAt0 => ScalarUnaryOp::UndefAt0,
+                        Zeta => ScalarUnaryOp::Zeta,
                         Arg | Boole | Conj | Im | Re | Not | Sign => return None,
                     })
                 })()

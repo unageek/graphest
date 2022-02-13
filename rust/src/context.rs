@@ -329,6 +329,8 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("sqrt", Def::unary(Sqrt))
         .def("tan", Def::unary(Tan))
         .def("tanh", Def::unary(Tanh))
+        .def("zeta", Def::unary(Zeta))
+        .def("ζ", Def::unary(Zeta))
         .def("+", Def::binary(Add))
         .def("&&", Def::binary(And))
         .def("atan2", Def::binary(Atan2))
