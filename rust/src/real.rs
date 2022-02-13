@@ -197,6 +197,7 @@ impl Real {
     impl_op!(tan(x), x.tan(None));
     impl_op!(tanh(x));
     impl_op!(undef_at_0(x));
+    impl_op!(zeta(x));
 }
 
 impl Neg for Real {

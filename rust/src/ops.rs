@@ -87,6 +87,7 @@ pub enum ScalarUnaryOp {
     Tan,
     Tanh,
     UndefAt0,
+    Zeta,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -219,6 +220,7 @@ impl StaticTerm {
             Unary(Tan, x) => self.put(ts, ts[*x].tan(self.site)),
             Unary(Tanh, x) => self.put(ts, ts[*x].tanh()),
             Unary(UndefAt0, x) => self.put(ts, ts[*x].undef_at_0()),
+            Unary(Zeta, x) => self.put(ts, ts[*x].zeta()),
             Binary(Add, x, y) => self.put(ts, &ts[*x] + &ts[*y]),
             Binary(Atan2, y, x) => self.put(ts, ts[*y].atan2(&ts[*x], self.site)),
             Binary(BesselI, n, x) => self.put(ts, ts[*n].bessel_i(&ts[*x])),

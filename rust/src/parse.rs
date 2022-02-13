@@ -641,6 +641,8 @@ mod tests {
         test("sqrt(x)", "(Sqrt x)");
         test("tan(x)", "(Tan x)");
         test("tanh(x)", "(Tanh x)");
+        test("zeta(x)", "(Zeta x)");
+        test("ζ(x)", "(Zeta x)");
         test("atan2(y, x)", "(Atan2 y x)");
         test("I(n, x)", "(BesselI n x)");
         test("J(n, x)", "(BesselJ n x)");

@@ -75,6 +75,7 @@ pub enum UnaryOp {
     Tan,
     Tanh,
     UndefAt0,
+    Zeta,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -468,6 +469,7 @@ impl Expr {
             unary!(Tan, x) => Some(x.eval()?.tan()),
             unary!(Tanh, x) => Some(x.eval()?.tanh()),
             unary!(UndefAt0, x) => Some(x.eval()?.undef_at_0()),
+            unary!(Zeta, x) => Some(x.eval()?.zeta()),
             unary!(
                 Arg | Boole | Conj | Im | Neg | Not | Re | Recip | Sign | Sqr | Sqrt,
                 _
@@ -750,7 +752,8 @@ impl Expr {
                     | Sqrt
                     | Tan
                     | Tanh
-                    | UndefAt0,
+                    | UndefAt0
+                    | Zeta,
                 x
             ) if real(x) => Real,
             binary!(

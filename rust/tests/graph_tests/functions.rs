@@ -58,6 +58,7 @@ t!(t_51f6423ada6a45eba368eb03b57e10ee, "y = tan(x)");
 t!(t_c88349f5b4a74502b82b56c56ffd9ea7, "y = tanh(x)");
 t!(t_0a655aecc017422a8a829bb33f8ff280, "y = W(x)");
 t!(t_91b4b44592264430835999d3ec1b0363, "y = W(-1, x)");
+t!(t_e2a2a39070e6465fb4ce10c6b6ab3588, "y = ζ(x)");
 
 // Bessel functions
 t!(
