@@ -994,9 +994,9 @@ impl TupperIntervalSet {
         } else if n < 0 && n % 2 == -1 && a < 0.0 && b > 0.0 {
             let x0 = DecInterval::set_dec(interval!(a, 0.0).unwrap(), x.decoration());
             let x1 = DecInterval::set_dec(interval!(0.0, b).unwrap(), x.decoration());
-            (x0.pown(n), Some(x1.pown(n)))
+            (x0.powi(n), Some(x1.powi(n)))
         } else {
-            (x.pown(n), None)
+            (x.powi(n), None)
         }
     });
 

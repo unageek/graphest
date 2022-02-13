@@ -257,6 +257,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "forward_ref"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8cbd1169bd7b4a0a20d92b9af7a7e0422888bd38a6f5ec29c1fd8c1558a272e"
+
+[[package]]
 name = "glob"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -335,11 +341,12 @@ dependencies = [
 
 [[package]]
 name = "inari"
-version = "0.12.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce69ea3f63514e3b509fb6802632133084b9cadd6101c5e53f499abe152a613f"
+checksum = "6eea9cbe7cbbfad7df4f0106cba2ec9351a3fe64841b432b9339c4ce7f37622f"
 dependencies = [
  "cfg-if",
+ "forward_ref",
  "gmp-mpfr-sys",
  "nom",
  "rug",
