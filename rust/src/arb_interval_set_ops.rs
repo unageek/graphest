@@ -823,13 +823,13 @@ impl TupperIntervalSet {
                         } else {
                             let inf = {
                                 let a = interval!(a, a).unwrap();
-                                arb_lambert_w_0(a).inf()
+                                arb_lambert_w_0_rd(a)
                             };
                             let sup = if b == f64::INFINITY {
                                 f64::INFINITY
                             } else {
                                 let b = interval!(b, b).unwrap();
-                                arb_lambert_w_0(b).sup()
+                                arb_lambert_w_0_ru(b)
                             };
                             interval!(inf, sup).unwrap()
                         };
@@ -858,11 +858,11 @@ impl TupperIntervalSet {
                                 f64::NEG_INFINITY
                             } else {
                                 let b = interval!(b, b).unwrap();
-                                arb_lambert_w_m1(b).inf()
+                                arb_lambert_w_m1_rd(b)
                             };
                             let sup = {
                                 let a = interval!(a, a).unwrap();
-                                arb_lambert_w_m1(a).sup()
+                                arb_lambert_w_m1_ru(a)
                             };
                             interval!(inf, sup).unwrap()
                         };
@@ -1312,14 +1312,18 @@ arb_fn!(
     Interval::ENTIRE
 );
 arb_fn!(
-    arb_lambert_w_0(x),
+    _arb_lambert_w_0(x),
     arb_lambertw(x, x, 0, f64::MANTISSA_DIGITS.into()),
-    const_interval!(-1.0, f64::INFINITY)
+    const_interval!(-1.0, f64::INFINITY),
+    arb_lambert_w_0_rd,
+    arb_lambert_w_0_ru
 );
 arb_fn!(
-    arb_lambert_w_m1(x),
+    _arb_lambert_w_m1(x),
     arb_lambertw(x, x, 1, f64::MANTISSA_DIGITS.into()),
-    const_interval!(f64::NEG_INFINITY, -1.0)
+    const_interval!(f64::NEG_INFINITY, -1.0),
+    arb_lambert_w_m1_rd,
+    arb_lambert_w_m1_ru
 );
 arb_fn!(
     _arb_li(x),
