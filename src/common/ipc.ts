@@ -1,5 +1,5 @@
 import { IpcRendererEvent } from "electron";
-import { MenuItem } from "./MenuItem";
+import { Command } from "./command";
 import { Range } from "./range";
 import { Result } from "./result";
 
@@ -51,6 +51,13 @@ export interface MessageToRenderer {
   listener: (event: IpcRendererEvent, ...args: any[]) => void;
 }
 
+export const commandInvoked = "command-invoked";
+export interface CommandInvoked extends MessageToRenderer {
+  channel: typeof commandInvoked;
+  args: [command: Command];
+  listener: (event: IpcRendererEvent, ...args: CommandInvoked["args"]) => void;
+}
+
 export const graphingStatusChanged = "graphing-status-changed";
 export interface GraphingStatusChanged extends MessageToRenderer {
   channel: typeof graphingStatusChanged;
@@ -59,13 +66,6 @@ export interface GraphingStatusChanged extends MessageToRenderer {
     event: IpcRendererEvent,
     ...args: GraphingStatusChanged["args"]
   ) => void;
-}
-
-export const menuItemInvoked = "menu-item-invoked";
-export interface MenuItemInvoked extends MessageToRenderer {
-  channel: typeof menuItemInvoked;
-  args: [item: MenuItem];
-  listener: (event: IpcRendererEvent, ...args: MenuItemInvoked["args"]) => void;
 }
 
 export const tileReady = "tile-ready";

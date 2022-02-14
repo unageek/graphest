@@ -6,9 +6,9 @@ import * as React from "react";
 import { useRef } from "react";
 import * as ReactDOM from "react-dom";
 import { Provider } from "react-redux";
+import { Command } from "../common/command";
 import * as ipc from "../common/ipc";
 import { RequestRelationResult } from "../common/ipc";
-import { MenuItem } from "../common/MenuItem";
 import "./App.css";
 import { GraphBars } from "./GraphBars";
 import { GraphCommandBar } from "./GraphCommandBar";
@@ -71,16 +71,16 @@ ReactDOM.render(
   document.getElementById("app")
 );
 
-window.ipcRenderer.on<ipc.MenuItemInvoked>(ipc.menuItemInvoked, (_, item) => {
+window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
   const state = store.getState();
   switch (item) {
-    case MenuItem.HighResolution:
+    case Command.HighResolution:
       store.dispatch(setHighRes(!state.highRes));
       break;
-    case MenuItem.ShowAxes:
+    case Command.ShowAxes:
       store.dispatch(setShowAxes(!state.showAxes));
       break;
-    case MenuItem.ShowGrid:
+    case Command.ShowGrid:
       store.dispatch(setShowGrid(!state.showGrid));
       break;
   }

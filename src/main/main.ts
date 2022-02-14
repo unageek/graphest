@@ -20,6 +20,7 @@ import * as path from "path";
 import { pathToFileURL } from "url";
 import * as util from "util";
 import { bignum } from "../common/BigNumber";
+import { Command } from "../common/command";
 import {
   BASE_ZOOM_LEVEL,
   EXTENDED_GRAPH_TILE_SIZE,
@@ -27,7 +28,6 @@ import {
   GRAPH_TILE_SIZE,
 } from "../common/constants";
 import * as ipc from "../common/ipc";
-import { MenuItem } from "../common/MenuItem";
 import { Range } from "../common/range";
 import * as result from "../common/result";
 
@@ -128,29 +128,23 @@ function createMainMenu(): Menu {
       label: "&Graph",
       submenu: [
         {
-          id: MenuItem.ShowAxes,
+          id: Command.ShowAxes,
           label: "Show &Axes",
           accelerator: "Alt+CmdOrCtrl+A",
           type: "checkbox",
           checked: true,
           click: () => {
-            mainWindow?.webContents.send(
-              ipc.menuItemInvoked,
-              MenuItem.ShowAxes
-            );
+            mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowAxes);
           },
         },
         {
-          id: MenuItem.ShowGrid,
+          id: Command.ShowGrid,
           label: "Show &Grid",
           accelerator: "Alt+CmdOrCtrl+G",
           type: "checkbox",
           checked: true,
           click: () => {
-            mainWindow?.webContents.send(
-              ipc.menuItemInvoked,
-              MenuItem.ShowGrid
-            );
+            mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowGrid);
           },
         },
         {
@@ -159,13 +153,13 @@ function createMainMenu(): Menu {
         ...(isRetina
           ? [
               {
-                id: MenuItem.HighResolution,
+                id: Command.HighResolution,
                 label: "&High Resolution",
                 type: "checkbox",
                 click: () => {
                   mainWindow?.webContents.send(
-                    ipc.menuItemInvoked,
-                    MenuItem.HighResolution
+                    ipc.commandInvoked,
+                    Command.HighResolution
                   );
                 },
               },
@@ -175,7 +169,7 @@ function createMainMenu(): Menu {
           type: "separator",
         },
         {
-          id: MenuItem.AbortGraphing,
+          id: Command.AbortGraphing,
           label: "A&bort Graphing",
           accelerator: "Esc",
           click: () => {
@@ -435,7 +429,7 @@ function abortJobs(filter: JobFilter = () => true) {
 
 function checkAndNotifyGraphingStatusChanged(relId: string) {
   const nJobs = countJobs();
-  const abortGraphingMenu = mainMenu?.getMenuItemById(MenuItem.AbortGraphing);
+  const abortGraphingMenu = mainMenu?.getMenuItemById(Command.AbortGraphing);
   if (abortGraphingMenu) {
     abortGraphingMenu.enabled = nJobs > 0;
   }
