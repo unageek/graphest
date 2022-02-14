@@ -20,7 +20,8 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
   (props, ref) => {
     const graphs = useSelector((s) => s.graphs);
     const showAxes = useSelector((s) => s.showAxes);
-    const showGrid = useSelector((s) => s.showGrid);
+    const showMajorGrid = useSelector((s) => s.showMajorGrid);
+    const showMinorGrid = useSelector((s) => s.showMinorGrid);
     const [axesLayer] = useState(new AxesLayer().setZIndex(1));
     const [graphLayers] = useState<Map<string, GraphLayer>>(new Map());
     const [gridLayer] = useState(new GridLayer().setZIndex(0));
@@ -48,6 +49,10 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     }, [map, graphs]);
 
     useEffect(() => {
+      map?.addLayer(gridLayer);
+    }, [map, gridLayer]);
+
+    useEffect(() => {
       if (map === undefined) return;
       if (showAxes) {
         map.addLayer(axesLayer);
@@ -58,12 +63,13 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
 
     useEffect(() => {
       if (map === undefined) return;
-      if (showGrid) {
-        map.addLayer(gridLayer);
-      } else {
-        map.removeLayer(gridLayer);
-      }
-    }, [map, showGrid]);
+      gridLayer.showMajorGrid = showMajorGrid;
+    }, [map, showMajorGrid]);
+
+    useEffect(() => {
+      if (map === undefined) return;
+      gridLayer.showMinorGrid = showMinorGrid;
+    }, [map, showMinorGrid]);
 
     useEffect(() => {
       setMap(

@@ -130,7 +130,7 @@ function createMainMenu(): Menu {
         {
           id: Command.ShowAxes,
           label: "Show &Axes",
-          accelerator: "Alt+CmdOrCtrl+A",
+          accelerator: isMac ? "Cmd+1" : "Alt+1",
           type: "checkbox",
           checked: true,
           click: () => {
@@ -138,13 +138,29 @@ function createMainMenu(): Menu {
           },
         },
         {
-          id: Command.ShowGrid,
-          label: "Show &Grid",
-          accelerator: "Alt+CmdOrCtrl+G",
+          id: Command.ShowMajorGrid,
+          label: "Show Major &Grid",
+          accelerator: isMac ? "Cmd+2" : "Alt+2",
           type: "checkbox",
           checked: true,
           click: () => {
-            mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowGrid);
+            mainWindow?.webContents.send(
+              ipc.commandInvoked,
+              Command.ShowMajorGrid
+            );
+          },
+        },
+        {
+          id: Command.ShowMinorGrid,
+          label: "Show &Minor Grid",
+          accelerator: isMac ? "Cmd+3" : "Alt+3",
+          type: "checkbox",
+          checked: true,
+          click: () => {
+            mainWindow?.webContents.send(
+              ipc.commandInvoked,
+              Command.ShowMinorGrid
+            );
           },
         },
         {

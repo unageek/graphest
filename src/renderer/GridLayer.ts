@@ -590,8 +590,21 @@ export class AxesLayer extends L.GridLayer {
 }
 
 export class GridLayer extends L.GridLayer {
+  #showMajor = true;
+  #showMinor = true;
+
   constructor(options?: L.GridLayerOptions) {
     super(options);
+  }
+
+  set showMajorGrid(show: boolean) {
+    this.#showMajor = show;
+    this.redraw();
+  }
+
+  set showMinorGrid(show: boolean) {
+    this.#showMinor = show;
+    this.redraw();
   }
 
   protected createTile(coords: L.Coords, done: L.DoneCallback): HTMLElement {
@@ -623,21 +636,27 @@ export class GridLayer extends L.GridLayer {
 
       ctx.strokeStyle = GRID_COLOR;
 
-      ctx.setLineDash([1, 1]);
-      this.drawGrid(
-        ctx,
-        s0.x,
-        s0.y,
-        s1.x,
-        s1.y,
-        minInterval,
-        tx,
-        ty,
-        majInterval.get().idiv(minInterval.get())
-      );
+      if (this.#showMinor) {
+        ctx.setLineDash([1, 1]);
+        this.drawGrid(
+          ctx,
+          s0.x,
+          s0.y,
+          s1.x,
+          s1.y,
+          minInterval,
+          tx,
+          ty,
+          ...(this.#showMajor
+            ? [majInterval.get().idiv(minInterval.get())]
+            : [])
+        );
+      }
 
-      ctx.setLineDash([]);
-      this.drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, majInterval, tx, ty);
+      if (this.#showMajor) {
+        ctx.setLineDash([]);
+        this.drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, majInterval, tx, ty);
+      }
 
       done(undefined, outer);
     }, 0);

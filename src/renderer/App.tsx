@@ -13,7 +13,12 @@ import "./App.css";
 import { GraphBars } from "./GraphBars";
 import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
-import { setHighRes, setShowAxes, setShowGrid } from "./models/app";
+import {
+  setHighRes,
+  setShowAxes,
+  setShowMajorGrid,
+  setShowMinorGrid,
+} from "./models/app";
 import { store } from "./models/store";
 
 const requestRelation = async (
@@ -80,8 +85,11 @@ window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
     case Command.ShowAxes:
       store.dispatch(setShowAxes(!state.showAxes));
       break;
-    case Command.ShowGrid:
-      store.dispatch(setShowGrid(!state.showGrid));
+    case Command.ShowMajorGrid:
+      store.dispatch(setShowMajorGrid(!state.showMajorGrid));
+      break;
+    case Command.ShowMinorGrid:
+      store.dispatch(setShowMinorGrid(!state.showMinorGrid));
       break;
   }
 });
