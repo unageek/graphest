@@ -3,23 +3,47 @@ import { Stack, ThemeProvider, useTheme } from "@fluentui/react";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
 import * as React from "react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import * as ReactDOM from "react-dom";
-import { Provider } from "react-redux";
+import { Provider, useDispatch } from "react-redux";
 import { Command } from "../common/command";
+import { ExportImageOptions } from "../common/exportImageOptions";
 import * as ipc from "../common/ipc";
 import { RequestRelationResult } from "../common/ipc";
 import "./App.css";
+import { ExportImageDialog } from "./ExportImageDialog";
 import { GraphBars } from "./GraphBars";
 import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
 import {
   setHighRes,
+  setLastExportImageOps,
   setShowAxes,
+  setShowExportDialog,
   setShowMajorGrid,
   setShowMinorGrid,
+  useSelector,
 } from "./models/app";
 import { store } from "./models/store";
+
+const exportImage = async (opts: ExportImageOptions) => {
+  const state = store.getState();
+  for (const graph of Object.values(state.graphs.byId)) {
+    const { relId } = graph;
+    await window.ipcRenderer.invoke<ipc.ExportImage>(
+      ipc.exportImage,
+      relId,
+      opts
+    );
+  }
+};
+
+const openSaveDialog = async (path: string): Promise<string | undefined> => {
+  return await window.ipcRenderer.invoke<ipc.OpenSaveDialog>(
+    ipc.openSaveDialog,
+    path
+  );
+};
 
 const requestRelation = async (
   rel: string,
@@ -35,31 +59,61 @@ const requestRelation = async (
 };
 
 const App = () => {
+  const dispatch = useDispatch();
+  const exportImageOpts = useSelector((s) => s.lastExportImageOpts);
   const graphViewRef = useRef<HTMLDivElement>(null);
+  const showExportDialog = useSelector((s) => s.showExportDialog);
   const theme = useTheme();
 
   function focusGraphView() {
     graphViewRef.current?.focus();
   }
 
+  useEffect(() => {
+    (async function load() {
+      const path = await window.ipcRenderer.invoke<ipc.GetDefaultImageFilePath>(
+        ipc.getDefaultImageFilePath
+      );
+      store.dispatch(
+        setLastExportImageOps({
+          ...exportImageOpts,
+          path,
+        })
+      );
+    })();
+  }, []);
+
   return (
-    <Stack verticalFill>
-      <Stack
-        styles={{
-          root: {
-            boxShadow: theme.effects.elevation4,
-            zIndex: 2000, // To show on top of the <GraphView>.
-          },
-        }}
-      >
-        <GraphBars
-          focusGraphView={focusGraphView}
-          requestRelation={requestRelation}
-        />
-        <GraphCommandBar />
+    <>
+      <Stack verticalFill>
+        <Stack
+          styles={{
+            root: {
+              boxShadow: theme.effects.elevation4,
+              zIndex: 2000, // To show on top of the <GraphView>.
+            },
+          }}
+        >
+          <GraphBars
+            focusGraphView={focusGraphView}
+            requestRelation={requestRelation}
+          />
+          <GraphCommandBar />
+        </Stack>
+        <GraphView grow ref={graphViewRef} />
       </Stack>
-      <GraphView grow ref={graphViewRef} />
-    </Stack>
+      {showExportDialog && (
+        <ExportImageDialog
+          dismiss={() => dispatch(setShowExportDialog(false))}
+          exportImage={exportImage}
+          openSaveDialog={openSaveDialog}
+          opts={exportImageOpts}
+          saveOpts={(opts) => {
+            dispatch(setLastExportImageOps(opts));
+          }}
+        />
+      )}
+    </>
   );
 };
 
@@ -79,6 +133,9 @@ ReactDOM.render(
 window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
   const state = store.getState();
   switch (item) {
+    case Command.Export:
+      store.dispatch(setShowExportDialog(true));
+      break;
     case Command.HighResolution:
       store.dispatch(setHighRes(!state.highRes));
       break;

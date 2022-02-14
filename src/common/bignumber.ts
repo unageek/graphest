@@ -18,7 +18,7 @@ BigNumber.prototype.floor = function (): BigNumber {
 /**
  * A shorthand for calling the constructor of {@link BigNumber}.
  */
-function bignum(x: number): BigNumber {
+function bignum(x: number | string): BigNumber {
   return new BigNumber(x);
 }
 

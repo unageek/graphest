@@ -1,5 +1,6 @@
 import { createSlice, isAnyOf, PayloadAction } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useSelector as _useSelector } from "react-redux";
+import { ExportImageOptions } from "../../common/exportImageOptions";
 import {
   Graph,
   graphReducer,
@@ -11,8 +12,10 @@ import {
 export interface AppState {
   graphs: { byId: { [id: string]: Graph }; allIds: string[] };
   highRes: boolean;
+  lastExportImageOpts: ExportImageOptions;
   nextGraphId: number;
   showAxes: boolean;
+  showExportDialog: boolean;
   showMajorGrid: boolean;
   showMinorGrid: boolean;
 }
@@ -20,8 +23,20 @@ export interface AppState {
 const initialState: AppState = {
   graphs: { byId: {}, allIds: [] },
   highRes: false,
+  lastExportImageOpts: {
+    antiAliasing: 5,
+    height: 1024,
+    path: "",
+    timeoutInSeconds: 30,
+    width: 1024,
+    xMax: "10",
+    xMin: "-10",
+    yMax: "10",
+    yMin: "-10",
+  },
   nextGraphId: 0,
   showAxes: true,
+  showExportDialog: false,
   showMajorGrid: true,
   showMinorGrid: true,
 };
@@ -90,11 +105,25 @@ const slice = createSlice({
         highRes: a.payload.highRes,
       }),
     },
+    setLastExportImageOps: {
+      prepare: (opts: ExportImageOptions) => ({ payload: { opts } }),
+      reducer: (s, a: PayloadAction<{ opts: ExportImageOptions }>) => ({
+        ...s,
+        lastExportImageOpts: a.payload.opts,
+      }),
+    },
     setShowAxes: {
       prepare: (show: boolean) => ({ payload: { show } }),
       reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
         ...s,
         showAxes: a.payload.show,
+      }),
+    },
+    setShowExportDialog: {
+      prepare: (show: boolean) => ({ payload: { show } }),
+      reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
+        ...s,
+        showExportDialog: a.payload.show,
       }),
     },
     setShowMajorGrid: {
@@ -145,6 +174,8 @@ export const {
   removeGraph,
   reorderGraph,
   setHighRes,
+  setLastExportImageOps,
+  setShowExportDialog,
   setShowAxes,
   setShowMajorGrid,
   setShowMinorGrid,

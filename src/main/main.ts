@@ -3,6 +3,7 @@ import { ChildProcess, execFile } from "child_process";
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   MenuItemConstructorOptions,
@@ -25,7 +26,10 @@ import {
   BASE_ZOOM_LEVEL,
   GRAPH_TILE_EXTENSION,
   GRAPH_TILE_SIZE,
+  MAX_IMAGE_SIZE,
+  VALID_ANTI_ALIASING,
 } from "../common/constants";
+import { ExportImageOptions } from "../common/exportImageOptions";
 import * as ipc from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
@@ -118,6 +122,14 @@ function createMainMenu(): Menu {
       submenu: [
         // The Close menu is required for closing the about panel.
         { role: "close" },
+        { type: "separator" },
+        {
+          id: Command.Export,
+          label: "Export to Image",
+          click: () => {
+            mainWindow?.webContents.send(ipc.commandInvoked, Command.Export);
+          },
+        },
         { type: "separator" },
         ...(isMac ? [] : [{ role: "quit" }]),
       ],
@@ -301,6 +313,99 @@ ipcMain.handle(ipc.abortGraphing, async (_, relId: string, tileId?: string) => {
     (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId)
   );
 });
+
+ipcMain.handle(
+  ipc.exportImage,
+  async (_, relId: string, opts: ExportImageOptions): Promise<void> => {
+    const rel = relationById.get(relId);
+    if (rel === undefined) {
+      return;
+    }
+
+    const bounds = [
+      bignum(opts.xMin),
+      bignum(opts.xMax),
+      bignum(opts.yMin),
+      bignum(opts.yMax),
+    ];
+
+    if (
+      !(
+        bounds.every((x) => x.isFinite()) &&
+        bounds[0].lt(bounds[1]) &&
+        bounds[2].lt(bounds[3]) &&
+        VALID_ANTI_ALIASING.includes(opts.antiAliasing) &&
+        Number.isInteger(opts.height) &&
+        opts.height > 0 &&
+        opts.height <= MAX_IMAGE_SIZE &&
+        Number.isInteger(opts.timeoutInSeconds) &&
+        opts.timeoutInSeconds > 0 &&
+        opts.timeoutInSeconds < 10000 &&
+        Number.isInteger(opts.width) &&
+        opts.width > 0 &&
+        opts.width <= MAX_IMAGE_SIZE
+      )
+    ) {
+      return;
+    }
+
+    const pixelOffsetX = bignum(1.2345678901234567e-3);
+    const pixelOffsetY = bignum(1.3456789012345678e-3);
+    const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
+    const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
+    const x0 = bounds[0].minus(pixelOffsetX.times(pixelWidth));
+    const x1 = bounds[1].minus(pixelOffsetX.times(pixelWidth));
+    const y0 = bounds[2].minus(pixelOffsetY.times(pixelHeight));
+    const y1 = bounds[3].minus(pixelOffsetY.times(pixelHeight));
+
+    const args = [
+      "--bounds",
+      x0.toString(),
+      x1.toString(),
+      y0.toString(),
+      y1.toString(),
+      "--output",
+      opts.path,
+      "--output-once",
+      "--size",
+      opts.width.toString(),
+      opts.height.toString(),
+      "--ssaa",
+      opts.antiAliasing.toString(),
+      "--timeout",
+      "30000",
+      "--",
+      rel.rel,
+    ];
+    try {
+      const { stderr } = await util.promisify(execFile)(graphExec, args);
+      console.log(stderr);
+      console.log("exported");
+      await shell.openPath(opts.path);
+    } catch ({ stderr }) {
+      console.log(stderr);
+      console.log("export failed");
+    }
+  }
+);
+
+ipcMain.handle(ipc.getDefaultImageFilePath, async (): Promise<string> => {
+  const home = os.homedir();
+  const pictures = path.join(home, "Pictures");
+  return path.join(fs.existsSync(pictures) ? pictures : home, "graph.png");
+});
+
+ipcMain.handle(
+  ipc.openSaveDialog,
+  async (_, path: string): Promise<string | undefined> => {
+    if (!mainWindow) return undefined;
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: path,
+      filters: [{ name: "PNG", extensions: ["png"] }],
+    });
+    return result.filePath;
+  }
+);
 
 ipcMain.handle(
   ipc.requestRelation,

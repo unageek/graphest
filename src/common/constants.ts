@@ -28,3 +28,13 @@ export const GRAPH_TILE_EXTENSION = 1;
  * The sum of {@link GRAPH_TILE_SIZE} and {@link GRAPH_TILE_EXTENSION}.
  */
 export const EXTENDED_GRAPH_TILE_SIZE = GRAPH_TILE_SIZE + GRAPH_TILE_EXTENSION;
+
+/**
+ * The maximum width/height of an image that can be exported.
+ */
+export const MAX_IMAGE_SIZE = 16384;
+
+/**
+ * Valid values for {@link ExportImageOptions.antiAliasing}.
+ */
+export const VALID_ANTI_ALIASING = [1, 3, 5, 7, 9, 11, 13, 15, 17];

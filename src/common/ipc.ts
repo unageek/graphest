@@ -1,5 +1,6 @@
 import { IpcRendererEvent } from "electron";
 import { Command } from "./command";
+import { ExportImageOptions } from "./exportImageOptions";
 import { Range } from "./range";
 import { Result } from "./result";
 
@@ -21,6 +22,27 @@ export interface AbortGraphing extends MessageToMain {
   channel: typeof abortGraphing;
   args: [relId: string, tileId?: string];
   result: void;
+}
+
+export const exportImage = "export-image";
+export interface ExportImage extends MessageToMain {
+  channel: typeof exportImage;
+  args: [relId: string, opts: ExportImageOptions];
+  result: Promise<void>;
+}
+
+export const getDefaultImageFilePath = "get-pictures-folder";
+export interface GetDefaultImageFilePath extends MessageToMain {
+  channel: typeof getDefaultImageFilePath;
+  args: [];
+  result: Promise<string>;
+}
+
+export const openSaveDialog = "open-save-dialog";
+export interface OpenSaveDialog extends MessageToMain {
+  channel: typeof openSaveDialog;
+  args: [path: string];
+  result: Promise<string | undefined>;
 }
 
 export const openUrl = "open-url";
