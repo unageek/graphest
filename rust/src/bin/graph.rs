@@ -121,8 +121,8 @@ fn main() {
                 .help("Only validate the relation and exit without plotting."),
         )
         .arg(
-            Arg::new("pause-per-output")
-                .long("pause-per-output")
+            Arg::new("pause-per-iteration")
+                .long("pause-per-iteration")
                 .hide(true),
         )
         .arg(
@@ -183,7 +183,7 @@ fn main() {
             top: matches.value_of_t_or_exit::<u32>("padding-top"),
         }
     };
-    let pause_per_output = matches.is_present("pause-per-output");
+    let pause_per_iteration = matches.is_present("pause-per-iteration");
     let size = {
         let size = matches.values_of_t_or_exit::<u32>("size");
         [size[0], size[1]]
@@ -223,7 +223,7 @@ fn main() {
         dilation_kernel,
         gray_alpha,
         output,
-        pause_per_output,
+        pause_per_iteration,
         raw_size,
         size,
         timeout,
@@ -272,7 +272,7 @@ struct PlotOptions {
     dilation_kernel: Image<bool>,
     gray_alpha: bool,
     output: OsString,
-    pause_per_output: bool,
+    pause_per_iteration: bool,
     raw_size: [u32; 2],
     size: [u32; 2],
     timeout: Option<Duration>,
@@ -293,7 +293,7 @@ fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
     print_statistics(&prev_stat, &prev_stat);
 
     loop {
-        if opts.pause_per_output {
+        if opts.pause_per_iteration {
             // Await for a newline character.
             let mut input = String::new();
             stdin().read_line(&mut input).unwrap();

@@ -409,7 +409,7 @@ ipcMain.handle(
           outFile,
           "--mem-limit",
           JOB_MEM_LIMIT.toString(),
-          "--pause-per-output",
+          "--pause-per-iteration",
           "--",
           rel.rel,
         ],
