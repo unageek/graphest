@@ -88,6 +88,11 @@ fn main() {
                 .help("Path to the output image. It must end with '.png'."),
         )
         .arg(
+            Arg::new("output-once")
+                .long("output-once")
+                .help("Do not output intermediate images."),
+        )
+        .arg(
             Arg::new("padding-bottom")
                 .long("padding-bottom")
                 .hide(true)
@@ -175,6 +180,7 @@ fn main() {
     let gray_alpha = matches.is_present("gray-alpha");
     let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
     let output = matches.value_of_os("output").unwrap().to_owned();
+    let output_once = matches.is_present("output-once");
     let padding = {
         Padding {
             bottom: matches.value_of_t_or_exit::<u32>("padding-bottom"),
@@ -223,6 +229,7 @@ fn main() {
         dilation_kernel,
         gray_alpha,
         output,
+        output_once,
         pause_per_iteration,
         raw_size,
         size,
@@ -272,13 +279,14 @@ struct PlotOptions {
     dilation_kernel: Image<bool>,
     gray_alpha: bool,
     output: OsString,
+    output_once: bool,
     pause_per_iteration: bool,
     raw_size: [u32; 2],
     size: [u32; 2],
     timeout: Option<Duration>,
 }
 
-fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
+fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
     let mut gray_alpha_im: Option<GrayAlphaImage> = None;
     let mut rgb_im: Option<RgbImage> = None;
     let mut raw_im = Image::<Ternary>::new(opts.raw_size[0], opts.raw_size[1]);
@@ -288,34 +296,12 @@ fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
         rgb_im = Some(RgbImage::new(opts.size[0], opts.size[1]));
     }
 
-    let mut prev_stat = g.get_statistics();
+    let mut prev_stat = graph.get_statistics();
     print_statistics_header();
     print_statistics(&prev_stat, &prev_stat);
 
-    loop {
-        if opts.pause_per_iteration {
-            // Await for a newline character.
-            let mut input = String::new();
-            stdin().read_line(&mut input).unwrap();
-        }
-
-        let duration = match opts.timeout {
-            Some(t) => t
-                .saturating_sub(prev_stat.time_elapsed)
-                .min(Duration::from_millis(1500)),
-            _ => Duration::from_millis(1500),
-        };
-        if duration.is_zero() {
-            eprintln!("Warning: reached the timeout");
-            break;
-        }
-        let result = g.refine(duration);
-
-        let stat = g.get_statistics();
-        print_statistics(&stat, &prev_stat);
-        prev_stat = stat;
-
-        g.get_image(&mut raw_im);
+    let mut save_image = |graph: &G| {
+        graph.get_image(&mut raw_im);
         for (dy, dx) in (0..opts.size[1]).cartesian_product(0..opts.size[0]) {
             raw_im[PixelIndex::new(dx, dy)] = (0..opts.dilation_kernel.height())
                 .cartesian_product(0..opts.dilation_kernel.width())
@@ -356,6 +342,34 @@ fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
             }
             im.save(&opts.output).expect("saving image failed");
         }
+    };
+
+    loop {
+        if opts.pause_per_iteration {
+            // Await for a newline character.
+            let mut input = String::new();
+            stdin().read_line(&mut input).unwrap();
+        }
+
+        let duration = match opts.timeout {
+            Some(t) => t
+                .saturating_sub(prev_stat.time_elapsed)
+                .min(Duration::from_millis(1500)),
+            _ => Duration::from_millis(1500),
+        };
+        if duration.is_zero() {
+            eprintln!("Warning: reached the timeout");
+            break;
+        }
+        let result = graph.refine(duration);
+
+        let stat = graph.get_statistics();
+        print_statistics(&stat, &prev_stat);
+        prev_stat = stat;
+
+        if !opts.output_once {
+            save_image(&graph);
+        }
 
         match result {
             Ok(false) => continue,
@@ -365,5 +379,9 @@ fn plot<G: Graph>(mut g: G, opts: PlotOptions) {
                 break;
             }
         }
+    }
+
+    if opts.output_once {
+        save_image(&graph);
     }
 }
