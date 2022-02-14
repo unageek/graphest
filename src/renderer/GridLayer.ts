@@ -1,5 +1,5 @@
 import * as L from "leaflet";
-import { bignum, BigNumber } from "../common/BigNumber";
+import { bignum, BigNumber } from "../common/bignumber";
 import { BASE_ZOOM_LEVEL } from "../common/constants";
 
 BigNumber.config({

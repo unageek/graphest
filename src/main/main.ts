@@ -19,7 +19,7 @@ import * as os from "os";
 import * as path from "path";
 import { pathToFileURL } from "url";
 import * as util from "util";
-import { bignum } from "../common/BigNumber";
+import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
 import {
   BASE_ZOOM_LEVEL,
