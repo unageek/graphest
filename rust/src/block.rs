@@ -307,8 +307,8 @@ const DEFAULT_BLOCK: Block = Block {
 
 /// A queue that stores [`Block`]s.
 ///
-/// The [`Block`]s are entropy-encoded internally so that the closer the indices of consecutive
-/// blocks are (which is expected by using the Morton order), the less memory it consumes.
+/// Internally, [`Block`]s are entropy-coded so that if consecutive blocks have closer indices,
+/// which is likely if they are sorted according to the Morton ordering, less memory is consumed.
 pub struct BlockQueue {
     seq: VecDeque<u8>,
     store_vars: VarSet,
