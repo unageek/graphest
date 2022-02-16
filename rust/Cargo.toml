@@ -63,6 +63,7 @@ doc = false
 test = false
 
 [[bin]]
-name = "tile"
+name = "join-tiles"
+path = "src/bin/join_tiles.rs"
 doc = false
 test = false

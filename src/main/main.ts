@@ -94,24 +94,22 @@ interface Relation {
   tiles: Map<string, Tile>;
 }
 
+function getBundledExecutable(name: string): string {
+  // ".exe" is required for pointing to executables inside .asar archives.
+  return path.join(
+    __dirname,
+    process.platform === "win32" ? name + ".exe" : name
+  );
+}
+
 let queuedJobs: Job[] = [];
 let activeJobs: Job[] = [];
 let sleepingJobs: Job[] = [];
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
-// ".exe" is required for pointing to executables inside .asar archives.
-const composeExec: string = path.join(
-  __dirname,
-  process.platform === "win32" ? "compose.exe" : "compose"
-);
-const graphExec: string = path.join(
-  __dirname,
-  process.platform === "win32" ? "graph.exe" : "graph"
-);
-const tileExec: string = path.join(
-  __dirname,
-  process.platform === "win32" ? "tile.exe" : "tile"
-);
+const composeExec: string = getBundledExecutable("compose");
+const graphExec: string = getBundledExecutable("graph");
+const joinTilesExec: string = getBundledExecutable("join-tiles");
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
 let nextExportImageId = 0;
@@ -436,7 +434,7 @@ ipcMain.handle(
             );
           } catch ({ stderr }) {
             console.log(stderr);
-            console.log("graph failed:", `'${args.join("' '")}'`);
+            console.log("`graph` failed:", `'${args.join("' '")}'`);
             return;
           }
         }
@@ -458,13 +456,13 @@ ipcMain.handle(
         y_tiles.toString(),
       ];
       try {
-        const { stderr } = await util.promisify(execFile)(tileExec, args);
+        const { stderr } = await util.promisify(execFile)(joinTilesExec, args);
         if (stderr) {
           console.log(stderr);
         }
       } catch ({ stderr }) {
         console.log(stderr);
-        console.log("tile failed:", `'${args.join("' '")}'`);
+        console.log("`join-tiles` failed:", `'${args.join("' '")}'`);
         return;
       }
     }
@@ -481,7 +479,7 @@ ipcMain.handle(
       }
     } catch ({ stderr }) {
       console.log(stderr);
-      console.log("compose failed:", `'${args.join("' '")}'`);
+      console.log("`compose` failed:", `'${args.join("' '")}'`);
       return;
     }
 

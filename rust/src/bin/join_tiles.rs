@@ -4,7 +4,7 @@ use clap::{App, Arg};
 use image::{imageops, io::Reader as ImageReader, DynamicImage, GrayAlphaImage};
 
 fn main() {
-    let matches = App::new("tile")
+    let matches = App::new("join-tiles")
         .about("Concatenates tiles of graphs.")
         .arg(
             Arg::new("output")
