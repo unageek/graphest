@@ -138,8 +138,8 @@ export const ExportImageDialog = (
               gridTemplateColumns: "auto auto auto",
             }}
           >
-            <Label style={{ gridColumn: "2" }}>Min</Label>
-            <Label style={{ gridColumn: "3" }}>Max</Label>
+            <Label style={{ gridColumn: "2" }}>Minimum</Label>
+            <Label style={{ gridColumn: "3" }}>Maximum</Label>
 
             <Label style={{ textAlign: "right" }}>x</Label>
             <TextField
@@ -264,7 +264,7 @@ export const ExportImageDialog = (
             <div style={{ gridColumn: "1" }} />
 
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Anti‑aliasing
+              Anti-Aliasing
             </Label>
             <ComboBox
               defaultSelectedKey={opts.antiAliasing.toString()}
@@ -280,7 +280,7 @@ export const ExportImageDialog = (
             <div style={{ gridColumn: "1" }} />
 
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Timeout
+              Timeout per Graph
             </Label>
             <Stack
               horizontal
@@ -307,7 +307,7 @@ export const ExportImageDialog = (
             <div style={{ gridColumn: "1" }} />
 
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Save as
+              Save As
             </Label>
             <Stack
               horizontal
