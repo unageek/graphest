@@ -146,7 +146,7 @@ export const ExportImageDialog = (
         setXMaxErrorMessage(addOrRemoveError("x-max", parseError));
       }
     }, 200),
-    [xMin]
+    [errors, opts, xMin]
   );
 
   const validateXMin = useCallback(
@@ -164,7 +164,7 @@ export const ExportImageDialog = (
         setXMinErrorMessage(addOrRemoveError("x-min", parseError));
       }
     }, 200),
-    [xMax]
+    [errors, opts, xMax]
   );
 
   const validateYMax = useCallback(
@@ -182,7 +182,7 @@ export const ExportImageDialog = (
         setYMaxErrorMessage(addOrRemoveError("y-max", parseError));
       }
     }, 200),
-    [yMin]
+    [errors, opts, yMin]
   );
 
   const validateYMin = useCallback(
@@ -200,7 +200,7 @@ export const ExportImageDialog = (
         setYMinErrorMessage(addOrRemoveError("y-min", parseError));
       }
     }, 200),
-    [yMax]
+    [errors, opts, yMax]
   );
 
   return (
