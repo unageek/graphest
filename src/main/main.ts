@@ -394,8 +394,8 @@ ipcMain.handle(
 
       const scaled_width = opts.antiAliasing * opts.width;
       const scaled_height = opts.antiAliasing * opts.height;
-      const x_tiles = scaled_width / 1024;
-      const y_tiles = scaled_height / 1024;
+      const x_tiles = Math.ceil(scaled_width / 1024);
+      const y_tiles = Math.ceil(scaled_height / 1024);
       const tile_width = Math.ceil(opts.width / x_tiles);
       const tile_height = Math.ceil(opts.height / y_tiles);
       for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
@@ -437,14 +437,17 @@ ipcMain.handle(
           try {
             const { stderr } = await util.promisify(execFile)(graphExec, args);
             if (stderr) {
-              console.log(stderr);
+              console.log(stderr.trimEnd());
             }
             notifyExportImageStatusChanged(
               (x_tiles * y_tiles * k + x_tiles * i_tile + j_tile + 1) /
                 (x_tiles * y_tiles * newEntries.length)
             );
           } catch ({ stderr }) {
-            console.log(stderr);
+            if (typeof stderr !== "string") {
+              throw new Error("unexpected type");
+            }
+            console.log(stderr.trimEnd());
             console.log("`graph` failed:", `'${args.join("' '")}'`);
             return;
           }
@@ -469,10 +472,13 @@ ipcMain.handle(
       try {
         const { stderr } = await util.promisify(execFile)(joinTilesExec, args);
         if (stderr) {
-          console.log(stderr);
+          console.log(stderr.trimEnd());
         }
       } catch ({ stderr }) {
-        console.log(stderr);
+        if (typeof stderr !== "string") {
+          throw new Error("unexpected type");
+        }
+        console.log(stderr.trimEnd());
         console.log("`join-tiles` failed:", `'${args.join("' '")}'`);
         return;
       }
@@ -486,10 +492,13 @@ ipcMain.handle(
     try {
       const { stderr } = await util.promisify(execFile)(composeExec, args);
       if (stderr) {
-        console.log(stderr);
+        console.log(stderr.trimEnd());
       }
     } catch ({ stderr }) {
-      console.log(stderr);
+      if (typeof stderr !== "string") {
+        throw new Error("unexpected type");
+      }
+      console.log(stderr.trimEnd());
       console.log("`compose` failed:", `'${args.join("' '")}'`);
       return;
     }
