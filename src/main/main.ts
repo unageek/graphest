@@ -381,6 +381,7 @@ ipcMain.handle(
       nextExportImageId++;
     }
 
+    // TODO: Randomize execution to improve the accuracy of progress reporting?
     for (let k = 0; k < newEntries.length; k++) {
       const entry = newEntries[k];
       const rel = relationById.get(entry.relId);
