@@ -4,6 +4,7 @@ import {
   Dialog,
   DialogFooter,
   IComboBoxOption,
+  IconButton,
   Label,
   PrimaryButton,
   ProgressIndicator,
@@ -21,6 +22,7 @@ import { err, ok, Result } from "../common/result";
 import { useSelector } from "./models/app";
 
 export interface ExportImageDialogProps {
+  abort: () => void;
   dismiss: () => void;
   exportImage: (opts: ExportImageOptions) => Promise<void>;
   openSaveDialog: (path: string) => Promise<string | undefined>;
@@ -218,8 +220,23 @@ export const ExportImageDialog = (
       }}
     >
       {exporting ? (
-        // <Spinner label="Exporting…" size={SpinnerSize.large} />
-        <ProgressIndicator label="Exporting…" percentComplete={progress} />
+        <div
+          style={{
+            display: "grid",
+            gap: "10px",
+            gridTemplateColumns: "1fr auto",
+          }}
+        >
+          <ProgressIndicator label="Exporting…" percentComplete={progress} />
+          <IconButton
+            iconProps={{ iconName: "Cancel" }}
+            onClick={() => {
+              props.abort();
+              props.dismiss();
+            }}
+            title="Cancel"
+          />
+        </div>
       ) : (
         <>
           <div

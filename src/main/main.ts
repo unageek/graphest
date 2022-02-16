@@ -106,6 +106,7 @@ let queuedJobs: Job[] = [];
 let activeJobs: Job[] = [];
 let sleepingJobs: Job[] = [];
 
+let abortExportImage = false;
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const composeExec: string = getBundledExecutable("compose");
 const graphExec: string = getBundledExecutable("graph");
@@ -316,6 +317,10 @@ app.on("window-all-closed", () => {
   app.quit();
 });
 
+ipcMain.handle(ipc.abortExportImage, async () => {
+  abortExportImage = true;
+});
+
 ipcMain.handle(ipc.abortGraphing, async (_, relId: string, tileId?: string) => {
   abortJobs(
     (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId)
@@ -399,6 +404,12 @@ ipcMain.handle(
         for (let j_tile = 0; j_tile < x_tiles; j_tile++) {
           const j = j_tile * tile_width;
           const width = Math.min(tile_width, opts.width - j);
+
+          if (abortExportImage) {
+            abortExportImage = false;
+            return;
+          }
+
           const bounds = [
             x0.plus(pixelWidth.times(j)),
             x0.plus(pixelWidth.times(j + width)),

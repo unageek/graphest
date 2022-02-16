@@ -28,6 +28,10 @@ import {
 } from "./models/app";
 import { store } from "./models/store";
 
+const abortExportImage = async () => {
+  await window.ipcRenderer.invoke<ipc.AbortExportImage>(ipc.abortExportImage);
+};
+
 const exportImage = async (opts: ExportImageOptions) => {
   const state = store.getState();
   const entries = [];
@@ -37,6 +41,8 @@ const exportImage = async (opts: ExportImageOptions) => {
     const { color, relId } = graph;
     entries.push({ color: new Color(color).hexa(), relId });
   }
+
+  store.dispatch(setExportImageProgress(0));
 
   await window.ipcRenderer.invoke<ipc.ExportImage>(
     ipc.exportImage,
@@ -111,6 +117,7 @@ const App = () => {
       </Stack>
       {showExportDialog && (
         <ExportImageDialog
+          abort={abortExportImage}
           dismiss={() => dispatch(setShowExportDialog(false))}
           exportImage={exportImage}
           openSaveDialog={openSaveDialog}

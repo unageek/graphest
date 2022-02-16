@@ -17,6 +17,13 @@ export interface MessageToMain {
   result: unknown;
 }
 
+export const abortExportImage = "abort-export-image";
+export interface AbortExportImage extends MessageToMain {
+  channel: typeof abortExportImage;
+  args: [];
+  result: void;
+}
+
 export const abortGraphing = "abort-graphing";
 export interface AbortGraphing extends MessageToMain {
   channel: typeof abortGraphing;
