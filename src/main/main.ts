@@ -365,6 +365,7 @@ ipcMain.handle(
       x1.toString(),
       y0.toString(),
       y1.toString(),
+      "--gray-alpha",
       "--output",
       opts.path,
       "--output-once",
