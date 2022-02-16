@@ -17,7 +17,7 @@ import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
 import {
   setHighRes,
-  setLastExportImageOps,
+  setLastExportImageOpts,
   setShowAxes,
   setShowExportDialog,
   setShowMajorGrid,
@@ -75,7 +75,7 @@ const App = () => {
         ipc.getDefaultImageFilePath
       );
       store.dispatch(
-        setLastExportImageOps({
+        setLastExportImageOpts({
           ...exportImageOpts,
           path,
         })
@@ -109,7 +109,7 @@ const App = () => {
           openSaveDialog={openSaveDialog}
           opts={exportImageOpts}
           saveOpts={(opts) => {
-            dispatch(setLastExportImageOps(opts));
+            dispatch(setLastExportImageOpts(opts));
           }}
         />
       )}

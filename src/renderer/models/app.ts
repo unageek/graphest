@@ -105,7 +105,7 @@ const slice = createSlice({
         highRes: a.payload.highRes,
       }),
     },
-    setLastExportImageOps: {
+    setLastExportImageOpts: {
       prepare: (opts: ExportImageOptions) => ({ payload: { opts } }),
       reducer: (s, a: PayloadAction<{ opts: ExportImageOptions }>) => ({
         ...s,
@@ -174,7 +174,7 @@ export const {
   removeGraph,
   reorderGraph,
   setHighRes,
-  setLastExportImageOps,
+  setLastExportImageOpts,
   setShowExportDialog,
   setShowAxes,
   setShowMajorGrid,
