@@ -2,7 +2,7 @@ export interface ExportImageOptions {
   antiAliasing: number;
   height: number;
   path: string;
-  timeoutInSeconds: number;
+  timeout: number;
   width: number;
   xMax: string;
   xMin: string;

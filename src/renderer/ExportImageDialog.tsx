@@ -9,12 +9,13 @@ import {
   Spinner,
   SpinnerSize,
   Stack,
+  Text,
   TextField,
 } from "@fluentui/react";
 import * as React from "react";
 import { useState } from "react";
 import { bignum, BigNumber } from "../common/bignumber";
-import { MAX_IMAGE_SIZE } from "../common/constants";
+import { MAX_EXPORT_IMAGE_SIZE, MAX_EXPORT_TIMEOUT } from "../common/constants";
 import { ExportImageOptions } from "../common/exportImageOptions";
 import { err, ok, Result } from "../common/result";
 
@@ -38,6 +39,18 @@ const antiAliasingOptions: IComboBoxOption[] = [
   // { key: "17", text: "17 × 17" },
 ];
 
+const decimalInputStyles = {
+  root: {
+    width: "150px",
+  },
+};
+
+const integerInputStyles = {
+  root: {
+    width: "100px",
+  },
+};
+
 const parseBignum = (value?: string): Result<BigNumber, string | undefined> => {
   const val = bignum(value ?? "");
   if (val.isFinite()) {
@@ -49,11 +62,26 @@ const parseBignum = (value?: string): Result<BigNumber, string | undefined> => {
 
 const parseImageSize = (value?: string): Result<number, string | undefined> => {
   const val = Number(value);
-  if (Number.isSafeInteger(val) && val > 0 && val <= MAX_IMAGE_SIZE) {
+  if (Number.isSafeInteger(val) && val > 0 && val <= MAX_EXPORT_IMAGE_SIZE) {
     return ok(val);
   } else {
-    return err("Size must be between 1 and 16384.");
+    return err(`Image size must be between 1 and ${MAX_EXPORT_IMAGE_SIZE}.`);
   }
+};
+
+const parseTimeout = (value?: string): Result<number, string | undefined> => {
+  const val = Number(value);
+  if (Number.isSafeInteger(val) && val > 0 && val <= MAX_EXPORT_TIMEOUT) {
+    return ok(val);
+  } else {
+    return err(`Timeout must be between 1 and ${MAX_EXPORT_TIMEOUT}.`);
+  }
+};
+
+const textStyles = {
+  root: {
+    padding: "5px 0px",
+  },
 };
 
 const validateRange = (min: BigNumber, max: BigNumber): string | undefined => {
@@ -73,13 +101,23 @@ export const ExportImageDialog = (
   const briefPath =
     pathParts.length <= 2 ? pathParts : "…/" + pathParts.slice(-2).join("/");
 
+  function addOrRemoveError<T>(key: string, e?: T): T | undefined {
+    if (e !== undefined) {
+      setErrors([...errors, key]);
+      return e;
+    } else {
+      setErrors(errors.filter((e) => e !== key));
+      return undefined;
+    }
+  }
+
   return (
     <Dialog
       dialogContentProps={{
         title: exporting ? "" : "Export to Image",
       }}
       hidden={false}
-      maxWidth={400}
+      maxWidth={"100vw"}
       modalProps={{
         isModeless: true,
       }}
@@ -102,6 +140,7 @@ export const ExportImageDialog = (
           >
             <Label style={{ gridColumn: "2" }}>Min</Label>
             <Label style={{ gridColumn: "3" }}>Max</Label>
+
             <Label style={{ textAlign: "right" }}>x</Label>
             <TextField
               defaultValue={opts.xMin}
@@ -115,13 +154,9 @@ export const ExportImageDialog = (
                 const e =
                   parseBignum(value).err ??
                   validateRange(bignum(value), bignum(opts.xMax));
-                if (e !== undefined) {
-                  setErrors([...errors, "x-min"]);
-                  return e;
-                } else {
-                  setErrors(errors.filter((e) => e !== "x-min"));
-                }
+                return addOrRemoveError("x-min", e);
               }}
+              styles={decimalInputStyles}
             />
             <TextField
               defaultValue={opts.xMax}
@@ -135,14 +170,11 @@ export const ExportImageDialog = (
                 const e =
                   parseBignum(value).err ??
                   validateRange(bignum(opts.xMin), bignum(value));
-                if (e !== undefined) {
-                  setErrors([...errors, "x-max"]);
-                  return e;
-                } else {
-                  setErrors(errors.filter((e) => e !== "x-max"));
-                }
+                return addOrRemoveError("x-max", e);
               }}
+              styles={decimalInputStyles}
             />
+
             <Label style={{ textAlign: "right" }}>y</Label>
             <TextField
               defaultValue={opts.yMin}
@@ -157,13 +189,9 @@ export const ExportImageDialog = (
                 const e =
                   parseBignum(value).err ??
                   validateRange(bignum(value), bignum(opts.yMax));
-                if (e !== undefined) {
-                  setErrors([...errors, "y-min"]);
-                  return e;
-                } else {
-                  setErrors(errors.filter((e) => e !== "y-min"));
-                }
+                return addOrRemoveError("y-min", e);
               }}
+              styles={decimalInputStyles}
             />
             <TextField
               defaultValue={opts.yMax}
@@ -178,56 +206,63 @@ export const ExportImageDialog = (
                 const e =
                   parseBignum(value).err ??
                   validateRange(bignum(opts.yMin), bignum(value));
-                if (e !== undefined) {
-                  setErrors([...errors, "y-max"]);
-                  return e;
-                } else {
-                  setErrors(errors.filter((e) => e !== "y-max"));
-                }
+                return addOrRemoveError("y-max", e);
               }}
+              styles={decimalInputStyles}
             />
+
             <div />
+
             <Label style={{ gridColumn: "1", textAlign: "right" }}>Width</Label>
-            <TextField
-              defaultValue={opts.width.toString()}
-              onChange={(_, value) => {
-                const val = parseImageSize(value).ok;
-                if (val !== undefined) {
-                  setOpts({ ...opts, width: val });
-                }
-              }}
-              onGetErrorMessage={(value) => {
-                const e = parseImageSize(value).err;
-                if (e !== undefined) {
-                  setErrors([...errors, "width"]);
-                  return e;
-                } else {
-                  setErrors(errors.filter((e) => e !== "width"));
-                }
-              }}
-            />
+            <Stack
+              horizontal
+              style={{ gridColumn: "span 2" }}
+              tokens={{ childrenGap: "5" }}
+            >
+              <TextField
+                defaultValue={opts.width.toString()}
+                onChange={(_, value) => {
+                  const val = parseImageSize(value).ok;
+                  if (val !== undefined) {
+                    setOpts({ ...opts, width: val });
+                  }
+                }}
+                onGetErrorMessage={(value) => {
+                  const e = parseImageSize(value).err;
+                  return addOrRemoveError("width", e);
+                }}
+                styles={integerInputStyles}
+              />
+              <Text styles={textStyles}>pixels</Text>
+            </Stack>
+
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
               Height
             </Label>
-            <TextField
-              defaultValue={opts.height.toString()}
-              onChange={(_, value) => {
-                const val = parseImageSize(value).ok;
-                if (val !== undefined) {
-                  setOpts({ ...opts, height: val });
-                }
-              }}
-              onGetErrorMessage={(value) => {
-                const e = parseImageSize(value).err;
-                if (e !== undefined) {
-                  setErrors([...errors, "height"]);
-                  return e;
-                } else {
-                  setErrors(errors.filter((e) => e !== "height"));
-                }
-              }}
-            />
+            <Stack
+              horizontal
+              style={{ gridColumn: "span 2" }}
+              tokens={{ childrenGap: "5" }}
+            >
+              <TextField
+                defaultValue={opts.height.toString()}
+                onChange={(_, value) => {
+                  const val = parseImageSize(value).ok;
+                  if (val !== undefined) {
+                    setOpts({ ...opts, height: val });
+                  }
+                }}
+                onGetErrorMessage={(value) => {
+                  const e = parseImageSize(value).err;
+                  return addOrRemoveError("height", e);
+                }}
+                styles={integerInputStyles}
+              />
+              <Text styles={textStyles}>pixels</Text>
+            </Stack>
+
             <div style={{ gridColumn: "1" }} />
+
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
               Anti‑aliasing
             </Label>
@@ -239,13 +274,47 @@ export const ExportImageDialog = (
                 }
               }}
               options={antiAliasingOptions}
+              styles={{ callout: { width: "100px" }, root: { width: "100px" } }}
             />
+
             <div style={{ gridColumn: "1" }} />
+
+            <Label style={{ gridColumn: "1", textAlign: "right" }}>
+              Timeout
+            </Label>
+            <Stack
+              horizontal
+              style={{ gridColumn: "span 2" }}
+              tokens={{ childrenGap: "5" }}
+            >
+              <TextField
+                defaultValue={opts.timeout.toString()}
+                onChange={(_, value) => {
+                  const val = parseTimeout(value).ok;
+                  if (val !== undefined) {
+                    setOpts({ ...opts, timeout: val });
+                  }
+                }}
+                onGetErrorMessage={(value) => {
+                  const e = parseTimeout(value).err;
+                  return addOrRemoveError("timeout", e);
+                }}
+                styles={integerInputStyles}
+              />
+              <Text styles={textStyles}>seconds</Text>
+            </Stack>
+
+            <div style={{ gridColumn: "1" }} />
+
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
               Save as
             </Label>
-            <Stack horizontal style={{ gridColumn: "span 2" }}>
-              <Label style={{ marginRight: "10px" }}>{briefPath}</Label>
+            <Stack
+              horizontal
+              style={{ gridColumn: "span 2" }}
+              tokens={{ childrenGap: "10px" }}
+            >
+              <Text styles={textStyles}>{briefPath}</Text>
               <DefaultButton
                 onClick={async () => {
                   const path = await props.openSaveDialog(opts.path);
@@ -258,6 +327,7 @@ export const ExportImageDialog = (
               />
             </Stack>
           </div>
+
           <DialogFooter>
             <DefaultButton onClick={props.dismiss} text="Close" />
             <PrimaryButton

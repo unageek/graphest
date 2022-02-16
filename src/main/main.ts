@@ -26,7 +26,8 @@ import {
   BASE_ZOOM_LEVEL,
   GRAPH_TILE_EXTENSION,
   GRAPH_TILE_SIZE,
-  MAX_IMAGE_SIZE,
+  MAX_EXPORT_IMAGE_SIZE,
+  MAX_EXPORT_TIMEOUT,
   VALID_ANTI_ALIASING,
 } from "../common/constants";
 import { ExportImageOptions } from "../common/exportImageOptions";
@@ -337,13 +338,13 @@ ipcMain.handle(
         VALID_ANTI_ALIASING.includes(opts.antiAliasing) &&
         Number.isInteger(opts.height) &&
         opts.height > 0 &&
-        opts.height <= MAX_IMAGE_SIZE &&
-        Number.isInteger(opts.timeoutInSeconds) &&
-        opts.timeoutInSeconds > 0 &&
-        opts.timeoutInSeconds < 10000 &&
+        opts.height <= MAX_EXPORT_IMAGE_SIZE &&
+        Number.isInteger(opts.timeout) &&
+        opts.timeout > 0 &&
+        opts.timeout <= MAX_EXPORT_TIMEOUT &&
         Number.isInteger(opts.width) &&
         opts.width > 0 &&
-        opts.width <= MAX_IMAGE_SIZE
+        opts.width <= MAX_EXPORT_IMAGE_SIZE
       )
     ) {
       return;
@@ -373,7 +374,7 @@ ipcMain.handle(
       "--ssaa",
       opts.antiAliasing.toString(),
       "--timeout",
-      "30000",
+      (1000 * opts.timeout).toString(),
       "--",
       rel.rel,
     ];

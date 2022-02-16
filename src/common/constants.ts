@@ -30,9 +30,14 @@ export const GRAPH_TILE_EXTENSION = 1;
 export const EXTENDED_GRAPH_TILE_SIZE = GRAPH_TILE_SIZE + GRAPH_TILE_EXTENSION;
 
 /**
- * The maximum width/height of an image that can be exported.
+ * The maximum width/height of an image that can be exported to.
  */
-export const MAX_IMAGE_SIZE = 16384;
+export const MAX_EXPORT_IMAGE_SIZE = 16384;
+
+/**
+ * The maximum duration of exporting in seconds.
+ */
+export const MAX_EXPORT_TIMEOUT = 10000;
 
 /**
  * Valid values for {@link ExportImageOptions.antiAliasing}.
