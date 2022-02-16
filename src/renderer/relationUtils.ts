@@ -2,7 +2,7 @@ import { Range } from "../common/range";
 
 export enum TokenKind {
   /** `&&` or `∧`. */
-  And,
+  And = 1,
   /** `*`. */
   Asterisk,
   /** `|`. */
