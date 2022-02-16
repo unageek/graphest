@@ -17,6 +17,7 @@ import { GraphBars } from "./GraphBars";
 import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
 import {
+  setExportImageProgress,
   setHighRes,
   setLastExportImageOpts,
   setShowAxes,
@@ -156,3 +157,10 @@ window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
       break;
   }
 });
+
+window.ipcRenderer.on<ipc.ExportImageStatusChanged>(
+  ipc.exportImageStatusChanged,
+  (_, progress) => {
+    store.dispatch(setExportImageProgress(progress));
+  }
+);

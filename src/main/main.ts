@@ -381,7 +381,8 @@ ipcMain.handle(
       nextExportImageId++;
     }
 
-    for (const entry of newEntries) {
+    for (let k = 0; k < newEntries.length; k++) {
+      const entry = newEntries[k];
       const rel = relationById.get(entry.relId);
       if (rel === undefined) {
         continue;
@@ -428,6 +429,10 @@ ipcMain.handle(
             if (stderr) {
               console.log(stderr);
             }
+            notifyExportImageStatusChanged(
+              (x_tiles * y_tiles * k + x_tiles * i_tile + j_tile + 1) /
+                (x_tiles * y_tiles * newEntries.length)
+            );
           } catch ({ stderr }) {
             console.log(stderr);
             console.log("graph failed:", `'${args.join("' '")}'`);
@@ -678,6 +683,10 @@ function deprioritize(job: Job) {
   assert(nBefore === nAfter);
 
   updateQueue();
+}
+
+function notifyExportImageStatusChanged(progress: number) {
+  mainWindow?.webContents.send(ipc.exportImageStatusChanged, progress);
 }
 
 function notifyGraphingStatusChanged(relId: string, processing: boolean) {

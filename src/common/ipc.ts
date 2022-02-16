@@ -80,6 +80,16 @@ export interface CommandInvoked extends MessageToRenderer {
   listener: (event: IpcRendererEvent, ...args: CommandInvoked["args"]) => void;
 }
 
+export const exportImageStatusChanged = "export-image-status-changed";
+export interface ExportImageStatusChanged extends MessageToRenderer {
+  channel: typeof exportImageStatusChanged;
+  args: [progress: number];
+  listener: (
+    event: IpcRendererEvent,
+    ...args: ExportImageStatusChanged["args"]
+  ) => void;
+}
+
 export const graphingStatusChanged = "graphing-status-changed";
 export interface GraphingStatusChanged extends MessageToRenderer {
   channel: typeof graphingStatusChanged;

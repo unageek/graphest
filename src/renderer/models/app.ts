@@ -10,6 +10,7 @@ import {
 } from "./graph";
 
 export interface AppState {
+  exportImageProgress: number;
   graphs: { byId: { [id: string]: Graph }; allIds: string[] };
   highRes: boolean;
   lastExportImageOpts: ExportImageOptions;
@@ -21,6 +22,7 @@ export interface AppState {
 }
 
 const initialState: AppState = {
+  exportImageProgress: 0,
   graphs: { byId: {}, allIds: [] },
   highRes: false,
   lastExportImageOpts: {
@@ -98,6 +100,13 @@ const slice = createSlice({
         },
       }),
     },
+    setExportImageProgress: {
+      prepare: (progress: number) => ({ payload: { progress } }),
+      reducer: (s, a: PayloadAction<{ progress: number }>) => ({
+        ...s,
+        exportImageProgress: a.payload.progress,
+      }),
+    },
     setHighRes: {
       prepare: (highRes: boolean) => ({ payload: { highRes } }),
       reducer: (s, a: PayloadAction<{ highRes: boolean }>) => ({
@@ -173,6 +182,7 @@ export const {
   newGraph,
   removeGraph,
   reorderGraph,
+  setExportImageProgress,
   setHighRes,
   setLastExportImageOpts,
   setShowExportDialog,

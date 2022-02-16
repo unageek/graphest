@@ -6,8 +6,7 @@ import {
   IComboBoxOption,
   Label,
   PrimaryButton,
-  Spinner,
-  SpinnerSize,
+  ProgressIndicator,
   Stack,
   Text,
   TextField,
@@ -19,6 +18,7 @@ import { bignum, BigNumber } from "../common/bignumber";
 import { MAX_EXPORT_IMAGE_SIZE, MAX_EXPORT_TIMEOUT } from "../common/constants";
 import { ExportImageOptions } from "../common/exportImage";
 import { err, ok, Result } from "../common/result";
+import { useSelector } from "./models/app";
 
 export interface ExportImageDialogProps {
   dismiss: () => void;
@@ -103,6 +103,7 @@ export const ExportImageDialog = (
   const [errors, setErrors] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
   const [opts, setOpts] = useState(props.opts);
+  const progress = useSelector((s) => s.exportImageProgress);
 
   // These properties are correlated, thus we need to maintain them.
   const [xMax, setXMax] = useState(opts.xMax);
@@ -217,7 +218,8 @@ export const ExportImageDialog = (
       }}
     >
       {exporting ? (
-        <Spinner label="Exporting…" size={SpinnerSize.large} />
+        // <Spinner label="Exporting…" size={SpinnerSize.large} />
+        <ProgressIndicator label="Exporting…" percentComplete={progress} />
       ) : (
         <>
           <div
