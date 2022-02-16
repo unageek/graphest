@@ -1,3 +1,8 @@
+export interface ExportImageEntry {
+  color: string;
+  relId: string;
+}
+
 export interface ExportImageOptions {
   antiAliasing: number;
   height: number;

@@ -1,6 +1,6 @@
 import { createSlice, isAnyOf, PayloadAction } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useSelector as _useSelector } from "react-redux";
-import { ExportImageOptions } from "../../common/exportImageOptions";
+import { ExportImageOptions } from "../../common/exportImage";
 import {
   Graph,
   graphReducer,

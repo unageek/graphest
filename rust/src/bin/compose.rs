@@ -1,27 +1,45 @@
 use clap::{App, Arg};
-use image::{imageops::overlay, io::Reader as ImageReader, DynamicImage, Rgb, Rgba, RgbaImage};
+use image::{imageops::overlay, io::Reader as ImageReader, DynamicImage, Rgba, RgbaImage};
 
 #[derive(Clone, Debug)]
 struct Entry {
-    color: Rgb<u8>,
+    color: Rgba<u8>,
     file: String,
 }
 
-fn parse_color(color: &str) -> Rgb<u8> {
+fn parse_color(color: &str) -> Rgba<u8> {
     let chars = color.chars().collect::<Vec<_>>();
-    assert_eq!(chars.len(), 7);
+    assert_eq!(chars.len(), 9);
     assert_eq!(chars[0], '#');
-    let r = 16 * chars[1].to_digit(16).unwrap() + chars[2].to_digit(16).unwrap();
-    let g = 16 * chars[3].to_digit(16).unwrap() + chars[4].to_digit(16).unwrap();
-    let b = 16 * chars[5].to_digit(16).unwrap() + chars[6].to_digit(16).unwrap();
-    Rgb([r as u8, g as u8, b as u8])
+    let digits = chars[1..]
+        .iter()
+        .map(|c| c.to_digit(16).unwrap())
+        .collect::<Vec<_>>();
+    let r = 16 * digits[0] + digits[1];
+    let g = 16 * digits[2] + digits[3];
+    let b = 16 * digits[4] + digits[5];
+    let a = 16 * digits[6] + digits[7];
+    Rgba([r as u8, g as u8, b as u8, a as u8])
 }
 
-fn sepia_tone(src: &DynamicImage, color: Rgb<u8>, dst: &mut RgbaImage) {
+fn sepia_tone(src: &DynamicImage, color: Rgba<u8>, dst: &mut RgbaImage) {
+    fn to_f64(c: u8) -> f64 {
+        c as f64 / 255.0
+    }
+
+    fn to_u8(c: f64) -> u8 {
+        (256.0 * c).floor().min(255.0) as u8
+    }
+
     match src {
         DynamicImage::ImageLumaA8(im) => {
             for (src, dst) in im.pixels().zip(dst.pixels_mut()) {
-                *dst = Rgba([color[0], color[1], color[2], src[1]]);
+                *dst = Rgba([
+                    color[0],
+                    color[1],
+                    color[2],
+                    to_u8(to_f64(src[1]) * to_f64(color[3])),
+                ]);
             }
         }
         _ => panic!("only LumaA8 images are supported"),
@@ -52,7 +70,7 @@ fn main() {
         .values_of("add")
         .unwrap()
         .collect::<Vec<_>>()
-        .windows(2)
+        .chunks_exact(2)
         .map(|e| Entry {
             color: parse_color(e[1]),
             file: e[0].into(),

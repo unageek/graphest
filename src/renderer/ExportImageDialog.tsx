@@ -16,7 +16,7 @@ import * as React from "react";
 import { useState } from "react";
 import { bignum, BigNumber } from "../common/bignumber";
 import { MAX_EXPORT_IMAGE_SIZE, MAX_EXPORT_TIMEOUT } from "../common/constants";
-import { ExportImageOptions } from "../common/exportImageOptions";
+import { ExportImageOptions } from "../common/exportImage";
 import { err, ok, Result } from "../common/result";
 
 export interface ExportImageDialogProps {

@@ -1,6 +1,6 @@
 import { IpcRendererEvent } from "electron";
 import { Command } from "./command";
-import { ExportImageOptions } from "./exportImageOptions";
+import { ExportImageEntry, ExportImageOptions } from "./exportImage";
 import { Range } from "./range";
 import { Result } from "./result";
 
@@ -27,7 +27,7 @@ export interface AbortGraphing extends MessageToMain {
 export const exportImage = "export-image";
 export interface ExportImage extends MessageToMain {
   channel: typeof exportImage;
-  args: [relId: string, opts: ExportImageOptions];
+  args: [entries: ExportImageEntry[], opts: ExportImageOptions];
   result: Promise<void>;
 }
 

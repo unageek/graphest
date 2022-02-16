@@ -2,12 +2,13 @@ import { initializeIcons } from "@fluentui/font-icons-mdl2";
 import { Stack, ThemeProvider, useTheme } from "@fluentui/react";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
+import * as Color from "color";
 import * as React from "react";
 import { useEffect, useRef } from "react";
 import * as ReactDOM from "react-dom";
 import { Provider, useDispatch } from "react-redux";
 import { Command } from "../common/command";
-import { ExportImageOptions } from "../common/exportImageOptions";
+import { ExportImageOptions } from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { RequestRelationResult } from "../common/ipc";
 import "./App.css";
@@ -28,14 +29,19 @@ import { store } from "./models/store";
 
 const exportImage = async (opts: ExportImageOptions) => {
   const state = store.getState();
-  for (const graph of Object.values(state.graphs.byId)) {
-    const { relId } = graph;
-    await window.ipcRenderer.invoke<ipc.ExportImage>(
-      ipc.exportImage,
-      relId,
-      opts
-    );
+  const entries = [];
+
+  for (const graphId of state.graphs.allIds) {
+    const graph = state.graphs.byId[graphId];
+    const { color, relId } = graph;
+    entries.push({ color: new Color(color).hexa(), relId });
   }
+
+  await window.ipcRenderer.invoke<ipc.ExportImage>(
+    ipc.exportImage,
+    entries,
+    opts
+  );
 };
 
 const openSaveDialog = async (path: string): Promise<string | undefined> => {

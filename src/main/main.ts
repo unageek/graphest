@@ -30,7 +30,7 @@ import {
   MAX_EXPORT_TIMEOUT,
   VALID_ANTI_ALIASING,
 } from "../common/constants";
-import { ExportImageOptions } from "../common/exportImageOptions";
+import { ExportImageEntry, ExportImageOptions } from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
@@ -99,13 +99,18 @@ let activeJobs: Job[] = [];
 let sleepingJobs: Job[] = [];
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
+// ".exe" is required for pointing to executables inside .asar archives.
+const composeExec: string = path.join(
+  __dirname,
+  process.platform === "win32" ? "compose.exe" : "compose"
+);
 const graphExec: string = path.join(
   __dirname,
-  // ".exe" is required for pointing to executables inside .asar archives.
   process.platform === "win32" ? "graph.exe" : "graph"
 );
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
+let nextExportImageId = 0;
 let nextRelId = 0;
 const relationById = new Map<string, Relation>();
 const relKeyToRelId = new Map<string, string>();
@@ -317,10 +322,14 @@ ipcMain.handle(ipc.abortGraphing, async (_, relId: string, tileId?: string) => {
 
 ipcMain.handle(
   ipc.exportImage,
-  async (_, relId: string, opts: ExportImageOptions): Promise<void> => {
-    const rel = relationById.get(relId);
-    if (rel === undefined) {
-      return;
+  async (
+    _,
+    entries: ExportImageEntry[],
+    opts: ExportImageOptions
+  ): Promise<void> => {
+    const outDir = path.join(baseOutDir, "export");
+    if (!fs.existsSync(outDir)) {
+      await fsPromises.mkdir(outDir);
     }
 
     const bounds = [
@@ -359,35 +368,65 @@ ipcMain.handle(
     const y0 = bounds[2].minus(pixelOffsetY.times(pixelHeight));
     const y1 = bounds[3].minus(pixelOffsetY.times(pixelHeight));
 
+    const newEntries = [];
+    for (const entry of entries) {
+      newEntries.push({
+        path: path.join(outDir, nextExportImageId.toString() + ".png"),
+        ...entry,
+      });
+      nextExportImageId++;
+    }
+
+    for (const entry of newEntries) {
+      const rel = relationById.get(entry.relId);
+      if (rel === undefined) {
+        continue;
+      }
+
+      const args = [
+        "--bounds",
+        x0.toString(),
+        x1.toString(),
+        y0.toString(),
+        y1.toString(),
+        "--gray-alpha",
+        "--output",
+        entry.path,
+        "--output-once",
+        "--size",
+        opts.width.toString(),
+        opts.height.toString(),
+        "--ssaa",
+        opts.antiAliasing.toString(),
+        "--timeout",
+        (1000 * opts.timeout).toString(),
+        "--",
+        rel.rel,
+      ];
+      try {
+        const { stderr } = await util.promisify(execFile)(graphExec, args);
+        console.log(stderr);
+      } catch ({ stderr }) {
+        console.log(stderr);
+        console.log("export failed");
+        return;
+      }
+    }
+
     const args = [
-      "--bounds",
-      x0.toString(),
-      x1.toString(),
-      y0.toString(),
-      y1.toString(),
-      "--gray-alpha",
+      ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
       "--output",
       opts.path,
-      "--output-once",
-      "--size",
-      opts.width.toString(),
-      opts.height.toString(),
-      "--ssaa",
-      opts.antiAliasing.toString(),
-      "--timeout",
-      (1000 * opts.timeout).toString(),
-      "--",
-      rel.rel,
     ];
     try {
-      const { stderr } = await util.promisify(execFile)(graphExec, args);
+      const { stderr } = await util.promisify(execFile)(composeExec, args);
       console.log(stderr);
-      console.log("exported");
-      await shell.openPath(opts.path);
     } catch ({ stderr }) {
       console.log(stderr);
       console.log("export failed");
     }
+
+    await shell.openPath(opts.path);
   }
 );
 
