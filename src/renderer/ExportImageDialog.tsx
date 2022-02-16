@@ -12,8 +12,9 @@ import {
   Text,
   TextField,
 } from "@fluentui/react";
+import { debounce } from "lodash";
 import * as React from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { bignum, BigNumber } from "../common/bignumber";
 import { MAX_EXPORT_IMAGE_SIZE, MAX_EXPORT_TIMEOUT } from "../common/constants";
 import { ExportImageOptions } from "../common/exportImage";
@@ -51,7 +52,15 @@ const integerInputStyles = {
   },
 };
 
-const parseBignum = (value?: string): Result<BigNumber, string | undefined> => {
+const textStyles = {
+  root: {
+    padding: "5px 0px",
+  },
+};
+
+const tryParseBignum = (
+  value?: string
+): Result<BigNumber, string | undefined> => {
   const val = bignum(value ?? "");
   if (val.isFinite()) {
     return ok(val);
@@ -60,7 +69,9 @@ const parseBignum = (value?: string): Result<BigNumber, string | undefined> => {
   }
 };
 
-const parseImageSize = (value?: string): Result<number, string | undefined> => {
+const tryParseImageSize = (
+  value?: string
+): Result<number, string | undefined> => {
   const val = Number(value);
   if (Number.isSafeInteger(val) && val > 0 && val <= MAX_EXPORT_IMAGE_SIZE) {
     return ok(val);
@@ -69,19 +80,15 @@ const parseImageSize = (value?: string): Result<number, string | undefined> => {
   }
 };
 
-const parseTimeout = (value?: string): Result<number, string | undefined> => {
+const tryParseTimeout = (
+  value?: string
+): Result<number, string | undefined> => {
   const val = Number(value);
   if (Number.isSafeInteger(val) && val > 0 && val <= MAX_EXPORT_TIMEOUT) {
     return ok(val);
   } else {
     return err(`Timeout must be between 1 and ${MAX_EXPORT_TIMEOUT}.`);
   }
-};
-
-const textStyles = {
-  root: {
-    padding: "5px 0px",
-  },
 };
 
 const validateRange = (min: BigNumber, max: BigNumber): string | undefined => {
@@ -97,6 +104,16 @@ export const ExportImageDialog = (
   const [exporting, setExporting] = useState(false);
   const [opts, setOpts] = useState(props.opts);
 
+  // These properties are correlated, thus we need to maintain them.
+  const [xMax, setXMax] = useState(opts.xMax);
+  const [xMaxErrorMessage, setXMaxErrorMessage] = useState<string>();
+  const [xMin, setXMin] = useState(opts.xMin);
+  const [xMinErrorMessage, setXMinErrorMessage] = useState<string>();
+  const [yMax, setYMax] = useState(opts.yMax);
+  const [yMaxErrorMessage, setYMaxErrorMessage] = useState<string>();
+  const [yMin, setYMin] = useState(opts.yMin);
+  const [yMinErrorMessage, setYMinErrorMessage] = useState<string>();
+
   const pathParts = opts.path.split(new RegExp("[\\/]"));
   const briefPath =
     pathParts.length <= 2 ? pathParts : "…/" + pathParts.slice(-2).join("/");
@@ -110,6 +127,78 @@ export const ExportImageDialog = (
       return undefined;
     }
   }
+
+  const validateXMax = useCallback(
+    debounce((value: string) => {
+      const result = tryParseBignum(value);
+      if (result.ok) {
+        const rangeError = validateRange(bignum(xMin), result.ok);
+        if (!rangeError) {
+          setOpts({ ...opts, xMax: value, xMin });
+        }
+        setXMaxErrorMessage(addOrRemoveError("x-max", rangeError));
+        setXMinErrorMessage(addOrRemoveError("x-min", rangeError));
+      } else {
+        const parseError = result.err;
+        setXMaxErrorMessage(addOrRemoveError("x-max", parseError));
+      }
+    }, 200),
+    [xMin]
+  );
+
+  const validateXMin = useCallback(
+    debounce((value: string) => {
+      const result = tryParseBignum(value);
+      if (result.ok) {
+        const rangeError = validateRange(result.ok, bignum(xMax));
+        if (!rangeError) {
+          setOpts({ ...opts, xMax, xMin: value });
+        }
+        setXMinErrorMessage(addOrRemoveError("x-min", rangeError));
+        setXMaxErrorMessage(addOrRemoveError("x-max", rangeError));
+      } else {
+        const parseError = result.err;
+        setXMinErrorMessage(addOrRemoveError("x-min", parseError));
+      }
+    }, 200),
+    [xMax]
+  );
+
+  const validateYMax = useCallback(
+    debounce((value: string) => {
+      const result = tryParseBignum(value);
+      if (result.ok) {
+        const rangeError = validateRange(bignum(yMin), result.ok);
+        if (!rangeError) {
+          setOpts({ ...opts, yMax: value, yMin });
+        }
+        setYMaxErrorMessage(addOrRemoveError("y-max", rangeError));
+        setYMinErrorMessage(addOrRemoveError("y-min", rangeError));
+      } else {
+        const parseError = result.err;
+        setYMaxErrorMessage(addOrRemoveError("y-max", parseError));
+      }
+    }, 200),
+    [yMin]
+  );
+
+  const validateYMin = useCallback(
+    debounce((value: string) => {
+      const result = tryParseBignum(value);
+      if (result.ok) {
+        const rangeError = validateRange(result.ok, bignum(yMax));
+        if (!rangeError) {
+          setOpts({ ...opts, yMax, yMin: value });
+        }
+        setYMinErrorMessage(addOrRemoveError("y-min", rangeError));
+        setYMaxErrorMessage(addOrRemoveError("y-max", rangeError));
+      } else {
+        const parseError = result.err;
+        setYMinErrorMessage(addOrRemoveError("y-min", parseError));
+      }
+    }, 200),
+    [yMax]
+  );
 
   return (
     <Dialog
@@ -143,72 +232,46 @@ export const ExportImageDialog = (
 
             <Label style={{ textAlign: "right" }}>x</Label>
             <TextField
-              defaultValue={opts.xMin}
+              errorMessage={xMinErrorMessage}
               onChange={(_, value) => {
-                const val = parseBignum(value).ok;
-                if (val !== undefined) {
-                  setOpts({ ...opts, xMin: val.toString() });
-                }
-              }}
-              onGetErrorMessage={(value) => {
-                const e =
-                  parseBignum(value).err ??
-                  validateRange(bignum(value), bignum(opts.xMax));
-                return addOrRemoveError("x-min", e);
+                if (value === undefined) return;
+                setXMin(value);
+                validateXMin(value);
               }}
               styles={decimalInputStyles}
+              value={xMin}
             />
             <TextField
-              defaultValue={opts.xMax}
+              errorMessage={xMaxErrorMessage}
               onChange={(_, value) => {
-                const val = parseBignum(value).ok;
-                if (val !== undefined) {
-                  setOpts({ ...opts, xMax: val.toString() });
-                }
-              }}
-              onGetErrorMessage={(value) => {
-                const e =
-                  parseBignum(value).err ??
-                  validateRange(bignum(opts.xMin), bignum(value));
-                return addOrRemoveError("x-max", e);
+                if (value === undefined) return;
+                setXMax(value);
+                validateXMax(value);
               }}
               styles={decimalInputStyles}
+              value={xMax}
             />
 
             <Label style={{ textAlign: "right" }}>y</Label>
             <TextField
-              defaultValue={opts.yMin}
+              errorMessage={yMinErrorMessage}
               onChange={(_, value) => {
-                if (!value) return;
-                const val = bignum(value);
-                if (val.isFinite()) {
-                  setOpts({ ...opts, yMin: val.toString() });
-                }
-              }}
-              onGetErrorMessage={(value) => {
-                const e =
-                  parseBignum(value).err ??
-                  validateRange(bignum(value), bignum(opts.yMax));
-                return addOrRemoveError("y-min", e);
+                if (value === undefined) return;
+                setYMin(value);
+                validateYMin(value);
               }}
               styles={decimalInputStyles}
+              value={yMin}
             />
             <TextField
-              defaultValue={opts.yMax}
+              errorMessage={yMaxErrorMessage}
               onChange={(_, value) => {
-                if (!value) return;
-                const val = bignum(value);
-                if (val.isFinite()) {
-                  setOpts({ ...opts, yMax: val.toString() });
-                }
-              }}
-              onGetErrorMessage={(value) => {
-                const e =
-                  parseBignum(value).err ??
-                  validateRange(bignum(opts.yMin), bignum(value));
-                return addOrRemoveError("y-max", e);
+                if (value === undefined) return;
+                setYMax(value);
+                validateYMax(value);
               }}
               styles={decimalInputStyles}
+              value={yMax}
             />
 
             <div />
@@ -222,13 +285,13 @@ export const ExportImageDialog = (
               <TextField
                 defaultValue={opts.width.toString()}
                 onChange={(_, value) => {
-                  const val = parseImageSize(value).ok;
+                  const val = tryParseImageSize(value).ok;
                   if (val !== undefined) {
                     setOpts({ ...opts, width: val });
                   }
                 }}
                 onGetErrorMessage={(value) => {
-                  const e = parseImageSize(value).err;
+                  const e = tryParseImageSize(value).err;
                   return addOrRemoveError("width", e);
                 }}
                 styles={integerInputStyles}
@@ -247,13 +310,13 @@ export const ExportImageDialog = (
               <TextField
                 defaultValue={opts.height.toString()}
                 onChange={(_, value) => {
-                  const val = parseImageSize(value).ok;
+                  const val = tryParseImageSize(value).ok;
                   if (val !== undefined) {
                     setOpts({ ...opts, height: val });
                   }
                 }}
                 onGetErrorMessage={(value) => {
-                  const e = parseImageSize(value).err;
+                  const e = tryParseImageSize(value).err;
                   return addOrRemoveError("height", e);
                 }}
                 styles={integerInputStyles}
@@ -290,13 +353,13 @@ export const ExportImageDialog = (
               <TextField
                 defaultValue={opts.timeout.toString()}
                 onChange={(_, value) => {
-                  const val = parseTimeout(value).ok;
+                  const val = tryParseTimeout(value).ok;
                   if (val !== undefined) {
                     setOpts({ ...opts, timeout: val });
                   }
                 }}
                 onGetErrorMessage={(value) => {
-                  const e = parseTimeout(value).err;
+                  const e = tryParseTimeout(value).err;
                   return addOrRemoveError("timeout", e);
                 }}
                 styles={integerInputStyles}
