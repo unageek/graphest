@@ -362,7 +362,7 @@ export const ExportImageDialog = (
             <div style={{ gridColumn: "1" }} />
 
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Timeout per Graph
+              Per-tile Timeout
             </Label>
             <Stack
               horizontal
@@ -383,7 +383,7 @@ export const ExportImageDialog = (
                 }}
                 styles={integerInputStyles}
               />
-              <Text styles={textStyles}>seconds</Text>
+              <Text styles={textStyles}>milliseconds</Text>
             </Stack>
 
             <div style={{ gridColumn: "1" }} />

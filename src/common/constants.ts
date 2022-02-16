@@ -37,7 +37,7 @@ export const MAX_EXPORT_IMAGE_SIZE = 8192;
 /**
  * The maximum duration of exporting in seconds.
  */
-export const MAX_EXPORT_TIMEOUT = 10000;
+export const MAX_EXPORT_TIMEOUT = 300000;
 
 /**
  * Valid values for {@link ExportImageOptions.antiAliasing}.

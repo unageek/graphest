@@ -430,7 +430,7 @@ ipcMain.handle(
             "--ssaa",
             opts.antiAliasing.toString(),
             "--timeout",
-            (1000 * opts.timeout).toString(),
+            opts.timeout.toString(),
             "--",
             rel.rel,
           ];
