@@ -61,3 +61,8 @@ test = false
 name = "graph"
 doc = false
 test = false
+
+[[bin]]
+name = "tile"
+doc = false
+test = false

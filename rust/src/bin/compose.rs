@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use image::{imageops::overlay, io::Reader as ImageReader, DynamicImage, Rgba, RgbaImage};
+use image::{imageops, io::Reader as ImageReader, DynamicImage, Rgba, RgbaImage};
 
 #[derive(Clone, Debug)]
 struct Entry {
@@ -82,9 +82,9 @@ fn main() {
     let mut composed = None;
     for entry in entries {
         let im = ImageReader::open(&entry.file)
-            .expect("failed to open the image '{file}'")
+            .unwrap_or_else(|_| panic!("failed to open the image '{}'", entry.file))
             .decode()
-            .expect("failed to decode the image '{file}'");
+            .unwrap_or_else(|_| panic!("failed to decode the image '{}'", entry.file));
         let sepia = sepia.get_or_insert_with(|| RgbaImage::new(im.width(), im.height()));
         let composed = composed.get_or_insert_with(|| {
             let mut composed = RgbaImage::new(im.width(), im.height());
@@ -94,7 +94,7 @@ fn main() {
         assert_eq!(im.width(), sepia.width());
         assert_eq!(im.width(), sepia.height());
         sepia_tone(&im, entry.color, sepia);
-        overlay(composed, sepia, 0, 0);
+        imageops::overlay(composed, sepia, 0, 0);
     }
 
     if let Some(composed) = composed {

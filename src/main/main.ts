@@ -108,6 +108,10 @@ const graphExec: string = path.join(
   __dirname,
   process.platform === "win32" ? "graph.exe" : "graph"
 );
+const tileExec: string = path.join(
+  __dirname,
+  process.platform === "win32" ? "tile.exe" : "tile"
+);
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
 let nextExportImageId = 0;
@@ -364,14 +368,14 @@ ipcMain.handle(
     const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
     const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
     const x0 = bounds[0].minus(pixelOffsetX.times(pixelWidth));
-    const x1 = bounds[1].minus(pixelOffsetX.times(pixelWidth));
-    const y0 = bounds[2].minus(pixelOffsetY.times(pixelHeight));
     const y1 = bounds[3].minus(pixelOffsetY.times(pixelHeight));
 
     const newEntries = [];
     for (const entry of entries) {
       newEntries.push({
         path: path.join(outDir, nextExportImageId.toString() + ".png"),
+        tilePathPrefix: path.join(outDir, nextExportImageId.toString() + "-"),
+        tilePathSuffix: ".png",
         ...entry,
       });
       nextExportImageId++;
@@ -383,32 +387,78 @@ ipcMain.handle(
         continue;
       }
 
+      const scaled_width = opts.antiAliasing * opts.width;
+      const scaled_height = opts.antiAliasing * opts.height;
+      const x_tiles = scaled_width / 1024;
+      const y_tiles = scaled_height / 1024;
+      const tile_width = Math.ceil(opts.width / x_tiles);
+      const tile_height = Math.ceil(opts.height / y_tiles);
+      for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
+        const i = i_tile * tile_height;
+        const height = Math.min(tile_height, opts.height - i);
+        for (let j_tile = 0; j_tile < x_tiles; j_tile++) {
+          const j = j_tile * tile_width;
+          const width = Math.min(tile_width, opts.width - j);
+          const bounds = [
+            x0.plus(pixelWidth.times(j)),
+            x0.plus(pixelWidth.times(j + width)),
+            y1.minus(pixelHeight.times(i + height)),
+            y1.minus(pixelHeight.times(i)),
+          ];
+
+          const args = [
+            "--bounds",
+            ...bounds.map((b) => b.toString()),
+            "--gray-alpha",
+            "--output",
+            `${entry.tilePathPrefix}${i_tile}-${j_tile}${entry.tilePathSuffix}`,
+            "--output-once",
+            "--size",
+            width.toString(),
+            height.toString(),
+            "--ssaa",
+            opts.antiAliasing.toString(),
+            "--timeout",
+            (1000 * opts.timeout).toString(),
+            "--",
+            rel.rel,
+          ];
+          try {
+            const { stderr } = await util.promisify(execFile)(graphExec, args);
+            if (stderr) {
+              console.log(stderr);
+            }
+          } catch ({ stderr }) {
+            console.log(stderr);
+            console.log("graph failed:", `'${args.join("' '")}'`);
+            return;
+          }
+        }
+      }
+
       const args = [
-        "--bounds",
-        x0.toString(),
-        x1.toString(),
-        y0.toString(),
-        y1.toString(),
-        "--gray-alpha",
         "--output",
         entry.path,
-        "--output-once",
+        "--prefix",
+        entry.tilePathPrefix,
         "--size",
         opts.width.toString(),
         opts.height.toString(),
-        "--ssaa",
-        opts.antiAliasing.toString(),
-        "--timeout",
-        (1000 * opts.timeout).toString(),
-        "--",
-        rel.rel,
+        "--suffix",
+        entry.tilePathSuffix,
+        "--x-tiles",
+        x_tiles.toString(),
+        "--y-tiles",
+        y_tiles.toString(),
       ];
       try {
-        const { stderr } = await util.promisify(execFile)(graphExec, args);
-        console.log(stderr);
+        const { stderr } = await util.promisify(execFile)(tileExec, args);
+        if (stderr) {
+          console.log(stderr);
+        }
       } catch ({ stderr }) {
         console.log(stderr);
-        console.log("export failed");
+        console.log("tile failed:", `'${args.join("' '")}'`);
         return;
       }
     }
@@ -420,10 +470,13 @@ ipcMain.handle(
     ];
     try {
       const { stderr } = await util.promisify(execFile)(composeExec, args);
-      console.log(stderr);
+      if (stderr) {
+        console.log(stderr);
+      }
     } catch ({ stderr }) {
       console.log(stderr);
-      console.log("export failed");
+      console.log("compose failed:", `'${args.join("' '")}'`);
+      return;
     }
 
     await shell.openPath(opts.path);
