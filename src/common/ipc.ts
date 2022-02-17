@@ -49,13 +49,6 @@ export interface GetDefaultImageFilePath extends MessageToMain {
   result: Promise<string>;
 }
 
-export const openSaveDialog = "open-save-dialog";
-export interface OpenSaveDialog extends MessageToMain {
-  channel: typeof openSaveDialog;
-  args: [path: string];
-  result: Promise<string | undefined>;
-}
-
 export const openUrl = "open-url";
 export interface OpenUrl extends MessageToMain {
   channel: typeof openUrl;
@@ -75,6 +68,13 @@ export interface RequestTile extends MessageToMain {
   channel: typeof requestTile;
   args: [relId: string, tileId: string, coords: L.Coords];
   result: void;
+}
+
+export const showSaveDialog = "open-save-dialog";
+export interface ShowSaveDialog extends MessageToMain {
+  channel: typeof showSaveDialog;
+  args: [path: string];
+  result: Promise<string | undefined>;
 }
 
 export interface MessageToRenderer {

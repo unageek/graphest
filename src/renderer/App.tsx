@@ -59,13 +59,6 @@ const exportImage = async (opts: ExportImageOptions) => {
   );
 };
 
-const openSaveDialog = async (path: string): Promise<string | undefined> => {
-  return await window.ipcRenderer.invoke<ipc.OpenSaveDialog>(
-    ipc.openSaveDialog,
-    path
-  );
-};
-
 const requestRelation = async (
   rel: string,
   graphId: string,
@@ -76,6 +69,13 @@ const requestRelation = async (
     rel,
     graphId,
     highRes
+  );
+};
+
+const showSaveDialog = async (path: string): Promise<string | undefined> => {
+  return await window.ipcRenderer.invoke<ipc.ShowSaveDialog>(
+    ipc.showSaveDialog,
+    path
   );
 };
 
@@ -128,11 +128,11 @@ const App = () => {
           abort={abortExportImage}
           dismiss={() => dispatch(setShowExportImageDialog(false))}
           exportImage={exportImage}
-          openSaveDialog={openSaveDialog}
           opts={exportImageOpts}
           saveOpts={(opts) => {
             dispatch(setLastExportImageOpts(opts));
           }}
+          showSaveDialog={showSaveDialog}
         />
       )}
     </>

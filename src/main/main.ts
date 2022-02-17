@@ -539,18 +539,6 @@ ipcMain.handle(ipc.getDefaultImageFilePath, async (): Promise<string> => {
 });
 
 ipcMain.handle(
-  ipc.openSaveDialog,
-  async (_, path: string): Promise<string | undefined> => {
-    if (!mainWindow) return undefined;
-    const result = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: path,
-      filters: [{ name: "PNG", extensions: ["png"] }],
-    });
-    return result.filePath;
-  }
-);
-
-ipcMain.handle(
   ipc.requestRelation,
   async (
     _,
@@ -671,6 +659,18 @@ ipcMain.handle(
         notifyTileReady(relId, tileId, false);
       }
     }
+  }
+);
+
+ipcMain.handle(
+  ipc.showSaveDialog,
+  async (_, path: string): Promise<string | undefined> => {
+    if (!mainWindow) return undefined;
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: path,
+      filters: [{ name: "PNG", extensions: ["png"] }],
+    });
+    return result.filePath;
   }
 );
 

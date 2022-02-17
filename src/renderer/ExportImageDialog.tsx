@@ -29,9 +29,9 @@ export interface ExportImageDialogProps {
   abort: () => void;
   dismiss: () => void;
   exportImage: (opts: ExportImageOptions) => Promise<void>;
-  openSaveDialog: (path: string) => Promise<string | undefined>;
   opts: ExportImageOptions;
   saveOpts: (opts: ExportImageOptions) => void;
+  showSaveDialog: (path: string) => Promise<string | undefined>;
 }
 
 const antiAliasingOptions: IComboBoxOption[] = [
@@ -482,7 +482,7 @@ export const ExportImageDialog = (
               </Text>
               <DefaultButton
                 onClick={async () => {
-                  const path = await props.openSaveDialog(opts.path);
+                  const path = await props.showSaveDialog(opts.path);
                   // `path` can be an empty string if the user cancels the dialog on macOS.
                   if (path) {
                     setOpts({ ...opts, path });
