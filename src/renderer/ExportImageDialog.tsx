@@ -229,6 +229,7 @@ export const ExportImageDialog = (
         >
           <div
             style={{
+              alignItems: "center",
               display: "grid",
               gap: "10px",
               gridTemplateColumns: "1fr auto",
@@ -268,8 +269,8 @@ export const ExportImageDialog = (
               gridTemplateColumns: "auto auto auto",
             }}
           >
-            <Label style={{ gridColumn: "2" }}>Minimum</Label>
-            <Label style={{ gridColumn: "3" }}>Maximum</Label>
+            <Label style={{ gridColumn: "2", padding: "0" }}>Minimum</Label>
+            <Label style={{ gridColumn: "3", padding: "0" }}>Maximum</Label>
 
             <Label style={{ textAlign: "right" }}>x</Label>
             <TextField
