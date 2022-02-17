@@ -46,7 +46,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       graphs.allIds.forEach((id, index) => {
         graphLayers.get(id)?.setZIndex(index + 10);
       });
-    }, [map, graphs]);
+    }, [graphLayers, graphs, map, store]);
 
     useEffect(() => {
       map?.addLayer(gridLayer);
@@ -59,17 +59,17 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       } else {
         map.removeLayer(axesLayer);
       }
-    }, [map, showAxes]);
+    }, [axesLayer, map, showAxes]);
 
     useEffect(() => {
       if (map === undefined) return;
       gridLayer.showMajorGrid = showMajorGrid;
-    }, [map, showMajorGrid]);
+    }, [gridLayer, map, showMajorGrid]);
 
     useEffect(() => {
       if (map === undefined) return;
       gridLayer.showMinorGrid = showMinorGrid;
-    }, [map, showMinorGrid]);
+    }, [gridLayer, map, showMinorGrid]);
 
     useEffect(() => {
       setMap(

@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useState,
 } from "react";
 import * as S from "slate";
@@ -366,44 +367,45 @@ export const RelationInput = (props: RelationInputProps) => {
 
       return ranges;
     },
-    [showValidationError, validationError, value]
+    [editor, showValidationError, validationError]
   );
 
-  function moveCursorToTheEnd() {
+  const moveCursorToTheEnd = useCallback(() => {
     const end = S.Editor.end(editor, [editor.children.length - 1]);
     S.Transforms.select(editor, end);
-  }
+  }, [editor]);
 
-  async function updateRelationImmediately() {
+  const updateRelationImmediately = useCallback(async () => {
     const rel = S.Node.string(editor);
     const result = await props.requestRelation(rel, props.highRes);
     props.onRelationChanged(result.ok ?? "", rel);
     setValidationError(result.err);
     // For immediate use of the result.
     return result;
-  }
+  }, [editor, props.highRes]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const updateRelation = useCallback(
-    debounce(async (): Promise<RequestRelationResult> => {
-      return updateRelationImmediately();
-    }, 200),
-    [props.highRes]
+  const updateRelation = useMemo(
+    () =>
+      debounce(async (): Promise<RequestRelationResult> => {
+        return updateRelationImmediately();
+      }, 200),
+    [updateRelationImmediately]
   );
 
-  function updateTokens() {
+  const updateTokens = useCallback(() => {
     const rel = S.Node.string(editor);
     editor.tokens = [...tokenize(rel)];
-  }
+  }, [editor]);
 
   useEffect(() => {
     updateTokens();
     ReactEditor.focus(editor);
     moveCursorToTheEnd();
-  }, []);
+  }, [editor, moveCursorToTheEnd, updateTokens]);
 
   useEffect(() => {
     updateRelationImmediately();
-  }, [props.highRes]);
+  }, [props.highRes, updateRelationImmediately]);
 
   useEffect(() => {
     if (props.relationInputByUser) return;
@@ -420,7 +422,7 @@ export const RelationInput = (props: RelationInputProps) => {
       });
       moveCursorToTheEnd();
     });
-  }, [props.relation]);
+  }, [editor, moveCursorToTheEnd, props.relation, props.relationInputByUser]);
 
   useImperativeHandle(props.actionsRef, () => ({
     insertSymbol: (symbol: string) => {

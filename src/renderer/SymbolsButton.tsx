@@ -1,7 +1,7 @@
 import { FocusTrapCallout, IButtonStyles, useTheme } from "@fluentui/react";
 import { debounce } from "lodash";
 import * as React from "react";
-import { useCallback, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { BarIconButton } from "./BarIconButton";
 
 export interface SymbolsButtonProps {
@@ -21,10 +21,11 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
   const [showCallout, setShowCallout] = useState(false);
   const theme = useTheme();
 
-  const setShowCalloutDebounced = useCallback(
-    debounce((show: boolean) => {
-      setShowCallout(show);
-    }, 200),
+  const setShowCalloutDebounced = useMemo(
+    () =>
+      debounce((show: boolean) => {
+        setShowCallout(show);
+      }, 200),
     []
   );
 
