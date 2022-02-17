@@ -111,9 +111,9 @@ let queuedJobs: Job[] = [];
 let activeJobs: Job[] = [];
 let sleepingJobs: Job[] = [];
 
-let abortExportImage = false;
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const composeExec: string = getBundledExecutable("compose");
+const exportImageAbortController = new AbortController();
 const graphExec: string = getBundledExecutable("graph");
 const joinTilesExec: string = getBundledExecutable("join-tiles");
 let mainMenu: Menu | undefined;
@@ -323,7 +323,7 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle(ipc.abortExportImage, async () => {
-  abortExportImage = true;
+  exportImageAbortController.abort();
 });
 
 ipcMain.handle(ipc.abortGraphing, async (_, relId: string, tileId?: string) => {
@@ -371,6 +371,8 @@ ipcMain.handle(
       return;
     }
 
+    const { signal } = exportImageAbortController;
+
     const pixelOffsetX = bignum(1.2345678901234567e-3);
     const pixelOffsetY = bignum(1.3456789012345678e-3);
     const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
@@ -410,11 +412,6 @@ ipcMain.handle(
           const j = j_tile * tile_width;
           const width = Math.min(tile_width, opts.width - j);
 
-          if (abortExportImage) {
-            abortExportImage = false;
-            return;
-          }
-
           const bounds = [
             x0.plus(pixelWidth.times(j)),
             x0.plus(pixelWidth.times(j + width)),
@@ -441,7 +438,14 @@ ipcMain.handle(
             rel.rel,
           ];
           try {
-            const { stderr } = await util.promisify(execFile)(graphExec, args);
+            // Somehow, type definition is messed up!
+            /* eslint-disable @typescript-eslint/no-explicit-any */
+            const { stderr } = (await util.promisify(execFile)(
+              graphExec,
+              args,
+              { signal } as any
+            )) as unknown as { stdout: string; stderr: string };
+            /* eslint-enable @typescript-eslint/no-explicit-any */
             if (stderr) {
               console.log(stderr.trimEnd());
             }
@@ -479,7 +483,13 @@ ipcMain.handle(
         y_tiles.toString(),
       ];
       try {
-        const { stderr } = await util.promisify(execFile)(joinTilesExec, args);
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const { stderr } = (await util.promisify(execFile)(
+          joinTilesExec,
+          args,
+          { signal } as any
+        )) as unknown as { stdout: string; stderr: string };
+        /* eslint-enable @typescript-eslint/no-explicit-any */
         if (stderr) {
           console.log(stderr.trimEnd());
         }
@@ -499,7 +509,11 @@ ipcMain.handle(
       opts.path,
     ];
     try {
-      const { stderr } = await util.promisify(execFile)(composeExec, args);
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const { stderr } = (await util.promisify(execFile)(composeExec, args, {
+        signal,
+      } as any)) as unknown as { stdout: string; stderr: string };
+      /* eslint-enable @typescript-eslint/no-explicit-any */
       if (stderr) {
         console.log(stderr.trimEnd());
       }
