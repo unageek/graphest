@@ -384,12 +384,10 @@ ipcMain.handle(
       nextExportImageId++;
     }
 
-    const pixelOffsetX = bignum(PERTURBATION_X);
-    const pixelOffsetY = bignum(PERTURBATION_Y);
     const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
     const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
-    const x0 = bounds[0].minus(pixelOffsetX.times(pixelWidth));
-    const y1 = bounds[3].minus(pixelOffsetY.times(pixelHeight));
+    const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
+    const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
 
     exportImageAbortController = new AbortController();
     const { signal } = exportImageAbortController;
@@ -398,7 +396,7 @@ ipcMain.handle(
       const entry = newEntries[k];
       const rel = relationById.get(entry.relId);
       if (rel === undefined) {
-        continue;
+        return;
       }
 
       const x_tiles = Math.ceil(
