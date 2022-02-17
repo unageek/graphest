@@ -14,7 +14,7 @@ import {
 } from "@fluentui/react";
 import { debounce } from "lodash";
 import * as React from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { bignum, BigNumber } from "../common/bignumber";
 import {
   EXPORT_GRAPH_TILE_SIZE,
@@ -106,7 +106,7 @@ const validateRange = (min: BigNumber, max: BigNumber): string | undefined => {
 export const ExportImageDialog = (
   props: ExportImageDialogProps
 ): JSX.Element => {
-  const [errors, setErrors] = useState<string[]>([]);
+  const [errors, setErrors] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
   const [opts, setOpts] = useState(props.opts);
   const progress = useSelector((s) => s.exportImageProgress);
@@ -125,86 +125,100 @@ export const ExportImageDialog = (
   const briefPath =
     pathParts.length <= 2 ? pathParts : "…/" + pathParts.slice(-2).join("/");
 
-  function addOrRemoveError<T>(key: string, e?: T): T | undefined {
-    if (e !== undefined) {
-      setErrors([...errors, key]);
+  const addOrRemoveErrors = useCallback(
+    (keys: string[], e?: string): string | undefined => {
+      const newErrors = new Set(errors);
+      for (const key of keys) {
+        if (e !== undefined) {
+          newErrors.add(key);
+        } else {
+          newErrors.delete(key);
+        }
+      }
+      setErrors(newErrors);
       return e;
-    } else {
-      setErrors(errors.filter((e) => e !== key));
-      return undefined;
-    }
-  }
-
-  const validateXMax = useCallback(
-    debounce((value: string) => {
-      const result = tryParseBignum(value);
-      if (result.ok) {
-        const rangeError = validateRange(bignum(xMin), result.ok);
-        if (!rangeError) {
-          setOpts({ ...opts, xMax: value, xMin });
-        }
-        setXMaxErrorMessage(addOrRemoveError("x-max", rangeError));
-        setXMinErrorMessage(addOrRemoveError("x-min", rangeError));
-      } else {
-        const parseError = result.err;
-        setXMaxErrorMessage(addOrRemoveError("x-max", parseError));
-      }
-    }, 200),
-    [errors, opts, xMin]
+    },
+    [errors]
   );
 
-  const validateXMin = useCallback(
-    debounce((value: string) => {
-      const result = tryParseBignum(value);
-      if (result.ok) {
-        const rangeError = validateRange(result.ok, bignum(xMax));
-        if (!rangeError) {
-          setOpts({ ...opts, xMax, xMin: value });
+  const validateXMax = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseBignum(value);
+        if (result.ok) {
+          const rangeError = validateRange(bignum(xMin), result.ok);
+          if (!rangeError) {
+            setOpts({ ...opts, xMax: value, xMin });
+          }
+          const errors = addOrRemoveErrors(["x-max", "x-min"], rangeError);
+          setXMaxErrorMessage(errors);
+          setXMinErrorMessage(errors);
+        } else {
+          const parseError = result.err;
+          setXMaxErrorMessage(addOrRemoveErrors(["x-max"], parseError));
         }
-        setXMinErrorMessage(addOrRemoveError("x-min", rangeError));
-        setXMaxErrorMessage(addOrRemoveError("x-max", rangeError));
-      } else {
-        const parseError = result.err;
-        setXMinErrorMessage(addOrRemoveError("x-min", parseError));
-      }
-    }, 200),
-    [errors, opts, xMax]
+      }, 200),
+    [addOrRemoveErrors, opts, xMin]
   );
 
-  const validateYMax = useCallback(
-    debounce((value: string) => {
-      const result = tryParseBignum(value);
-      if (result.ok) {
-        const rangeError = validateRange(bignum(yMin), result.ok);
-        if (!rangeError) {
-          setOpts({ ...opts, yMax: value, yMin });
+  const validateXMin = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseBignum(value);
+        if (result.ok) {
+          const rangeError = validateRange(result.ok, bignum(xMax));
+          if (!rangeError) {
+            setOpts({ ...opts, xMax, xMin: value });
+          }
+          const errors = addOrRemoveErrors(["x-max", "x-min"], rangeError);
+          setXMaxErrorMessage(errors);
+          setXMinErrorMessage(errors);
+        } else {
+          const parseError = result.err;
+          setXMinErrorMessage(addOrRemoveErrors(["x-min"], parseError));
         }
-        setYMaxErrorMessage(addOrRemoveError("y-max", rangeError));
-        setYMinErrorMessage(addOrRemoveError("y-min", rangeError));
-      } else {
-        const parseError = result.err;
-        setYMaxErrorMessage(addOrRemoveError("y-max", parseError));
-      }
-    }, 200),
-    [errors, opts, yMin]
+      }, 200),
+    [addOrRemoveErrors, opts, xMax]
   );
 
-  const validateYMin = useCallback(
-    debounce((value: string) => {
-      const result = tryParseBignum(value);
-      if (result.ok) {
-        const rangeError = validateRange(result.ok, bignum(yMax));
-        if (!rangeError) {
-          setOpts({ ...opts, yMax, yMin: value });
+  const validateYMax = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseBignum(value);
+        if (result.ok) {
+          const rangeError = validateRange(bignum(yMin), result.ok);
+          if (!rangeError) {
+            setOpts({ ...opts, yMax: value, yMin });
+          }
+          const errors = addOrRemoveErrors(["y-max", "y-min"], rangeError);
+          setYMaxErrorMessage(errors);
+          setYMinErrorMessage(errors);
+        } else {
+          const parseError = result.err;
+          setYMaxErrorMessage(addOrRemoveErrors(["y-max"], parseError));
         }
-        setYMinErrorMessage(addOrRemoveError("y-min", rangeError));
-        setYMaxErrorMessage(addOrRemoveError("y-max", rangeError));
-      } else {
-        const parseError = result.err;
-        setYMinErrorMessage(addOrRemoveError("y-min", parseError));
-      }
-    }, 200),
-    [errors, opts, yMax]
+      }, 200),
+    [addOrRemoveErrors, opts, yMin]
+  );
+
+  const validateYMin = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseBignum(value);
+        if (result.ok) {
+          const rangeError = validateRange(result.ok, bignum(yMax));
+          if (!rangeError) {
+            setOpts({ ...opts, yMax, yMin: value });
+          }
+          const errors = addOrRemoveErrors(["y-max", "y-min"], rangeError);
+          setYMaxErrorMessage(errors);
+          setYMinErrorMessage(errors);
+        } else {
+          const parseError = result.err;
+          setYMinErrorMessage(addOrRemoveErrors(["y-min"], parseError));
+        }
+      }, 200),
+    [addOrRemoveErrors, opts, yMax]
   );
 
   const tilesPerGraph =
@@ -343,7 +357,7 @@ export const ExportImageDialog = (
                 }}
                 onGetErrorMessage={(value) => {
                   const e = tryParseImageSize(value).err;
-                  return addOrRemoveError("width", e);
+                  return addOrRemoveErrors(["width"], e);
                 }}
                 styles={integerInputStyles}
               />
@@ -368,7 +382,7 @@ export const ExportImageDialog = (
                 }}
                 onGetErrorMessage={(value) => {
                   const e = tryParseImageSize(value).err;
-                  return addOrRemoveError("height", e);
+                  return addOrRemoveErrors(["height"], e);
                 }}
                 styles={integerInputStyles}
               />
@@ -415,7 +429,7 @@ export const ExportImageDialog = (
                 }}
                 onGetErrorMessage={(value) => {
                   const e = tryParseTimeout(value).err;
-                  return addOrRemoveError("timeout", e);
+                  return addOrRemoveErrors(["timeout"], e);
                 }}
                 styles={integerInputStyles}
               />
@@ -449,7 +463,7 @@ export const ExportImageDialog = (
           <DialogFooter>
             <DefaultButton onClick={props.dismiss} text="Close" />
             <PrimaryButton
-              disabled={errors.length > 0}
+              disabled={errors.size > 0}
               onClick={async () => {
                 setExporting(true);
                 props.saveOpts(opts);

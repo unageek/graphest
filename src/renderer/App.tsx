@@ -91,7 +91,7 @@ const App = () => {
   }
 
   useEffect(() => {
-    (async function load() {
+    (async function () {
       const path = await window.ipcRenderer.invoke<ipc.GetDefaultImageFilePath>(
         ipc.getDefaultImageFilePath
       );
@@ -102,7 +102,7 @@ const App = () => {
         })
       );
     })();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
