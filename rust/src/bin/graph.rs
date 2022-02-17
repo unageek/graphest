@@ -3,10 +3,10 @@ use graphest::{
     Box2D, Constant, Explicit, Graph, GraphingStatistics, Image, Implicit, Padding, Parametric,
     PixelIndex, PixelRange, Relation, RelationType, Ternary,
 };
-use image::{GrayAlphaImage, LumaA, Rgb, RgbImage};
+use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
-use std::{convert::TryFrom, ffi::OsString, io::stdin, time::Duration};
+use std::{ffi::OsString, io::stdin, time::Duration};
 
 fn print_statistics_header() {
     println!(
@@ -141,6 +141,18 @@ fn main() {
                 .help("Dimensions of the output image in pixels."),
         )
         .arg(
+            Arg::new("ssaa")
+                .long("ssaa")
+                .default_value("1")
+                .forbid_empty_values(true)
+                .value_name("scale")
+                .next_line_help(true)
+                .help(
+                    "Anti-alias the graph by supersampling pixels by the given scale.\n\
+                     Odd numbers ranging from 1 (no anti-aliasing) to 17 are accepted.",
+                ),
+        )
+        .arg(
             Arg::new("timeout")
                 .long("timeout")
                 .takes_value(true)
@@ -163,25 +175,12 @@ fn main() {
         .unwrap()
         .map(to_interval)
         .collect::<Vec<_>>();
-    let dilation = matches
-        .value_of("dilate")
-        .unwrap()
-        .split(';')
-        .map(|row| {
-            row.split(',')
-                .map(|el| match el {
-                    "0" => false,
-                    "1" => true,
-                    _ => panic!("the structuring element must consist of only zeros and ones"),
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
+    let mut dilation_kernel = parse_dilation_kernel(matches.value_of("dilate").unwrap());
     let gray_alpha = matches.is_present("gray-alpha");
     let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
     let output = matches.value_of_os("output").unwrap().to_owned();
     let output_once = matches.is_present("output-once");
-    let padding = {
+    let output_padding = {
         Padding {
             bottom: matches.value_of_t_or_exit::<u32>("pad-bottom"),
             left: matches.value_of_t_or_exit::<u32>("pad-left"),
@@ -189,66 +188,78 @@ fn main() {
             top: matches.value_of_t_or_exit::<u32>("pad-top"),
         }
     };
-    let pause_per_iteration = matches.is_present("pause-per-iteration");
-    let size = {
-        let size = matches.values_of_t_or_exit::<u32>("size");
+    let output_size = {
+        let s = matches.values_of_t_or_exit::<u32>("size");
         [
-            size[0] + padding.left + padding.right,
-            size[1] + padding.bottom + padding.top,
+            s[0] + output_padding.left + output_padding.right,
+            s[1] + output_padding.bottom + output_padding.top,
         ]
     };
+    let pause_per_iteration = matches.is_present("pause-per-iteration");
+    let ssaa = matches.value_of_t_or_exit::<u32>("ssaa");
     let timeout = match matches.value_of_t::<u64>("timeout") {
         Ok(t) => Some(Duration::from_millis(t)),
         Err(e) if e.kind == clap::ErrorKind::ArgumentNotFound => None,
         Err(e) => e.exit(),
     };
 
-    let dilation_kernel = {
-        let size = dilation.len();
-        assert!(
-            size % 2 == 1 && dilation.iter().all(|row| row.len() == size),
-            "the structuring element must be square and have odd dimensions"
-        );
-        let size = u32::try_from(size).expect("the structuring element is too large");
-        let mut ker = Image::<bool>::new(size, size);
-        for (p, el) in ker.pixels_mut().zip(dilation.into_iter().flatten()) {
-            *p = el;
-        }
-        ker
-    };
+    if !(dilation_kernel.width() == 1
+        && dilation_kernel.height() == 1
+        && dilation_kernel[PixelIndex::new(0, 0)]
+        || ssaa == 1)
+    {
+        println!("`--dilate` and `--ssaa` cannot be used together.");
+    }
 
-    let raw_padding = Padding {
-        bottom: padding.bottom + dilation_kernel.height() / 2,
-        left: padding.left + dilation_kernel.width() / 2,
-        right: padding.right + dilation_kernel.width() / 2,
-        top: padding.top + dilation_kernel.height() / 2,
+    if ssaa > 1 {
+        dilation_kernel = parse_dilation_kernel(match ssaa {
+            // StringRiffle[Map[ToString, DiskMatrix[n], {2}], ";", ","]
+            // ┌ n
+            /* 0 */ 1 => "1",
+            /* 1 */ 3 => "1,1,1;1,1,1;1,1,1",
+            /* 2 */ 5 => "0,1,1,1,0;1,1,1,1,1;1,1,1,1,1;1,1,1,1,1;0,1,1,1,0",
+            /* 3 */ 7 => "0,0,1,1,1,0,0;0,1,1,1,1,1,0;1,1,1,1,1,1,1;1,1,1,1,1,1,1;1,1,1,1,1,1,1;0,1,1,1,1,1,0;0,0,1,1,1,0,0",
+            /* 4 */ 9 => "0,0,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,0,0",
+            /* 5 */ 11 => "0,0,0,1,1,1,1,1,0,0,0;0,0,1,1,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,1,1,0,0;0,0,0,1,1,1,1,1,0,0,0",
+            /* 6 */ 13 => "0,0,0,0,1,1,1,1,1,0,0,0,0;0,0,1,1,1,1,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,1,1,1,1,0,0;0,0,0,0,1,1,1,1,1,0,0,0,0",
+            /* 7 */ 15 => "0,0,0,0,0,1,1,1,1,1,0,0,0,0,0;0,0,0,1,1,1,1,1,1,1,1,1,0,0,0;0,0,1,1,1,1,1,1,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,1,1,1,1,1,1,0,0;0,0,0,1,1,1,1,1,1,1,1,1,0,0,0;0,0,0,0,0,1,1,1,1,1,0,0,0,0,0",
+            /* 8 */ 17 => "0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0;0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0;0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0;0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0;0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0;0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0;0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0",
+            _ => panic!("ssaa muse be one if 1, 3, 5, …, or 17"),
+        });
+    }
+
+    let graph_padding = Padding {
+        bottom: ssaa * output_padding.bottom + dilation_kernel.height() / 2,
+        left: ssaa * output_padding.left + dilation_kernel.width() / 2,
+        right: ssaa * output_padding.right + dilation_kernel.width() / 2,
+        top: ssaa * output_padding.top + dilation_kernel.height() / 2,
     };
-    let raw_size = [
-        size[0] + (dilation_kernel.width() - 1),
-        size[1] + (dilation_kernel.height() - 1),
+    let graph_size = [
+        ssaa * output_size[0] + (dilation_kernel.width() - 1),
+        ssaa * output_size[1] + (dilation_kernel.height() - 1),
     ];
 
     let opts = PlotOptions {
         dilation_kernel,
+        graph_size,
         gray_alpha,
         output,
         output_once,
+        output_size,
         pause_per_iteration,
-        raw_size,
-        size,
         timeout,
     };
     let region = Box2D::new(bounds[0], bounds[1], bounds[2], bounds[3]);
 
     match rel.relation_type() {
-        RelationType::Constant => plot(Constant::new(rel, raw_size[0], raw_size[1]), opts),
+        RelationType::Constant => plot(Constant::new(rel, graph_size[0], graph_size[1]), opts),
         RelationType::ExplicitFunctionOfX(_) | RelationType::ExplicitFunctionOfY(_) => plot(
             Explicit::new(
                 rel,
                 region,
-                raw_size[0],
-                raw_size[1],
-                raw_padding,
+                graph_size[0],
+                graph_size[1],
+                graph_padding,
                 mem_limit,
             ),
             opts,
@@ -257,9 +268,9 @@ fn main() {
             Parametric::new(
                 rel,
                 region,
-                raw_size[0],
-                raw_size[1],
-                raw_padding,
+                graph_size[0],
+                graph_size[1],
+                graph_padding,
                 mem_limit,
             ),
             opts,
@@ -268,9 +279,9 @@ fn main() {
             Implicit::new(
                 rel,
                 region,
-                raw_size[0],
-                raw_size[1],
-                raw_padding,
+                graph_size[0],
+                graph_size[1],
+                graph_padding,
                 mem_limit,
             ),
             opts,
@@ -280,23 +291,51 @@ fn main() {
 
 struct PlotOptions {
     dilation_kernel: Image<bool>,
+    graph_size: [u32; 2],
     gray_alpha: bool,
     output: OsString,
     output_once: bool,
+    output_size: [u32; 2],
     pause_per_iteration: bool,
-    raw_size: [u32; 2],
-    size: [u32; 2],
     timeout: Option<Duration>,
+}
+
+fn parse_dilation_kernel(ker: &str) -> Image<bool> {
+    let dilation = ker
+        .split(';')
+        .map(|row| {
+            row.split(',')
+                .map(|c| match c {
+                    "0" => false,
+                    "1" => true,
+                    _ => panic!("elements of dilation kernel must be either 0 or 1"),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    let size = dilation.len();
+    assert!(
+        size % 2 == 1 && dilation.iter().all(|row| row.len() == size),
+        "dilation kernel must be square and have odd dimensions"
+    );
+    let size = u32::try_from(size).expect("dilation kernel is too large");
+
+    let mut ker = Image::<bool>::new(size, size);
+    for (p, el) in ker.pixels_mut().zip(dilation.into_iter().flatten()) {
+        *p = el;
+    }
+    ker
 }
 
 fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
     let mut gray_alpha_im: Option<GrayAlphaImage> = None;
     let mut rgb_im: Option<RgbImage> = None;
-    let mut raw_im = Image::<Ternary>::new(opts.raw_size[0], opts.raw_size[1]);
+    let mut raw_im = Image::<Ternary>::new(opts.graph_size[0], opts.graph_size[1]);
     if opts.gray_alpha {
-        gray_alpha_im = Some(GrayAlphaImage::new(opts.size[0], opts.size[1]));
+        gray_alpha_im = Some(GrayAlphaImage::new(opts.graph_size[0], opts.graph_size[1]));
     } else {
-        rgb_im = Some(RgbImage::new(opts.size[0], opts.size[1]));
+        rgb_im = Some(RgbImage::new(opts.graph_size[0], opts.graph_size[1]));
     }
 
     let mut prev_stat = graph.get_statistics();
@@ -305,7 +344,11 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
 
     let mut save_image = |graph: &G| {
         graph.get_image(&mut raw_im);
-        for (dy, dx) in (0..opts.size[1]).cartesian_product(0..opts.size[0]) {
+
+        // Dilation collects the values of pixels to top-left pixels.
+        for (dy, dx) in (0..opts.graph_size[1] - (opts.dilation_kernel.height() - 1))
+            .cartesian_product(0..opts.graph_size[0] - (opts.dilation_kernel.width() - 1))
+        {
             raw_im[PixelIndex::new(dx, dy)] = (0..opts.dilation_kernel.height())
                 .cartesian_product(0..opts.dilation_kernel.width())
                 .filter(|&(ky, kx)| opts.dilation_kernel[PixelIndex::new(kx, ky)])
@@ -316,7 +359,7 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
 
         let src_pixels = PixelRange::new(
             PixelIndex::new(0, 0),
-            PixelIndex::new(opts.size[0], opts.size[1]),
+            PixelIndex::new(opts.graph_size[0], opts.graph_size[1]),
         );
         if let Some(im) = &mut gray_alpha_im {
             for (src, dst) in src_pixels
@@ -330,6 +373,20 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
                     Ternary::False => LumaA([0, 0]),
                 };
             }
+            let im = imageops::crop(
+                im,
+                0,
+                0,
+                opts.graph_size[0] - (opts.dilation_kernel.width() - 1),
+                opts.graph_size[1] - (opts.dilation_kernel.height() - 1),
+            )
+            .to_image();
+            let im = imageops::resize(
+                &im,
+                opts.output_size[0],
+                opts.output_size[1],
+                imageops::FilterType::Triangle,
+            );
             im.save(&opts.output).expect("saving image failed");
         } else if let Some(im) = &mut rgb_im {
             for (src, dst) in src_pixels
@@ -343,6 +400,20 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
                     Ternary::False => Rgb([255, 255, 255]),
                 };
             }
+            let im = imageops::crop(
+                im,
+                0,
+                0,
+                opts.graph_size[0] - (opts.dilation_kernel.width() - 1),
+                opts.graph_size[1] - (opts.dilation_kernel.height() - 1),
+            )
+            .to_image();
+            let im = imageops::resize(
+                &im,
+                opts.output_size[0],
+                opts.output_size[1],
+                imageops::FilterType::Triangle,
+            );
             im.save(&opts.output).expect("saving image failed");
         }
     };

@@ -3,6 +3,7 @@ import { ChildProcess, execFile } from "child_process";
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   MenuItemConstructorOptions,
@@ -17,7 +18,7 @@ import { autoUpdater } from "electron-updater";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { pathToFileURL } from "url";
+import * as url from "url";
 import * as util from "util";
 import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
@@ -25,7 +26,18 @@ import {
   BASE_ZOOM_LEVEL,
   GRAPH_TILE_EXTENSION,
   GRAPH_TILE_SIZE,
+  PERTURBATION_X,
+  PERTURBATION_Y,
 } from "../common/constants";
+import {
+  ANTI_ALIASING_OPTIONS,
+  ExportImageEntry,
+  ExportImageOptions,
+  ExportImageProgress,
+  EXPORT_GRAPH_TILE_SIZE,
+  MAX_EXPORT_IMAGE_SIZE,
+  MAX_EXPORT_TIMEOUT,
+} from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
@@ -89,18 +101,26 @@ interface Relation {
   tiles: Map<string, Tile>;
 }
 
+function getBundledExecutable(name: string): string {
+  // ".exe" is required for pointing to executables inside .asar archives.
+  return path.join(
+    __dirname,
+    process.platform === "win32" ? name + ".exe" : name
+  );
+}
+
 let queuedJobs: Job[] = [];
 let activeJobs: Job[] = [];
 let sleepingJobs: Job[] = [];
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
-const graphExec: string = path.join(
-  __dirname,
-  // ".exe" is required for pointing to executables inside .asar archives.
-  process.platform === "win32" ? "graph.exe" : "graph"
-);
+const composeExec: string = getBundledExecutable("compose");
+let exportImageAbortController: AbortController | undefined;
+const graphExec: string = getBundledExecutable("graph");
+const joinTilesExec: string = getBundledExecutable("join-tiles");
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
+let nextExportImageId = 0;
 let nextRelId = 0;
 const relationById = new Map<string, Relation>();
 const relKeyToRelId = new Map<string, string>();
@@ -118,6 +138,17 @@ function createMainMenu(): Menu {
       submenu: [
         // The Close menu is required for closing the about panel.
         { role: "close" },
+        { type: "separator" },
+        {
+          id: Command.ExportImage,
+          label: "Export to Image",
+          click: () => {
+            mainWindow?.webContents.send(
+              ipc.commandInvoked,
+              Command.ExportImage
+            );
+          },
+        },
         { type: "separator" },
         ...(isMac ? [] : [{ role: "quit" }]),
       ],
@@ -296,10 +327,218 @@ app.on("window-all-closed", () => {
   app.quit();
 });
 
+ipcMain.handle(ipc.abortExportImage, async () => {
+  exportImageAbortController?.abort();
+});
+
 ipcMain.handle(ipc.abortGraphing, async (_, relId: string, tileId?: string) => {
   abortJobs(
     (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId)
   );
+});
+
+ipcMain.handle(
+  ipc.exportImage,
+  async (
+    _,
+    entries: ExportImageEntry[],
+    opts: ExportImageOptions
+  ): Promise<void> => {
+    const outDir = path.join(baseOutDir, "export");
+    if (!fs.existsSync(outDir)) {
+      await fsPromises.mkdir(outDir);
+    }
+
+    const bounds = [
+      bignum(opts.xMin),
+      bignum(opts.xMax),
+      bignum(opts.yMin),
+      bignum(opts.yMax),
+    ];
+
+    if (
+      !(
+        bounds.every((x) => x.isFinite()) &&
+        bounds[0].lt(bounds[1]) &&
+        bounds[2].lt(bounds[3]) &&
+        ANTI_ALIASING_OPTIONS.includes(opts.antiAliasing) &&
+        Number.isInteger(opts.height) &&
+        opts.height > 0 &&
+        opts.height <= MAX_EXPORT_IMAGE_SIZE &&
+        Number.isInteger(opts.timeout) &&
+        opts.timeout > 0 &&
+        opts.timeout <= MAX_EXPORT_TIMEOUT &&
+        Number.isInteger(opts.width) &&
+        opts.width > 0 &&
+        opts.width <= MAX_EXPORT_IMAGE_SIZE
+      )
+    ) {
+      return;
+    }
+
+    const newEntries = [];
+    for (const entry of entries) {
+      newEntries.push({
+        path: path.join(outDir, nextExportImageId.toString() + ".png"),
+        tilePathPrefix: path.join(outDir, nextExportImageId.toString() + "-"),
+        tilePathSuffix: ".png",
+        ...entry,
+      });
+      nextExportImageId++;
+    }
+
+    const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
+    const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
+    const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
+    const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
+
+    exportImageAbortController = new AbortController();
+    const { signal } = exportImageAbortController;
+
+    for (let k = 0; k < newEntries.length; k++) {
+      const entry = newEntries[k];
+      const rel = relationById.get(entry.relId);
+      if (rel === undefined) {
+        return;
+      }
+
+      const x_tiles = Math.ceil(
+        (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE
+      );
+      const y_tiles = Math.ceil(
+        (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
+      );
+      const tile_width = Math.ceil(opts.width / x_tiles);
+      const tile_height = Math.ceil(opts.height / y_tiles);
+      for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
+        const i = i_tile * tile_height;
+        const height = Math.min(tile_height, opts.height - i);
+        for (let j_tile = 0; j_tile < x_tiles; j_tile++) {
+          const j = j_tile * tile_width;
+          const width = Math.min(tile_width, opts.width - j);
+
+          const bounds = [
+            x0.plus(pixelWidth.times(j)),
+            x0.plus(pixelWidth.times(j + width)),
+            y1.minus(pixelHeight.times(i + height)),
+            y1.minus(pixelHeight.times(i)),
+          ];
+
+          const path = `${entry.tilePathPrefix}${i_tile}-${j_tile}${entry.tilePathSuffix}`;
+          const args = [
+            "--bounds",
+            ...bounds.map((b) => b.toString()),
+            "--gray-alpha",
+            "--output",
+            path,
+            "--output-once",
+            "--size",
+            width.toString(),
+            height.toString(),
+            "--ssaa",
+            opts.antiAliasing.toString(),
+            "--timeout",
+            opts.timeout.toString(),
+            "--",
+            rel.rel,
+          ];
+          try {
+            // Somehow, type definition is messed up!
+            /* eslint-disable @typescript-eslint/no-explicit-any */
+            const { stderr } = (await util.promisify(execFile)(
+              graphExec,
+              args,
+              { signal } as any
+            )) as unknown as { stdout: string; stderr: string };
+            /* eslint-enable @typescript-eslint/no-explicit-any */
+            if (stderr) {
+              console.log(stderr.trimEnd());
+            }
+            notifyExportImageStatusChanged({
+              lastStderr: stderr.trimEnd(),
+              lastUrl: url.pathToFileURL(path).toString(),
+              progress:
+                (x_tiles * y_tiles * k + x_tiles * i_tile + j_tile + 1) /
+                (x_tiles * y_tiles * newEntries.length),
+            });
+          } catch ({ name, stderr }) {
+            if (typeof stderr !== "string") {
+              throw new Error("unexpected type");
+            }
+            console.log(stderr.trimEnd());
+            console.log("`graph` failed:", `'${args.join("' '")}'`);
+            return;
+          }
+        }
+      }
+
+      const args = [
+        "--output",
+        entry.path,
+        "--prefix",
+        entry.tilePathPrefix,
+        "--size",
+        opts.width.toString(),
+        opts.height.toString(),
+        "--suffix",
+        entry.tilePathSuffix,
+        "--x-tiles",
+        x_tiles.toString(),
+        "--y-tiles",
+        y_tiles.toString(),
+      ];
+      try {
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const { stderr } = (await util.promisify(execFile)(
+          joinTilesExec,
+          args,
+          { signal } as any
+        )) as unknown as { stdout: string; stderr: string };
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+        if (stderr) {
+          console.log(stderr.trimEnd());
+        }
+      } catch ({ stderr }) {
+        if (typeof stderr !== "string") {
+          throw new Error("unexpected type");
+        }
+        console.log(stderr.trimEnd());
+        console.log("`join-tiles` failed:", `'${args.join("' '")}'`);
+        return;
+      }
+    }
+
+    const args = [
+      ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
+      "--output",
+      opts.path,
+    ];
+    try {
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const { stderr } = (await util.promisify(execFile)(composeExec, args, {
+        signal,
+      } as any)) as unknown as { stdout: string; stderr: string };
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+      if (stderr) {
+        console.log(stderr.trimEnd());
+      }
+    } catch ({ stderr }) {
+      if (typeof stderr !== "string") {
+        throw new Error("unexpected type");
+      }
+      console.log(stderr.trimEnd());
+      console.log("`compose` failed:", `'${args.join("' '")}'`);
+      return;
+    }
+
+    await shell.openPath(opts.path);
+  }
+);
+
+ipcMain.handle(ipc.getDefaultExportImagePath, async (): Promise<string> => {
+  const home = os.homedir();
+  const pictures = path.join(home, "Pictures");
+  return path.join(fs.existsSync(pictures) ? pictures : home, "graph.png");
 });
 
 ipcMain.handle(
@@ -364,12 +603,12 @@ ipcMain.handle(
       // The direction of offsetting must be coherent with the configuration of `GridLayer`.
       // We also add asymmetric perturbation to the offset so that
       // points with simple coordinates may not be located on pixel boundaries,
-      // which could make lines such as `y = x` look thicker.
+      // which could make lines such as `x y = 0` or `(x + y)(x − y) = 0` look thicker.
       const pixelOffsetX = bignum(
-        (0.5 + 1.2345678901234567e-3) / (retinaScale * GRAPH_TILE_SIZE)
+        (0.5 + PERTURBATION_X) / (retinaScale * GRAPH_TILE_SIZE)
       );
       const pixelOffsetY = bignum(
-        (0.5 + 1.3456789012345678e-3) / (retinaScale * GRAPH_TILE_SIZE)
+        (0.5 + PERTURBATION_Y) / (retinaScale * GRAPH_TILE_SIZE)
       );
       const widthPerTile = bignum(2 ** (BASE_ZOOM_LEVEL - coords.z));
       const x0 = widthPerTile.times(bignum(coords.x).minus(pixelOffsetX));
@@ -382,7 +621,7 @@ ipcMain.handle(
 
       const newTile: Tile = {
         id: tileId,
-        url: pathToFileURL(outFile).href,
+        url: url.pathToFileURL(outFile).href,
       };
       rel.tiles.set(tileId, newTile);
 
@@ -423,6 +662,18 @@ ipcMain.handle(
         notifyTileReady(relId, tileId, false);
       }
     }
+  }
+);
+
+ipcMain.handle(
+  ipc.showSaveDialog,
+  async (_, path: string): Promise<string | undefined> => {
+    if (!mainWindow) return undefined;
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: path,
+      filters: [{ name: "PNG", extensions: ["png"] }],
+    });
+    return result.filePath;
   }
 );
 
@@ -479,6 +730,10 @@ function deprioritize(job: Job) {
   assert(nBefore === nAfter);
 
   updateQueue();
+}
+
+function notifyExportImageStatusChanged(progress: ExportImageProgress) {
+  mainWindow?.webContents.send(ipc.exportImageStatusChanged, progress);
 }
 
 function notifyGraphingStatusChanged(relId: string, processing: boolean) {

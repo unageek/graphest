@@ -1,6 +1,10 @@
 import { createSlice, isAnyOf, PayloadAction } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useSelector as _useSelector } from "react-redux";
 import {
+  ExportImageOptions,
+  ExportImageProgress,
+} from "../../common/exportImage";
+import {
   Graph,
   graphReducer,
   setGraphColor,
@@ -9,19 +13,39 @@ import {
 } from "./graph";
 
 export interface AppState {
+  exportImageProgress: ExportImageProgress;
   graphs: { byId: { [id: string]: Graph }; allIds: string[] };
   highRes: boolean;
+  lastExportImageOpts: ExportImageOptions;
   nextGraphId: number;
   showAxes: boolean;
+  showExportImageDialog: boolean;
   showMajorGrid: boolean;
   showMinorGrid: boolean;
 }
 
 const initialState: AppState = {
+  exportImageProgress: {
+    lastStderr: "",
+    lastUrl: "",
+    progress: 0,
+  },
   graphs: { byId: {}, allIds: [] },
   highRes: false,
+  lastExportImageOpts: {
+    antiAliasing: 5,
+    height: 1024,
+    path: "",
+    timeout: 1000,
+    width: 1024,
+    xMax: "10",
+    xMin: "-10",
+    yMax: "10",
+    yMin: "-10",
+  },
   nextGraphId: 0,
   showAxes: true,
+  showExportImageDialog: false,
   showMajorGrid: true,
   showMinorGrid: true,
 };
@@ -83,6 +107,15 @@ const slice = createSlice({
         },
       }),
     },
+    setExportImageProgress: {
+      prepare: (progress: ExportImageProgress) => ({
+        payload: { progress },
+      }),
+      reducer: (s, a: PayloadAction<{ progress: ExportImageProgress }>) => ({
+        ...s,
+        exportImageProgress: a.payload.progress,
+      }),
+    },
     setHighRes: {
       prepare: (highRes: boolean) => ({ payload: { highRes } }),
       reducer: (s, a: PayloadAction<{ highRes: boolean }>) => ({
@@ -90,11 +123,25 @@ const slice = createSlice({
         highRes: a.payload.highRes,
       }),
     },
+    setLastExportImageOpts: {
+      prepare: (opts: ExportImageOptions) => ({ payload: { opts } }),
+      reducer: (s, a: PayloadAction<{ opts: ExportImageOptions }>) => ({
+        ...s,
+        lastExportImageOpts: a.payload.opts,
+      }),
+    },
     setShowAxes: {
       prepare: (show: boolean) => ({ payload: { show } }),
       reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
         ...s,
         showAxes: a.payload.show,
+      }),
+    },
+    setShowExportImageDialog: {
+      prepare: (show: boolean) => ({ payload: { show } }),
+      reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
+        ...s,
+        showExportImageDialog: a.payload.show,
       }),
     },
     setShowMajorGrid: {
@@ -144,8 +191,11 @@ export const {
   newGraph,
   removeGraph,
   reorderGraph,
+  setExportImageProgress,
   setHighRes,
+  setLastExportImageOpts,
   setShowAxes,
+  setShowExportImageDialog,
   setShowMajorGrid,
   setShowMinorGrid,
 } = slice.actions;

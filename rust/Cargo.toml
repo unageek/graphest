@@ -53,6 +53,17 @@ default-features = false
 doctest = false
 
 [[bin]]
+name = "compose"
+doc = false
+test = false
+
+[[bin]]
 name = "graph"
+doc = false
+test = false
+
+[[bin]]
+name = "join-tiles"
+path = "src/bin/join_tiles.rs"
 doc = false
 test = false

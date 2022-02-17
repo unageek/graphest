@@ -1,5 +1,10 @@
 import { IpcRendererEvent } from "electron";
 import { Command } from "./command";
+import {
+  ExportImageEntry,
+  ExportImageOptions,
+  ExportImageProgress,
+} from "./exportImage";
 import { Range } from "./range";
 import { Result } from "./result";
 
@@ -16,11 +21,32 @@ export interface MessageToMain {
   result: unknown;
 }
 
+export const abortExportImage = "abort-export-image";
+export interface AbortExportImage extends MessageToMain {
+  channel: typeof abortExportImage;
+  args: [];
+  result: void;
+}
+
 export const abortGraphing = "abort-graphing";
 export interface AbortGraphing extends MessageToMain {
   channel: typeof abortGraphing;
   args: [relId: string, tileId?: string];
   result: void;
+}
+
+export const exportImage = "export-image";
+export interface ExportImage extends MessageToMain {
+  channel: typeof exportImage;
+  args: [entries: ExportImageEntry[], opts: ExportImageOptions];
+  result: Promise<void>;
+}
+
+export const getDefaultExportImagePath = "get-default-export-image-path";
+export interface GetDefaultExportImagePath extends MessageToMain {
+  channel: typeof getDefaultExportImagePath;
+  args: [];
+  result: Promise<string>;
 }
 
 export const openUrl = "open-url";
@@ -44,6 +70,13 @@ export interface RequestTile extends MessageToMain {
   result: void;
 }
 
+export const showSaveDialog = "open-save-dialog";
+export interface ShowSaveDialog extends MessageToMain {
+  channel: typeof showSaveDialog;
+  args: [path: string];
+  result: Promise<string | undefined>;
+}
+
 export interface MessageToRenderer {
   channel: string;
   args: unknown[];
@@ -56,6 +89,16 @@ export interface CommandInvoked extends MessageToRenderer {
   channel: typeof commandInvoked;
   args: [command: Command];
   listener: (event: IpcRendererEvent, ...args: CommandInvoked["args"]) => void;
+}
+
+export const exportImageStatusChanged = "export-image-status-changed";
+export interface ExportImageStatusChanged extends MessageToRenderer {
+  channel: typeof exportImageStatusChanged;
+  args: [progress: ExportImageProgress];
+  listener: (
+    event: IpcRendererEvent,
+    ...args: ExportImageStatusChanged["args"]
+  ) => void;
 }
 
 export const graphingStatusChanged = "graphing-status-changed";
