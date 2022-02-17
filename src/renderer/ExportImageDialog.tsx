@@ -256,10 +256,9 @@ export const ExportImageDialog = (
     [addOrRemoveErrors, opts, yMax]
   );
 
-  const tilesPerGraph =
-    opts.antiAliasing ** 2 *
-    Math.ceil(opts.width / EXPORT_GRAPH_TILE_SIZE) *
-    Math.ceil(opts.height / EXPORT_GRAPH_TILE_SIZE);
+  const tilesPerRelation =
+    Math.ceil((opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE) *
+    Math.ceil((opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE);
 
   return (
     <Dialog
@@ -435,7 +434,7 @@ export const ExportImageDialog = (
             <div style={{ gridColumn: "1" }} />
 
             <Text style={{ gridColumn: "span 2" }}>
-              {tilesPerGraph} {tilesPerGraph > 1 ? "tiles" : "tile"} per
+              {tilesPerRelation} {tilesPerRelation > 1 ? "tiles" : "tile"} per
               relation will be processed.
             </Text>
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
