@@ -28,23 +28,3 @@ export const GRAPH_TILE_EXTENSION = 1;
  * The sum of {@link GRAPH_TILE_SIZE} and {@link GRAPH_TILE_EXTENSION}.
  */
 export const EXTENDED_GRAPH_TILE_SIZE = GRAPH_TILE_SIZE + GRAPH_TILE_EXTENSION;
-
-/**
- * The width/height of graph tiles used while exporting in pixels.
- */
-export const EXPORT_GRAPH_TILE_SIZE = 1024;
-
-/**
- * The maximum width/height of an image that can be exported to.
- */
-export const MAX_EXPORT_IMAGE_SIZE = 8192;
-
-/**
- * The maximum duration of exporting in seconds.
- */
-export const MAX_EXPORT_TIMEOUT = 300000;
-
-/**
- * Valid values for {@link ExportImageOptions.antiAliasing}.
- */
-export const VALID_ANTI_ALIASING = [1, 3, 5, 7, 9, 11, 13, 15, 17];

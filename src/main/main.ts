@@ -24,17 +24,17 @@ import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
 import {
   BASE_ZOOM_LEVEL,
-  EXPORT_GRAPH_TILE_SIZE,
   GRAPH_TILE_EXTENSION,
   GRAPH_TILE_SIZE,
-  MAX_EXPORT_IMAGE_SIZE,
-  MAX_EXPORT_TIMEOUT,
-  VALID_ANTI_ALIASING,
 } from "../common/constants";
 import {
+  ANTI_ALIASING_OPTIONS,
   ExportImageEntry,
   ExportImageOptions,
   ExportImageProgress,
+  EXPORT_GRAPH_TILE_SIZE,
+  MAX_EXPORT_IMAGE_SIZE,
+  MAX_EXPORT_TIMEOUT,
 } from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { Range } from "../common/range";
@@ -356,7 +356,7 @@ ipcMain.handle(
         bounds.every((x) => x.isFinite()) &&
         bounds[0].lt(bounds[1]) &&
         bounds[2].lt(bounds[3]) &&
-        VALID_ANTI_ALIASING.includes(opts.antiAliasing) &&
+        ANTI_ALIASING_OPTIONS.includes(opts.antiAliasing) &&
         Number.isInteger(opts.height) &&
         opts.height > 0 &&
         opts.height <= MAX_EXPORT_IMAGE_SIZE &&

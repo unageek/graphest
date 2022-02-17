@@ -17,11 +17,11 @@ import * as React from "react";
 import { useCallback, useMemo, useState } from "react";
 import { bignum, BigNumber } from "../common/bignumber";
 import {
+  ExportImageOptions,
   EXPORT_GRAPH_TILE_SIZE,
   MAX_EXPORT_IMAGE_SIZE,
   MAX_EXPORT_TIMEOUT,
-} from "../common/constants";
-import { ExportImageOptions } from "../common/exportImage";
+} from "../common/exportImage";
 import { err, ok, Result } from "../common/result";
 import { useSelector } from "./models/app";
 
