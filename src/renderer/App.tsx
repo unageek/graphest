@@ -21,7 +21,7 @@ import {
   setHighRes,
   setLastExportImageOpts,
   setShowAxes,
-  setShowExportDialog,
+  setShowExportImageDialog,
   setShowMajorGrid,
   setShowMinorGrid,
   useSelector,
@@ -83,7 +83,7 @@ const App = () => {
   const dispatch = useDispatch();
   const exportImageOpts = useSelector((s) => s.lastExportImageOpts);
   const graphViewRef = useRef<HTMLDivElement>(null);
-  const showExportDialog = useSelector((s) => s.showExportDialog);
+  const showExportImageDialog = useSelector((s) => s.showExportImageDialog);
   const theme = useTheme();
 
   function focusGraphView() {
@@ -123,10 +123,10 @@ const App = () => {
         </Stack>
         <GraphView grow ref={graphViewRef} />
       </Stack>
-      {showExportDialog && (
+      {showExportImageDialog && (
         <ExportImageDialog
           abort={abortExportImage}
-          dismiss={() => dispatch(setShowExportDialog(false))}
+          dismiss={() => dispatch(setShowExportImageDialog(false))}
           exportImage={exportImage}
           openSaveDialog={openSaveDialog}
           opts={exportImageOpts}
@@ -156,7 +156,7 @@ window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
   const state = store.getState();
   switch (item) {
     case Command.Export:
-      store.dispatch(setShowExportDialog(true));
+      store.dispatch(setShowExportImageDialog(true));
       break;
     case Command.HighResolution:
       store.dispatch(setHighRes(!state.highRes));

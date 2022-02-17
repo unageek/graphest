@@ -19,7 +19,7 @@ export interface AppState {
   lastExportImageOpts: ExportImageOptions;
   nextGraphId: number;
   showAxes: boolean;
-  showExportDialog: boolean;
+  showExportImageDialog: boolean;
   showMajorGrid: boolean;
   showMinorGrid: boolean;
 }
@@ -45,7 +45,7 @@ const initialState: AppState = {
   },
   nextGraphId: 0,
   showAxes: true,
-  showExportDialog: false,
+  showExportImageDialog: false,
   showMajorGrid: true,
   showMinorGrid: true,
 };
@@ -137,11 +137,11 @@ const slice = createSlice({
         showAxes: a.payload.show,
       }),
     },
-    setShowExportDialog: {
+    setShowExportImageDialog: {
       prepare: (show: boolean) => ({ payload: { show } }),
       reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
         ...s,
-        showExportDialog: a.payload.show,
+        showExportImageDialog: a.payload.show,
       }),
     },
     setShowMajorGrid: {
@@ -194,8 +194,8 @@ export const {
   setExportImageProgress,
   setHighRes,
   setLastExportImageOpts,
-  setShowExportDialog,
   setShowAxes,
+  setShowExportImageDialog,
   setShowMajorGrid,
   setShowMinorGrid,
 } = slice.actions;
