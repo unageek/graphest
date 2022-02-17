@@ -23,7 +23,6 @@ import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
 import {
   BASE_ZOOM_LEVEL,
-  EXTENDED_GRAPH_TILE_SIZE,
   GRAPH_TILE_EXTENSION,
   GRAPH_TILE_SIZE,
 } from "../common/constants";
@@ -396,11 +395,11 @@ ipcMain.handle(
           y0.toString(),
           y1.toString(),
           "--size",
-          (retinaScale * EXTENDED_GRAPH_TILE_SIZE).toString(),
-          (retinaScale * EXTENDED_GRAPH_TILE_SIZE).toString(),
-          "--padding-right",
+          (retinaScale * GRAPH_TILE_SIZE).toString(),
+          (retinaScale * GRAPH_TILE_SIZE).toString(),
+          "--pad-right",
           (retinaScale * GRAPH_TILE_EXTENSION).toString(),
-          "--padding-bottom",
+          "--pad-bottom",
           (retinaScale * GRAPH_TILE_EXTENSION).toString(),
           "--dilate",
           retinaScale === 2 ? "1,1,0;1,1,0;0,0,0" : "1",
