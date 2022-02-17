@@ -71,29 +71,20 @@ const tryParseBignum = (
   if (val.isFinite()) {
     return ok(val);
   } else {
-    return err("A number is required.");
+    return err("Value must be a number.");
   }
 };
 
-const tryParseImageSize = (
-  value?: string
+const tryParseInteger = (
+  value: string,
+  minValue: number,
+  maxValue: number
 ): Result<number, string | undefined> => {
   const val = Number(value);
-  if (Number.isSafeInteger(val) && val > 0 && val <= MAX_EXPORT_IMAGE_SIZE) {
+  if (Number.isSafeInteger(val) && val >= minValue && val <= maxValue) {
     return ok(val);
   } else {
-    return err(`Image size must be between 1 and ${MAX_EXPORT_IMAGE_SIZE}.`);
-  }
-};
-
-const tryParseTimeout = (
-  value?: string
-): Result<number, string | undefined> => {
-  const val = Number(value);
-  if (Number.isSafeInteger(val) && val > 0 && val <= MAX_EXPORT_TIMEOUT) {
-    return ok(val);
-  } else {
-    return err(`Timeout must be between 1 and ${MAX_EXPORT_TIMEOUT}.`);
+    return err(`Value must be between 1 and ${maxValue}.`);
   }
 };
 
@@ -111,14 +102,22 @@ export const ExportImageDialog = (
   const [opts, setOpts] = useState(props.opts);
   const progress = useSelector((s) => s.exportImageProgress);
 
-  // These properties are correlated, thus we need to maintain them.
+  // Field values.
+  const [height, setHeight] = useState(opts.height.toString());
+  const [timeout, setTimeout] = useState(opts.timeout.toString());
+  const [width, setWidth] = useState(opts.width.toString());
   const [xMax, setXMax] = useState(opts.xMax);
-  const [xMaxErrorMessage, setXMaxErrorMessage] = useState<string>();
   const [xMin, setXMin] = useState(opts.xMin);
-  const [xMinErrorMessage, setXMinErrorMessage] = useState<string>();
   const [yMax, setYMax] = useState(opts.yMax);
-  const [yMaxErrorMessage, setYMaxErrorMessage] = useState<string>();
   const [yMin, setYMin] = useState(opts.yMin);
+
+  // Field validation error messages.
+  const [heightErrorMessage, setHeightErrorMessage] = useState<string>();
+  const [timeoutErrorMessage, setTimeoutErrorMessage] = useState<string>();
+  const [widthErrorMessage, setWidthErrorMessage] = useState<string>();
+  const [xMaxErrorMessage, setXMaxErrorMessage] = useState<string>();
+  const [xMinErrorMessage, setXMinErrorMessage] = useState<string>();
+  const [yMaxErrorMessage, setYMaxErrorMessage] = useState<string>();
   const [yMinErrorMessage, setYMinErrorMessage] = useState<string>();
 
   const pathParts = opts.path.split(new RegExp("[\\/]"));
@@ -141,6 +140,42 @@ export const ExportImageDialog = (
     [errors]
   );
 
+  const validateHeight = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseInteger(value, 1, MAX_EXPORT_IMAGE_SIZE);
+        if (result.ok !== undefined) {
+          setOpts({ ...opts, height: result.ok });
+        }
+        setHeightErrorMessage(addOrRemoveErrors(["height"], result.err));
+      }, 200),
+    [addOrRemoveErrors, opts]
+  );
+
+  const validateTimeout = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseInteger(value, 1, MAX_EXPORT_TIMEOUT);
+        if (result.ok !== undefined) {
+          setOpts({ ...opts, timeout: result.ok });
+        }
+        setTimeoutErrorMessage(addOrRemoveErrors(["timeout"], result.err));
+      }, 200),
+    [addOrRemoveErrors, opts]
+  );
+
+  const validateWidth = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseInteger(value, 1, MAX_EXPORT_IMAGE_SIZE);
+        if (result.ok !== undefined) {
+          setOpts({ ...opts, width: result.ok });
+        }
+        setWidthErrorMessage(addOrRemoveErrors(["width"], result.err));
+      }, 200),
+    [addOrRemoveErrors, opts]
+  );
+
   const validateXMax = useMemo(
     () =>
       debounce((value: string) => {
@@ -150,9 +185,9 @@ export const ExportImageDialog = (
           if (!rangeError) {
             setOpts({ ...opts, xMax: value, xMin });
           }
-          const errors = addOrRemoveErrors(["x-max", "x-min"], rangeError);
-          setXMaxErrorMessage(errors);
-          setXMinErrorMessage(errors);
+          const error = addOrRemoveErrors(["x-max", "x-min"], rangeError);
+          setXMaxErrorMessage(error);
+          setXMinErrorMessage(error);
         } else {
           const parseError = result.err;
           setXMaxErrorMessage(addOrRemoveErrors(["x-max"], parseError));
@@ -170,9 +205,9 @@ export const ExportImageDialog = (
           if (!rangeError) {
             setOpts({ ...opts, xMax, xMin: value });
           }
-          const errors = addOrRemoveErrors(["x-max", "x-min"], rangeError);
-          setXMaxErrorMessage(errors);
-          setXMinErrorMessage(errors);
+          const error = addOrRemoveErrors(["x-max", "x-min"], rangeError);
+          setXMaxErrorMessage(error);
+          setXMinErrorMessage(error);
         } else {
           const parseError = result.err;
           setXMinErrorMessage(addOrRemoveErrors(["x-min"], parseError));
@@ -190,9 +225,9 @@ export const ExportImageDialog = (
           if (!rangeError) {
             setOpts({ ...opts, yMax: value, yMin });
           }
-          const errors = addOrRemoveErrors(["y-max", "y-min"], rangeError);
-          setYMaxErrorMessage(errors);
-          setYMinErrorMessage(errors);
+          const error = addOrRemoveErrors(["y-max", "y-min"], rangeError);
+          setYMaxErrorMessage(error);
+          setYMinErrorMessage(error);
         } else {
           const parseError = result.err;
           setYMaxErrorMessage(addOrRemoveErrors(["y-max"], parseError));
@@ -210,9 +245,9 @@ export const ExportImageDialog = (
           if (!rangeError) {
             setOpts({ ...opts, yMax, yMin: value });
           }
-          const errors = addOrRemoveErrors(["y-max", "y-min"], rangeError);
-          setYMaxErrorMessage(errors);
-          setYMinErrorMessage(errors);
+          const error = addOrRemoveErrors(["y-max", "y-min"], rangeError);
+          setYMaxErrorMessage(error);
+          setYMinErrorMessage(error);
         } else {
           const parseError = result.err;
           setYMinErrorMessage(addOrRemoveErrors(["y-min"], parseError));
@@ -348,18 +383,14 @@ export const ExportImageDialog = (
               tokens={{ childrenGap: "5" }}
             >
               <TextField
-                defaultValue={opts.width.toString()}
+                errorMessage={widthErrorMessage}
                 onChange={(_, value) => {
-                  const val = tryParseImageSize(value).ok;
-                  if (val !== undefined) {
-                    setOpts({ ...opts, width: val });
-                  }
-                }}
-                onGetErrorMessage={(value) => {
-                  const e = tryParseImageSize(value).err;
-                  return addOrRemoveErrors(["width"], e);
+                  if (value === undefined) return;
+                  setWidth(value);
+                  validateWidth(value);
                 }}
                 styles={integerInputStyles}
+                value={width}
               />
               <Text styles={textStyles}>pixels</Text>
             </Stack>
@@ -373,18 +404,14 @@ export const ExportImageDialog = (
               tokens={{ childrenGap: "5" }}
             >
               <TextField
-                defaultValue={opts.height.toString()}
+                errorMessage={heightErrorMessage}
                 onChange={(_, value) => {
-                  const val = tryParseImageSize(value).ok;
-                  if (val !== undefined) {
-                    setOpts({ ...opts, height: val });
-                  }
-                }}
-                onGetErrorMessage={(value) => {
-                  const e = tryParseImageSize(value).err;
-                  return addOrRemoveErrors(["height"], e);
+                  if (value === undefined) return;
+                  setHeight(value);
+                  validateHeight(value);
                 }}
                 styles={integerInputStyles}
+                value={height}
               />
               <Text styles={textStyles}>pixels</Text>
             </Stack>
@@ -420,18 +447,14 @@ export const ExportImageDialog = (
               tokens={{ childrenGap: "5" }}
             >
               <TextField
-                defaultValue={opts.timeout.toString()}
+                errorMessage={timeoutErrorMessage}
                 onChange={(_, value) => {
-                  const val = tryParseTimeout(value).ok;
-                  if (val !== undefined) {
-                    setOpts({ ...opts, timeout: val });
-                  }
-                }}
-                onGetErrorMessage={(value) => {
-                  const e = tryParseTimeout(value).err;
-                  return addOrRemoveErrors(["timeout"], e);
+                  if (value === undefined) return;
+                  setTimeout(value);
+                  validateTimeout(value);
                 }}
                 styles={integerInputStyles}
+                value={timeout}
               />
               <Text styles={textStyles}>milliseconds</Text>
             </Stack>

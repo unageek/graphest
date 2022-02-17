@@ -11,7 +11,7 @@ export const EXPORT_GRAPH_TILE_SIZE = 1024;
 /**
  * The maximum values for {@link ExportImageOptions.width} and {@link ExportImageOptions.height}.
  */
-export const MAX_EXPORT_IMAGE_SIZE = 8192;
+export const MAX_EXPORT_IMAGE_SIZE = 16384;
 
 /**
  * The maximum value for {@link ExportImageOptions.timeout}.
