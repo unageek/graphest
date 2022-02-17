@@ -371,15 +371,6 @@ ipcMain.handle(
       return;
     }
 
-    const { signal } = exportImageAbortController;
-
-    const pixelOffsetX = bignum(1.2345678901234567e-3);
-    const pixelOffsetY = bignum(1.3456789012345678e-3);
-    const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
-    const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
-    const x0 = bounds[0].minus(pixelOffsetX.times(pixelWidth));
-    const y1 = bounds[3].minus(pixelOffsetY.times(pixelHeight));
-
     const newEntries = [];
     for (const entry of entries) {
       newEntries.push({
@@ -390,6 +381,15 @@ ipcMain.handle(
       });
       nextExportImageId++;
     }
+
+    const pixelOffsetX = bignum(1.2345678901234567e-3);
+    const pixelOffsetY = bignum(1.3456789012345678e-3);
+    const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
+    const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
+    const x0 = bounds[0].minus(pixelOffsetX.times(pixelWidth));
+    const y1 = bounds[3].minus(pixelOffsetY.times(pixelHeight));
+
+    const { signal } = exportImageAbortController;
 
     // TODO: Randomize execution to improve the accuracy of progress reporting?
     for (let k = 0; k < newEntries.length; k++) {
