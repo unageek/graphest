@@ -24,7 +24,8 @@ fn main() {
             Arg::new("size")
                 .long("size")
                 .number_of_values(2)
-                .forbid_empty_values(true),
+                .forbid_empty_values(true)
+                .value_names(&["width", "height"]),
         )
         .arg(
             Arg::new("suffix")
@@ -76,18 +77,20 @@ fn main() {
                 .unwrap_or_else(|_| panic!("failed to decode the image '{:?}'", path));
             let tile_width = tile.width();
             let tile_height = tile.height();
+            assert!(last_tile_height.is_none() || last_tile_height == Some(tile_height));
             match tile {
                 DynamicImage::ImageLumaA8(tile) => {
                     imageops::replace(&mut im, &tile, j as i64, i as i64);
                 }
                 _ => panic!("only LumaA8 images are supported"),
             }
-            assert!(last_tile_height.is_none() || last_tile_height == Some(tile_height));
             last_tile_height = Some(tile_height);
             j += tile_width;
         }
+        assert_eq!(j, size[0]);
         i += last_tile_height.unwrap();
     }
+    assert_eq!(i, size[1]);
 
     im.save(output).expect("failed to save the image");
 }

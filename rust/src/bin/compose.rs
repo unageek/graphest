@@ -48,7 +48,7 @@ fn sepia_tone(src: &DynamicImage, color: Rgba<u8>, dst: &mut RgbaImage) {
 
 fn main() {
     let matches = App::new("compose")
-        .about("Colorizes and alpha-composes graph-alpha graph images.")
+        .about("Colorizes and alpha-composes gray-alpha graph images.")
         .arg(
             Arg::new("add")
                 .long("add")
@@ -86,13 +86,13 @@ fn main() {
             .decode()
             .unwrap_or_else(|_| panic!("failed to decode the image '{}'", entry.file));
         let sepia = sepia.get_or_insert_with(|| RgbaImage::new(im.width(), im.height()));
+        assert_eq!(im.width(), sepia.width());
+        assert_eq!(im.height(), sepia.height());
         let composed = composed.get_or_insert_with(|| {
             let mut composed = RgbaImage::new(im.width(), im.height());
             composed.fill(255);
             composed
         });
-        assert_eq!(im.width(), sepia.width());
-        assert_eq!(im.width(), sepia.height());
         sepia_tone(&im, entry.color, sepia);
         imageops::overlay(composed, sepia, 0, 0);
     }
