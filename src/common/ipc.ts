@@ -42,9 +42,9 @@ export interface ExportImage extends MessageToMain {
   result: Promise<void>;
 }
 
-export const getDefaultImageFilePath = "get-pictures-folder";
-export interface GetDefaultImageFilePath extends MessageToMain {
-  channel: typeof getDefaultImageFilePath;
+export const getDefaultExportImagePath = "get-default-export-image-path";
+export interface GetDefaultExportImagePath extends MessageToMain {
+  channel: typeof getDefaultExportImagePath;
   args: [];
   result: Promise<string>;
 }

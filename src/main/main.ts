@@ -535,7 +535,7 @@ ipcMain.handle(
   }
 );
 
-ipcMain.handle(ipc.getDefaultImageFilePath, async (): Promise<string> => {
+ipcMain.handle(ipc.getDefaultExportImagePath, async (): Promise<string> => {
   const home = os.homedir();
   const pictures = path.join(home, "Pictures");
   return path.join(fs.existsSync(pictures) ? pictures : home, "graph.png");

@@ -92,9 +92,10 @@ const App = () => {
 
   useEffect(() => {
     (async function () {
-      const path = await window.ipcRenderer.invoke<ipc.GetDefaultImageFilePath>(
-        ipc.getDefaultImageFilePath
-      );
+      const path =
+        await window.ipcRenderer.invoke<ipc.GetDefaultExportImagePath>(
+          ipc.getDefaultExportImagePath
+        );
       store.dispatch(
         setLastExportImageOpts({
           ...exportImageOpts,
