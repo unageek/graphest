@@ -93,29 +93,29 @@ fn main() {
                 .help("Do not output intermediate images."),
         )
         .arg(
-            Arg::new("padding-bottom")
-                .long("padding-bottom")
+            Arg::new("pad-bottom")
+                .long("pad-bottom")
                 .hide(true)
                 .default_value("0")
                 .forbid_empty_values(true),
         )
         .arg(
-            Arg::new("padding-left")
-                .long("padding-left")
+            Arg::new("pad-left")
+                .long("pad-left")
                 .hide(true)
                 .default_value("0")
                 .forbid_empty_values(true),
         )
         .arg(
-            Arg::new("padding-right")
-                .long("padding-right")
+            Arg::new("pad-right")
+                .long("pad-right")
                 .hide(true)
                 .default_value("0")
                 .forbid_empty_values(true),
         )
         .arg(
-            Arg::new("padding-top")
-                .long("padding-top")
+            Arg::new("pad-top")
+                .long("pad-top")
                 .hide(true)
                 .default_value("0")
                 .forbid_empty_values(true),
@@ -183,16 +183,19 @@ fn main() {
     let output_once = matches.is_present("output-once");
     let padding = {
         Padding {
-            bottom: matches.value_of_t_or_exit::<u32>("padding-bottom"),
-            left: matches.value_of_t_or_exit::<u32>("padding-left"),
-            right: matches.value_of_t_or_exit::<u32>("padding-right"),
-            top: matches.value_of_t_or_exit::<u32>("padding-top"),
+            bottom: matches.value_of_t_or_exit::<u32>("pad-bottom"),
+            left: matches.value_of_t_or_exit::<u32>("pad-left"),
+            right: matches.value_of_t_or_exit::<u32>("pad-right"),
+            top: matches.value_of_t_or_exit::<u32>("pad-top"),
         }
     };
     let pause_per_iteration = matches.is_present("pause-per-iteration");
     let size = {
         let size = matches.values_of_t_or_exit::<u32>("size");
-        [size[0], size[1]]
+        [
+            size[0] + padding.left + padding.right,
+            size[1] + padding.bottom + padding.top,
+        ]
     };
     let timeout = match matches.value_of_t::<u64>("timeout") {
         Ok(t) => Some(Duration::from_millis(t)),
