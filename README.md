@@ -6,7 +6,7 @@
 
 ## Getting Started
 
-[Download the app](https://github.com/unageek/graphest/releases) (available for macOS and Windows), and try plotting some of the [example relations](Examples.md).
+[Download the app](https://github.com/unageek/graphest/releases) (available for both macOS and Windows), and try plotting some of the [example relations](Examples.md).
 
 ## Features
 
