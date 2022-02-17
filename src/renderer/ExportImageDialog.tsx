@@ -469,7 +469,18 @@ export const ExportImageDialog = (
               style={{ gridColumn: "span 2" }}
               tokens={{ childrenGap: "10px" }}
             >
-              <Text styles={textStyles}>{briefPath}</Text>
+              <Text
+                styles={{
+                  root: {
+                    ...textStyles.root,
+                    maxWidth: "200px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  },
+                }}
+              >
+                {briefPath}
+              </Text>
               <DefaultButton
                 onClick={async () => {
                   const path = await props.openSaveDialog(opts.path);
