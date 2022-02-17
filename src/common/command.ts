@@ -1,6 +1,6 @@
 export enum Command {
   AbortGraphing = "abort-graphing",
-  Export = "export",
+  ExportImage = "export-image",
   HighResolution = "high-resolution",
   ShowAxes = "show-axes",
   ShowMajorGrid = "show-major-grid",

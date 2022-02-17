@@ -140,10 +140,13 @@ function createMainMenu(): Menu {
         { role: "close" },
         { type: "separator" },
         {
-          id: Command.Export,
+          id: Command.ExportImage,
           label: "Export to Image",
           click: () => {
-            mainWindow?.webContents.send(ipc.commandInvoked, Command.Export);
+            mainWindow?.webContents.send(
+              ipc.commandInvoked,
+              Command.ExportImage
+            );
           },
         },
         { type: "separator" },

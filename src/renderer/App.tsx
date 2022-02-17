@@ -155,7 +155,7 @@ ReactDOM.render(
 window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
   const state = store.getState();
   switch (item) {
-    case Command.Export:
+    case Command.ExportImage:
       store.dispatch(setShowExportImageDialog(true));
       break;
     case Command.HighResolution:
