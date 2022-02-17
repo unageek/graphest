@@ -30,6 +30,11 @@ export const GRAPH_TILE_EXTENSION = 1;
 export const EXTENDED_GRAPH_TILE_SIZE = GRAPH_TILE_SIZE + GRAPH_TILE_EXTENSION;
 
 /**
+ * The width/height of graph tiles used while exporting in pixels.
+ */
+export const EXPORT_GRAPH_TILE_SIZE = 1024;
+
+/**
  * The maximum width/height of an image that can be exported to.
  */
 export const MAX_EXPORT_IMAGE_SIZE = 8192;

@@ -16,7 +16,11 @@ import { debounce } from "lodash";
 import * as React from "react";
 import { useCallback, useState } from "react";
 import { bignum, BigNumber } from "../common/bignumber";
-import { MAX_EXPORT_IMAGE_SIZE, MAX_EXPORT_TIMEOUT } from "../common/constants";
+import {
+  EXPORT_GRAPH_TILE_SIZE,
+  MAX_EXPORT_IMAGE_SIZE,
+  MAX_EXPORT_TIMEOUT,
+} from "../common/constants";
 import { ExportImageOptions } from "../common/exportImage";
 import { err, ok, Result } from "../common/result";
 import { useSelector } from "./models/app";
@@ -203,6 +207,11 @@ export const ExportImageDialog = (
     [errors, opts, yMax]
   );
 
+  const tilesPerGraph =
+    opts.antiAliasing ** 2 *
+    Math.ceil(opts.width / EXPORT_GRAPH_TILE_SIZE) *
+    Math.ceil(opts.height / EXPORT_GRAPH_TILE_SIZE);
+
   return (
     <Dialog
       dialogContentProps={{
@@ -384,6 +393,10 @@ export const ExportImageDialog = (
 
             <div style={{ gridColumn: "1" }} />
 
+            <Text style={{ gridColumn: "span 2" }}>
+              {tilesPerGraph} {tilesPerGraph > 1 ? "tiles" : "tile"} per
+              relation will be processed.
+            </Text>
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
               Per-tile Timeout
             </Label>

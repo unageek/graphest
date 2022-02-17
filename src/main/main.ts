@@ -24,6 +24,7 @@ import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
 import {
   BASE_ZOOM_LEVEL,
+  EXPORT_GRAPH_TILE_SIZE,
   GRAPH_TILE_EXTENSION,
   GRAPH_TILE_SIZE,
   MAX_EXPORT_IMAGE_SIZE,
@@ -398,8 +399,8 @@ ipcMain.handle(
 
       const scaled_width = opts.antiAliasing * opts.width;
       const scaled_height = opts.antiAliasing * opts.height;
-      const x_tiles = Math.ceil(scaled_width / 1024);
-      const y_tiles = Math.ceil(scaled_height / 1024);
+      const x_tiles = Math.ceil(scaled_width / EXPORT_GRAPH_TILE_SIZE);
+      const y_tiles = Math.ceil(scaled_height / EXPORT_GRAPH_TILE_SIZE);
       const tile_width = Math.ceil(opts.width / x_tiles);
       const tile_height = Math.ceil(opts.height / y_tiles);
       for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
