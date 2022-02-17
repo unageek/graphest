@@ -113,7 +113,7 @@ let sleepingJobs: Job[] = [];
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const composeExec: string = getBundledExecutable("compose");
-const exportImageAbortController = new AbortController();
+let exportImageAbortController: AbortController | undefined;
 const graphExec: string = getBundledExecutable("graph");
 const joinTilesExec: string = getBundledExecutable("join-tiles");
 let mainMenu: Menu | undefined;
@@ -323,7 +323,7 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle(ipc.abortExportImage, async () => {
-  exportImageAbortController.abort();
+  exportImageAbortController?.abort();
 });
 
 ipcMain.handle(ipc.abortGraphing, async (_, relId: string, tileId?: string) => {
@@ -389,6 +389,7 @@ ipcMain.handle(
     const x0 = bounds[0].minus(pixelOffsetX.times(pixelWidth));
     const y1 = bounds[3].minus(pixelOffsetY.times(pixelHeight));
 
+    exportImageAbortController = new AbortController();
     const { signal } = exportImageAbortController;
 
     // TODO: Randomize execution to improve the accuracy of progress reporting?
@@ -456,7 +457,7 @@ ipcMain.handle(
                 (x_tiles * y_tiles * k + x_tiles * i_tile + j_tile + 1) /
                 (x_tiles * y_tiles * newEntries.length),
             });
-          } catch ({ stderr }) {
+          } catch ({ name, stderr }) {
             if (typeof stderr !== "string") {
               throw new Error("unexpected type");
             }
