@@ -42,7 +42,15 @@ const exportImage = async (opts: ExportImageOptions) => {
     entries.push({ color: new Color(color).hexa(), relId });
   }
 
-  store.dispatch(setExportImageProgress(0));
+  store.dispatch(
+    setExportImageProgress({
+      lastStderr: "",
+      // 1x1 transparent image.
+      lastUrl:
+        "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==",
+      progress: 0,
+    })
+  );
 
   await window.ipcRenderer.invoke<ipc.ExportImage>(
     ipc.exportImage,

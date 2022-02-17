@@ -1,6 +1,9 @@
 import { createSlice, isAnyOf, PayloadAction } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useSelector as _useSelector } from "react-redux";
-import { ExportImageOptions } from "../../common/exportImage";
+import {
+  ExportImageOptions,
+  ExportImageProgress,
+} from "../../common/exportImage";
 import {
   Graph,
   graphReducer,
@@ -10,7 +13,7 @@ import {
 } from "./graph";
 
 export interface AppState {
-  exportImageProgress: number;
+  exportImageProgress: ExportImageProgress;
   graphs: { byId: { [id: string]: Graph }; allIds: string[] };
   highRes: boolean;
   lastExportImageOpts: ExportImageOptions;
@@ -22,7 +25,11 @@ export interface AppState {
 }
 
 const initialState: AppState = {
-  exportImageProgress: 0,
+  exportImageProgress: {
+    lastStderr: "",
+    lastUrl: "",
+    progress: 0,
+  },
   graphs: { byId: {}, allIds: [] },
   highRes: false,
   lastExportImageOpts: {
@@ -101,8 +108,10 @@ const slice = createSlice({
       }),
     },
     setExportImageProgress: {
-      prepare: (progress: number) => ({ payload: { progress } }),
-      reducer: (s, a: PayloadAction<{ progress: number }>) => ({
+      prepare: (progress: ExportImageProgress) => ({
+        payload: { progress },
+      }),
+      reducer: (s, a: PayloadAction<{ progress: ExportImageProgress }>) => ({
         ...s,
         exportImageProgress: a.payload.progress,
       }),

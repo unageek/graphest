@@ -36,10 +36,10 @@ const antiAliasingOptions: IComboBoxOption[] = [
   { key: "5", text: "5 × 5" },
   { key: "7", text: "7 × 7" },
   { key: "9", text: "9 × 9" },
-  // { key: "11", text: "11 × 11" },
-  // { key: "13", text: "13 × 13" },
-  // { key: "15", text: "15 × 15" },
-  // { key: "17", text: "17 × 17" },
+  { key: "11", text: "11 × 11" },
+  { key: "13", text: "13 × 13" },
+  { key: "15", text: "15 × 15" },
+  { key: "17", text: "17 × 17" },
 ];
 
 const decimalInputStyles = {
@@ -224,18 +224,40 @@ export const ExportImageDialog = (
           style={{
             display: "grid",
             gap: "10px",
-            gridTemplateColumns: "1fr auto",
+            gridTemplateRows: "auto auto",
           }}
         >
-          <ProgressIndicator label="Exporting…" percentComplete={progress} />
-          <IconButton
-            iconProps={{ iconName: "Cancel" }}
-            onClick={() => {
-              props.abort();
-              props.dismiss();
+          <div
+            style={{
+              display: "grid",
+              gap: "10px",
+              gridTemplateColumns: "1fr auto",
             }}
-            title="Cancel"
+          >
+            <ProgressIndicator
+              label="Exporting…"
+              percentComplete={progress.progress}
+            />
+            <IconButton
+              iconProps={{ iconName: "Cancel" }}
+              onClick={() => {
+                props.abort();
+                props.dismiss();
+              }}
+              title="Cancel"
+            />
+          </div>
+          <img
+            style={{ gridRow: "2" }}
+            width="256"
+            height="256"
+            src={progress.lastUrl}
           />
+          <div
+            style={{ gridRow: "3", minHeight: "1em", whiteSpace: "pre-wrap" }}
+          >
+            {progress.lastStderr}
+          </div>
         </div>
       ) : (
         <>

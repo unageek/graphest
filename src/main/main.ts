@@ -18,7 +18,7 @@ import { autoUpdater } from "electron-updater";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { pathToFileURL } from "url";
+import * as url from "url";
 import * as util from "util";
 import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
@@ -30,7 +30,11 @@ import {
   MAX_EXPORT_TIMEOUT,
   VALID_ANTI_ALIASING,
 } from "../common/constants";
-import { ExportImageEntry, ExportImageOptions } from "../common/exportImage";
+import {
+  ExportImageEntry,
+  ExportImageOptions,
+  ExportImageProgress,
+} from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
@@ -417,12 +421,13 @@ ipcMain.handle(
             y1.minus(pixelHeight.times(i)),
           ];
 
+          const path = `${entry.tilePathPrefix}${i_tile}-${j_tile}${entry.tilePathSuffix}`;
           const args = [
             "--bounds",
             ...bounds.map((b) => b.toString()),
             "--gray-alpha",
             "--output",
-            `${entry.tilePathPrefix}${i_tile}-${j_tile}${entry.tilePathSuffix}`,
+            path,
             "--output-once",
             "--size",
             width.toString(),
@@ -439,10 +444,13 @@ ipcMain.handle(
             if (stderr) {
               console.log(stderr.trimEnd());
             }
-            notifyExportImageStatusChanged(
-              (x_tiles * y_tiles * k + x_tiles * i_tile + j_tile + 1) /
-                (x_tiles * y_tiles * newEntries.length)
-            );
+            notifyExportImageStatusChanged({
+              lastStderr: stderr.trimEnd(),
+              lastUrl: url.pathToFileURL(path).toString(),
+              progress:
+                (x_tiles * y_tiles * k + x_tiles * i_tile + j_tile + 1) /
+                (x_tiles * y_tiles * newEntries.length),
+            });
           } catch ({ stderr }) {
             if (typeof stderr !== "string") {
               throw new Error("unexpected type");
@@ -605,7 +613,7 @@ ipcMain.handle(
 
       const newTile: Tile = {
         id: tileId,
-        url: pathToFileURL(outFile).href,
+        url: url.pathToFileURL(outFile).href,
       };
       rel.tiles.set(tileId, newTile);
 
@@ -704,7 +712,7 @@ function deprioritize(job: Job) {
   updateQueue();
 }
 
-function notifyExportImageStatusChanged(progress: number) {
+function notifyExportImageStatusChanged(progress: ExportImageProgress) {
   mainWindow?.webContents.send(ipc.exportImageStatusChanged, progress);
 }
 

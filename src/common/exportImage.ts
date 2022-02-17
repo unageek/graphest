@@ -14,3 +14,9 @@ export interface ExportImageOptions {
   yMax: string;
   yMin: string;
 }
+
+export interface ExportImageProgress {
+  lastStderr: string;
+  lastUrl: string;
+  progress: number;
+}

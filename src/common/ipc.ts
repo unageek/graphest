@@ -1,6 +1,10 @@
 import { IpcRendererEvent } from "electron";
 import { Command } from "./command";
-import { ExportImageEntry, ExportImageOptions } from "./exportImage";
+import {
+  ExportImageEntry,
+  ExportImageOptions,
+  ExportImageProgress,
+} from "./exportImage";
 import { Range } from "./range";
 import { Result } from "./result";
 
@@ -90,7 +94,7 @@ export interface CommandInvoked extends MessageToRenderer {
 export const exportImageStatusChanged = "export-image-status-changed";
 export interface ExportImageStatusChanged extends MessageToRenderer {
   channel: typeof exportImageStatusChanged;
-  args: [progress: number];
+  args: [progress: ExportImageProgress];
   listener: (
     event: IpcRendererEvent,
     ...args: ExportImageStatusChanged["args"]
