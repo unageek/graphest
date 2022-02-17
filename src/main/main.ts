@@ -26,6 +26,8 @@ import {
   BASE_ZOOM_LEVEL,
   GRAPH_TILE_EXTENSION,
   GRAPH_TILE_SIZE,
+  PERTURBATION_X,
+  PERTURBATION_Y,
 } from "../common/constants";
 import {
   ANTI_ALIASING_OPTIONS,
@@ -382,8 +384,8 @@ ipcMain.handle(
       nextExportImageId++;
     }
 
-    const pixelOffsetX = bignum(1.2345678901234567e-3);
-    const pixelOffsetY = bignum(1.3456789012345678e-3);
+    const pixelOffsetX = bignum(PERTURBATION_X);
+    const pixelOffsetY = bignum(PERTURBATION_Y);
     const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
     const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
     const x0 = bounds[0].minus(pixelOffsetX.times(pixelWidth));
@@ -612,12 +614,12 @@ ipcMain.handle(
       // The direction of offsetting must be coherent with the configuration of `GridLayer`.
       // We also add asymmetric perturbation to the offset so that
       // points with simple coordinates may not be located on pixel boundaries,
-      // which could make lines such as `y = x` look thicker.
+      // which could make lines such as `x y = 0` or `(x + y)(x − y) = 0` look thicker.
       const pixelOffsetX = bignum(
-        (0.5 + 1.2345678901234567e-3) / (retinaScale * GRAPH_TILE_SIZE)
+        (0.5 + PERTURBATION_X) / (retinaScale * GRAPH_TILE_SIZE)
       );
       const pixelOffsetY = bignum(
-        (0.5 + 1.3456789012345678e-3) / (retinaScale * GRAPH_TILE_SIZE)
+        (0.5 + PERTURBATION_Y) / (retinaScale * GRAPH_TILE_SIZE)
       );
       const widthPerTile = bignum(2 ** (BASE_ZOOM_LEVEL - coords.z));
       const x0 = widthPerTile.times(bignum(coords.x).minus(pixelOffsetX));
