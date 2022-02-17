@@ -120,9 +120,18 @@ export const ExportImageDialog = (
   const [yMaxErrorMessage, setYMaxErrorMessage] = useState<string>();
   const [yMinErrorMessage, setYMinErrorMessage] = useState<string>();
 
-  const pathParts = opts.path.split(new RegExp("[\\/]"));
+  let pathParts = [];
+  let separator = "/";
+  if (/^([A-Z]:\\|\\\\)/.test(opts.path)) {
+    pathParts = opts.path.split("\\");
+    separator = "\\";
+  } else {
+    pathParts = opts.path.split("/");
+  }
   const briefPath =
-    pathParts.length <= 2 ? pathParts : "…/" + pathParts.slice(-2).join("/");
+    pathParts.length <= 3
+      ? opts.path
+      : "…" + separator + pathParts.slice(-2).join(separator);
 
   const addOrRemoveErrors = useCallback(
     (keys: string[], e?: string): string | undefined => {
