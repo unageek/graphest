@@ -229,18 +229,17 @@ fn main() {
     }
 
     let graph_padding = Padding {
-        bottom: ssaa * output_padding.bottom + ssaa / 2,
-        left: ssaa * output_padding.left + ssaa / 2,
-        right: ssaa * output_padding.right + ssaa / 2,
-        top: ssaa * output_padding.top + ssaa / 2,
+        bottom: ssaa * output_padding.bottom + dilation_kernel.height() / 2,
+        left: ssaa * output_padding.left + dilation_kernel.width() / 2,
+        right: ssaa * output_padding.right + dilation_kernel.width() / 2,
+        top: ssaa * output_padding.top + dilation_kernel.height() / 2,
     };
     let graph_size = [
-        ssaa * output_size[0] + (ssaa - 1),
-        ssaa * output_size[1] + (ssaa - 1),
+        ssaa * output_size[0] + (dilation_kernel.width() - 1),
+        ssaa * output_size[1] + (dilation_kernel.height() - 1),
     ];
 
     let opts = PlotOptions {
-        crop: ssaa / 2,
         dilation_kernel,
         graph_size,
         gray_alpha,
@@ -291,7 +290,6 @@ fn main() {
 }
 
 struct PlotOptions {
-    crop: u32,
     dilation_kernel: Image<bool>,
     graph_size: [u32; 2],
     gray_alpha: bool,
@@ -348,8 +346,8 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
         graph.get_image(&mut raw_im);
 
         // Dilation collects the values of pixels to top-left pixels.
-        for (dy, dx) in (0..opts.graph_size[1] - (opts.dilation_kernel.width() - 1))
-            .cartesian_product(0..opts.graph_size[0] - (opts.dilation_kernel.height() - 1))
+        for (dy, dx) in (0..opts.graph_size[1] - (opts.dilation_kernel.height() - 1))
+            .cartesian_product(0..opts.graph_size[0] - (opts.dilation_kernel.width() - 1))
         {
             raw_im[PixelIndex::new(dx, dy)] = (0..opts.dilation_kernel.height())
                 .cartesian_product(0..opts.dilation_kernel.width())
@@ -379,8 +377,8 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
                 im,
                 0,
                 0,
-                opts.graph_size[0] - 2 * opts.crop,
-                opts.graph_size[1] - 2 * opts.crop,
+                opts.graph_size[0] - (opts.dilation_kernel.width() - 1),
+                opts.graph_size[1] - (opts.dilation_kernel.height() - 1),
             )
             .to_image();
             let im = imageops::resize(
@@ -404,10 +402,10 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
             }
             let im = imageops::crop(
                 im,
-                opts.crop,
-                opts.crop,
-                opts.graph_size[0] - 2 * opts.crop,
-                opts.graph_size[1] - 2 * opts.crop,
+                0,
+                0,
+                opts.graph_size[0] - (opts.dilation_kernel.width() - 1),
+                opts.graph_size[1] - (opts.dilation_kernel.height() - 1),
             )
             .to_image();
             let im = imageops::resize(
