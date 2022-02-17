@@ -141,7 +141,7 @@ function createMainMenu(): Menu {
         { type: "separator" },
         {
           id: Command.ExportImage,
-          label: "Export to Image",
+          label: "Export to Image…",
           click: () => {
             mainWindow?.webContents.send(
               ipc.commandInvoked,
