@@ -37,6 +37,10 @@ jobs:
           echo "C:\msys64\usr\bin" >> $GITHUB_PATH
           echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
 
+      - name: Install build tools
+        run: |
+          pacman -S --noconfirm diffutils m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
+
       - name: Install dependencies
         run: npm ci
 
