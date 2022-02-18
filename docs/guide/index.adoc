@@ -849,9 +849,9 @@ https://functions.wolfram.com/EllipticIntegrals/EllipticK/[WFS]
 |https://mathworld.wolfram.com/CompleteEllipticIntegraloftheSecondKind.html[MW]
 https://functions.wolfram.com/EllipticIntegrals/EllipticE/[WFS]
 
-// |`zeta(s)` or `ζ(s)`
-// |stem:[ζ(s)]
-// |The https://en.wikipedia.org/wiki/Riemann_zeta_function[Riemann zeta function].
-// |https://mathworld.wolfram.com/RiemannZetaFunction.html[MW]
-// https://functions.wolfram.com/ZetaFunctionsandPolylogarithms/Zeta/[WFS]
+|`zeta(s)` or `ζ(s)`
+|stem:[ζ(s)]
+|The https://en.wikipedia.org/wiki/Riemann_zeta_function[Riemann zeta function].
+|https://mathworld.wolfram.com/RiemannZetaFunction.html[MW]
+https://functions.wolfram.com/ZetaFunctionsandPolylogarithms/Zeta/[WFS]
 |===
