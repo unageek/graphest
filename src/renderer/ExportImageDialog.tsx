@@ -484,6 +484,7 @@ export const ExportImageDialog = (
                     maxWidth: "200px",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                   },
                 }}
               >
