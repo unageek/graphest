@@ -272,7 +272,7 @@ export const ExportImageDialog = (
   return (
     <Dialog
       dialogContentProps={{
-        title: exporting ? "" : "Export to Image",
+        title: exporting ? "" : "Export as Image",
       }}
       hidden={false}
       maxWidth={"100vw"}
