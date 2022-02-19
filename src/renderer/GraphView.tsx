@@ -80,6 +80,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
           inertia: false,
           maxBoundsViscosity: 1,
           wheelDebounceTime: 100,
+          zoomControl: false,
         })
       );
     }, []);
@@ -99,6 +100,25 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         map.invalidateSize();
       });
       resizeObserver.observe(map.getContainer());
+
+      L.control
+        .zoom({
+          position: "topleft",
+          zoomInText: "<div id='zoom-in-button' style='font-size: 16px'></div>",
+          zoomInTitle: "Zoom In",
+          zoomOutText:
+            "<div id='zoom-out-button' style='font-size: 16px'></div>",
+          zoomOutTitle: "Zoom Out",
+        })
+        .addTo(map);
+      ReactDOM.render(
+        <i className="fa-solid fa-plus"></i>,
+        document.getElementById("zoom-in-button")
+      );
+      ReactDOM.render(
+        <i className="fa-solid fa-minus"></i>,
+        document.getElementById("zoom-out-button")
+      );
 
       L.easyButton(
         "<div id='reset-view-button' style='font-size: 16px'></div>",
