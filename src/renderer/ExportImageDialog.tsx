@@ -333,7 +333,7 @@ export const ExportImageDialog = (
             <Label style={{ gridColumn: "2", padding: "0" }}>Minimum</Label>
             <Label style={{ gridColumn: "3", padding: "0" }}>Maximum</Label>
 
-            <Label style={{ textAlign: "right" }}>x</Label>
+            <Label style={{ textAlign: "right" }}>x:</Label>
             <TextField
               errorMessage={xMinErrorMessage}
               onChange={(_, value) => {
@@ -355,7 +355,7 @@ export const ExportImageDialog = (
               value={xMax}
             />
 
-            <Label style={{ textAlign: "right" }}>y</Label>
+            <Label style={{ textAlign: "right" }}>y:</Label>
             <TextField
               errorMessage={yMinErrorMessage}
               onChange={(_, value) => {
@@ -379,7 +379,9 @@ export const ExportImageDialog = (
 
             <div />
 
-            <Label style={{ gridColumn: "1", textAlign: "right" }}>Width</Label>
+            <Label style={{ gridColumn: "1", textAlign: "right" }}>
+              Width:
+            </Label>
             <Stack
               horizontal
               style={{ alignItems: "baseline", gridColumn: "span 2" }}
@@ -399,7 +401,7 @@ export const ExportImageDialog = (
             </Stack>
 
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Height
+              Height:
             </Label>
             <Stack
               horizontal
@@ -422,7 +424,7 @@ export const ExportImageDialog = (
             <div style={{ gridColumn: "1" }} />
 
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Anti-Aliasing
+              Anti-aliasing:
             </Label>
             <Dropdown
               defaultSelectedKey={opts.antiAliasing.toString()}
@@ -442,7 +444,7 @@ export const ExportImageDialog = (
               relation will be processed.
             </Text>
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Per-tile Timeout
+              Per-tile timeout:
             </Label>
             <Stack
               horizontal
@@ -465,7 +467,7 @@ export const ExportImageDialog = (
             <div style={{ gridColumn: "1" }} />
 
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Save As
+              Save as:
             </Label>
             <Stack
               horizontal
