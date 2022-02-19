@@ -17,6 +17,45 @@ a:not([draggable]) {
   -webkit-user-drag: none;
 }
 
+.leaflet-bar {
+  border: 1px solid #d2d0ce !important; /* neutralQuaternary */
+  border-radius: 2px !important;
+  box-shadow: 0 1.6px 3.6px 0 rgba(0, 0, 0, 0.132),
+    0 0.3px 0.9px 0 rgba(0, 0, 0, 0.108) !important; /* depth8 */
+  opacity: 0.75;
+}
+
+.leaflet-bar:hover,
+.leaflet-bar:focus-within {
+  opacity: 1;
+}
+
+.leaflet-control-zoom-in {
+  border-bottom: 1px solid #d2d0ce !important; /* neutralQuaternary */
+}
+
+.leaflet-bar a /* Zoom buttons */,
+.leaflet-bar button /* Reset view button */ {
+  color: #323130 !important; /* neutralPrimary */
+}
+
+.leaflet-bar a:hover,
+.leaflet-bar button:hover {
+  background: #f3f2f1 !important; /* neutralLighter */
+}
+
+.leaflet-bar a:first-child /* Zoom in button*/,
+.leaflet-bar button /* Reset view button */ {
+  border-top-left-radius: 2px !important;
+  border-top-right-radius: 2px !important;
+}
+
+.leaflet-bar a:last-child /* Zoom out button */,
+.leaflet-bar button /* Reset view button */ {
+  border-bottom-left-radius: 2px !important;
+  border-bottom-right-radius: 2px !important;
+}
+
 .leaflet-layer {
   image-rendering: pixelated;
 }
