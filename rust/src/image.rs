@@ -5,7 +5,7 @@ use std::{
 };
 
 /// A two-dimensional image with a generic pixel type.
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Image<T: Clone + Copy + Default> {
     width: u32,
     height: u32,

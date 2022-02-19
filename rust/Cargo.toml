@@ -60,7 +60,6 @@ test = false
 [[bin]]
 name = "graph"
 doc = false
-test = false
 
 [[bin]]
 name = "join-tiles"

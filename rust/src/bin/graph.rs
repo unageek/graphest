@@ -8,6 +8,56 @@ use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
 use std::{ffi::OsString, io::stdin, time::Duration};
 
+// Returns the same matrix as Mathematica's `DiskMatrix[r]`.
+fn disk_matrix(radius: f64) -> Image<bool> {
+    // size = 2 ⌊r⌉ + 1 = 2 ⌊r + 1/2⌋ + 1.
+    let size = 2 * (radius + 0.5).floor() as u32 + 1;
+    let mut im = Image::new(size, size);
+    let mid = size / 2;
+    let max_d_sq = (radius + 0.5) * (radius + 0.5);
+    for i in 0..size {
+        let y = i as i32 - mid as i32;
+        for j in 0..size {
+            let x = j as i32 - mid as i32;
+            let d_sq = (x * x + y * y) as f64;
+            im[PixelIndex::new(i, j)] = d_sq <= max_d_sq;
+        }
+    }
+    im
+}
+
+fn parse_binary_matrix(mat: &str) -> Image<bool> {
+    let mat = mat
+        .split(';')
+        .map(|row| {
+            row.split(',')
+                .map(|c| match c {
+                    "0" => false,
+                    "1" => true,
+                    _ => panic!("elements of dilation kernel must be either 0 or 1"),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        !mat.is_empty() && !mat[0].is_empty(),
+        "the matrix must not be empty"
+    );
+    assert!(
+        mat[1..].iter().all(|r| r.len() == mat[0].len()),
+        "the matrix rows must have the same length"
+    );
+    let height = u32::try_from(mat.len()).expect("the matrix has too many rows");
+    let width = u32::try_from(mat[0].len()).expect("the matrix has too many columns");
+
+    let mut im = Image::<bool>::new(width, height);
+    for (p, el) in im.pixels_mut().zip(mat.into_iter().flatten()) {
+        *p = el;
+    }
+    im
+}
+
 fn print_statistics_header() {
     println!(
         "  {:>14}  {:>24}  {:>28}",
@@ -175,7 +225,7 @@ fn main() {
         .unwrap()
         .map(to_interval)
         .collect::<Vec<_>>();
-    let mut dilation_kernel = parse_dilation_kernel(matches.value_of("dilate").unwrap());
+    let dilation = matches.value_of("dilate").unwrap();
     let gray_alpha = matches.is_present("gray-alpha");
     let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
     let output = matches.value_of_os("output").unwrap().to_owned();
@@ -203,30 +253,19 @@ fn main() {
         Err(e) => e.exit(),
     };
 
-    if !(dilation_kernel.width() == 1
-        && dilation_kernel.height() == 1
-        && dilation_kernel[PixelIndex::new(0, 0)]
-        || ssaa == 1)
-    {
-        println!("`--dilate` and `--ssaa` cannot be used together.");
-    }
-
-    if ssaa > 1 {
-        dilation_kernel = parse_dilation_kernel(match ssaa {
-            // StringRiffle[Map[ToString, DiskMatrix[n], {2}], ";", ","]
-            // ┌ n
-            /* 0 */ 1 => "1",
-            /* 1 */ 3 => "1,1,1;1,1,1;1,1,1",
-            /* 2 */ 5 => "0,1,1,1,0;1,1,1,1,1;1,1,1,1,1;1,1,1,1,1;0,1,1,1,0",
-            /* 3 */ 7 => "0,0,1,1,1,0,0;0,1,1,1,1,1,0;1,1,1,1,1,1,1;1,1,1,1,1,1,1;1,1,1,1,1,1,1;0,1,1,1,1,1,0;0,0,1,1,1,0,0",
-            /* 4 */ 9 => "0,0,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,0,0",
-            /* 5 */ 11 => "0,0,0,1,1,1,1,1,0,0,0;0,0,1,1,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,1,1,0,0;0,0,0,1,1,1,1,1,0,0,0",
-            /* 6 */ 13 => "0,0,0,0,1,1,1,1,1,0,0,0,0;0,0,1,1,1,1,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,1,1,1,1,0,0;0,0,0,0,1,1,1,1,1,0,0,0,0",
-            /* 7 */ 15 => "0,0,0,0,0,1,1,1,1,1,0,0,0,0,0;0,0,0,1,1,1,1,1,1,1,1,1,0,0,0;0,0,1,1,1,1,1,1,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,1,1,1,1,1,1,0,0;0,0,0,1,1,1,1,1,1,1,1,1,0,0,0;0,0,0,0,0,1,1,1,1,1,0,0,0,0,0",
-            /* 8 */ 17 => "0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0;0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0;0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0;0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0;0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0;0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0;0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0",
-            _ => panic!("ssaa muse be one if 1, 3, 5, …, or 17"),
-        });
-    }
+    let dilation_kernel = if ssaa > 1 {
+        if dilation != "1" {
+            println!("`--dilate` and `--ssaa` cannot be used together.");
+        }
+        disk_matrix((ssaa / 2) as f64)
+    } else {
+        let k = parse_binary_matrix(dilation);
+        assert!(
+            k.width() == k.height() && k.width() % 2 == 1,
+            "dilation kernel must be square and have odd dimensions"
+        );
+        k
+    };
 
     let graph_padding = Padding {
         bottom: ssaa * output_padding.bottom + dilation_kernel.height() / 2,
@@ -298,34 +337,6 @@ struct PlotOptions {
     output_size: [u32; 2],
     pause_per_iteration: bool,
     timeout: Option<Duration>,
-}
-
-fn parse_dilation_kernel(ker: &str) -> Image<bool> {
-    let dilation = ker
-        .split(';')
-        .map(|row| {
-            row.split(',')
-                .map(|c| match c {
-                    "0" => false,
-                    "1" => true,
-                    _ => panic!("elements of dilation kernel must be either 0 or 1"),
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-
-    let size = dilation.len();
-    assert!(
-        size % 2 == 1 && dilation.iter().all(|row| row.len() == size),
-        "dilation kernel must be square and have odd dimensions"
-    );
-    let size = u32::try_from(size).expect("dilation kernel is too large");
-
-    let mut ker = Image::<bool>::new(size, size);
-    for (p, el) in ker.pixels_mut().zip(dilation.into_iter().flatten()) {
-        *p = el;
-    }
-    ker
 }
 
 fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
@@ -457,5 +468,74 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
 
     if opts.output_once {
         save_image(&graph);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+
+    #[test]
+    fn test_disk_matrix() {
+        // CopyToClipboard@StringRiffle[Map[ToString, DiskMatrix[r], {2}], ";", ","]
+        assert_eq!(disk_matrix(0.0), parse_binary_matrix("1"));
+        assert_eq!(disk_matrix(0.4), parse_binary_matrix("1"));
+        assert_eq!(disk_matrix(0.5), parse_binary_matrix("0,1,0;1,1,1;0,1,0"));
+        assert_eq!(disk_matrix(1.0), parse_binary_matrix("1,1,1;1,1,1;1,1,1"));
+        assert_eq!(disk_matrix(1.4), parse_binary_matrix("1,1,1;1,1,1;1,1,1"));
+        assert_eq!(
+            disk_matrix(1.5),
+            parse_binary_matrix(
+                "0,0,1,0,0;\
+                 0,1,1,1,0;\
+                 1,1,1,1,1;\
+                 0,1,1,1,0;\
+                 0,0,1,0,0"
+            )
+        );
+        assert_eq!(
+            disk_matrix(2.0),
+            parse_binary_matrix(
+                "0,1,1,1,0;\
+                 1,1,1,1,1;\
+                 1,1,1,1,1;\
+                 1,1,1,1,1;\
+                 0,1,1,1,0"
+            )
+        );
+        assert_eq!(
+            disk_matrix(2.4),
+            parse_binary_matrix(
+                "1,1,1,1,1;\
+                 1,1,1,1,1;\
+                 1,1,1,1,1;\
+                 1,1,1,1,1;\
+                 1,1,1,1,1"
+            )
+        );
+        assert_eq!(
+            disk_matrix(2.5),
+            parse_binary_matrix(
+                "0,0,0,1,0,0,0;\
+                 0,1,1,1,1,1,0;\
+                 0,1,1,1,1,1,0;\
+                 1,1,1,1,1,1,1;\
+                 0,1,1,1,1,1,0;\
+                 0,1,1,1,1,1,0;\
+                 0,0,0,1,0,0,0"
+            )
+        );
+        assert_eq!(
+            disk_matrix(3.0),
+            parse_binary_matrix(
+                "0,0,1,1,1,0,0;\
+                 0,1,1,1,1,1,0;\
+                 1,1,1,1,1,1,1;\
+                 1,1,1,1,1,1,1;\
+                 1,1,1,1,1,1,1;\
+                 0,1,1,1,1,1,0;\
+                 0,0,1,1,1,0,0"
+            )
+        );
     }
 }
