@@ -1,10 +1,10 @@
 import {
-  ComboBox,
   DefaultButton,
   Dialog,
   DialogFooter,
-  IComboBoxOption,
+  Dropdown,
   IconButton,
+  IDropdownOption,
   Label,
   PrimaryButton,
   ProgressIndicator,
@@ -34,7 +34,7 @@ export interface ExportImageDialogProps {
   showSaveDialog: (path: string) => Promise<string | undefined>;
 }
 
-const antiAliasingOptions: IComboBoxOption[] = [
+const antiAliasingOptions: IDropdownOption[] = [
   { key: "1", text: "None" },
   { key: "3", text: "3 × 3" },
   { key: "5", text: "5 × 5" },
@@ -429,15 +429,15 @@ export const ExportImageDialog = (
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
               Anti-Aliasing
             </Label>
-            <ComboBox
+            <Dropdown
               defaultSelectedKey={opts.antiAliasing.toString()}
-              onChange={(_, option?: IComboBoxOption) => {
+              onChange={(_, option) => {
                 if (option) {
                   setOpts({ ...opts, antiAliasing: Number(option.key) });
                 }
               }}
               options={antiAliasingOptions}
-              styles={{ callout: { width: "100px" }, root: { width: "100px" } }}
+              styles={integerInputStyles}
             />
 
             <div style={{ gridColumn: "1" }} />
