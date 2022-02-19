@@ -105,10 +105,10 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         .zoom({
           position: "topleft",
           zoomInText: "<div id='zoom-in-button' style='font-size: 16px'></div>",
-          zoomInTitle: "Zoom In",
+          zoomInTitle: "Zoom in",
           zoomOutText:
             "<div id='zoom-out-button' style='font-size: 16px'></div>",
-          zoomOutTitle: "Zoom Out",
+          zoomOutTitle: "Zoom out",
         })
         .addTo(map);
       ReactDOM.render(
