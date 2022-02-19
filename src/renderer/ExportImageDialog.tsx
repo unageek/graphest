@@ -58,12 +58,6 @@ const integerInputStyles = {
   },
 };
 
-const textStyles = {
-  root: {
-    padding: "5px 0px",
-  },
-};
-
 const tryParseBignum = (
   value?: string
 ): Result<BigNumber, string | undefined> => {
@@ -330,6 +324,7 @@ export const ExportImageDialog = (
         <>
           <div
             style={{
+              alignItems: "baseline",
               display: "grid",
               gap: "10px",
               gridTemplateColumns: "auto auto auto",
@@ -387,7 +382,7 @@ export const ExportImageDialog = (
             <Label style={{ gridColumn: "1", textAlign: "right" }}>Width</Label>
             <Stack
               horizontal
-              style={{ gridColumn: "span 2" }}
+              style={{ alignItems: "baseline", gridColumn: "span 2" }}
               tokens={{ childrenGap: "5" }}
             >
               <TextField
@@ -400,7 +395,7 @@ export const ExportImageDialog = (
                 styles={integerInputStyles}
                 value={width}
               />
-              <Text styles={textStyles}>pixels</Text>
+              <Text>pixels</Text>
             </Stack>
 
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
@@ -408,7 +403,7 @@ export const ExportImageDialog = (
             </Label>
             <Stack
               horizontal
-              style={{ gridColumn: "span 2" }}
+              style={{ alignItems: "baseline", gridColumn: "span 2" }}
               tokens={{ childrenGap: "5" }}
             >
               <TextField
@@ -421,7 +416,7 @@ export const ExportImageDialog = (
                 styles={integerInputStyles}
                 value={height}
               />
-              <Text styles={textStyles}>pixels</Text>
+              <Text>pixels</Text>
             </Stack>
 
             <div style={{ gridColumn: "1" }} />
@@ -451,7 +446,7 @@ export const ExportImageDialog = (
             </Label>
             <Stack
               horizontal
-              style={{ gridColumn: "span 2" }}
+              style={{ alignItems: "baseline", gridColumn: "span 2" }}
               tokens={{ childrenGap: "5" }}
             >
               <TextField
@@ -464,7 +459,7 @@ export const ExportImageDialog = (
                 styles={integerInputStyles}
                 value={timeout}
               />
-              <Text styles={textStyles}>milliseconds</Text>
+              <Text>milliseconds</Text>
             </Stack>
 
             <div style={{ gridColumn: "1" }} />
@@ -474,13 +469,12 @@ export const ExportImageDialog = (
             </Label>
             <Stack
               horizontal
-              style={{ gridColumn: "span 2" }}
+              style={{ alignItems: "baseline", gridColumn: "span 2" }}
               tokens={{ childrenGap: "10px" }}
             >
               <Text
                 styles={{
                   root: {
-                    ...textStyles.root,
                     maxWidth: "200px",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
