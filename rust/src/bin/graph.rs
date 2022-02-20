@@ -20,7 +20,7 @@ fn disk_matrix(radius: f64) -> Image<bool> {
         for j in 0..size {
             let x = j as i32 - mid as i32;
             let d_sq = (x * x + y * y) as f64;
-            im[PixelIndex::new(i, j)] = d_sq <= max_d_sq;
+            im[PixelIndex::new(j, i)] = d_sq <= max_d_sq;
         }
     }
     im
