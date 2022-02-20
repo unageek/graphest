@@ -31,6 +31,9 @@ features = ["mpfr"]
 path = "graphest-arb-sys"
 optional = true
 
+[dependencies.graphest-fftw-sys]
+path = "graphest-fftw-sys"
+
 [dependencies.image]
 version = "0.24"
 default-features = false

@@ -286,6 +286,7 @@ dependencies = [
  "clap 3.1.0",
  "gmp-mpfr-sys",
  "graphest-arb-sys",
+ "graphest-fftw-sys",
  "image",
  "inari",
  "itertools",
@@ -301,6 +302,13 @@ version = "0.5.0"
 dependencies = [
  "bindgen",
  "gmp-mpfr-sys",
+]
+
+[[package]]
+name = "graphest-fftw-sys"
+version = "0.1.0"
+dependencies = [
+ "bindgen",
 ]
 
 [[package]]
