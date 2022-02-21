@@ -57,32 +57,36 @@ pub fn test(id: &str, args: &[String]) {
 
 #[macro_export]
 macro_rules! t {
-    ($id:ident, $($arg:expr),+, @bounds($xmin:expr, $xmax:expr, $ymin:expr, $ymax:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
-        t!($id, $($arg),+, "--bounds", stringify!($xmin), stringify!($xmax), stringify!($ymin), stringify!($ymax), $(@$opt($($opt_arg),+)),*);
+    ($id:ident, $($arg:expr),+, @bounds($xmin:expr, $xmax:expr, $ymin:expr, $ymax:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--bounds", stringify!($xmin), stringify!($xmax), stringify!($ymin), stringify!($ymax) $(, @$opt($($opt_arg),+))*);
     };
 
-    ($id:ident, $($arg:expr),+, @pad_bottom($length:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
-        t!($id, $($arg),+, "--pad-bottom", stringify!($length), $(@$opt($($opt_arg),+)),*);
+    ($id:ident, $($arg:expr),+, @pad_bottom($length:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--pad-bottom", stringify!($length) $(, @$opt($($opt_arg),+))*);
     };
 
-    ($id:ident, $($arg:expr),+, @pad_left($length:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
-        t!($id, $($arg),+, "--pad-left", stringify!($length), $(@$opt($($opt_arg),+)),*);
+    ($id:ident, $($arg:expr),+, @pad_left($length:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--pad-left", stringify!($length) $(, @$opt($($opt_arg),+))*);
     };
 
-    ($id:ident, $($arg:expr),+, @pad_right($length:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
-        t!($id, $($arg),+, "--pad-right", stringify!($length), $(@$opt($($opt_arg),+)),*);
+    ($id:ident, $($arg:expr),+, @pad_right($length:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--pad-right", stringify!($length) $(, @$opt($($opt_arg),+))*);
     };
 
-    ($id:ident, $($arg:expr),+, @pad_top($length:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
-        t!($id, $($arg),+, "--pad-top", stringify!($length), $(@$opt($($opt_arg),+)),*);
+    ($id:ident, $($arg:expr),+, @pad_top($length:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--pad-top", stringify!($length) $(, @$opt($($opt_arg),+))*);
     };
 
-    ($id:ident, $($arg:expr),+, @size($width:expr, $height:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
-        t!($id, $($arg),+, "--size", stringify!($width), stringify!($height), $(@$opt($($opt_arg),+)),*);
+    ($id:ident, $($arg:expr),+, @size($width:expr, $height:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--size", stringify!($width), stringify!($height) $(, @$opt($($opt_arg),+))*);
     };
 
-    ($id:ident, $($arg:expr),+, @timeout($timeout:expr) $(, @$opt:ident($($opt_arg:expr),+)),* $(,)?) => {
-        t!($id, $($arg),+, "--timeout", stringify!($timeout), $(@$opt($($opt_arg),+)),*);
+    ($id:ident, $($arg:expr),+, @ssaa($ssaa:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--ssaa", stringify!($ssaa) $(, @$opt($($opt_arg),+))*);
+    };
+
+    ($id:ident, $($arg:expr),+, @timeout($timeout:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--timeout", stringify!($timeout) $(, @$opt($($opt_arg),+))*);
     };
 
     ($id:ident, $($arg:expr),+ $(,)?) => {
@@ -104,4 +108,5 @@ mod graph_tests {
     mod pad;
     mod parametric;
     mod polar;
+    mod ssaa;
 }
