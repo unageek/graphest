@@ -1,21 +1,27 @@
 import {
   ColorPicker,
   IColorCellProps,
+  Label,
   Pivot,
   PivotItem,
+  SpinButton,
+  Stack,
   SwatchColorPicker,
+  Text,
 } from "@fluentui/react";
 import { SharedColors } from "@fluentui/theme";
 import * as Color from "color";
 import * as React from "react";
 import { BarIconButton } from "./BarIconButton";
 
-export interface ColorButtonProps {
+export interface GraphStyleButtonProps {
   color: string;
   onColorChanged: (color: string) => void;
+  onThicknessChanged: (thickness: number) => void;
+  thickness: number;
 }
 
-export const ColorButton = (props: ColorButtonProps): JSX.Element => {
+export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
   return (
     <BarIconButton
       menuProps={{
@@ -42,7 +48,7 @@ export const ColorButton = (props: ColorButtonProps): JSX.Element => {
     const id = colorToId.get(color.hex());
 
     return (
-      <Pivot>
+      <Pivot style={{ width: "300px" }}>
         <PivotItem headerText="Swatch">
           <SwatchColorPicker
             cellShape={"square"}
@@ -62,6 +68,32 @@ export const ColorButton = (props: ColorButtonProps): JSX.Element => {
             color={props.color}
             onChange={(_, c) => props.onColorChanged(c.str)}
           />
+        </PivotItem>
+        <PivotItem headerText="Thickness">
+          <Stack style={{ padding: "10px" }}>
+            <Stack
+              horizontal
+              style={{ alignItems: "baseline", marginBottom: "10px" }}
+            >
+              <Label style={{ marginRight: "10px" }}>Thickness:</Label>
+              <SpinButton
+                defaultValue={props.thickness.toString()}
+                max={100}
+                min={0}
+                step={0.1}
+                styles={{ root: { marginRight: "5px", width: "50px" } }}
+                onChange={(_, v) => {
+                  if (v === undefined) return;
+                  const thickness = Number(v);
+                  if (Number.isFinite(thickness)) {
+                    props.onThicknessChanged(thickness);
+                  }
+                }}
+              />
+              <Text>pixels</Text>
+            </Stack>
+            <Text>The thickness is only applied to exported images.</Text>
+          </Stack>
         </PivotItem>
       </Pivot>
     );

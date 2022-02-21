@@ -40,8 +40,8 @@ const exportImage = async (opts: ExportImageOptions) => {
 
   for (const graphId of state.graphs.allIds) {
     const graph = state.graphs.byId[graphId];
-    const { color, relId } = graph;
-    entries.push({ color: new Color(color).hexa(), relId });
+    const { color, relId, thickness } = graph;
+    entries.push({ color: new Color(color).hexa(), relId, thickness });
   }
 
   store.dispatch(

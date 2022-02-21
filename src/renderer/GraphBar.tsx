@@ -6,9 +6,13 @@ import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { Bar } from "./Bar";
 import { BarIconButton } from "./BarIconButton";
-import { ColorButton } from "./ColorButton";
+import { GraphStyleButton } from "./GraphStyleButton";
 import { removeGraph, useSelector } from "./models/app";
-import { setGraphColor, setGraphRelation } from "./models/graph";
+import {
+  setGraphColor,
+  setGraphRelation,
+  setGraphThickness,
+} from "./models/graph";
 import { RelationInput, RelationInputActions } from "./RelationInput";
 import { SymbolsButton } from "./SymbolsButton";
 
@@ -45,9 +49,13 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
       >
         <Icon iconName="GripperDotsVertical" />
       </div>
-      <ColorButton
+      <GraphStyleButton
         color={graph.color}
         onColorChanged={(c) => dispatch(setGraphColor(props.graphId, c))}
+        onThicknessChanged={(t) =>
+          dispatch(setGraphThickness(props.graphId, t))
+        }
+        thickness={graph.thickness}
       />
       <RelationInput
         actionsRef={relationInputActionsRef}

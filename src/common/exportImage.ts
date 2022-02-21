@@ -21,6 +21,7 @@ export const MAX_EXPORT_TIMEOUT = 300000;
 export interface ExportImageEntry {
   color: string;
   relId: string;
+  thickness: number;
 }
 
 export interface ExportImageOptions {

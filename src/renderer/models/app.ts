@@ -10,6 +10,7 @@ import {
   setGraphColor,
   setGraphIsProcessing,
   setGraphRelation,
+  setGraphThickness,
 } from "./graph";
 
 export interface AppState {
@@ -69,6 +70,7 @@ const slice = createSlice({
               relationInputByUser: false,
               relation: "y = sin(x)",
               relId: "",
+              thickness: 1,
             },
           },
           allIds: [...s.graphs.allIds, id],
@@ -162,7 +164,12 @@ const slice = createSlice({
   extraReducers: (builder) => {
     builder
       .addMatcher(
-        isAnyOf(setGraphColor, setGraphIsProcessing, setGraphRelation),
+        isAnyOf(
+          setGraphColor,
+          setGraphIsProcessing,
+          setGraphRelation,
+          setGraphThickness
+        ),
         (s, a) => ({
           ...s,
           graphs: {

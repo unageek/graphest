@@ -437,6 +437,8 @@ ipcMain.handle(
             height.toString(),
             "--ssaa",
             opts.antiAliasing.toString(),
+            "--thickness",
+            entry.thickness.toString(),
             "--timeout",
             opts.timeout.toString(),
             "--",
