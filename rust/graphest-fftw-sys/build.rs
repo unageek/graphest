@@ -75,6 +75,7 @@ fn build(env: &Environment) {
                 env.out_dir.to_str().unwrap(),
                 "--disable-fortran",
                 "--enable-float",
+                "--enable-avx2",
                 "--enable-neon",
             ]
             .join(" "),
