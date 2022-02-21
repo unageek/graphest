@@ -9,27 +9,31 @@ const FFTW_TAR_URL: &str = "https://www.fftw.org/fftw-3.3.10.tar.gz";
 struct Environment {
     build_dir: PathBuf,
     cache_dir: Option<PathBuf>,
+    has_avx2: bool,
+    has_neon: bool,
     include_dir: PathBuf,
     is_windows: bool,
     lib_dir: PathBuf,
     makeflags: String,
     out_dir: PathBuf,
-    target_arch: String,
 }
 
 fn main() {
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let pkg_name = env::var("CARGO_PKG_NAME").unwrap();
     let pkg_version = env::var("CARGO_PKG_VERSION").unwrap();
+    let cpu_features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap();
+    let cpu_features = cpu_features.split(",").collect::<Vec<_>>();
     let env = Environment {
         build_dir: out_dir.join("build"),
         cache_dir: user_cache_dir().map(|c| c.join(pkg_name).join(pkg_version)),
+        has_avx2: cpu_features.contains(&"avx2"),
+        has_neon: cpu_features.contains(&"neon"),
         include_dir: out_dir.join("include"),
         is_windows: env::var("CARGO_CFG_WINDOWS").is_ok(),
         lib_dir: out_dir.join("lib"),
         makeflags: "-j".to_owned(),
         out_dir: out_dir.clone(),
-        target_arch: env::var("CARGO_CFG_TARGET_ARCH").unwrap(),
     };
     fs::create_dir_all(&env.build_dir)
         .unwrap_or_else(|_| panic!("failed to create the directory: {:?}", env.build_dir));
@@ -83,20 +87,15 @@ fn build(env: &Environment) {
                 },
                 // http://www.fftw.org/install/windows.html
                 if env.is_windows {
-                    "--with-our-malloc16"
+                    "--with-our-malloc"
                 } else {
                     ""
                 },
+                "--disable-doc",
                 "--disable-fortran",
-                "--disable-shared",
                 "--enable-float",
-                if env.target_arch == "x86_64" {
-                    "--enable-avx2"
-                } else if env.target_arch == "aarch64" {
-                    "--enable-neon"
-                } else {
-                    panic!("unsupported architecture: {}", env.target_arch)
-                },
+                if env.has_avx2 { "--enable-avx2" } else { "" },
+                if env.has_neon { "--enable-neon" } else { "" },
             ]
             .join(" "),
         ),

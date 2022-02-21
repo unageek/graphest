@@ -38,7 +38,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
 
       - name: Test (--no-default-features)
-        run: cargo test -vv --release --no-default-features -- -Zunstable-options --report-time
+        run: cargo test --release --no-default-features -- -Zunstable-options --report-time
 
       - name: Test
         run: cargo test --release -- -Zunstable-options --report-time
