@@ -10,6 +10,7 @@ struct Environment {
     build_dir: PathBuf,
     cache_dir: Option<PathBuf>,
     include_dir: PathBuf,
+    is_windows: bool,
     lib_dir: PathBuf,
     makeflags: String,
     out_dir: PathBuf,
@@ -24,6 +25,7 @@ fn main() {
         build_dir: out_dir.join("build"),
         cache_dir: user_cache_dir().map(|c| c.join(pkg_name).join(pkg_version)),
         include_dir: out_dir.join("include"),
+        is_windows: env::var("CARGO_CFG_WINDOWS").is_ok(),
         lib_dir: out_dir.join("lib"),
         makeflags: "-j".to_owned(),
         out_dir: out_dir.clone(),
@@ -74,8 +76,19 @@ fn build(env: &Environment) {
             [
                 "./configure",
                 "--prefix",
-                env.out_dir.to_str().unwrap(),
+                &if env.is_windows {
+                    env.out_dir.to_str().unwrap().replace("\\", "/")
+                } else {
+                    env.out_dir.to_str().unwrap().into()
+                },
+                // http://www.fftw.org/install/windows.html
+                if env.is_windows {
+                    "--with-our-malloc16"
+                } else {
+                    ""
+                },
                 "--disable-fortran",
+                "--disable-shared",
                 "--enable-float",
                 if env.target_arch == "x86_64" {
                     "--enable-avx2"
