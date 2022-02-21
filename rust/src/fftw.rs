@@ -3,6 +3,15 @@ use std::ffi::c_void;
 use std::ops::{Index, IndexMut};
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
+// From https://www.fftw.org/fftw3_doc/Introduction.html
+//
+//   On the other hand, if you need a single transform of a given size,
+//   the one-time cost of the planner becomes significant. For this case,
+//   FFTW provides fast planners based on heuristics or on previously computed plans.
+//
+// The better choice would be to utilize FFTW wisdom.
+const FFTW_ESTIMATE: u32 = 1 << 6;
+
 pub struct FftImage {
     ptr: *mut f32,
     len: usize,
@@ -19,13 +28,25 @@ impl FftImage {
         let stride = 2 * (width as usize / 2 + 1);
         let len = height as usize * stride;
         let ptr = unsafe { fftwf_alloc_real(len as u64) };
-        // The arrays are destroyed during planning. See
+        // Unless `FFTW_ESTIMATE` is set, which we currently do, the arrays are destroyed during planning.
         //   https://www.fftw.org/fftw3_doc/Planner-Flags.html
         let plan_r2c = unsafe {
-            fftwf_plan_dft_r2c_2d(height as i32, width as i32, ptr, ptr as *mut [f32; 2], 0)
+            fftwf_plan_dft_r2c_2d(
+                height as i32,
+                width as i32,
+                ptr,
+                ptr as *mut [f32; 2],
+                FFTW_ESTIMATE,
+            )
         };
         let plan_c2r = unsafe {
-            fftwf_plan_dft_c2r_2d(height as i32, width as i32, ptr as *mut [f32; 2], ptr, 0)
+            fftwf_plan_dft_c2r_2d(
+                height as i32,
+                width as i32,
+                ptr as *mut [f32; 2],
+                ptr,
+                FFTW_ESTIMATE,
+            )
         };
         unsafe { from_raw_parts_mut(ptr, len).fill(0.0) };
         Self {
