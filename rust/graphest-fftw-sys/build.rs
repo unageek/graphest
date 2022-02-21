@@ -116,9 +116,9 @@ fn build(env: &Environment) {
 
 fn run_bindgen(env: &Environment) {
     let binding_file = env.out_dir.join("fftw.rs");
-    if binding_file.exists() {
-        return;
-    }
+    // if binding_file.exists() {
+    //     return;
+    // }
 
     bindgen::Builder::default()
         .header(env.include_dir.join("fftw3.h").to_str().unwrap())
