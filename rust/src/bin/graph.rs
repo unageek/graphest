@@ -124,6 +124,26 @@ fn disk_matrix(radius: f64) -> Image<bool> {
     im
 }
 
+fn minkowski_sum(ka: &Image<bool>, kb: &Image<bool>) -> Image<bool> {
+    let mut kc = Image::new(ka.width() + kb.width() - 1, ka.height() + kb.height() - 1);
+    for (ia, ja) in (0..ka.height()).cartesian_product(0..ka.width()) {
+        let a = ka[PixelIndex::new(ja, ia)];
+        for (ib, jb) in (0..kb.height()).cartesian_product(0..kb.width()) {
+            let b = kb[PixelIndex::new(jb, ib)];
+            let ic = (ia as i32 - ka.height() as i32 / 2)
+                + (ib as i32 - kb.height() as i32 / 2)
+                + kc.height() as i32 / 2;
+            let jc = (ja as i32 - ka.width() as i32 / 2)
+                + (jb as i32 - kb.width() as i32 / 2)
+                + kc.width() as i32 / 2;
+            if ic >= 0 && ic < kc.height() as i32 && jc >= 0 && jc < kc.width() as i32 {
+                kc[PixelIndex::new(jc as u32, ic as u32)] = a && b;
+            }
+        }
+    }
+    kc
+}
+
 fn parse_binary_matrix(mat: &str) -> Image<bool> {
     let mat = mat
         .split(';')
@@ -301,6 +321,13 @@ fn main() {
                 ),
         )
         .arg(
+            Arg::new("thickness")
+                .long("thickness")
+                .hide(true)
+                .default_value("1")
+                .forbid_empty_values(true),
+        )
+        .arg(
             Arg::new("timeout")
                 .long("timeout")
                 .takes_value(true)
@@ -345,18 +372,19 @@ fn main() {
     };
     let pause_per_iteration = matches.is_present("pause-per-iteration");
     let ssaa = matches.value_of_t_or_exit::<u32>("ssaa");
+    let thickness = matches.value_of_t_or_exit::<f64>("thickness");
     let timeout = match matches.value_of_t::<u64>("timeout") {
         Ok(t) => Some(Duration::from_millis(t)),
         Err(e) if e.kind() == clap::ErrorKind::ArgumentNotFound => None,
         Err(e) => e.exit(),
     };
 
-    let dilation_kernel = if ssaa > 1 {
-        if dilation != "1" {
-            println!("`--dilate` and `--ssaa` cannot be used together.");
-        }
-        disk_matrix((ssaa / 2) as f64)
-    } else {
+    if ssaa > 1 && dilation != "1" {
+        println!("`--dilate` and `--ssaa` cannot be used together.");
+    }
+
+    let dilation_kernel = disk_matrix((ssaa / 2) as f64 + ssaa as f64 * (thickness - 1.0) / 2.0);
+    let user_dilation_kernel = {
         let k = parse_binary_matrix(dilation);
         assert!(
             k.width() == k.height() && k.width() % 2 == 1,
@@ -364,6 +392,8 @@ fn main() {
         );
         k
     };
+
+    let dilation_kernel = minkowski_sum(&dilation_kernel, &user_dilation_kernel);
     // THe speed of `dilate_and_crop_fast` and `naive` are almost the same at 10.
     let dilation_size = if dilation_kernel == parse_binary_matrix("1") {
         DilationSize::Identity

@@ -7,6 +7,7 @@ export interface Graph {
   relation: string;
   relationInputByUser: boolean;
   relId: string;
+  thickness: number;
 }
 
 const initialState: Graph = {
@@ -16,6 +17,7 @@ const initialState: Graph = {
   relation: "",
   relationInputByUser: false,
   relId: "",
+  thickness: 1,
 };
 
 const slice = createSlice({
@@ -71,10 +73,26 @@ const slice = createSlice({
             }
           : s,
     },
+    setGraphThickness: {
+      prepare: (id: string, thickness: number) => ({
+        payload: { id, thickness },
+      }),
+      reducer: (s, a: PayloadAction<{ id: string; thickness: number }>) =>
+        a.payload.id === s.id
+          ? {
+              ...s,
+              thickness: a.payload.thickness,
+            }
+          : s,
+    },
   },
 });
 
-export const { setGraphColor, setGraphIsProcessing, setGraphRelation } =
-  slice.actions;
+export const {
+  setGraphColor,
+  setGraphIsProcessing,
+  setGraphRelation,
+  setGraphThickness,
+} = slice.actions;
 
 export const graphReducer = slice.reducer;
