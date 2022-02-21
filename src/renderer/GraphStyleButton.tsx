@@ -4,6 +4,7 @@ import {
   Label,
   Pivot,
   PivotItem,
+  Separator,
   SpinButton,
   Stack,
   SwatchColorPicker,
@@ -48,54 +49,61 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
     const id = colorToId.get(color.hex());
 
     return (
-      <Pivot style={{ width: "300px" }}>
-        <PivotItem headerText="Swatch">
-          <SwatchColorPicker
-            cellShape={"square"}
-            colorCells={colorCells}
-            columnCount={10}
-            onChange={(_, __, c) => {
-              if (c !== undefined) {
-                const newColor = new Color(c).alpha(color.alpha());
-                props.onColorChanged(newColor.toString());
-              }
-            }}
-            selectedId={id}
-          />
-        </PivotItem>
-        <PivotItem headerText="Custom">
-          <ColorPicker
-            color={props.color}
-            onChange={(_, c) => props.onColorChanged(c.str)}
-          />
-        </PivotItem>
-        <PivotItem headerText="Thickness">
-          <Stack style={{ padding: "10px" }}>
-            <Stack
-              horizontal
-              style={{ alignItems: "baseline", marginBottom: "10px" }}
-            >
-              <Label style={{ marginRight: "10px" }}>Thickness:</Label>
-              <SpinButton
-                defaultValue={props.thickness.toString()}
-                max={100}
-                min={0}
-                step={0.1}
-                styles={{ root: { marginRight: "5px", width: "50px" } }}
-                onChange={(_, v) => {
-                  if (v === undefined) return;
-                  const thickness = Number(v);
-                  if (Number.isFinite(thickness)) {
-                    props.onThicknessChanged(thickness);
-                  }
-                }}
-              />
-              <Text>pixels</Text>
-            </Stack>
-            <Text>The thickness is only applied to exported images.</Text>
+      <Stack style={{ width: "280px" }}>
+        <Pivot>
+          <PivotItem headerText="Swatch">
+            <SwatchColorPicker
+              cellShape={"square"}
+              colorCells={colorCells}
+              columnCount={9}
+              onChange={(_, __, c) => {
+                if (c !== undefined) {
+                  const newColor = new Color(c).alpha(color.alpha());
+                  props.onColorChanged(newColor.toString());
+                }
+              }}
+              selectedId={id}
+              styles={{ root: { margin: "5px" } }}
+            />
+          </PivotItem>
+          <PivotItem headerText="Custom">
+            <ColorPicker
+              color={props.color}
+              onChange={(_, c) => props.onColorChanged(c.str)}
+              styles={{
+                panel: {
+                  padding: "10px", // The default padding is 16px.
+                },
+              }}
+            />
+          </PivotItem>
+        </Pivot>
+        <Separator styles={{ root: { height: "1px", padding: "0" } }} />
+        <Stack style={{ margin: "10px" }}>
+          <Stack
+            horizontal
+            style={{ alignItems: "baseline", marginBottom: "10px" }}
+          >
+            <Label style={{ marginRight: "10px" }}>Thickness:</Label>
+            <SpinButton
+              defaultValue={props.thickness.toString()}
+              max={100}
+              min={0}
+              step={0.1}
+              styles={{ root: { marginRight: "5px", width: "50px" } }}
+              onChange={(_, v) => {
+                if (v === undefined) return;
+                const thickness = Number(v);
+                if (Number.isFinite(thickness)) {
+                  props.onThicknessChanged(thickness);
+                }
+              }}
+            />
+            <Text>pixels</Text>
           </Stack>
-        </PivotItem>
-      </Pivot>
+          <Text>Only applied to exported images.</Text>
+        </Stack>
+      </Stack>
     );
   }
 };
