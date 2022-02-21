@@ -82,7 +82,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
         <Stack style={{ margin: "10px" }}>
           <Stack
             horizontal
-            style={{ alignItems: "baseline", marginBottom: "10px" }}
+            style={{ alignItems: "baseline", marginBottom: "5px" }}
           >
             <Label style={{ marginRight: "10px" }}>Thickness:</Label>
             <SpinButton
@@ -101,7 +101,9 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             />
             <Text>pixels</Text>
           </Stack>
-          <Text>Only applied to exported images.</Text>
+          <Text variant="small">
+            The thickness is only applied to exported images.
+          </Text>
         </Stack>
       </Stack>
     );
