@@ -45,7 +45,7 @@ fn load_cache(env: &Environment) {
 }
 
 fn build(env: &Environment) {
-    if env.lib_dir.join("libfftw3.a").exists() {
+    if env.lib_dir.join("libfftw3f.a").exists() {
         return;
     }
 
@@ -74,6 +74,8 @@ fn build(env: &Environment) {
                 "--prefix",
                 env.out_dir.to_str().unwrap(),
                 "--disable-fortran",
+                "--enable-float",
+                "--enable-neon",
             ]
             .join(" "),
         ),
@@ -100,7 +102,7 @@ fn run_bindgen(env: &Environment) {
 
     bindgen::Builder::default()
         .header(env.include_dir.join("fftw3.h").to_str().unwrap())
-        .allowlist_function("fftw_.*")
+        .allowlist_function("fftwf_.*")
         .generate()
         .expect("failed to generate bindings")
         .write_to_file(binding_file.clone())
@@ -124,7 +126,7 @@ fn write_link_info(env: &Environment) {
         "cargo:rustc-link-search=native={}",
         env.lib_dir.to_str().unwrap()
     );
-    println!("cargo:rustc-link-lib=static=fftw3");
+    println!("cargo:rustc-link-lib=static=fftw3f");
 }
 
 /// Copies all files and directories in `from` into `to`, preserving the directory structure.

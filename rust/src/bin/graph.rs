@@ -52,7 +52,7 @@ fn dilate(im: &mut Image<Ternary>, kernel: &Image<bool>) {
 
     // For the normalization, see the last paragraph of
     //   https://www.fftw.org/fftw3_doc/Real_002ddata-DFTs.html
-    let threshold = width as f64 * height as f64 / 2.0;
+    let threshold = width as f32 * height as f32 / 2.0;
     for i in 0..im.height() {
         for j in 0..im.width() {
             let src_true = im_true[i as usize][j as usize];
