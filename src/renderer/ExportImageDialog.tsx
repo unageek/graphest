@@ -283,7 +283,7 @@ export const ExportImageDialog = (
         <div
           style={{
             display: "grid",
-            gap: "10px",
+            gap: "16px",
             gridTemplateRows: "auto auto",
           }}
         >
@@ -291,7 +291,7 @@ export const ExportImageDialog = (
             style={{
               alignItems: "center",
               display: "grid",
-              gap: "10px",
+              gap: "4px",
               gridTemplateColumns: "1fr auto",
             }}
           >
@@ -326,7 +326,7 @@ export const ExportImageDialog = (
             style={{
               alignItems: "baseline",
               display: "grid",
-              gap: "10px",
+              gap: "8px",
               gridTemplateColumns: "auto auto auto",
             }}
           >
@@ -385,7 +385,7 @@ export const ExportImageDialog = (
             <Stack
               horizontal
               style={{ alignItems: "baseline", gridColumn: "span 2" }}
-              tokens={{ childrenGap: "5" }}
+              tokens={{ childrenGap: "4px" }}
             >
               <TextField
                 errorMessage={widthErrorMessage}
@@ -406,7 +406,7 @@ export const ExportImageDialog = (
             <Stack
               horizontal
               style={{ alignItems: "baseline", gridColumn: "span 2" }}
-              tokens={{ childrenGap: "5" }}
+              tokens={{ childrenGap: "4px" }}
             >
               <TextField
                 errorMessage={heightErrorMessage}
@@ -449,7 +449,7 @@ export const ExportImageDialog = (
             <Stack
               horizontal
               style={{ alignItems: "baseline", gridColumn: "span 2" }}
-              tokens={{ childrenGap: "5" }}
+              tokens={{ childrenGap: "4px" }}
             >
               <TextField
                 errorMessage={timeoutErrorMessage}
@@ -472,7 +472,7 @@ export const ExportImageDialog = (
             <Stack
               horizontal
               style={{ alignItems: "baseline", gridColumn: "span 2" }}
-              tokens={{ childrenGap: "10px" }}
+              tokens={{ childrenGap: "8px" }}
             >
               <Text
                 styles={{

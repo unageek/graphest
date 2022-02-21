@@ -49,13 +49,19 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
     const id = colorToId.get(color.hex());
 
     return (
-      <Stack style={{ width: "280px" }}>
+      <Stack
+        style={{
+          // Adjusted to the width of the `SwatchColorPicker`.
+          width: "288px",
+        }}
+      >
         <Pivot>
           <PivotItem headerText="Swatch">
             <SwatchColorPicker
+              cellMargin={8}
               cellShape={"square"}
               colorCells={colorCells}
-              columnCount={9}
+              columnCount={10}
               onChange={(_, __, c) => {
                 if (c !== undefined) {
                   const newColor = new Color(c).alpha(color.alpha());
@@ -63,7 +69,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
                 }
               }}
               selectedId={id}
-              styles={{ root: { margin: "5px" } }}
+              styles={{ root: { margin: "4px", padding: "0" } }}
             />
           </PivotItem>
           <PivotItem headerText="Custom">
@@ -71,26 +77,25 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
               color={props.color}
               onChange={(_, c) => props.onColorChanged(c.str)}
               styles={{
-                panel: {
-                  padding: "10px", // The default padding is 16px.
-                },
+                panel: { padding: "0" },
+                root: { margin: "8px" },
               }}
             />
           </PivotItem>
         </Pivot>
         <Separator styles={{ root: { height: "1px", padding: "0" } }} />
-        <Stack style={{ margin: "10px" }}>
+        <Stack style={{ margin: "8px" }}>
           <Stack
             horizontal
-            style={{ alignItems: "baseline", marginBottom: "5px" }}
+            style={{ alignItems: "baseline", marginBottom: "8px" }}
           >
-            <Label style={{ marginRight: "10px" }}>Thickness:</Label>
+            <Label style={{ marginRight: "8px" }}>Thickness:</Label>
             <SpinButton
               defaultValue={props.thickness.toString()}
               max={100}
               min={0}
               step={0.1}
-              styles={{ root: { marginRight: "5px", width: "50px" } }}
+              styles={{ root: { marginRight: "4px", width: "50px" } }}
               onChange={(_, v) => {
                 if (v === undefined) return;
                 const thickness = Number(v);
