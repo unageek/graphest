@@ -8,8 +8,27 @@ use inari::{const_interval, interval, Interval};
 use std::{ffi::OsString, io::stdin, time::Duration};
 
 fn dilate(im: &mut Image<Ternary>, kernel: &Image<bool>) {
-    let width = im.width() + (kernel.width() - 1);
-    let height = im.height() + (kernel.height() - 1);
+    fn find_good_size(size: u32) -> u32 {
+        let x = size.next_power_of_two();
+        let candidates = [
+            x * 9 / 8,  //  9 = 3^2
+            x * 10 / 8, // 10 = 2 × 5
+            x * 11 / 8, // 11 = 11
+            x * 12 / 8, // 12 = 2^2 × 3
+            x * 13 / 8, // 13 = 13
+            x * 14 / 8, // 14 = 2 × 7
+            x * 15 / 8, // 15 = 3 × 5
+        ];
+        for candidate in candidates {
+            if candidate >= size {
+                return candidate;
+            }
+        }
+        x
+    }
+
+    let width = find_good_size(im.width() + (kernel.width() - 1));
+    let height = find_good_size(im.height() + (kernel.height() - 1));
 
     let mut ker = FftImage::new(width, height);
     for i in 0..kernel.height() {
