@@ -1,13 +1,14 @@
 use clap::{Arg, Command};
 use graphest::{
     Box2D, Constant, Explicit, FftImage, Graph, GraphingStatistics, Image, Implicit, Padding,
-    Parametric, PixelIndex, PixelRange, Relation, RelationType, Ternary,
+    Parametric, PixelIndex, Relation, RelationType, Ternary,
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
+use itertools::Itertools;
 use std::{ffi::OsString, io::stdin, time::Duration};
 
-fn dilate(im: &mut Image<Ternary>, kernel: &Image<bool>) {
+fn dilate_and_crop_fast(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32, u32) {
     fn find_good_size(size: u32) -> u32 {
         let x = size.next_power_of_two();
         let candidates = [
@@ -85,6 +86,23 @@ fn dilate(im: &mut Image<Ternary>, kernel: &Image<bool>) {
             };
         }
     }
+
+    (kernel.width() - 1, kernel.height() - 1)
+}
+
+fn dilate_and_crop_naive(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32, u32) {
+    for (dy, dx) in (0..im.height() - (kernel.height() - 1))
+        .cartesian_product(0..im.width() - (kernel.width() - 1))
+    {
+        im[PixelIndex::new(dx, dy)] = (0..kernel.height())
+            .cartesian_product(0..kernel.width())
+            .filter(|&(ky, kx)| kernel[PixelIndex::new(kx, ky)])
+            .map(|(ky, kx)| im[PixelIndex::new(dx + kx, dy + ky)])
+            .max()
+            .unwrap_or(Ternary::False);
+    }
+
+    (0, 0)
 }
 
 // Returns the same matrix as Mathematica's `DiskMatrix[r]`.
@@ -346,7 +364,14 @@ fn main() {
         );
         k
     };
-    let dilation_is_identity = dilation_kernel == parse_binary_matrix("1");
+    // THe speed of `dilate_and_crop_fast` and `naive` are almost the same at 10.
+    let dilation_size = if dilation_kernel == parse_binary_matrix("1") {
+        DilationSize::Identity
+    } else if dilation_kernel.width() <= 10 {
+        DilationSize::Small
+    } else {
+        DilationSize::Large
+    };
 
     let graph_padding = Padding {
         bottom: ssaa * output_padding.bottom + dilation_kernel.height() / 2,
@@ -360,7 +385,7 @@ fn main() {
     ];
 
     let opts = PlotOptions {
-        dilation_is_identity,
+        dilation_size,
         dilation_kernel,
         graph_size,
         gray_alpha,
@@ -410,9 +435,15 @@ fn main() {
     };
 }
 
+enum DilationSize {
+    Identity,
+    Small,
+    Large,
+}
+
 struct PlotOptions {
-    dilation_is_identity: bool,
     dilation_kernel: Image<bool>,
+    dilation_size: DilationSize,
     graph_size: [u32; 2],
     gray_alpha: bool,
     output: OsString,
@@ -426,10 +457,12 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
     let mut gray_alpha_im: Option<GrayAlphaImage> = None;
     let mut rgb_im: Option<RgbImage> = None;
     let mut raw_im = Image::<Ternary>::new(opts.graph_size[0], opts.graph_size[1]);
+    let cropped_width = raw_im.width() - (opts.dilation_kernel.width() - 1);
+    let cropped_height = raw_im.height() - (opts.dilation_kernel.height() - 1);
     if opts.gray_alpha {
-        gray_alpha_im = Some(GrayAlphaImage::new(opts.graph_size[0], opts.graph_size[1]));
+        gray_alpha_im = Some(GrayAlphaImage::new(cropped_width, cropped_height));
     } else {
-        rgb_im = Some(RgbImage::new(opts.graph_size[0], opts.graph_size[1]));
+        rgb_im = Some(RgbImage::new(cropped_width, cropped_height));
     }
 
     let mut prev_stat = graph.get_statistics();
@@ -439,63 +472,43 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
     let mut save_image = |graph: &G| {
         graph.get_image(&mut raw_im);
 
-        if !opts.dilation_is_identity {
-            dilate(&mut raw_im, &opts.dilation_kernel);
-        }
+        let (j_start, i_start) = match opts.dilation_size {
+            DilationSize::Identity => (0, 0),
+            DilationSize::Small => dilate_and_crop_naive(&mut raw_im, &opts.dilation_kernel),
+            DilationSize::Large => dilate_and_crop_fast(&mut raw_im, &opts.dilation_kernel),
+        };
 
-        let src_pixels = PixelRange::new(
-            PixelIndex::new(0, 0),
-            PixelIndex::new(opts.graph_size[0], opts.graph_size[1]),
-        );
         if let Some(im) = &mut gray_alpha_im {
-            for (src, dst) in src_pixels
-                .into_iter()
-                .map(|p| raw_im[p])
-                .zip(im.pixels_mut())
-            {
-                *dst = match src {
-                    Ternary::True => LumaA([0, 255]),
-                    Ternary::Uncertain => LumaA([0, 128]),
-                    Ternary::False => LumaA([0, 0]),
-                };
+            for i in 0..im.height() {
+                for j in 0..im.width() {
+                    *im.get_pixel_mut(j, i) =
+                        match raw_im[PixelIndex::new(j_start + j, i_start + i)] {
+                            Ternary::True => LumaA([0, 255]),
+                            Ternary::Uncertain => LumaA([0, 128]),
+                            Ternary::False => LumaA([0, 0]),
+                        };
+                }
             }
-            let im = imageops::crop(
-                im,
-                opts.dilation_kernel.width() - 1,
-                opts.dilation_kernel.height() - 1,
-                opts.graph_size[0] - (opts.dilation_kernel.width() - 1),
-                opts.graph_size[1] - (opts.dilation_kernel.height() - 1),
-            )
-            .to_image();
             let im = imageops::resize(
-                &im,
+                im,
                 opts.output_size[0],
                 opts.output_size[1],
                 imageops::FilterType::Triangle,
             );
             im.save(&opts.output).expect("saving image failed");
         } else if let Some(im) = &mut rgb_im {
-            for (src, dst) in src_pixels
-                .into_iter()
-                .map(|p| raw_im[p])
-                .zip(im.pixels_mut())
-            {
-                *dst = match src {
-                    Ternary::True => Rgb([0, 0, 0]),
-                    Ternary::Uncertain => Rgb([64, 128, 192]),
-                    Ternary::False => Rgb([255, 255, 255]),
-                };
+            for i in 0..im.height() {
+                for j in 0..im.width() {
+                    *im.get_pixel_mut(j, i) =
+                        match raw_im[PixelIndex::new(j_start + j, i_start + i)] {
+                            Ternary::True => Rgb([0, 0, 0]),
+                            Ternary::Uncertain => Rgb([64, 128, 192]),
+                            Ternary::False => Rgb([255, 255, 255]),
+                        };
+                }
             }
-            let im = imageops::crop(
-                im,
-                opts.dilation_kernel.width() - 1,
-                opts.dilation_kernel.height() - 1,
-                opts.graph_size[0] - (opts.dilation_kernel.width() - 1),
-                opts.graph_size[1] - (opts.dilation_kernel.height() - 1),
-            )
-            .to_image();
             let im = imageops::resize(
-                &im,
+                im,
                 opts.output_size[0],
                 opts.output_size[1],
                 imageops::FilterType::Triangle,

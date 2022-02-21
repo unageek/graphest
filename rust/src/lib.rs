@@ -8,7 +8,7 @@ pub use crate::{
         constant::Constant, explicit::Explicit, implicit::Implicit, parametric::Parametric, Graph,
         GraphingStatistics, Padding,
     },
-    image::{Image, PixelIndex, PixelRange},
+    image::{Image, PixelIndex},
     relation::{Relation, RelationType},
     ternary::Ternary,
 };
