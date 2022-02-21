@@ -23,7 +23,7 @@ fn main() {
     let pkg_name = env::var("CARGO_PKG_NAME").unwrap();
     let pkg_version = env::var("CARGO_PKG_VERSION").unwrap();
     let cpu_features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap();
-    let cpu_features = cpu_features.split(",").collect::<Vec<_>>();
+    let cpu_features = cpu_features.split(',').collect::<Vec<_>>();
     let env = Environment {
         build_dir: out_dir.join("build"),
         cache_dir: user_cache_dir().map(|c| c.join(pkg_name).join(pkg_version)),
@@ -81,7 +81,7 @@ fn build(env: &Environment) {
                 "./configure",
                 "--prefix",
                 &if env.is_windows {
-                    env.out_dir.to_str().unwrap().replace("\\", "/")
+                    env.out_dir.to_str().unwrap().replace('\\', "/")
                 } else {
                     env.out_dir.to_str().unwrap().into()
                 },
@@ -116,9 +116,9 @@ fn build(env: &Environment) {
 
 fn run_bindgen(env: &Environment) {
     let binding_file = env.out_dir.join("fftw.rs");
-    // if binding_file.exists() {
-    //     return;
-    // }
+    if binding_file.exists() {
+        return;
+    }
 
     bindgen::Builder::default()
         .header(env.include_dir.join("fftw3.h").to_str().unwrap())
