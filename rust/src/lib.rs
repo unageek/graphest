@@ -2,12 +2,13 @@
 #![feature(box_patterns, box_syntax, default_free_fn, once_cell)]
 
 pub use crate::{
+    fftw::FftImage,
     geom::Box2D,
     graph::{
         constant::Constant, explicit::Explicit, implicit::Implicit, parametric::Parametric, Graph,
         GraphingStatistics, Padding,
     },
-    image::{Image, PixelIndex, PixelRange},
+    image::{Image, PixelIndex},
     relation::{Relation, RelationType},
     ternary::Ternary,
 };
@@ -21,6 +22,7 @@ mod block;
 mod context;
 mod eval_cache;
 mod eval_result;
+mod fftw;
 mod geom;
 mod graph;
 mod image;

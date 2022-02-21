@@ -1,15 +1,113 @@
 use clap::{Arg, Command};
 use graphest::{
-    Box2D, Constant, Explicit, Graph, GraphingStatistics, Image, Implicit, Padding, Parametric,
-    PixelIndex, PixelRange, Relation, RelationType, Ternary,
+    Box2D, Constant, Explicit, FftImage, Graph, GraphingStatistics, Image, Implicit, Padding,
+    Parametric, PixelIndex, Relation, RelationType, Ternary,
 };
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
 use std::{ffi::OsString, io::stdin, time::Duration};
 
+fn dilate_and_crop_fast(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32, u32) {
+    fn find_good_size(size: u32) -> u32 {
+        let x = size.next_power_of_two();
+        let candidates = [
+            x * 9 / 8,  //  9 = 3^2
+            x * 10 / 8, // 10 = 2 × 5
+            x * 11 / 8, // 11 = 11
+            x * 12 / 8, // 12 = 2^2 × 3
+            x * 13 / 8, // 13 = 13
+            x * 14 / 8, // 14 = 2 × 7
+            x * 15 / 8, // 15 = 3 × 5
+        ];
+        for candidate in candidates {
+            if candidate >= size {
+                return candidate;
+            }
+        }
+        x
+    }
+
+    let width = find_good_size(im.width() + (kernel.width() - 1));
+    let height = find_good_size(im.height() + (kernel.height() - 1));
+
+    let mut ker = FftImage::new(width, height);
+    for i in 0..kernel.height() {
+        for j in 0..kernel.width() {
+            if kernel[PixelIndex::new(j, i)] {
+                ker[i as usize][j as usize] = 1.0;
+            }
+        }
+    }
+    ker.fft();
+
+    let mut im_true = FftImage::new(width, height);
+    let mut im_uncert = FftImage::new(width, height);
+    for i in 0..im.height() {
+        for j in 0..im.width() {
+            let src = im[PixelIndex::new(j, i)];
+            match src {
+                Ternary::True => im_true[i as usize][j as usize] = 1.0,
+                Ternary::Uncertain => im_uncert[i as usize][j as usize] = 1.0,
+                _ => (),
+            }
+        }
+    }
+
+    im_true.fft();
+    for (dst, src) in im_true.complexes_mut().iter_mut().zip(ker.complexes()) {
+        let [a, b] = *dst;
+        let [x, y] = *src;
+        *dst = [a * x - b * y, b * x + a * y];
+    }
+    im_true.ifft();
+
+    im_uncert.fft();
+    for (dst, src) in im_uncert.complexes_mut().iter_mut().zip(ker.complexes()) {
+        let [a, b] = *dst;
+        let [x, y] = *src;
+        *dst = [a * x - b * y, b * x + a * y];
+    }
+    im_uncert.ifft();
+
+    // For the normalization, see the last paragraph of
+    //   https://www.fftw.org/fftw3_doc/Real_002ddata-DFTs.html
+    let threshold = width as f32 * height as f32 / 2.0;
+    for i in 0..im.height() {
+        for j in 0..im.width() {
+            let src_true = im_true[i as usize][j as usize];
+            let src_uncert = im_uncert[i as usize][j as usize];
+            im[PixelIndex::new(j, i)] = if src_true > threshold {
+                Ternary::True
+            } else if src_uncert > threshold {
+                Ternary::Uncertain
+            } else {
+                Ternary::False
+            };
+        }
+    }
+
+    (kernel.width() - 1, kernel.height() - 1)
+}
+
+fn dilate_and_crop_naive(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32, u32) {
+    for (dy, dx) in (0..im.height() - (kernel.height() - 1))
+        .cartesian_product(0..im.width() - (kernel.width() - 1))
+    {
+        im[PixelIndex::new(dx, dy)] = (0..kernel.height())
+            .cartesian_product(0..kernel.width())
+            .filter(|&(ky, kx)| kernel[PixelIndex::new(kx, ky)])
+            .map(|(ky, kx)| im[PixelIndex::new(dx + kx, dy + ky)])
+            .max()
+            .unwrap_or(Ternary::False);
+    }
+
+    (0, 0)
+}
+
 // Returns the same matrix as Mathematica's `DiskMatrix[r]`.
 fn disk_matrix(radius: f64) -> Image<bool> {
+    let radius = radius.max(0.0);
     // size = 2 ⌊r⌉ + 1 = 2 ⌊r + 1/2⌋ + 1.
     let size = 2 * (radius + 0.5).floor() as u32 + 1;
     let mut im = Image::new(size, size);
@@ -266,6 +364,14 @@ fn main() {
         );
         k
     };
+    // THe speed of `dilate_and_crop_fast` and `naive` are almost the same at 10.
+    let dilation_size = if dilation_kernel == parse_binary_matrix("1") {
+        DilationSize::Identity
+    } else if dilation_kernel.width() <= 10 {
+        DilationSize::Small
+    } else {
+        DilationSize::Large
+    };
 
     let graph_padding = Padding {
         bottom: ssaa * output_padding.bottom + dilation_kernel.height() / 2,
@@ -279,6 +385,7 @@ fn main() {
     ];
 
     let opts = PlotOptions {
+        dilation_size,
         dilation_kernel,
         graph_size,
         gray_alpha,
@@ -328,8 +435,15 @@ fn main() {
     };
 }
 
+enum DilationSize {
+    Identity,
+    Small,
+    Large,
+}
+
 struct PlotOptions {
     dilation_kernel: Image<bool>,
+    dilation_size: DilationSize,
     graph_size: [u32; 2],
     gray_alpha: bool,
     output: OsString,
@@ -343,10 +457,12 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
     let mut gray_alpha_im: Option<GrayAlphaImage> = None;
     let mut rgb_im: Option<RgbImage> = None;
     let mut raw_im = Image::<Ternary>::new(opts.graph_size[0], opts.graph_size[1]);
+    let cropped_width = raw_im.width() - (opts.dilation_kernel.width() - 1);
+    let cropped_height = raw_im.height() - (opts.dilation_kernel.height() - 1);
     if opts.gray_alpha {
-        gray_alpha_im = Some(GrayAlphaImage::new(opts.graph_size[0], opts.graph_size[1]));
+        gray_alpha_im = Some(GrayAlphaImage::new(cropped_width, cropped_height));
     } else {
-        rgb_im = Some(RgbImage::new(opts.graph_size[0], opts.graph_size[1]));
+        rgb_im = Some(RgbImage::new(cropped_width, cropped_height));
     }
 
     let mut prev_stat = graph.get_statistics();
@@ -356,71 +472,43 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
     let mut save_image = |graph: &G| {
         graph.get_image(&mut raw_im);
 
-        // Dilation collects the values of pixels to top-left pixels.
-        for (dy, dx) in (0..opts.graph_size[1] - (opts.dilation_kernel.height() - 1))
-            .cartesian_product(0..opts.graph_size[0] - (opts.dilation_kernel.width() - 1))
-        {
-            raw_im[PixelIndex::new(dx, dy)] = (0..opts.dilation_kernel.height())
-                .cartesian_product(0..opts.dilation_kernel.width())
-                .filter(|&(ky, kx)| opts.dilation_kernel[PixelIndex::new(kx, ky)])
-                .map(|(ky, kx)| raw_im[PixelIndex::new(dx + kx, dy + ky)])
-                .max()
-                .unwrap_or(Ternary::False);
-        }
+        let (j_start, i_start) = match opts.dilation_size {
+            DilationSize::Identity => (0, 0),
+            DilationSize::Small => dilate_and_crop_naive(&mut raw_im, &opts.dilation_kernel),
+            DilationSize::Large => dilate_and_crop_fast(&mut raw_im, &opts.dilation_kernel),
+        };
 
-        let src_pixels = PixelRange::new(
-            PixelIndex::new(0, 0),
-            PixelIndex::new(opts.graph_size[0], opts.graph_size[1]),
-        );
         if let Some(im) = &mut gray_alpha_im {
-            for (src, dst) in src_pixels
-                .into_iter()
-                .map(|p| raw_im[p])
-                .zip(im.pixels_mut())
-            {
-                *dst = match src {
-                    Ternary::True => LumaA([0, 255]),
-                    Ternary::Uncertain => LumaA([0, 128]),
-                    Ternary::False => LumaA([0, 0]),
-                };
+            for i in 0..im.height() {
+                for j in 0..im.width() {
+                    *im.get_pixel_mut(j, i) =
+                        match raw_im[PixelIndex::new(j_start + j, i_start + i)] {
+                            Ternary::True => LumaA([0, 255]),
+                            Ternary::Uncertain => LumaA([0, 128]),
+                            Ternary::False => LumaA([0, 0]),
+                        };
+                }
             }
-            let im = imageops::crop(
-                im,
-                0,
-                0,
-                opts.graph_size[0] - (opts.dilation_kernel.width() - 1),
-                opts.graph_size[1] - (opts.dilation_kernel.height() - 1),
-            )
-            .to_image();
             let im = imageops::resize(
-                &im,
+                im,
                 opts.output_size[0],
                 opts.output_size[1],
                 imageops::FilterType::Triangle,
             );
             im.save(&opts.output).expect("saving image failed");
         } else if let Some(im) = &mut rgb_im {
-            for (src, dst) in src_pixels
-                .into_iter()
-                .map(|p| raw_im[p])
-                .zip(im.pixels_mut())
-            {
-                *dst = match src {
-                    Ternary::True => Rgb([0, 0, 0]),
-                    Ternary::Uncertain => Rgb([64, 128, 192]),
-                    Ternary::False => Rgb([255, 255, 255]),
-                };
+            for i in 0..im.height() {
+                for j in 0..im.width() {
+                    *im.get_pixel_mut(j, i) =
+                        match raw_im[PixelIndex::new(j_start + j, i_start + i)] {
+                            Ternary::True => Rgb([0, 0, 0]),
+                            Ternary::Uncertain => Rgb([64, 128, 192]),
+                            Ternary::False => Rgb([255, 255, 255]),
+                        };
+                }
             }
-            let im = imageops::crop(
-                im,
-                0,
-                0,
-                opts.graph_size[0] - (opts.dilation_kernel.width() - 1),
-                opts.graph_size[1] - (opts.dilation_kernel.height() - 1),
-            )
-            .to_image();
             let im = imageops::resize(
-                &im,
+                im,
                 opts.output_size[0],
                 opts.output_size[1],
                 imageops::FilterType::Triangle,
@@ -478,6 +566,9 @@ mod tests {
     #[test]
     fn test_disk_matrix() {
         // CopyToClipboard@StringRiffle[Map[ToString, DiskMatrix[r], {2}], ";", ","]
+        assert_eq!(disk_matrix(-10.0), parse_binary_matrix("1"));
+        assert_eq!(disk_matrix(-1.0), parse_binary_matrix("1"));
+        assert_eq!(disk_matrix(-0.1), parse_binary_matrix("1"));
         assert_eq!(disk_matrix(0.0), parse_binary_matrix("1"));
         assert_eq!(disk_matrix(0.4), parse_binary_matrix("1"));
         assert_eq!(disk_matrix(0.5), parse_binary_matrix("0,1,0;1,1,1;0,1,0"));
