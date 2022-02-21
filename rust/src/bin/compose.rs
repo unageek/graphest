@@ -1,4 +1,4 @@
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use image::{imageops, io::Reader as ImageReader, DynamicImage, Rgba, RgbaImage};
 
 #[derive(Clone, Debug)]
@@ -47,7 +47,7 @@ fn sepia_tone(src: &DynamicImage, color: Rgba<u8>, dst: &mut RgbaImage) {
 }
 
 fn main() {
-    let matches = App::new("compose")
+    let matches = Command::new("compose")
         .about("Colorizes and alpha-composes gray-alpha graph images.")
         .arg(
             Arg::new("add")

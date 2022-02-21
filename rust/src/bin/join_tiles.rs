@@ -1,10 +1,10 @@
 use std::ffi::OsString;
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use image::{imageops, io::Reader as ImageReader, DynamicImage, GrayAlphaImage};
 
 fn main() {
-    let matches = App::new("join-tiles")
+    let matches = Command::new("join-tiles")
         .about("Concatenates tiles of graphs.")
         .arg(
             Arg::new("output")

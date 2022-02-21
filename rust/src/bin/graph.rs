@@ -1,4 +1,4 @@
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use graphest::{
     Box2D, Constant, Explicit, Graph, GraphingStatistics, Image, Implicit, Padding, Parametric,
     PixelIndex, PixelRange, Relation, RelationType, Ternary,
@@ -97,7 +97,7 @@ fn to_interval(s: &str) -> Interval {
 }
 
 fn main() {
-    let matches = App::new("graph")
+    let matches = Command::new("graph")
         .about("Plots the graph of a mathematical relation to an image.")
         .arg(Arg::new("relation").index(1).help("Relation to plot."))
         .arg(
@@ -249,7 +249,7 @@ fn main() {
     let ssaa = matches.value_of_t_or_exit::<u32>("ssaa");
     let timeout = match matches.value_of_t::<u64>("timeout") {
         Ok(t) => Some(Duration::from_millis(t)),
-        Err(e) if e.kind == clap::ErrorKind::ArgumentNotFound => None,
+        Err(e) if e.kind() == clap::ErrorKind::ArgumentNotFound => None,
         Err(e) => e.exit(),
     };
 
