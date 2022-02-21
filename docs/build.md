@@ -26,7 +26,7 @@
 
 1. Node.js and MSYS2
 
-   Open PowerShell as an administrator, then run:
+   Open Windows PowerShell as an administrator, then run:
 
    ```ps
    choco install msys2 nodejs
@@ -93,4 +93,10 @@
 
    ```bash
    npm start
+   ```
+   
+   **On Windows**, you need to add MSYS/MinGW at the beginning of PATH before executing build commands:
+   
+   ```ps1
+   $env:PATH = "C:\tools\msys64\;C:\tools\msys64\usr\bin;C:\tools\msys64\mingw64\bin;" + $env:PATH
    ```
