@@ -13,6 +13,7 @@ struct Environment {
     lib_dir: PathBuf,
     makeflags: String,
     out_dir: PathBuf,
+    target_arch: String,
 }
 
 fn main() {
@@ -26,6 +27,7 @@ fn main() {
         lib_dir: out_dir.join("lib"),
         makeflags: "-j".to_owned(),
         out_dir: out_dir.clone(),
+        target_arch: env::var("CARGO_CFG_TARGET_ARCH").unwrap(),
     };
     fs::create_dir_all(&env.build_dir)
         .unwrap_or_else(|_| panic!("failed to create the directory: {:?}", env.build_dir));
@@ -75,8 +77,13 @@ fn build(env: &Environment) {
                 env.out_dir.to_str().unwrap(),
                 "--disable-fortran",
                 "--enable-float",
-                "--enable-avx2",
-                "--enable-neon",
+                if env.target_arch == "x86_64" {
+                    "--enable-avx2"
+                } else if env.target_arch == "aarch64" {
+                    "--enable-neon"
+                } else {
+                    panic!("unsupported architecture: {}", env.target_arch)
+                },
             ]
             .join(" "),
         ),
