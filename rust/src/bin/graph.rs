@@ -8,7 +8,10 @@ use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
 use std::{ffi::OsString, io::stdin, time::Duration};
 
-fn dilate_and_crop_fast(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32, u32) {
+/// Dilates the image by convolution by FFT,
+/// and returns the index of the top-left corner of the image after discarding the padding.
+fn dilate_and_crop_fast(im: &mut Image<Ternary>, kernel: &Image<bool>) -> PixelIndex {
+    /// Finds a size larger than or equal to `size` that FFTW can handle efficiently.
     fn find_good_size(size: u32) -> u32 {
         let x = size.next_power_of_two();
         let candidates = [
@@ -28,6 +31,9 @@ fn dilate_and_crop_fast(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32, 
         x
     }
 
+    // To convolve arrays of lengths M and N using cyclic convolution,
+    // we first need to pad them with zeros to make their lengths M + N - 1 to avoid overlapping.
+    // Do not confuse this padding with the one that were present in the original image.
     let width = find_good_size(im.width() + (kernel.width() - 1));
     let height = find_good_size(im.height() + (kernel.height() - 1));
 
@@ -45,8 +51,7 @@ fn dilate_and_crop_fast(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32, 
     let mut im_uncert = FftImage::new(width, height);
     for i in 0..im.height() {
         for j in 0..im.width() {
-            let src = im[PixelIndex::new(j, i)];
-            match src {
+            match im[PixelIndex::new(j, i)] {
                 Ternary::True => im_true[i as usize][j as usize] = 1.0,
                 Ternary::Uncertain => im_uncert[i as usize][j as usize] = 1.0,
                 _ => (),
@@ -87,10 +92,15 @@ fn dilate_and_crop_fast(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32, 
         }
     }
 
-    (kernel.width() - 1, kernel.height() - 1)
+    // The dilated image is translated by (⌊kw/2⌋, ⌊kh/2⌋), which is the center of the kernel.
+    // We also want to crop the image further by the same amount to discard the (original) padding.
+    // Therefore, the top-left corner of the image will be at (kw - 1, kh - 1).
+    PixelIndex::new(kernel.width() - 1, kernel.height() - 1)
 }
 
-fn dilate_and_crop_naive(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32, u32) {
+/// Dilates the image by the naive algorithm,
+/// and returns the index of the top-left corner of the image after discarding the padding.
+fn dilate_and_crop_naive(im: &mut Image<Ternary>, kernel: &Image<bool>) -> PixelIndex {
     for (dy, dx) in (0..im.height() - (kernel.height() - 1))
         .cartesian_product(0..im.width() - (kernel.width() - 1))
     {
@@ -102,10 +112,14 @@ fn dilate_and_crop_naive(im: &mut Image<Ternary>, kernel: &Image<bool>) -> (u32,
             .unwrap_or(Ternary::False);
     }
 
-    (0, 0)
+    // In this case, the dilated image is translated by (-⌊kw/2⌋, -⌊kh/2⌋).
+    // After cropping, the top-left corner is at (0, 0).
+    PixelIndex::new(0, 0)
 }
 
-// Returns the same matrix as Mathematica's `DiskMatrix[r]`.
+/// Returns the binary matrix whose elements are true
+/// where the distance of the pixel from the center satisfies d ≤ |r + 1/2|.
+/// This is defined the same way as Mathematica's `DiskMatrix[r]`.
 fn disk_matrix(radius: f64) -> Image<bool> {
     let radius = radius.max(0.0);
     // size = 2 ⌊r⌉ + 1 = 2 ⌊r + 1/2⌋ + 1.
@@ -124,6 +138,7 @@ fn disk_matrix(radius: f64) -> Image<bool> {
     im
 }
 
+/// Dilates a kernel by another kernel.
 fn minkowski_sum(ka: &Image<bool>, kb: &Image<bool>) -> Image<bool> {
     let mut kc = Image::new(ka.width() + kb.width() - 1, ka.height() + kb.height() - 1);
     for (ia, ja) in (0..ka.height()).cartesian_product(0..ka.width()) {
@@ -502,8 +517,8 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
     let mut save_image = |graph: &G| {
         graph.get_image(&mut raw_im);
 
-        let (j_start, i_start) = match opts.dilation_size {
-            DilationSize::Identity => (0, 0),
+        let top_left = match opts.dilation_size {
+            DilationSize::Identity => PixelIndex::new(0, 0),
             DilationSize::Small => dilate_and_crop_naive(&mut raw_im, &opts.dilation_kernel),
             DilationSize::Large => dilate_and_crop_fast(&mut raw_im, &opts.dilation_kernel),
         };
@@ -512,7 +527,7 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
             for i in 0..im.height() {
                 for j in 0..im.width() {
                     *im.get_pixel_mut(j, i) =
-                        match raw_im[PixelIndex::new(j_start + j, i_start + i)] {
+                        match raw_im[PixelIndex::new(top_left.x + j, top_left.y + i)] {
                             Ternary::True => LumaA([0, 255]),
                             Ternary::Uncertain => LumaA([0, 128]),
                             Ternary::False => LumaA([0, 0]),
@@ -530,7 +545,7 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
             for i in 0..im.height() {
                 for j in 0..im.width() {
                     *im.get_pixel_mut(j, i) =
-                        match raw_im[PixelIndex::new(j_start + j, i_start + i)] {
+                        match raw_im[PixelIndex::new(top_left.x + j, top_left.y + i)] {
                             Ternary::True => Rgb([0, 0, 0]),
                             Ternary::Uncertain => Rgb([64, 128, 192]),
                             Ternary::False => Rgb([255, 255, 255]),
