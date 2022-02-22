@@ -92,7 +92,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             <Label style={{ marginRight: "8px" }}>Pen size:</Label>
             <SpinButton
               defaultValue={props.thickness.toString()}
-              max={100}
+              max={1000}
               min={0}
               step={0.1}
               styles={{ root: { marginRight: "4px", width: "50px" } }}
