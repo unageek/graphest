@@ -85,6 +85,10 @@ macro_rules! t {
         t!($id, $($arg),+, "--ssaa", stringify!($ssaa) $(, @$opt($($opt_arg),+))*);
     };
 
+    ($id:ident, $($arg:expr),+, @thickness($thickness:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--thickness", stringify!($thickness) $(, @$opt($($opt_arg),+))*);
+    };
+
     ($id:ident, $($arg:expr),+, @timeout($timeout:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
         t!($id, $($arg),+, "--timeout", stringify!($timeout) $(, @$opt($($opt_arg),+))*);
     };
@@ -109,4 +113,5 @@ mod graph_tests {
     mod parametric;
     mod polar;
     mod ssaa;
+    mod thickness;
 }
