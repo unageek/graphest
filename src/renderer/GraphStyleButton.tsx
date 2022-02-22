@@ -32,7 +32,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
       styles={{
         menuIcon: { display: "none" },
       }}
-      title="Color"
+      title="Style"
     >
       <div
         style={{
@@ -89,7 +89,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             horizontal
             style={{ alignItems: "baseline", marginBottom: "8px" }}
           >
-            <Label style={{ marginRight: "8px" }}>Thickness:</Label>
+            <Label style={{ marginRight: "8px" }}>Line width:</Label>
             <SpinButton
               defaultValue={props.thickness.toString()}
               max={100}
@@ -107,7 +107,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             <Text>pixels</Text>
           </Stack>
           <Text variant="small">
-            The thickness is only applied to exported images.
+            The line width is only applied to exported images.
           </Text>
         </Stack>
       </Stack>
