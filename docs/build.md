@@ -32,11 +32,10 @@
    choco install msys2 nodejs
    ```
 
-   Add the following directories to PATH:
+   Add the following directories to PATH and restart Windows PowerShell:
 
    ```
    C:\tools\msys64\usr\bin
-   C:\tools\msys64\mingw64\bin
    ```
 
 1. Build tools
@@ -98,5 +97,5 @@
    **On Windows**, you need to add MSYS/MinGW at the beginning of PATH before executing build commands:
    
    ```ps1
-   $env:PATH = "C:\tools\msys64\;C:\tools\msys64\usr\bin;C:\tools\msys64\mingw64\bin;" + $env:PATH
+   $env:PATH = "C:\tools\msys64\usr\bin;C:\tools\msys64\mingw64\bin;" + $env:PATH
    ```
