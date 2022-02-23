@@ -29,7 +29,7 @@
    Open Windows PowerShell as an administrator, and run:
 
    ```ps
-   choco install msys2 nodejs
+   choco install git msys2 nodejs
    ```
 
    Add the following directory to PATH:
@@ -43,7 +43,7 @@
    Open Windows PowerShell as a normal user, and run:
 
    ```ps
-   pacman -S diffutils git m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
+   pacman -S diffutils m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
    ```
 
 1. [Rust](https://rustup.rs)
@@ -95,9 +95,9 @@
    ```bash
    npm start
    ```
-   
+
    **On Windows**, you need to add MSYS/MinGW at the beginning of PATH before executing build commands:
-   
+
    ```ps1
    $env:PATH = "C:\tools\msys64\usr\bin;C:\tools\msys64\mingw64\bin;" + $env:PATH
    ```
