@@ -263,7 +263,10 @@ fn symlink_dir_or_panic(original: &Path, link: &Path) {
     if std::os::windows::fs::symlink_dir(original, link).is_ok() {
         return;
     }
-    eprintln!("failed to create a symlink to {:?} at {:?}, copying instead", original, link);
+    eprintln!(
+        "failed to create a symlink to {:?} at {:?}, copying instead",
+        original, link
+    );
     execute_or_panic(Command::new("cp").arg("-R").arg(original).arg(link));
 }
 
