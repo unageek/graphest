@@ -26,19 +26,21 @@
 
 1. Node.js and MSYS2
 
-   Open Windows PowerShell as an administrator, then run:
+   Open Windows PowerShell as an administrator, and run:
 
    ```ps
    choco install msys2 nodejs
    ```
 
-   Add the following directories to PATH and restart Windows PowerShell:
+   Add the following directory to PATH:
 
    ```
    C:\tools\msys64\usr\bin
    ```
 
 1. Build tools
+
+   Open Windows PowerShell as a normal user, and run:
 
    ```ps
    pacman -S diffutils git m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
