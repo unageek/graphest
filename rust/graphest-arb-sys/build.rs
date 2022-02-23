@@ -260,9 +260,11 @@ fn symlink_dir_or_panic(original: &Path, link: &Path) {
 
 #[cfg(windows)]
 fn symlink_dir_or_panic(original: &Path, link: &Path) {
-    std::os::windows::fs::symlink_dir(original, link).unwrap_or_else(|_| {
-        panic!("failed to create a symlink to {:?} at {:?}", original, link);
-    });
+    if std::os::windows::fs::symlink_dir(original, link).is_ok() {
+        return;
+    }
+    eprintln!("failed to create a symlink to {:?} at {:?}, copying instead", original, link);
+    execute_or_panic(Command::new("cp").arg("-R").arg(original).arg(link));
 }
 
 fn user_cache_dir() -> Option<PathBuf> {
