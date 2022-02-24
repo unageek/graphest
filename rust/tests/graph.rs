@@ -61,6 +61,10 @@ macro_rules! t {
         t!($id, $($arg),+, "--bounds", stringify!($xmin), stringify!($xmax), stringify!($ymin), stringify!($ymax) $(, @$opt($($opt_arg),+))*);
     };
 
+    ($id:ident, $($arg:expr),+, @dilate($dilate:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--dilate", $dilate $(, @$opt($($opt_arg),+))*);
+    };
+
     ($id:ident, $($arg:expr),+, @pad_bottom($length:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
         t!($id, $($arg),+, "--pad-bottom", stringify!($length) $(, @$opt($($opt_arg),+))*);
     };
@@ -105,6 +109,7 @@ macro_rules! t {
 
 mod graph_tests {
     mod constant;
+    mod dilate;
     mod examples;
     mod explicit;
     mod functions;

@@ -645,7 +645,7 @@ ipcMain.handle(
           "--pad-bottom",
           (retinaScale * GRAPH_TILE_EXTENSION).toString(),
           "--dilate",
-          retinaScale === 2 ? "1,1,0;1,1,0;0,0,0" : "1",
+          retinaScale === 2 ? "0,0,0;0,1,1;0,1,1" : "1",
           "--gray-alpha",
           "--output",
           outFile,

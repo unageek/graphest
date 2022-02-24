@@ -104,10 +104,23 @@ fn dilate_and_crop_naive(im: &mut Image<Ternary>, kernel: &Image<bool>) -> Pixel
     for (dy, dx) in (0..im.height() - (kernel.height() - 1))
         .cartesian_product(0..im.width() - (kernel.width() - 1))
     {
+        //     kx : kw - 1 - kx
+        //     +==========+
+        //   (dx, dy)     ‖ ky
+        //     ‖  X------>+ ··
+        //     ‖  |       ‖ kh - 1 - ky
+        //     ‖  |       ‖
+        //     ‖  V       ‖
+        //     +==+=======X
+        //              (sx, sy)
         im[PixelIndex::new(dx, dy)] = (0..kernel.height())
             .cartesian_product(0..kernel.width())
             .filter(|&(ky, kx)| kernel[PixelIndex::new(kx, ky)])
-            .map(|(ky, kx)| im[PixelIndex::new(dx + kx, dy + ky)])
+            .map(|(ky, kx)| {
+                let sx = dx + (kernel.width() - 1 - kx);
+                let sy = dy + (kernel.height() - 1 - ky);
+                im[PixelIndex::new(sx, sy)]
+            })
             .max()
             .unwrap_or(Ternary::False);
     }
