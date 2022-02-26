@@ -81,16 +81,20 @@ export class AxesRenderer {
   /// The minimum distance between the map edges and tick labels.
   readonly padding = 6;
 
+  #height: number;
+  #width: number;
+
   constructor(
     readonly ctx: CanvasRenderingContext2D,
     readonly bounds: Bounds,
-    readonly width: number,
-    readonly height: number,
     readonly tx: Transform,
     readonly ty: Transform,
     readonly mapViewport: DOMRectReadOnly,
     readonly tileViewport: DOMRectReadOnly
-  ) {}
+  ) {
+    this.#height = tileViewport.height;
+    this.#width = tileViewport.width;
+  }
 
   #dilate(r: DOMRectReadOnly, radius: number): DOMRectReadOnly {
     return new DOMRectReadOnly(
@@ -116,13 +120,13 @@ export class AxesRenderer {
   }
 
   clearBackground() {
-    const { ctx, height, width } = this;
+    const { ctx } = this;
 
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, this.#width, this.#height);
   }
 
   drawAxes() {
-    const { ctx, height, tx, ty, width } = this;
+    const { ctx, tx, ty } = this;
 
     const cx = tx(ZERO);
     const cy = ty(ZERO);
@@ -131,11 +135,11 @@ export class AxesRenderer {
     // when the view is too far from the origin.
     ctx.beginPath();
     ctx.moveTo(cx, 0);
-    ctx.lineTo(cx, height);
+    ctx.lineTo(cx, this.#height);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(0, cy);
-    ctx.lineTo(width, cy);
+    ctx.lineTo(this.#width, cy);
     ctx.stroke();
   }
 
@@ -342,14 +346,19 @@ export class AxesRenderer {
 }
 
 export class GridRenderer {
+  #height: number;
+  #width: number;
+
   constructor(
     readonly ctx: CanvasRenderingContext2D,
     readonly bounds: Bounds,
-    readonly width: number,
-    readonly height: number,
     readonly tx: Transform,
-    readonly ty: Transform
-  ) {}
+    readonly ty: Transform,
+    readonly tileViewport: DOMRectReadOnly
+  ) {
+    this.#height = tileViewport.height;
+    this.#width = tileViewport.width;
+  }
 
   beginDrawMajorGrid() {
     const { ctx } = this;
@@ -371,7 +380,7 @@ export class GridRenderer {
   }
 
   drawGrid(interval: GridInterval, skipEveryNthLine: BigNumber = ZERO) {
-    const { ctx, height, tx, ty, width } = this;
+    const { ctx, tx, ty } = this;
     const { xMax, xMin, yMax, yMin } = this.bounds;
 
     ctx.beginPath();
@@ -383,7 +392,7 @@ export class GridRenderer {
         const x = i.times(interval.get());
         const cx = tx(x);
         ctx.moveTo(cx, 0);
-        ctx.lineTo(cx, height);
+        ctx.lineTo(cx, this.#height);
       }
     }
     {
@@ -394,16 +403,16 @@ export class GridRenderer {
         const y = i.times(interval.get());
         const cy = ty(y);
         ctx.moveTo(0, cy);
-        ctx.lineTo(width, cy);
+        ctx.lineTo(this.#width, cy);
       }
     }
     ctx.stroke();
   }
 
   fillBackground() {
-    const { ctx, height, width } = this;
+    const { ctx } = this;
 
     ctx.fillStyle = BACKGROUND_COLOR;
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, this.#width, this.#height);
   }
 }
