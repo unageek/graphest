@@ -1,6 +1,14 @@
 import * as L from "leaflet";
 import { bignum, BigNumber } from "../common/bignumber";
 import { BASE_ZOOM_LEVEL } from "../common/constants";
+import {
+  AxesRenderer,
+  Bounds,
+  GridInterval,
+  GridRenderer,
+  loadFonts,
+  Transform,
+} from "./gridRenderer";
 
 BigNumber.config({
   EXPONENTIAL_AT: 5,
@@ -9,43 +17,12 @@ BigNumber.config({
   DECIMAL_PLACES: 2,
 });
 
-const ZERO: BigNumber = bignum(0);
-const ONE: BigNumber = bignum(1);
-
 const RETINA_SCALE = window.devicePixelRatio;
 const TILE_SIZE = 256;
 const TILE_EXTENSION = 1;
 const EXTENDED_TILE_SIZE = TILE_SIZE + TILE_EXTENSION;
 // `image-rendering: pixelated` does not work well with translations close to -0.5px.
 const TRANSFORM = "translate(-0.4990234375px, -0.4990234375px)";
-
-const LABEL_FONT = "14px 'Noto Sans'";
-const BACKGROUND_COLOR = "white";
-const AXIS_COLOR = "black";
-const OFF_AXIS_COLOR = "gray";
-const TICK_LENGTH_PER_SIDE = 3.5;
-const GRID_COLOR = "silver";
-
-interface Transform {
-  (x: BigNumber): number;
-}
-
-class GridInterval {
-  #x?: BigNumber;
-  #xInv?: BigNumber;
-
-  constructor(readonly mantissa: BigNumber, readonly exponent: number) {}
-
-  get(): BigNumber {
-    return (this.#x ??= this.mantissa.times(ONE.shiftedBy(this.exponent)));
-  }
-
-  getInv(): BigNumber {
-    return (this.#xInv ??= ONE.div(this.mantissa).times(
-      ONE.shiftedBy(-this.exponent)
-    ));
-  }
-}
 
 /**
  * Returns the 1-D affine transformation that maps each source point
@@ -124,30 +101,7 @@ function sourcePoints(coords: L.Coords, widthPerTile: number): [Point, Point] {
   ];
 }
 
-/**
- * Returns true if the numbers are ordered as _a_ ≤ _b_ ≤ _c_.
- */
-function ordered(a: number, b: number, c: number): boolean {
-  return a <= b && b <= c;
-}
-
-/**
- * Returns 0 if the numbers are ordered as _a_ ≤ _b_ ≤ _c_ ≤ _d_;
- * otherwise, returns the number _x_ that satisfies _a_ ≤ _b_ + _x_ ≤ _c_ + _x_ ≤ _d_
- * and has the smallest absolute value.
- *
- * {@link NaN} is returned if such a number does not exist.
- */
-function stickyOffset(a: number, b: number, c: number, d: number): number {
-  return Math.max(0, a - b) + Math.min(0, d - c);
-}
-
 export class AxesLayer extends L.GridLayer {
-  /// The distance between the axes and tick labels.
-  readonly labelOffset = 6;
-  /// The minimum distance between the map edges and tick labels.
-  readonly padding = 6;
-
   constructor(options?: L.GridLayerOptions) {
     super(options);
   }
@@ -175,243 +129,13 @@ export class AxesLayer extends L.GridLayer {
     inner.style.transform = TRANSFORM;
     outer.appendChild(inner);
 
-    document.fonts.load(LABEL_FONT).then(() => {
+    loadFonts().then(() => {
       const tileRange = this.#getVisibleTileRange();
       this.#drawTile(inner, coords, tileRange);
       done(undefined, outer);
     });
 
     return outer;
-  }
-
-  #dilate(r: DOMRectReadOnly, radius: number): DOMRectReadOnly {
-    return new DOMRectReadOnly(
-      r.x - radius,
-      r.y - radius,
-      r.width + 2 * radius,
-      r.height + 2 * radius
-    );
-  }
-
-  #drawAxes(ctx: CanvasRenderingContext2D, tx: Transform, ty: Transform) {
-    const cx = tx(ZERO);
-    const cy = ty(ZERO);
-    ctx.strokeStyle = AXIS_COLOR;
-    // Do not merge these paths; otherwise, they may not be rendered
-    // when the view is too far from the origin.
-    ctx.beginPath();
-    ctx.moveTo(cx, 0);
-    ctx.lineTo(cx, EXTENDED_TILE_SIZE);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, cy);
-    ctx.lineTo(EXTENDED_TILE_SIZE, cy);
-    ctx.stroke();
-  }
-
-  #drawOriginLabel(
-    ctx: CanvasRenderingContext2D,
-    tx: Transform,
-    ty: Transform
-  ) {
-    const cx = tx(ZERO);
-    const cy = ty(ZERO);
-    const text = "0";
-    const m = ctx.measureText(text);
-    const args: [string, number, number] = [
-      text,
-      cx - m.actualBoundingBoxRight - this.labelOffset,
-      cy + m.actualBoundingBoxAscent + this.labelOffset,
-    ];
-    ctx.fillStyle = AXIS_COLOR;
-    ctx.strokeText(...args);
-    ctx.fillText(...args);
-  }
-
-  #drawXTicks(
-    ctx: CanvasRenderingContext2D,
-    x0: BigNumber,
-    x1: BigNumber,
-    interval: GridInterval,
-    tx: Transform,
-    ty: Transform,
-    mapViewport: DOMRectReadOnly,
-    tileViewport: DOMRectReadOnly
-  ) {
-    const cy = ty(ZERO);
-    const wy = tileViewport.top + cy;
-    const sticky = stickyOffset(mapViewport.top, wy, wy, mapViewport.bottom);
-    ctx.strokeStyle = sticky === 0 ? AXIS_COLOR : OFF_AXIS_COLOR;
-
-    ctx.beginPath();
-    const min = x0.times(interval.getInv()).ceil().minus(ONE);
-    const max = x1.times(interval.getInv()).floor().plus(ONE);
-    for (let i = min; i.lte(max); i = i.plus(ONE)) {
-      if (i.isZero()) continue;
-      const x = i.times(interval.get());
-      const cx = tx(x);
-      const wx = tileViewport.left + cx;
-      if (!ordered(mapViewport.left, wx, mapViewport.right)) {
-        continue;
-      }
-
-      ctx.moveTo(cx, cy - TICK_LENGTH_PER_SIDE + sticky);
-      ctx.lineTo(cx, cy + TICK_LENGTH_PER_SIDE + sticky);
-    }
-    ctx.stroke();
-  }
-
-  #drawXTickLabels(
-    ctx: CanvasRenderingContext2D,
-    x0: BigNumber,
-    x1: BigNumber,
-    interval: GridInterval,
-    tx: Transform,
-    ty: Transform,
-    mapViewport: DOMRectReadOnly,
-    tileViewport: DOMRectReadOnly
-  ) {
-    const cy = ty(ZERO);
-    const wy = tileViewport.top + cy;
-    ctx.fillStyle = ordered(mapViewport.top, wy, mapViewport.bottom)
-      ? AXIS_COLOR
-      : OFF_AXIS_COLOR;
-
-    const min = x0.times(interval.getInv()).ceil().minus(ONE);
-    const max = x1.times(interval.getInv()).floor().plus(ONE);
-    for (let i = min; i.lte(max); i = i.plus(ONE)) {
-      if (i.isZero()) continue;
-      const x = i.times(interval.get());
-      const cx = tx(x);
-      const wx = tileViewport.left + cx;
-      if (!ordered(mapViewport.left, wx, mapViewport.right)) {
-        continue;
-      }
-
-      const text = this.#format(x);
-      const m = ctx.measureText(text);
-      const args: [string, number, number] = [
-        text,
-        cx - (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / 2,
-        cy + m.actualBoundingBoxAscent + this.labelOffset,
-      ];
-      const textBounds = this.#dilate(
-        this.#getBoundingRect(ctx, ...args, tileViewport),
-        this.padding
-      );
-      const args2: [string, number, number] = [
-        text,
-        args[1] +
-          stickyOffset(
-            mapViewport.left,
-            textBounds.left,
-            textBounds.right,
-            mapViewport.right
-          ),
-        args[2] +
-          stickyOffset(
-            mapViewport.top,
-            textBounds.top,
-            textBounds.bottom,
-            mapViewport.bottom
-          ),
-      ];
-      ctx.strokeText(...args2);
-      ctx.fillText(...args2);
-    }
-  }
-
-  #drawYTicks(
-    ctx: CanvasRenderingContext2D,
-    y0: BigNumber,
-    y1: BigNumber,
-    interval: GridInterval,
-    tx: Transform,
-    ty: Transform,
-    mapViewport: DOMRectReadOnly,
-    tileViewport: DOMRectReadOnly
-  ) {
-    const cx = tx(ZERO);
-    const wx = tileViewport.left + cx;
-    const sticky = stickyOffset(mapViewport.left, wx, wx, mapViewport.right);
-    ctx.strokeStyle = sticky === 0 ? AXIS_COLOR : OFF_AXIS_COLOR;
-
-    ctx.beginPath();
-    const min = y0.times(interval.getInv()).ceil().minus(ONE);
-    const max = y1.times(interval.getInv()).floor().plus(ONE);
-    for (let i = min; i.lte(max); i = i.plus(ONE)) {
-      if (i.isZero()) continue;
-      const y = i.times(interval.get());
-      const cy = ty(y);
-      const wy = tileViewport.top + cy;
-      if (!ordered(mapViewport.top, wy, mapViewport.bottom)) {
-        continue;
-      }
-
-      ctx.moveTo(cx - TICK_LENGTH_PER_SIDE + sticky, cy);
-      ctx.lineTo(cx + TICK_LENGTH_PER_SIDE + sticky, cy);
-    }
-    ctx.stroke();
-  }
-
-  #drawYTickLabels(
-    ctx: CanvasRenderingContext2D,
-    y0: BigNumber,
-    y1: BigNumber,
-    interval: GridInterval,
-    tx: Transform,
-    ty: Transform,
-    mapViewport: DOMRectReadOnly,
-    tileViewport: DOMRectReadOnly
-  ) {
-    const cx = tx(ZERO);
-    const wx = tileViewport.left + cx;
-    ctx.fillStyle = ordered(mapViewport.left, wx, mapViewport.right)
-      ? AXIS_COLOR
-      : OFF_AXIS_COLOR;
-
-    const min = y0.times(interval.getInv()).ceil().minus(ONE);
-    const max = y1.times(interval.getInv()).floor().plus(ONE);
-    for (let i = min; i.lte(max); i = i.plus(ONE)) {
-      if (i.isZero()) continue;
-      const y = i.times(interval.get());
-      const cy = ty(y);
-      const wy = tileViewport.top + cy;
-      if (!ordered(mapViewport.top, wy, mapViewport.bottom)) {
-        continue;
-      }
-
-      const text = this.#format(y);
-      const m = ctx.measureText(text);
-      const args: [string, number, number] = [
-        text,
-        cx - m.actualBoundingBoxRight - this.labelOffset,
-        cy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2,
-      ];
-      const textBounds = this.#dilate(
-        this.#getBoundingRect(ctx, ...args, tileViewport),
-        this.padding
-      );
-      const args2: [string, number, number] = [
-        text,
-        args[1] +
-          stickyOffset(
-            mapViewport.left,
-            textBounds.left,
-            textBounds.right,
-            mapViewport.right
-          ),
-        args[2] +
-          stickyOffset(
-            mapViewport.top,
-            textBounds.top,
-            textBounds.bottom,
-            mapViewport.bottom
-          ),
-      ];
-      ctx.strokeText(...args2);
-      ctx.fillText(...args2);
-    }
   }
 
   #drawTile(tile: HTMLCanvasElement, coords: L.Coords, tileRange: L.Bounds) {
@@ -428,9 +152,18 @@ export class AxesLayer extends L.GridLayer {
     ctx.setTransform(RETINA_SCALE, 0, 0, RETINA_SCALE, 0, 0);
     const mapViewport = this._map.getContainer().getBoundingClientRect();
     const tileViewport = ctx.canvas.getBoundingClientRect();
-    ctx.clearRect(0, 0, EXTENDED_TILE_SIZE, EXTENDED_TILE_SIZE);
 
-    ctx.lineWidth = 1;
+    const renderer = new AxesRenderer(
+      ctx,
+      new Bounds(s0.x, s1.x, s0.y, s1.y),
+      tx,
+      ty,
+      mapViewport,
+      tileViewport
+    );
+
+    renderer.clearBackground();
+    renderer.beginDrawAxes();
 
     if (
       coords.x === -1 ||
@@ -438,7 +171,7 @@ export class AxesLayer extends L.GridLayer {
       coords.y === -1 ||
       coords.y === 0
     ) {
-      this.#drawAxes(ctx, tx, ty);
+      renderer.drawAxes();
     }
 
     if (
@@ -449,16 +182,7 @@ export class AxesLayer extends L.GridLayer {
       (tileRange.min!.y >= 0 &&
         (coords.y === tileRange.min!.y || coords.y === tileRange.min!.y + 1))
     ) {
-      this.#drawXTicks(
-        ctx,
-        s0.x,
-        s1.x,
-        interval,
-        tx,
-        ty,
-        mapViewport,
-        tileViewport
-      );
+      renderer.drawXTicks(interval);
     }
 
     if (
@@ -469,25 +193,14 @@ export class AxesLayer extends L.GridLayer {
       (tileRange.min!.x >= 0 &&
         (coords.x === tileRange.min!.x || coords.x === tileRange.min!.x + 1))
     ) {
-      this.#drawYTicks(
-        ctx,
-        s0.y,
-        s1.y,
-        interval,
-        tx,
-        ty,
-        mapViewport,
-        tileViewport
-      );
+      renderer.drawYTicks(interval);
     }
 
-    ctx.font = LABEL_FONT;
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = BACKGROUND_COLOR;
+    renderer.endDraw();
+    renderer.beginDrawText();
 
     if (coords.x === -1 && coords.y === 0) {
-      this.#drawOriginLabel(ctx, tx, ty);
+      renderer.drawOriginLabel();
     }
 
     if (
@@ -497,16 +210,7 @@ export class AxesLayer extends L.GridLayer {
       (tileRange.min!.y >= 0 &&
         (coords.y === tileRange.min!.y || coords.y === tileRange.min!.y + 1))
     ) {
-      this.#drawXTickLabels(
-        ctx,
-        s0.x,
-        s1.x,
-        interval,
-        tx,
-        ty,
-        mapViewport,
-        tileViewport
-      );
+      renderer.drawXTickLabels(interval);
     }
 
     if (
@@ -516,40 +220,10 @@ export class AxesLayer extends L.GridLayer {
       (tileRange.min!.x >= -1 &&
         (coords.x === tileRange.min!.x || coords.x === tileRange.min!.x + 1))
     ) {
-      this.#drawYTickLabels(
-        ctx,
-        s0.y,
-        s1.y,
-        interval,
-        tx,
-        ty,
-        mapViewport,
-        tileViewport
-      );
+      renderer.drawYTickLabels(interval);
     }
-  }
 
-  #format(x: BigNumber): string {
-    // Replace hyphen-minuses with minus signs.
-    return x.toString().replaceAll("-", "−");
-  }
-
-  #getBoundingRect(
-    ctx: CanvasRenderingContext2D,
-    text: string,
-    cx: number,
-    cy: number,
-    tileViewport: DOMRectReadOnly
-  ): DOMRectReadOnly {
-    const wx = tileViewport.left + cx;
-    const wy = tileViewport.top + cy;
-    const m = ctx.measureText(text);
-    return new DOMRectReadOnly(
-      wx - m.actualBoundingBoxLeft,
-      wy - m.actualBoundingBoxAscent,
-      m.actualBoundingBoxLeft + m.actualBoundingBoxRight,
-      m.actualBoundingBoxAscent + m.actualBoundingBoxDescent
-    );
+    renderer.endDraw();
   }
 
   #getVisibleTileRange(): L.Bounds {
@@ -624,74 +298,38 @@ export class GridLayer extends L.GridLayer {
 
       const ctx = inner.getContext("2d")!;
       ctx.setTransform(RETINA_SCALE, 0, 0, RETINA_SCALE, 0, 0);
+      const tileViewport = ctx.canvas.getBoundingClientRect();
 
-      ctx.fillStyle = BACKGROUND_COLOR;
-      ctx.fillRect(0, 0, EXTENDED_TILE_SIZE, EXTENDED_TILE_SIZE);
+      const renderer = new GridRenderer(
+        ctx,
+        new Bounds(s0.x, s1.x, s0.y, s1.y),
+        tx,
+        ty,
+        tileViewport
+      );
 
-      ctx.strokeStyle = GRID_COLOR;
+      renderer.fillBackground();
 
       if (this.#showMinor) {
-        ctx.setLineDash([1, 1]);
-        this.#drawGrid(
-          ctx,
-          s0.x,
-          s0.y,
-          s1.x,
-          s1.y,
+        renderer.beginDrawMinorGrid();
+        renderer.drawGrid(
           minInterval,
-          tx,
-          ty,
           ...(this.#showMajor
             ? [majInterval.get().idiv(minInterval.get())]
             : [])
         );
+        renderer.endDraw();
       }
 
       if (this.#showMajor) {
-        ctx.setLineDash([]);
-        this.#drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, majInterval, tx, ty);
+        renderer.beginDrawMajorGrid();
+        renderer.drawGrid(majInterval);
+        renderer.endDraw();
       }
 
       done(undefined, outer);
     }, 0);
 
     return outer;
-  }
-
-  #drawGrid(
-    ctx: CanvasRenderingContext2D,
-    x0: BigNumber,
-    y0: BigNumber,
-    x1: BigNumber,
-    y1: BigNumber,
-    interval: GridInterval,
-    tx: Transform,
-    ty: Transform,
-    skipEveryNthLine: BigNumber = ZERO
-  ) {
-    ctx.beginPath();
-    {
-      const min = x0.times(interval.getInv()).ceil().minus(ONE);
-      const max = x1.times(interval.getInv()).floor().plus(ONE);
-      for (let i = min; i.lte(max); i = i.plus(ONE)) {
-        if (i.mod(skipEveryNthLine).isZero()) continue;
-        const x = i.times(interval.get());
-        const cx = tx(x);
-        ctx.moveTo(cx, 0);
-        ctx.lineTo(cx, EXTENDED_TILE_SIZE);
-      }
-    }
-    {
-      const min = y0.times(interval.getInv()).ceil().minus(ONE);
-      const max = y1.times(interval.getInv()).floor().plus(ONE);
-      for (let i = min; i.lte(max); i = i.plus(ONE)) {
-        if (i.mod(skipEveryNthLine).isZero()) continue;
-        const y = i.times(interval.get());
-        const cy = ty(y);
-        ctx.moveTo(0, cy);
-        ctx.lineTo(EXTENDED_TILE_SIZE, cy);
-      }
-    }
-    ctx.stroke();
   }
 }
