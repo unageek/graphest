@@ -31,17 +31,19 @@ interface Transform {
 }
 
 class GridInterval {
-  private x?: BigNumber;
-  private xInv?: BigNumber;
+  #x?: BigNumber;
+  #xInv?: BigNumber;
 
-  constructor(private readonly mant: BigNumber, private readonly exp: number) {}
+  constructor(readonly mantissa: BigNumber, readonly exponent: number) {}
 
   get(): BigNumber {
-    return (this.x ??= this.mant.times(ONE.shiftedBy(this.exp)));
+    return (this.#x ??= this.mantissa.times(ONE.shiftedBy(this.exponent)));
   }
 
   getInv(): BigNumber {
-    return (this.xInv ??= ONE.div(this.mant).times(ONE.shiftedBy(-this.exp)));
+    return (this.#xInv ??= ONE.div(this.mantissa).times(
+      ONE.shiftedBy(-this.exponent)
+    ));
   }
 }
 
@@ -152,13 +154,13 @@ export class AxesLayer extends L.GridLayer {
 
   onAdd(map: L.Map): this {
     super.onAdd(map);
-    map.on("move", this.redrawCurrentTiles, this);
+    map.on("move", this.#redrawCurrentTiles, this);
     return this;
   }
 
   onRemove(map: L.Map): this {
     super.onRemove(map);
-    map.off("move", this.redrawCurrentTiles, this);
+    map.off("move", this.#redrawCurrentTiles, this);
     return this;
   }
 
@@ -174,15 +176,15 @@ export class AxesLayer extends L.GridLayer {
     outer.appendChild(inner);
 
     document.fonts.load(LABEL_FONT).then(() => {
-      const tileRange = this.getVisibleTileRange();
-      this.drawTile(inner, coords, tileRange);
+      const tileRange = this.#getVisibleTileRange();
+      this.#drawTile(inner, coords, tileRange);
       done(undefined, outer);
     });
 
     return outer;
   }
 
-  private dilate(r: DOMRectReadOnly, radius: number): DOMRectReadOnly {
+  #dilate(r: DOMRectReadOnly, radius: number): DOMRectReadOnly {
     return new DOMRectReadOnly(
       r.x - radius,
       r.y - radius,
@@ -191,11 +193,7 @@ export class AxesLayer extends L.GridLayer {
     );
   }
 
-  private drawAxes(
-    ctx: CanvasRenderingContext2D,
-    tx: Transform,
-    ty: Transform
-  ) {
+  #drawAxes(ctx: CanvasRenderingContext2D, tx: Transform, ty: Transform) {
     const cx = tx(ZERO);
     const cy = ty(ZERO);
     ctx.strokeStyle = AXIS_COLOR;
@@ -211,7 +209,7 @@ export class AxesLayer extends L.GridLayer {
     ctx.stroke();
   }
 
-  private drawOriginLabel(
+  #drawOriginLabel(
     ctx: CanvasRenderingContext2D,
     tx: Transform,
     ty: Transform
@@ -230,7 +228,7 @@ export class AxesLayer extends L.GridLayer {
     ctx.fillText(...args);
   }
 
-  private drawXTicks(
+  #drawXTicks(
     ctx: CanvasRenderingContext2D,
     x0: BigNumber,
     x1: BigNumber,
@@ -263,7 +261,7 @@ export class AxesLayer extends L.GridLayer {
     ctx.stroke();
   }
 
-  private drawXTickLabels(
+  #drawXTickLabels(
     ctx: CanvasRenderingContext2D,
     x0: BigNumber,
     x1: BigNumber,
@@ -290,15 +288,15 @@ export class AxesLayer extends L.GridLayer {
         continue;
       }
 
-      const text = this.format(x);
+      const text = this.#format(x);
       const m = ctx.measureText(text);
       const args: [string, number, number] = [
         text,
         cx - (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / 2,
         cy + m.actualBoundingBoxAscent + this.labelOffset,
       ];
-      const textBounds = this.dilate(
-        this.getBoundingRect(ctx, ...args, tileViewport),
+      const textBounds = this.#dilate(
+        this.#getBoundingRect(ctx, ...args, tileViewport),
         this.padding
       );
       const args2: [string, number, number] = [
@@ -323,7 +321,7 @@ export class AxesLayer extends L.GridLayer {
     }
   }
 
-  private drawYTicks(
+  #drawYTicks(
     ctx: CanvasRenderingContext2D,
     y0: BigNumber,
     y1: BigNumber,
@@ -356,7 +354,7 @@ export class AxesLayer extends L.GridLayer {
     ctx.stroke();
   }
 
-  private drawYTickLabels(
+  #drawYTickLabels(
     ctx: CanvasRenderingContext2D,
     y0: BigNumber,
     y1: BigNumber,
@@ -383,15 +381,15 @@ export class AxesLayer extends L.GridLayer {
         continue;
       }
 
-      const text = this.format(y);
+      const text = this.#format(y);
       const m = ctx.measureText(text);
       const args: [string, number, number] = [
         text,
         cx - m.actualBoundingBoxRight - this.labelOffset,
         cy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2,
       ];
-      const textBounds = this.dilate(
-        this.getBoundingRect(ctx, ...args, tileViewport),
+      const textBounds = this.#dilate(
+        this.#getBoundingRect(ctx, ...args, tileViewport),
         this.padding
       );
       const args2: [string, number, number] = [
@@ -416,11 +414,7 @@ export class AxesLayer extends L.GridLayer {
     }
   }
 
-  private drawTile(
-    tile: HTMLCanvasElement,
-    coords: L.Coords,
-    tileRange: L.Bounds
-  ) {
+  #drawTile(tile: HTMLCanvasElement, coords: L.Coords, tileRange: L.Bounds) {
     const widthPerTilef = 2 ** (BASE_ZOOM_LEVEL - coords.z);
     const [s0, s1] = sourcePoints(coords, widthPerTilef);
     const [d0, d1] = destinationPoints();
@@ -444,7 +438,7 @@ export class AxesLayer extends L.GridLayer {
       coords.y === -1 ||
       coords.y === 0
     ) {
-      this.drawAxes(ctx, tx, ty);
+      this.#drawAxes(ctx, tx, ty);
     }
 
     if (
@@ -455,7 +449,7 @@ export class AxesLayer extends L.GridLayer {
       (tileRange.min!.y >= 0 &&
         (coords.y === tileRange.min!.y || coords.y === tileRange.min!.y + 1))
     ) {
-      this.drawXTicks(
+      this.#drawXTicks(
         ctx,
         s0.x,
         s1.x,
@@ -475,7 +469,7 @@ export class AxesLayer extends L.GridLayer {
       (tileRange.min!.x >= 0 &&
         (coords.x === tileRange.min!.x || coords.x === tileRange.min!.x + 1))
     ) {
-      this.drawYTicks(
+      this.#drawYTicks(
         ctx,
         s0.y,
         s1.y,
@@ -493,7 +487,7 @@ export class AxesLayer extends L.GridLayer {
     ctx.strokeStyle = BACKGROUND_COLOR;
 
     if (coords.x === -1 && coords.y === 0) {
-      this.drawOriginLabel(ctx, tx, ty);
+      this.#drawOriginLabel(ctx, tx, ty);
     }
 
     if (
@@ -503,7 +497,7 @@ export class AxesLayer extends L.GridLayer {
       (tileRange.min!.y >= 0 &&
         (coords.y === tileRange.min!.y || coords.y === tileRange.min!.y + 1))
     ) {
-      this.drawXTickLabels(
+      this.#drawXTickLabels(
         ctx,
         s0.x,
         s1.x,
@@ -522,7 +516,7 @@ export class AxesLayer extends L.GridLayer {
       (tileRange.min!.x >= -1 &&
         (coords.x === tileRange.min!.x || coords.x === tileRange.min!.x + 1))
     ) {
-      this.drawYTickLabels(
+      this.#drawYTickLabels(
         ctx,
         s0.y,
         s1.y,
@@ -535,12 +529,12 @@ export class AxesLayer extends L.GridLayer {
     }
   }
 
-  private format(x: BigNumber): string {
+  #format(x: BigNumber): string {
     // Replace hyphen-minuses with minus signs.
     return x.toString().replaceAll("-", "−");
   }
 
-  private getBoundingRect(
+  #getBoundingRect(
     ctx: CanvasRenderingContext2D,
     text: string,
     cx: number,
@@ -558,7 +552,7 @@ export class AxesLayer extends L.GridLayer {
     );
   }
 
-  private getVisibleTileRange(): L.Bounds {
+  #getVisibleTileRange(): L.Bounds {
     const bounds = this._map.getPixelBounds();
     return new L.Bounds(
       new L.Point(
@@ -572,15 +566,15 @@ export class AxesLayer extends L.GridLayer {
     );
   }
 
-  private redrawCurrentTiles() {
-    const tileRange = this.getVisibleTileRange();
+  #redrawCurrentTiles() {
+    const tileRange = this.#getVisibleTileRange();
     // https://github.com/Leaflet/Leaflet/blob/436430db4203a350601e002c8de6a41fae15a4bf/src/layer/tile/GridLayer.js#L318
     for (const key in this._tiles) {
       const tile = this._tiles[key];
       if (!tile.current || !tile.loaded) {
         continue;
       }
-      this.drawTile(
+      this.#drawTile(
         tile.el.children[0] as HTMLCanvasElement,
         tile.coords,
         tileRange
@@ -638,7 +632,7 @@ export class GridLayer extends L.GridLayer {
 
       if (this.#showMinor) {
         ctx.setLineDash([1, 1]);
-        this.drawGrid(
+        this.#drawGrid(
           ctx,
           s0.x,
           s0.y,
@@ -655,7 +649,7 @@ export class GridLayer extends L.GridLayer {
 
       if (this.#showMajor) {
         ctx.setLineDash([]);
-        this.drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, majInterval, tx, ty);
+        this.#drawGrid(ctx, s0.x, s0.y, s1.x, s1.y, majInterval, tx, ty);
       }
 
       done(undefined, outer);
@@ -664,7 +658,7 @@ export class GridLayer extends L.GridLayer {
     return outer;
   }
 
-  private drawGrid(
+  #drawGrid(
     ctx: CanvasRenderingContext2D,
     x0: BigNumber,
     y0: BigNumber,

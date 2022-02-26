@@ -13,10 +13,10 @@ declare module "leaflet" {
 }
 
 export class GraphLayer extends L.GridLayer {
-  private graph?: Graph;
-  private onGraphingStatusChangedBound: ipc.GraphingStatusChanged["listener"];
-  private onTileReadyBound: ipc.TileReady["listener"];
-  private unsubscribeFromStore?: Unsubscribe;
+  #graph?: Graph;
+  #onGraphingStatusChangedBound: ipc.GraphingStatusChanged["listener"];
+  #onTileReadyBound: ipc.TileReady["listener"];
+  #unsubscribeFromStore?: Unsubscribe;
 
   constructor(
     readonly store: Store,
@@ -28,43 +28,47 @@ export class GraphLayer extends L.GridLayer {
       updateWhenZooming: false,
       ...options,
     });
-    this.onGraphingStatusChangedBound = this.onGraphingStatusChanged.bind(this);
-    this.onTileReadyBound = this.onTileReady.bind(this);
+    this.#onGraphingStatusChangedBound =
+      this.#onGraphingStatusChanged.bind(this);
+    this.#onTileReadyBound = this.#onTileReady.bind(this);
   }
 
   onAdd(map: L.Map): this {
     super.onAdd(map);
     window.ipcRenderer.on<ipc.GraphingStatusChanged>(
       ipc.graphingStatusChanged,
-      this.onGraphingStatusChangedBound
+      this.#onGraphingStatusChangedBound
     );
-    window.ipcRenderer.on<ipc.TileReady>(ipc.tileReady, this.onTileReadyBound);
-    this.unsubscribeFromStore = this.store.subscribe(
-      this.onAppStateChanged.bind(this)
+    window.ipcRenderer.on<ipc.TileReady>(ipc.tileReady, this.#onTileReadyBound);
+    this.#unsubscribeFromStore = this.store.subscribe(
+      this.#onAppStateChanged.bind(this)
     );
-    this.onAppStateChanged();
+    this.#onAppStateChanged();
     return this;
   }
 
   onRemove(map: L.Map): this {
     super.onRemove(map);
-    if (this.graph) {
-      this.abortGraphing(this.graph.relId);
+    if (this.#graph) {
+      this.#abortGraphing(this.#graph.relId);
     }
     window.ipcRenderer.off<ipc.GraphingStatusChanged>(
       ipc.graphingStatusChanged,
-      this.onGraphingStatusChangedBound
+      this.#onGraphingStatusChangedBound
     );
-    window.ipcRenderer.off<ipc.TileReady>(ipc.tileReady, this.onTileReadyBound);
-    this.unsubscribeFromStore?.();
+    window.ipcRenderer.off<ipc.TileReady>(
+      ipc.tileReady,
+      this.#onTileReadyBound
+    );
+    this.#unsubscribeFromStore?.();
     return this;
   }
 
   _removeTile(key: string): void {
     super._removeTile(key);
     const tileId = key;
-    if (this.graph) {
-      this.abortGraphing(this.graph.relId, tileId);
+    if (this.#graph) {
+      this.#abortGraphing(this.#graph.relId, tileId);
     }
   }
 
@@ -72,7 +76,7 @@ export class GraphLayer extends L.GridLayer {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected createTile(coords: L.Coords, _: L.DoneCallback): HTMLElement {
     const outer = L.DomUtil.create("div", "leaflet-tile") as HTMLDivElement;
-    if (!this.graph) {
+    if (!this.#graph) {
       return outer;
     }
 
@@ -86,7 +90,7 @@ export class GraphLayer extends L.GridLayer {
       inner.style.left = "0";
       inner.style.width = GRAPH_TILE_SIZE + "px";
       inner.style.height = GRAPH_TILE_SIZE + "px";
-      inner.style.background = this.graph.color;
+      inner.style.background = this.#graph.color;
       inner.style.webkitMaskPosition =
         "top -0.4990234375px left -0.4990234375px";
       inner.style.webkitMaskSize = EXTENDED_GRAPH_TILE_SIZE + "px";
@@ -96,7 +100,7 @@ export class GraphLayer extends L.GridLayer {
     const tileId = this._tileCoordsToKey(coords);
     window.ipcRenderer.invoke<ipc.RequestTile>(
       ipc.requestTile,
-      this.graph.relId,
+      this.#graph.relId,
       tileId,
       coords
     );
@@ -104,7 +108,7 @@ export class GraphLayer extends L.GridLayer {
     return outer;
   }
 
-  private abortGraphing(relId: string, tileId?: string): void {
+  #abortGraphing(relId: string, tileId?: string): void {
     window.ipcRenderer.invoke<ipc.AbortGraphing>(
       ipc.abortGraphing,
       relId,
@@ -112,40 +116,40 @@ export class GraphLayer extends L.GridLayer {
     );
   }
 
-  private onAppStateChanged() {
+  #onAppStateChanged() {
     const state = this.store.getState();
 
-    const oldGraph = this.graph;
-    this.graph = state.graphs.byId[this.graphId];
-    if (!this.graph) return;
+    const oldGraph = this.#graph;
+    this.#graph = state.graphs.byId[this.graphId];
+    if (!this.#graph) return;
 
-    if (this.graph.color !== oldGraph?.color) {
-      this.updateColor();
+    if (this.#graph.color !== oldGraph?.color) {
+      this.#updateColor();
     }
 
-    if (this.graph.relId !== oldGraph?.relId) {
-      this.updateRelation(oldGraph?.relId);
+    if (this.#graph.relId !== oldGraph?.relId) {
+      this.#updateRelation(oldGraph?.relId);
     }
   }
 
-  private onGraphingStatusChanged: ipc.GraphingStatusChanged["listener"] = (
+  #onGraphingStatusChanged: ipc.GraphingStatusChanged["listener"] = (
     _,
     relId,
     processing
   ) => {
-    if (relId === this.graph?.relId) {
+    if (relId === this.#graph?.relId) {
       this.store.dispatch(setGraphIsProcessing(this.graphId, processing));
     }
   };
 
-  private onTileReady: ipc.TileReady["listener"] = (_, relId, tileId, url) => {
-    if (relId === this.graph?.relId) {
-      this.updateTile(tileId, url);
+  #onTileReady: ipc.TileReady["listener"] = (_, relId, tileId, url) => {
+    if (relId === this.#graph?.relId) {
+      this.#updateTile(tileId, url);
     }
   };
 
-  private updateColor() {
-    if (!this.graph) {
+  #updateColor() {
+    if (!this.#graph) {
       throw new Error("`this.graph` must not be undefined");
     }
 
@@ -153,21 +157,21 @@ export class GraphLayer extends L.GridLayer {
       const tile = this._tiles[key];
       for (const inner of tile.el.children) {
         if (inner instanceof HTMLElement) {
-          inner.style.background = this.graph.color;
+          inner.style.background = this.#graph.color;
         }
       }
     }
   }
 
-  private async updateRelation(oldRelId?: string) {
+  async #updateRelation(oldRelId?: string) {
     if (oldRelId !== undefined) {
-      this.abortGraphing(oldRelId);
+      this.#abortGraphing(oldRelId);
     }
 
     this.redraw();
   }
 
-  private updateTile(tileId: string, url: string): void {
+  #updateTile(tileId: string, url: string): void {
     const preload = new Image();
     preload.src = url;
     preload.addEventListener(
