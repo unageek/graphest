@@ -47,10 +47,10 @@ export function loadFonts(): Promise<FontFace[]> {
 
 export class Bounds {
   constructor(
-    readonly x0: BigNumber,
-    readonly x1: BigNumber,
-    readonly y0: BigNumber,
-    readonly y1: BigNumber
+    readonly xMin: BigNumber,
+    readonly xMax: BigNumber,
+    readonly yMin: BigNumber,
+    readonly yMax: BigNumber
   ) {}
 }
 
@@ -158,7 +158,7 @@ export class AxesRenderer {
 
   drawXTicks(interval: GridInterval) {
     const { ctx, mapViewport, tileViewport, tx, ty } = this;
-    const { x0, x1 } = this.bounds;
+    const { xMax, xMin } = this.bounds;
 
     const cy = ty(ZERO);
     const wy = tileViewport.top + cy;
@@ -166,8 +166,8 @@ export class AxesRenderer {
     ctx.strokeStyle = sticky === 0 ? AXES_COLOR : AXES_COLOR_SECONDARY;
 
     ctx.beginPath();
-    const min = x0.times(interval.getInv()).ceil().minus(ONE);
-    const max = x1.times(interval.getInv()).floor().plus(ONE);
+    const min = xMin.times(interval.getInv()).ceil().minus(ONE);
+    const max = xMax.times(interval.getInv()).floor().plus(ONE);
     for (let i = min; i.lte(max); i = i.plus(ONE)) {
       if (i.isZero()) continue;
       const x = i.times(interval.get());
@@ -185,7 +185,7 @@ export class AxesRenderer {
 
   drawXTickLabels(interval: GridInterval) {
     const { ctx, mapViewport, tileViewport, tx, ty } = this;
-    const { x0, x1 } = this.bounds;
+    const { xMax, xMin } = this.bounds;
 
     const cy = ty(ZERO);
     const wy = tileViewport.top + cy;
@@ -193,8 +193,8 @@ export class AxesRenderer {
       ? AXES_COLOR
       : AXES_COLOR_SECONDARY;
 
-    const min = x0.times(interval.getInv()).ceil().minus(ONE);
-    const max = x1.times(interval.getInv()).floor().plus(ONE);
+    const min = xMin.times(interval.getInv()).ceil().minus(ONE);
+    const max = xMax.times(interval.getInv()).floor().plus(ONE);
     for (let i = min; i.lte(max); i = i.plus(ONE)) {
       if (i.isZero()) continue;
       const x = i.times(interval.get());
@@ -239,7 +239,7 @@ export class AxesRenderer {
 
   drawYTicks(interval: GridInterval) {
     const { ctx, mapViewport, tileViewport, tx, ty } = this;
-    const { y0, y1 } = this.bounds;
+    const { yMax, yMin } = this.bounds;
 
     const cx = tx(ZERO);
     const wx = tileViewport.left + cx;
@@ -247,8 +247,8 @@ export class AxesRenderer {
     ctx.strokeStyle = sticky === 0 ? AXES_COLOR : AXES_COLOR_SECONDARY;
 
     ctx.beginPath();
-    const min = y0.times(interval.getInv()).ceil().minus(ONE);
-    const max = y1.times(interval.getInv()).floor().plus(ONE);
+    const min = yMin.times(interval.getInv()).ceil().minus(ONE);
+    const max = yMax.times(interval.getInv()).floor().plus(ONE);
     for (let i = min; i.lte(max); i = i.plus(ONE)) {
       if (i.isZero()) continue;
       const y = i.times(interval.get());
@@ -266,7 +266,7 @@ export class AxesRenderer {
 
   drawYTickLabels(interval: GridInterval) {
     const { ctx, mapViewport, tileViewport, tx, ty } = this;
-    const { y0, y1 } = this.bounds;
+    const { yMax, yMin } = this.bounds;
 
     const cx = tx(ZERO);
     const wx = tileViewport.left + cx;
@@ -274,8 +274,8 @@ export class AxesRenderer {
       ? AXES_COLOR
       : AXES_COLOR_SECONDARY;
 
-    const min = y0.times(interval.getInv()).ceil().minus(ONE);
-    const max = y1.times(interval.getInv()).floor().plus(ONE);
+    const min = yMin.times(interval.getInv()).ceil().minus(ONE);
+    const max = yMax.times(interval.getInv()).floor().plus(ONE);
     for (let i = min; i.lte(max); i = i.plus(ONE)) {
       if (i.isZero()) continue;
       const y = i.times(interval.get());
@@ -372,12 +372,12 @@ export class GridRenderer {
 
   drawGrid(interval: GridInterval, skipEveryNthLine: BigNumber = ZERO) {
     const { ctx, height, tx, ty, width } = this;
-    const { x0, x1, y0, y1 } = this.bounds;
+    const { xMax, xMin, yMax, yMin } = this.bounds;
 
     ctx.beginPath();
     {
-      const min = x0.times(interval.getInv()).ceil().minus(ONE);
-      const max = x1.times(interval.getInv()).floor().plus(ONE);
+      const min = xMin.times(interval.getInv()).ceil().minus(ONE);
+      const max = xMax.times(interval.getInv()).floor().plus(ONE);
       for (let i = min; i.lte(max); i = i.plus(ONE)) {
         if (i.mod(skipEveryNthLine).isZero()) continue;
         const x = i.times(interval.get());
@@ -387,8 +387,8 @@ export class GridRenderer {
       }
     }
     {
-      const min = y0.times(interval.getInv()).ceil().minus(ONE);
-      const max = y1.times(interval.getInv()).floor().plus(ONE);
+      const min = yMin.times(interval.getInv()).ceil().minus(ONE);
+      const max = yMax.times(interval.getInv()).floor().plus(ONE);
       for (let i = min; i.lte(max); i = i.plus(ONE)) {
         if (i.mod(skipEveryNthLine).isZero()) continue;
         const y = i.times(interval.get());
