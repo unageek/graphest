@@ -268,7 +268,13 @@ export class GridLayer extends L.GridLayer {
 
       if (this.#showMinor) {
         renderer.beginDrawMinorGrid();
-        renderer.drawGrid(
+        renderer.drawXGrid(
+          minInterval,
+          ...(this.#showMajor
+            ? [majInterval.get().idiv(minInterval.get())]
+            : [])
+        );
+        renderer.drawYGrid(
           minInterval,
           ...(this.#showMajor
             ? [majInterval.get().idiv(minInterval.get())]
@@ -279,7 +285,8 @@ export class GridLayer extends L.GridLayer {
 
       if (this.#showMajor) {
         renderer.beginDrawMajorGrid();
-        renderer.drawGrid(majInterval);
+        renderer.drawXGrid(majInterval);
+        renderer.drawYGrid(majInterval);
         renderer.endDraw();
       }
 

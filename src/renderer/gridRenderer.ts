@@ -420,39 +420,43 @@ export class GridRenderer {
     ctx.strokeStyle = MINOR_GRID_COLOR;
   }
 
+  drawXGrid(interval: GridInterval, skipEveryNthLine: BigNumber = ZERO) {
+    const { ctx, tx } = this;
+    const { xMax, xMin } = this.bounds;
+
+    ctx.beginPath();
+    const min = xMin.times(interval.getInv()).ceil().minus(ONE);
+    const max = xMax.times(interval.getInv()).floor().plus(ONE);
+    for (let i = min; i.lte(max); i = i.plus(ONE)) {
+      if (i.mod(skipEveryNthLine).isZero()) continue;
+      const x = i.times(interval.get());
+      const cx = tx(x);
+      ctx.moveTo(cx, 0);
+      ctx.lineTo(cx, this.#height);
+    }
+    ctx.stroke();
+  }
+
+  drawYGrid(interval: GridInterval, skipEveryNthLine: BigNumber = ZERO) {
+    const { ctx, ty } = this;
+    const { yMax, yMin } = this.bounds;
+
+    ctx.beginPath();
+    const min = yMin.times(interval.getInv()).ceil().minus(ONE);
+    const max = yMax.times(interval.getInv()).floor().plus(ONE);
+    for (let i = min; i.lte(max); i = i.plus(ONE)) {
+      if (i.mod(skipEveryNthLine).isZero()) continue;
+      const y = i.times(interval.get());
+      const cy = ty(y);
+      ctx.moveTo(0, cy);
+      ctx.lineTo(this.#width, cy);
+    }
+    ctx.stroke();
+  }
+
   endDraw() {
     const { ctx } = this;
     ctx.restore();
-  }
-
-  drawGrid(interval: GridInterval, skipEveryNthLine: BigNumber = ZERO) {
-    const { ctx, tx, ty } = this;
-    const { xMax, xMin, yMax, yMin } = this.bounds;
-
-    ctx.beginPath();
-    {
-      const min = xMin.times(interval.getInv()).ceil().minus(ONE);
-      const max = xMax.times(interval.getInv()).floor().plus(ONE);
-      for (let i = min; i.lte(max); i = i.plus(ONE)) {
-        if (i.mod(skipEveryNthLine).isZero()) continue;
-        const x = i.times(interval.get());
-        const cx = tx(x);
-        ctx.moveTo(cx, 0);
-        ctx.lineTo(cx, this.#height);
-      }
-    }
-    {
-      const min = yMin.times(interval.getInv()).ceil().minus(ONE);
-      const max = yMax.times(interval.getInv()).floor().plus(ONE);
-      for (let i = min; i.lte(max); i = i.plus(ONE)) {
-        if (i.mod(skipEveryNthLine).isZero()) continue;
-        const y = i.times(interval.get());
-        const cy = ty(y);
-        ctx.moveTo(0, cy);
-        ctx.lineTo(this.#width, cy);
-      }
-    }
-    ctx.stroke();
   }
 
   fillBackground() {
