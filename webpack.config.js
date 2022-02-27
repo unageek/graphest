@@ -53,7 +53,13 @@ function mainConfig() {
     target: "electron-main",
     entry: "./src/main/main.ts",
     module: {
-      rules: [tsLoaderRule],
+      rules: [
+        tsLoaderRule,
+        {
+          test: /\.node$/,
+          use: "node-loader",
+        },
+      ],
     },
     plugins,
   };

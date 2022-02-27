@@ -20,6 +20,7 @@ import * as os from "os";
 import * as path from "path";
 import * as url from "url";
 import * as util from "util";
+import { Worker } from "worker_threads";
 import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
 import {
@@ -376,6 +377,21 @@ ipcMain.handle(
       return;
     }
 
+    const backgroundImagePath = path.join(
+      outDir,
+      nextExportImageId.toString() + ".png"
+    );
+    nextExportImageId++;
+    const buffer = (await new Promise((resolve, reject) => {
+      const worker = new Worker(
+        new URL("./backgoundImage.ts", import.meta.url),
+        { workerData: opts }
+      );
+      worker.on("message", resolve);
+      worker.on("error", reject);
+    })) as Buffer;
+    await fsPromises.writeFile(backgroundImagePath, buffer);
+
     const newEntries = [];
     for (const entry of entries) {
       newEntries.push({
@@ -511,6 +527,8 @@ ipcMain.handle(
     }
 
     const args = [
+      "--background",
+      backgroundImagePath,
       ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
       "--output",
       opts.path,

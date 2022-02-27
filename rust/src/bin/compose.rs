@@ -58,6 +58,13 @@ fn main() {
                 .value_names(&["file", "color"]),
         )
         .arg(
+            Arg::new("background")
+                .long("background")
+                .takes_value(true)
+                .forbid_empty_values(true)
+                .value_name("file"),
+        )
+        .arg(
             Arg::new("output")
                 .long("output")
                 .allow_invalid_utf8(true)
@@ -76,28 +83,35 @@ fn main() {
             file: e[0].into(),
         })
         .collect::<Vec<_>>();
-    let output = matches.value_of_os("output").unwrap().to_owned();
+    let background = matches.value_of("background").unwrap();
+    let output = matches.value_of("output").unwrap();
+
+    let mut composed = {
+        let im = ImageReader::open(background)
+            .unwrap_or_else(|_| panic!("failed to open the image '{}'", background))
+            .decode()
+            .unwrap_or_else(|_| panic!("failed to decode the image '{}'", background));
+        match im {
+            DynamicImage::ImageRgba8(im) => im,
+            _ => panic!("an RGBA8 image is expected for `--background`"),
+        }
+    };
 
     let mut sepia = None;
-    let mut composed = None;
     for entry in entries {
         let im = ImageReader::open(&entry.file)
             .unwrap_or_else(|_| panic!("failed to open the image '{}'", entry.file))
             .decode()
             .unwrap_or_else(|_| panic!("failed to decode the image '{}'", entry.file));
+        assert_eq!(im.width(), composed.width());
+        assert_eq!(im.height(), composed.height());
+
         let sepia = sepia.get_or_insert_with(|| RgbaImage::new(im.width(), im.height()));
-        assert_eq!(im.width(), sepia.width());
-        assert_eq!(im.height(), sepia.height());
-        let composed = composed.get_or_insert_with(|| {
-            let mut composed = RgbaImage::new(im.width(), im.height());
-            composed.fill(255);
-            composed
-        });
         sepia_tone(&im, entry.color, sepia);
-        imageops::overlay(composed, sepia, 0, 0);
+        imageops::overlay(&mut composed, sepia, 0, 0);
     }
 
-    if let Some(composed) = composed {
-        composed.save(output).expect("failed to save the image");
-    }
+    composed
+        .save(output)
+        .unwrap_or_else(|_| panic!("failed to save the image '{}'", output));
 }

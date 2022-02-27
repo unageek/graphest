@@ -20,6 +20,8 @@
    brew install node
    ```
 
+1. [Libraries required for building node-canvas](https://github.com/Automattic/node-canvas#compiling)
+
 ### Windows
 
 1. [Chocolatey](https://chocolatey.org/install)
@@ -62,6 +64,8 @@
 
    See [Windows - The rustup book](https://rust-lang.github.io/rustup/installation/windows.html) for details.
 
+1. [Libraries required for building node-canvas](https://github.com/Automattic/node-canvas#compiling)
+
 ### Ubuntu
 
 1. Command line tools and libraries
@@ -79,6 +83,8 @@
    ```
 
 1. [Rust](https://rustup.rs)
+
+1. [Libraries required for building node-canvas](https://github.com/Automattic/node-canvas#compiling)
 
 ## Build
 
