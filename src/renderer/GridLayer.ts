@@ -4,10 +4,10 @@ import { BASE_ZOOM_LEVEL } from "../common/constants";
 import {
   AxesRenderer,
   Bounds,
-  GridInterval,
+  getTransform,
   GridRenderer,
   loadFonts,
-  Transform,
+  suggestGridIntervals,
 } from "./gridRenderer";
 
 BigNumber.config({
@@ -23,50 +23,6 @@ const TILE_EXTENSION = 1;
 const EXTENDED_TILE_SIZE = TILE_SIZE + TILE_EXTENSION;
 // `image-rendering: pixelated` does not work well with translations close to -0.5px.
 const TRANSFORM = "translate(-0.4990234375px, -0.4990234375px)";
-
-/**
- * Returns the 1-D affine transformation that maps each source point
- * to the corresponding destination point.
- * @param fromPoints The source points.
- * @param toPoints The destination points.
- */
-function getTransform(
-  fromPoints: [BigNumber, BigNumber],
-  toPoints: [BigNumber, BigNumber]
-): Transform {
-  const [x0, x1] = fromPoints;
-  const [y0, y1] = toPoints;
-  const d = x1.minus(x0);
-  const a = y1.minus(y0);
-  const b = x1.times(y0).minus(x0.times(y1));
-  return (x) => {
-    return +a.times(x).plus(b).div(d);
-  };
-}
-
-const mantissas = [1, 2, 5].map(bignum);
-/**
- * Returns the major and minor grid intervals.
- * @param widthPerPixel The width of pixels in real coordinates.
- */
-function gridIntervals(widthPerPixel: number): [GridInterval, GridInterval] {
-  function interval(level: number): GridInterval {
-    const e = Math.floor(level / 3);
-    const m = mantissas[level - 3 * e];
-    return new GridInterval(m, e);
-  }
-
-  const maxDensity = 20; // One minor line per 20px at most.
-  const e = Math.floor(Math.log10(widthPerPixel * maxDensity)) - 1;
-  let level = 3 * e;
-  for (;;) {
-    const minInterval = interval(level);
-    if (+minInterval.get() / widthPerPixel >= maxDensity) {
-      return [interval(level + 2), minInterval];
-    }
-    level++;
-  }
-}
 
 class Point {
   constructor(readonly x: BigNumber, readonly y: BigNumber) {}
@@ -146,7 +102,7 @@ export class AxesLayer extends L.GridLayer {
     const ty = getTransform([s0.y, s1.y], [d0.y, d1.y]);
 
     const widthPerPixel = widthPerTilef / TILE_SIZE;
-    const [interval] = gridIntervals(widthPerPixel);
+    const [interval] = suggestGridIntervals(widthPerPixel);
 
     const ctx = tile.getContext("2d")!;
     ctx.setTransform(RETINA_SCALE, 0, 0, RETINA_SCALE, 0, 0);
@@ -294,7 +250,7 @@ export class GridLayer extends L.GridLayer {
       const ty = getTransform([s0.y, s1.y], [d0.y, d1.y]);
 
       const widthPerPixel = widthPerTilef / TILE_SIZE;
-      const [majInterval, minInterval] = gridIntervals(widthPerPixel);
+      const [majInterval, minInterval] = suggestGridIntervals(widthPerPixel);
 
       const ctx = inner.getContext("2d")!;
       ctx.setTransform(RETINA_SCALE, 0, 0, RETINA_SCALE, 0, 0);

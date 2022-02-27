@@ -71,8 +71,54 @@ export class GridInterval {
   }
 }
 
+const mantissas = [1, 2, 5].map(bignum);
+/**
+ * Returns the major and minor grid intervals.
+ * @param widthPerPixel The width of pixels in real coordinates.
+ */
+export function suggestGridIntervals(
+  widthPerPixel: number
+): [GridInterval, GridInterval] {
+  function interval(level: number): GridInterval {
+    const e = Math.floor(level / 3);
+    const m = mantissas[level - 3 * e];
+    return new GridInterval(m, e);
+  }
+
+  const maxDensity = 20; // One minor line per 20px at most.
+  const e = Math.floor(Math.log10(widthPerPixel * maxDensity)) - 1;
+  let level = 3 * e;
+  for (;;) {
+    const minInterval = interval(level);
+    if (+minInterval.get() / widthPerPixel >= maxDensity) {
+      return [interval(level + 2), minInterval];
+    }
+    level++;
+  }
+}
+
 export interface Transform {
   (x: BigNumber): number;
+}
+
+/**
+ * Returns the 1-D affine transformation that maps each source point
+ * to the corresponding destination point.
+ * @param fromPoints The source points.
+ * @param toPoints The destination points.
+ */
+export function getTransform(
+  fromPoints: [BigNumber, BigNumber],
+  toPoints: [BigNumber, BigNumber]
+): Transform {
+  const [x0, x1] = fromPoints;
+  const [y0, y1] = toPoints;
+  const d = x1.minus(x0);
+  const a = y1.minus(y0);
+  const b = x1.times(y0).minus(x0.times(y1));
+  return (x) => {
+    return +a.times(x).plus(b).div(d);
+  };
 }
 
 export class AxesRenderer {
