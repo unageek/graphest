@@ -112,6 +112,8 @@ export class AxesLayer extends L.GridLayer {
     const renderer = new AxesRenderer(
       ctx,
       new Bounds(s0.x, s1.x, s0.y, s1.y),
+      EXTENDED_TILE_SIZE,
+      EXTENDED_TILE_SIZE,
       tx,
       ty,
       mapViewport,
@@ -259,9 +261,10 @@ export class GridLayer extends L.GridLayer {
       const renderer = new GridRenderer(
         ctx,
         new Bounds(s0.x, s1.x, s0.y, s1.y),
+        EXTENDED_TILE_SIZE,
+        EXTENDED_TILE_SIZE,
         tx,
-        ty,
-        tileViewport
+        ty
       );
 
       renderer.fillBackground();
