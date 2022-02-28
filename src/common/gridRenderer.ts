@@ -1,4 +1,5 @@
-import { bignum, BigNumber } from "../common/bignumber";
+import { bignum, BigNumber } from "./bignumber";
+import { Rect } from "./rect";
 
 BigNumber.config({
   EXPONENTIAL_AT: 5,
@@ -135,15 +136,15 @@ export class AxesRenderer {
     readonly bounds: Bounds,
     readonly tx: Transform,
     readonly ty: Transform,
-    readonly mapViewport: DOMRectReadOnly,
-    readonly tileViewport: DOMRectReadOnly
+    readonly mapViewport: Rect,
+    readonly tileViewport: Rect
   ) {
     this.#height = tileViewport.height;
     this.#width = tileViewport.width;
   }
 
-  #dilate(r: DOMRectReadOnly, radius: number): DOMRectReadOnly {
-    return new DOMRectReadOnly(
+  #dilate(r: Rect, radius: number): Rect {
+    return new Rect(
       r.x - radius,
       r.y - radius,
       r.width + 2 * radius,
@@ -378,11 +379,11 @@ export class AxesRenderer {
     return x.toString().replaceAll("-", "−");
   }
 
-  #getBoundingRect(text: string, cx: number, cy: number): DOMRectReadOnly {
+  #getBoundingRect(text: string, cx: number, cy: number): Rect {
     const wx = this.tileViewport.left + cx;
     const wy = this.tileViewport.top + cy;
     const m = this.ctx.measureText(text);
-    return new DOMRectReadOnly(
+    return new Rect(
       wx - m.actualBoundingBoxLeft,
       wy - m.actualBoundingBoxAscent,
       m.actualBoundingBoxLeft + m.actualBoundingBoxRight,
@@ -400,7 +401,7 @@ export class GridRenderer {
     readonly bounds: Bounds,
     readonly tx: Transform,
     readonly ty: Transform,
-    readonly tileViewport: DOMRectReadOnly
+    readonly tileViewport: Rect
   ) {
     this.#height = tileViewport.height;
     this.#width = tileViewport.width;

@@ -8,7 +8,7 @@ import {
   GridRenderer,
   loadFonts,
   suggestGridIntervals,
-} from "./gridRenderer";
+} from "../common/gridRenderer";
 
 BigNumber.config({
   EXPONENTIAL_AT: 5,
