@@ -179,7 +179,7 @@ app.whenReady().then(async () => {
 
 app.on("quit", () => {
   abortJobs();
-  fs.rmdirSync(baseOutDir, { recursive: true });
+  fs.rmSync(baseOutDir, { recursive: true });
 });
 
 app.on("window-all-closed", () => {
