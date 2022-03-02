@@ -1,9 +1,15 @@
 import { createSlice, isAnyOf, PayloadAction } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useSelector as _useSelector } from "react-redux";
 import {
+  BASE_ZOOM_LEVEL,
+  DEFAULT_COLOR,
+  INITIAL_ZOOM_LEVEL,
+} from "../../common/constants";
+import {
   ExportImageOptions,
   ExportImageProgress,
 } from "../../common/exportImage";
+import { GraphData } from "../graphData";
 import {
   Graph,
   graphReducer,
@@ -14,18 +20,22 @@ import {
 } from "./graph";
 
 export interface AppState {
+  center: [number, number];
   exportImageProgress: ExportImageProgress;
   graphs: { byId: { [id: string]: Graph }; allIds: string[] };
   highRes: boolean;
   lastExportImageOpts: ExportImageOptions;
   nextGraphId: number;
+  resetView: boolean;
   showAxes: boolean;
   showExportImageDialog: boolean;
   showMajorGrid: boolean;
   showMinorGrid: boolean;
+  zoomLevel: number;
 }
 
 const initialState: AppState = {
+  center: [0, 0],
   exportImageProgress: {
     lastStderr: "",
     lastUrl: "",
@@ -45,16 +55,46 @@ const initialState: AppState = {
     yMin: "-10",
   },
   nextGraphId: 0,
+  resetView: false,
   showAxes: true,
   showExportImageDialog: false,
   showMajorGrid: true,
   showMinorGrid: true,
+  zoomLevel: INITIAL_ZOOM_LEVEL - BASE_ZOOM_LEVEL,
 };
 
 const slice = createSlice({
   name: "app",
   initialState,
   reducers: {
+    addGraph: {
+      prepare: (data: GraphData) => ({
+        payload: data,
+      }),
+      reducer: (s, a: PayloadAction<GraphData>) => {
+        const { color, penSize, relation } = a.payload;
+        const id = s.nextGraphId.toString();
+        return {
+          ...s,
+          graphs: {
+            byId: {
+              ...s.graphs.byId,
+              [id]: {
+                color,
+                id,
+                isProcessing: false,
+                penSize,
+                relationInputByUser: false,
+                relation,
+                relId: "",
+              },
+            },
+            allIds: [...s.graphs.allIds, id],
+          },
+          nextGraphId: s.nextGraphId + 1,
+        };
+      },
+    },
     newGraph: (s) => {
       const id = s.nextGraphId.toString();
       return {
@@ -63,8 +103,7 @@ const slice = createSlice({
           byId: {
             ...s.graphs.byId,
             [id]: {
-              // `SharedColors.cyanBlue20`
-              color: "rgba(0, 78, 140, 0.8)",
+              color: DEFAULT_COLOR,
               id,
               isProcessing: false,
               penSize: 1,
@@ -76,6 +115,12 @@ const slice = createSlice({
           allIds: [...s.graphs.allIds, id],
         },
         nextGraphId: s.nextGraphId + 1,
+      };
+    },
+    removeAllGraphs: (s) => {
+      return {
+        ...s,
+        graphs: { byId: {}, allIds: [] },
       };
     },
     removeGraph: {
@@ -109,6 +154,15 @@ const slice = createSlice({
         },
       }),
     },
+    setCenter: {
+      prepare: (center: [number, number]) => ({ payload: { center } }),
+      reducer: (s, a: PayloadAction<{ center: [number, number] }>) => {
+        return {
+          ...s,
+          center: a.payload.center,
+        };
+      },
+    },
     setExportImageProgress: {
       prepare: (progress: ExportImageProgress) => ({
         payload: { progress },
@@ -130,6 +184,13 @@ const slice = createSlice({
       reducer: (s, a: PayloadAction<{ opts: ExportImageOptions }>) => ({
         ...s,
         lastExportImageOpts: a.payload.opts,
+      }),
+    },
+    setResetView: {
+      prepare: (reset: boolean) => ({ payload: { reset } }),
+      reducer: (s, a: PayloadAction<{ reset: boolean }>) => ({
+        ...s,
+        resetView: a.payload.reset,
       }),
     },
     setShowAxes: {
@@ -159,6 +220,15 @@ const slice = createSlice({
         ...s,
         showMinorGrid: a.payload.show,
       }),
+    },
+    setZoomLevel: {
+      prepare: (zoom: number) => ({ payload: { zoom } }),
+      reducer: (s, a: PayloadAction<{ zoom: number }>) => {
+        return {
+          ...s,
+          zoomLevel: a.payload.zoom,
+        };
+      },
     },
   },
   extraReducers: (builder) => {
@@ -195,16 +265,21 @@ function moveElement<T>(array: T[], fromIndex: number, toIndex: number): T[] {
 }
 
 export const {
+  addGraph,
   newGraph,
+  removeAllGraphs,
   removeGraph,
   reorderGraph,
+  setCenter,
   setExportImageProgress,
   setHighRes,
   setLastExportImageOpts,
+  setResetView,
   setShowAxes,
   setShowExportImageDialog,
   setShowMajorGrid,
   setShowMinorGrid,
+  setZoomLevel,
 } = slice.actions;
 
 export const appReducer = slice.reducer;

@@ -1,5 +1,6 @@
 import { IpcRendererEvent } from "electron";
 import { Command } from "./command";
+import { Document } from "./document";
 import {
   ExportImageEntry,
   ExportImageOptions,
@@ -14,6 +15,12 @@ export interface RelationError {
 }
 
 export type RequestRelationResult = Result<string, RelationError>;
+
+export enum SaveTo {
+  Clipboard = "clipboard",
+  CurrentFile = "current-file",
+  NewFile = "new-file",
+}
 
 export interface MessageToMain {
   channel: string;
@@ -56,11 +63,25 @@ export interface OpenUrl extends MessageToMain {
   result: void;
 }
 
+export const ready = "ready";
+export interface Ready extends MessageToMain {
+  channel: typeof ready;
+  args: [];
+  result: void;
+}
+
 export const requestRelation = "request-relation";
 export interface RequestRelation extends MessageToMain {
   channel: typeof requestRelation;
   args: [rel: string, graphId: string, highRes: boolean];
   result: RequestRelationResult;
+}
+
+export const requestSave = "request-save";
+export interface RequestSave extends MessageToMain {
+  channel: typeof requestSave;
+  args: [doc: Document, to: SaveTo];
+  result: Promise<void>;
 }
 
 export const requestTile = "request-tile";
@@ -70,7 +91,14 @@ export interface RequestTile extends MessageToMain {
   result: void;
 }
 
-export const showSaveDialog = "open-save-dialog";
+export const requestUnload = "request-unload";
+export interface RequestUnload extends MessageToMain {
+  channel: typeof requestUnload;
+  args: [doc: Document];
+  result: Promise<void>;
+}
+
+export const showSaveDialog = "show-save-dialog";
 export interface ShowSaveDialog extends MessageToMain {
   channel: typeof showSaveDialog;
   args: [path: string];
@@ -109,6 +137,27 @@ export interface GraphingStatusChanged extends MessageToRenderer {
     event: IpcRendererEvent,
     ...args: GraphingStatusChanged["args"]
   ) => void;
+}
+
+export const initiateSave = "initiate-save";
+export interface InitiateSave extends MessageToRenderer {
+  channel: typeof initiateSave;
+  args: [to: SaveTo];
+  listener: (event: IpcRendererEvent, ...args: InitiateSave["args"]) => void;
+}
+
+export const initiateUnload = "initiate-unload";
+export interface InitiateUnload extends MessageToRenderer {
+  channel: typeof initiateUnload;
+  args: [];
+  listener: (event: IpcRendererEvent, ...args: InitiateUnload["args"]) => void;
+}
+
+export const load = "load";
+export interface Load extends MessageToRenderer {
+  channel: typeof load;
+  args: [doc: Document];
+  listener: (event: IpcRendererEvent, ...args: Load["args"]) => void;
 }
 
 export const tileReady = "tile-ready";

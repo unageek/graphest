@@ -16,8 +16,43 @@ export function createMainMenu(actions: MenuActions): Menu {
       role: "fileMenu",
       label: "&File",
       submenu: [
+        {
+          id: Command.NewDocument,
+          label: "&New",
+          accelerator: "CmdOrCtrl+N",
+          click: actions[Command.NewDocument],
+        },
+        {
+          id: Command.Open,
+          label: "&Open…",
+          accelerator: "CmdOrCtrl+O",
+          click: actions[Command.Open],
+        },
+        {
+          id: Command.OpenFromClipboard,
+          label: "Open from Clipboard",
+          click: actions[Command.OpenFromClipboard],
+        },
+        { type: "separator" },
         // The Close menu is required for closing the about panel.
         { role: "close" },
+        {
+          id: Command.Save,
+          label: "&Save",
+          accelerator: "CmdOrCtrl+S",
+          click: actions[Command.Save],
+        },
+        {
+          id: Command.SaveAs,
+          label: "Save &As…",
+          accelerator: "CmdOrCtrl+Shift+S",
+          click: actions[Command.SaveAs],
+        },
+        {
+          id: Command.SaveToClipboard,
+          label: "Save to Clipboard",
+          click: actions[Command.SaveToClipboard],
+        },
         { type: "separator" },
         {
           id: Command.ExportImage,

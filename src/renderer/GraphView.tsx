@@ -4,13 +4,19 @@ import "leaflet-easybutton/src/easy-button";
 import "leaflet-easybutton/src/easy-button.css";
 import "leaflet/dist/leaflet.css";
 import * as React from "react";
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useCallback, useEffect, useState } from "react";
 import * as ReactDOM from "react-dom";
 import { useStore } from "react-redux";
-import { INITIAL_ZOOM_LEVEL } from "../common/constants";
+import { BASE_ZOOM_LEVEL, INITIAL_ZOOM_LEVEL } from "../common/constants";
 import { GraphLayer } from "./GraphLayer";
 import { AxesLayer, GridLayer } from "./GridLayer";
-import { useSelector } from "./models/app";
+import {
+  AppState,
+  setCenter,
+  setResetView,
+  setZoomLevel,
+  useSelector,
+} from "./models/app";
 
 export interface GraphViewProps {
   grow?: boolean;
@@ -19,6 +25,7 @@ export interface GraphViewProps {
 export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
   (props, ref) => {
     const graphs = useSelector((s) => s.graphs);
+    const resetView = useSelector((s) => s.resetView);
     const showAxes = useSelector((s) => s.showAxes);
     const showMajorGrid = useSelector((s) => s.showMajorGrid);
     const showMinorGrid = useSelector((s) => s.showMinorGrid);
@@ -26,7 +33,45 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     const [graphLayers] = useState<Map<string, GraphLayer>>(new Map());
     const [gridLayer] = useState(new GridLayer().setZIndex(0));
     const [map, setMap] = useState<L.Map | undefined>();
-    const store = useStore();
+    const store = useStore<AppState>();
+
+    const updateMaxBounds = useCallback(() => {
+      if (map === undefined) return;
+      // To get map coordinates from pixel coordinates, multiply them by `2 ** -zoom`.
+      // If the view goes outside this range, the Leaflet map can get stuck.
+      const max = Number.MAX_SAFE_INTEGER * 2 ** -map.getZoom();
+      const min = -max;
+      map.setMaxBounds([
+        [min, min],
+        [max, max],
+      ]);
+    }, [map]);
+
+    const updateMaxZoom = useCallback(() => {
+      if (map === undefined) return;
+      const b = map.getBounds();
+      // To get pixel coordinates from map coordinates, multiply them by `2 ** zoom`.
+      const maxPixelCoord =
+        Math.max(-b.getWest(), b.getEast(), -b.getSouth(), b.getNorth()) *
+        2 ** map.getZoom();
+      // 52 = ⌊lg(Number.MAX_SAFE_INTEGER)⌋.
+      const maxZoom =
+        map.getZoom() + Math.max(0, 52 - Math.ceil(Math.log2(maxPixelCoord)));
+      // The Leaflet map cannot be zoomed in further than 1023.
+      map.setMaxZoom(Math.min(maxZoom, 1023));
+    }, [map]);
+
+    const loadViewFromStore = useCallback(() => {
+      if (map === undefined) return;
+      const state = store.getState();
+      const { center: cc, zoomLevel: zz } = state;
+      const z = zz + BASE_ZOOM_LEVEL;
+      const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
+      const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
+      map?.setMaxZoom(z).setView([y, x], z);
+      updateMaxBounds();
+      updateMaxZoom();
+    }, [map, store, updateMaxBounds, updateMaxZoom]);
 
     useEffect(() => {
       if (map === undefined) return;
@@ -72,6 +117,13 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     }, [gridLayer, map, showMinorGrid]);
 
     useEffect(() => {
+      if (resetView) {
+        loadViewFromStore();
+        store.dispatch(setResetView(false));
+      }
+    }, [loadViewFromStore, map, resetView, store]);
+
+    useEffect(() => {
       setMap(
         L.map("map", {
           attributionControl: false,
@@ -89,11 +141,13 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       if (map === undefined) return;
 
       // We first need to set the view before calling `map.getCenter()`, `getZoom()`, etc.
-      resetView();
+      loadViewFromStore();
 
       map
         .on("move", updateMaxZoom)
+        .on("moveend", saveViewToStore)
         .on("zoom", updateMaxBounds)
+        .on("zoomend", saveViewToStore)
         .on("zoomstart", onZoomStart);
 
       const resizeObserver = new window.ResizeObserver(() => {
@@ -151,37 +205,22 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         updateMaxZoom();
       }
 
-      function updateMaxBounds() {
+      function saveViewToStore() {
         if (map === undefined) return;
-        // To get map coordinates from pixel coordinates, multiply them by `2 ** -zoom`.
-        // If the view goes outside this range, the Leaflet map can get stuck.
-        const max = Number.MAX_SAFE_INTEGER * 2 ** -map.getZoom();
-        const min = -max;
-        map.setMaxBounds([
-          [min, min],
-          [max, max],
-        ]);
-      }
-
-      function updateMaxZoom() {
-        if (map === undefined) return;
-        const b = map.getBounds();
-        // To get pixel coordinates from map coordinates, multiply them by `2 ** zoom`.
-        const maxPixelCoord =
-          Math.max(-b.getWest(), b.getEast(), -b.getSouth(), b.getNorth()) *
-          2 ** map.getZoom();
-        // 52 = ⌊lg(Number.MAX_SAFE_INTEGER)⌋.
-        const maxZoom =
-          map.getZoom() + Math.max(0, 52 - Math.ceil(Math.log2(maxPixelCoord)));
-        // The Leaflet map cannot be zoomed in further than 1023.
-        map.setMaxZoom(Math.min(maxZoom, 1023));
+        const center = map.getCenter();
+        const x = center.lng;
+        const y = center.lat;
+        store.dispatch(
+          setCenter([x * 2 ** BASE_ZOOM_LEVEL, y * 2 ** BASE_ZOOM_LEVEL])
+        );
+        store.dispatch(setZoomLevel(map.getZoom() - BASE_ZOOM_LEVEL));
       }
 
       return function cleanup() {
         resizeObserver.disconnect();
         map.remove();
       };
-    }, [map]);
+    }, [loadViewFromStore, map, store, updateMaxBounds, updateMaxZoom]);
 
     return (
       <div
