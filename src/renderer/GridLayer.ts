@@ -256,7 +256,6 @@ export class GridLayer extends L.GridLayer {
 
       const ctx = inner.getContext("2d")!;
       ctx.setTransform(RETINA_SCALE, 0, 0, RETINA_SCALE, 0, 0);
-      const tileViewport = ctx.canvas.getBoundingClientRect();
 
       const renderer = new GridRenderer(
         ctx,
