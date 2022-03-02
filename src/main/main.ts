@@ -1,15 +1,6 @@
 import * as assert from "assert";
 import { ChildProcess, execFile } from "child_process";
-import {
-  app,
-  BrowserWindow,
-  dialog,
-  ipcMain,
-  Menu,
-  MenuItemConstructorOptions,
-  screen,
-  shell,
-} from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 import installExtension, {
   REACT_DEVELOPER_TOOLS,
   REDUX_DEVTOOLS,
@@ -41,6 +32,7 @@ import {
 import * as ipc from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
+import { createMainMenu } from "./mainMenu";
 
 const fsPromises = fs.promises;
 
@@ -125,156 +117,6 @@ let nextRelId = 0;
 const relationById = new Map<string, Relation>();
 const relKeyToRelId = new Map<string, string>();
 
-function createMainMenu(): Menu {
-  // https://www.electronjs.org/docs/api/menu#examples
-  // https://github.com/electron/electron/blob/main/lib/browser/api/menu-item-roles.ts
-  const isMac = process.platform === "darwin";
-  const isRetina = screen.getPrimaryDisplay().scaleFactor === 2;
-  return Menu.buildFromTemplate([
-    ...(isMac ? [{ role: "appMenu" }] : []),
-    {
-      role: "fileMenu",
-      label: "&File",
-      submenu: [
-        // The Close menu is required for closing the about panel.
-        { role: "close" },
-        { type: "separator" },
-        {
-          id: Command.ExportImage,
-          label: "Export as Image…",
-          click: () => {
-            mainWindow?.webContents.send(
-              ipc.commandInvoked,
-              Command.ExportImage
-            );
-          },
-        },
-        { type: "separator" },
-        ...(isMac ? [] : [{ role: "quit" }]),
-      ],
-    },
-    { role: "editMenu", label: "&Edit" },
-    {
-      label: "&Graph",
-      submenu: [
-        {
-          id: Command.ShowAxes,
-          label: "Show &Axes",
-          accelerator: isMac ? "Cmd+1" : "Alt+1",
-          type: "checkbox",
-          checked: true,
-          click: () => {
-            mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowAxes);
-          },
-        },
-        {
-          id: Command.ShowMajorGrid,
-          label: "Show Major &Grid",
-          accelerator: isMac ? "Cmd+2" : "Alt+2",
-          type: "checkbox",
-          checked: true,
-          click: () => {
-            mainWindow?.webContents.send(
-              ipc.commandInvoked,
-              Command.ShowMajorGrid
-            );
-          },
-        },
-        {
-          id: Command.ShowMinorGrid,
-          label: "Show &Minor Grid",
-          accelerator: isMac ? "Cmd+3" : "Alt+3",
-          type: "checkbox",
-          checked: true,
-          click: () => {
-            mainWindow?.webContents.send(
-              ipc.commandInvoked,
-              Command.ShowMinorGrid
-            );
-          },
-        },
-        {
-          type: "separator",
-        },
-        ...(isRetina
-          ? [
-              {
-                id: Command.HighResolution,
-                label: "&High Resolution",
-                type: "checkbox",
-                click: () => {
-                  mainWindow?.webContents.send(
-                    ipc.commandInvoked,
-                    Command.HighResolution
-                  );
-                },
-              },
-            ]
-          : []),
-        {
-          type: "separator",
-        },
-        {
-          id: Command.AbortGraphing,
-          label: "A&bort Graphing",
-          accelerator: "Esc",
-          click: () => {
-            abortJobs();
-          },
-        },
-      ],
-    },
-    {
-      role: "windowMenu",
-      label: "&Window",
-      submenu: [
-        ...(isMac ? [{ role: "minimize" }, { role: "zoom" }] : []),
-        // On macOS, it seems common to place the Toggle Full Screen menu under the Window menu
-        // if there is nothing else to be placed under the View menu.
-        { role: "togglefullscreen", label: "Toggle &Full Screen" },
-        { type: "separator" },
-        ...(isMac ? [{ role: "front" }] : []),
-      ],
-    },
-    {
-      role: "help",
-      label: "&Help",
-      submenu: [
-        {
-          label: "Graphest &Help",
-          accelerator: isMac ? "" : "F1",
-          click: async () => {
-            await shell.openExternal(
-              "https://unageek.github.io/graphest/guide/"
-            );
-          },
-        },
-        { type: "separator" },
-        {
-          label: "What's New",
-          click: async () => {
-            await shell.openExternal(
-              "https://github.com/unageek/graphest/releases"
-            );
-          },
-        },
-        {
-          label: "Example Relations",
-          click: async () => {
-            await shell.openExternal(
-              "https://github.com/unageek/graphest/blob/main/Examples.md"
-            );
-          },
-        },
-        { type: "separator" },
-        { role: "toggleDevTools" },
-        { type: "separator" },
-        ...(isMac ? [] : [{ role: "about" }]),
-      ],
-    },
-  ] as MenuItemConstructorOptions[]);
-}
-
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     height: 600,
@@ -312,7 +154,24 @@ app.whenReady().then(async () => {
   });
 
   resetBrowserZoom();
-  mainMenu = createMainMenu();
+  mainMenu = createMainMenu({
+    [Command.AbortGraphing]: () => abortJobs(),
+    [Command.ExportImage]: () => {
+      mainWindow?.webContents.send(ipc.commandInvoked, Command.ExportImage);
+    },
+    [Command.HighResolution]: () => {
+      mainWindow?.webContents.send(ipc.commandInvoked, Command.HighResolution);
+    },
+    [Command.ShowAxes]: () => {
+      mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowAxes);
+    },
+    [Command.ShowMajorGrid]: () => {
+      mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowMajorGrid);
+    },
+    [Command.ShowMinorGrid]: () => {
+      mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowMinorGrid);
+    },
+  });
   Menu.setApplicationMenu(mainMenu);
   createMainWindow();
   autoUpdater.checkForUpdatesAndNotify();
