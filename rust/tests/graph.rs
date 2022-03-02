@@ -81,16 +81,16 @@ macro_rules! t {
         t!($id, $($arg),+, "--pad-top", stringify!($length) $(, @$opt($($opt_arg),+))*);
     };
 
+    ($id:ident, $($arg:expr),+, @pen_size($pen_size:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
+        t!($id, $($arg),+, "--pen-size", stringify!($pen_size) $(, @$opt($($opt_arg),+))*);
+    };
+
     ($id:ident, $($arg:expr),+, @size($width:expr, $height:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
         t!($id, $($arg),+, "--size", stringify!($width), stringify!($height) $(, @$opt($($opt_arg),+))*);
     };
 
     ($id:ident, $($arg:expr),+, @ssaa($ssaa:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
         t!($id, $($arg),+, "--ssaa", stringify!($ssaa) $(, @$opt($($opt_arg),+))*);
-    };
-
-    ($id:ident, $($arg:expr),+, @thickness($thickness:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
-        t!($id, $($arg),+, "--thickness", stringify!($thickness) $(, @$opt($($opt_arg),+))*);
     };
 
     ($id:ident, $($arg:expr),+, @timeout($timeout:expr) $(, @$opt:ident($($opt_arg:expr),+))* $(,)?) => {
@@ -116,7 +116,7 @@ mod graph_tests {
     mod implicit;
     mod pad;
     mod parametric;
+    mod pen_size;
     mod polar;
     mod ssaa;
-    mod thickness;
 }

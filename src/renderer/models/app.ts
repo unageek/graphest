@@ -9,8 +9,8 @@ import {
   graphReducer,
   setGraphColor,
   setGraphIsProcessing,
+  setGraphPenSize,
   setGraphRelation,
-  setGraphThickness,
 } from "./graph";
 
 export interface AppState {
@@ -67,10 +67,10 @@ const slice = createSlice({
               color: "rgba(0, 78, 140, 0.8)",
               id,
               isProcessing: false,
+              penSize: 1,
               relationInputByUser: false,
               relation: "y = sin(x)",
               relId: "",
-              thickness: 1,
             },
           },
           allIds: [...s.graphs.allIds, id],
@@ -167,8 +167,8 @@ const slice = createSlice({
         isAnyOf(
           setGraphColor,
           setGraphIsProcessing,
-          setGraphRelation,
-          setGraphThickness
+          setGraphPenSize,
+          setGraphRelation
         ),
         (s, a) => ({
           ...s,

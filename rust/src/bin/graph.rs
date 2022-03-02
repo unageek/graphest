@@ -327,6 +327,13 @@ fn main() {
                 .hide(true),
         )
         .arg(
+            Arg::new("pen-size")
+                .long("pen-size")
+                .hide(true)
+                .default_value("1")
+                .forbid_empty_values(true),
+        )
+        .arg(
             Arg::new("size")
                 .short('s')
                 .long("size")
@@ -347,13 +354,6 @@ fn main() {
                     "Anti-alias the graph by supersampling pixels by the given scale.\n\
                      Odd numbers ranging from 1 (no anti-aliasing) to 17 are accepted.",
                 ),
-        )
-        .arg(
-            Arg::new("thickness")
-                .long("thickness")
-                .hide(true)
-                .default_value("1")
-                .forbid_empty_values(true),
         )
         .arg(
             Arg::new("timeout")
@@ -399,8 +399,8 @@ fn main() {
         ]
     };
     let pause_per_iteration = matches.is_present("pause-per-iteration");
+    let pen_size = matches.value_of_t_or_exit::<f64>("pen-size");
     let ssaa = matches.value_of_t_or_exit::<u32>("ssaa");
-    let thickness = matches.value_of_t_or_exit::<f64>("thickness");
     let timeout = match matches.value_of_t::<u64>("timeout") {
         Ok(t) => Some(Duration::from_millis(t)),
         Err(e) if e.kind() == clap::ErrorKind::ArgumentNotFound => None,
@@ -411,7 +411,7 @@ fn main() {
         println!("`--dilate` and `--ssaa` cannot be used together.");
     }
 
-    let dilation_kernel = disk_matrix((ssaa / 2) as f64 + ssaa as f64 * (thickness - 1.0) / 2.0);
+    let dilation_kernel = disk_matrix((ssaa / 2) as f64 + ssaa as f64 * (pen_size - 1.0) / 2.0);
     let user_dilation_kernel = {
         let k = parse_binary_matrix(dilation);
         assert!(

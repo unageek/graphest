@@ -18,8 +18,8 @@ import { BarIconButton } from "./BarIconButton";
 export interface GraphStyleButtonProps {
   color: string;
   onColorChanged: (color: string) => void;
-  onThicknessChanged: (thickness: number) => void;
-  thickness: number;
+  onPenSizeChanged: (penSize: number) => void;
+  penSize: number;
 }
 
 export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
@@ -91,16 +91,16 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           >
             <Label style={{ marginRight: "8px" }}>Pen size:</Label>
             <SpinButton
-              defaultValue={props.thickness.toString()}
+              defaultValue={props.penSize.toString()}
               max={1000}
               min={0}
               step={0.1}
               styles={{ root: { marginRight: "4px", width: "50px" } }}
               onChange={(_, v) => {
                 if (v === undefined) return;
-                const thickness = Number(v);
-                if (Number.isFinite(thickness)) {
-                  props.onThicknessChanged(thickness);
+                const penSize = Number(v);
+                if (Number.isFinite(penSize)) {
+                  props.onPenSizeChanged(penSize);
                 }
               }}
             />

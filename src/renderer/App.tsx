@@ -10,7 +10,7 @@ import { useEffect, useRef } from "react";
 import * as ReactDOM from "react-dom";
 import { Provider, useDispatch } from "react-redux";
 import { Command } from "../common/command";
-import { ExportImageOptions } from "../common/exportImage";
+import { ExportImageEntry, ExportImageOptions } from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { RequestRelationResult } from "../common/ipc";
 import "./App.css";
@@ -36,12 +36,12 @@ const abortExportImage = async () => {
 
 const exportImage = async (opts: ExportImageOptions) => {
   const state = store.getState();
-  const entries = [];
+  const entries: ExportImageEntry[] = [];
 
   for (const graphId of state.graphs.allIds) {
     const graph = state.graphs.byId[graphId];
-    const { color, relId, thickness } = graph;
-    entries.push({ color: new Color(color).hexa(), relId, thickness });
+    const { color, penSize, relId } = graph;
+    entries.push({ color: new Color(color).hexa(), penSize, relId });
   }
 
   store.dispatch(

@@ -10,8 +10,8 @@ import { GraphStyleButton } from "./GraphStyleButton";
 import { removeGraph, useSelector } from "./models/app";
 import {
   setGraphColor,
+  setGraphPenSize,
   setGraphRelation,
-  setGraphThickness,
 } from "./models/graph";
 import { RelationInput, RelationInputActions } from "./RelationInput";
 import { SymbolsButton } from "./SymbolsButton";
@@ -52,10 +52,8 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
       <GraphStyleButton
         color={graph.color}
         onColorChanged={(c) => dispatch(setGraphColor(props.graphId, c))}
-        onThicknessChanged={(t) =>
-          dispatch(setGraphThickness(props.graphId, t))
-        }
-        thickness={graph.thickness}
+        onPenSizeChanged={(t) => dispatch(setGraphPenSize(props.graphId, t))}
+        penSize={graph.penSize}
       />
       <RelationInput
         actionsRef={relationInputActionsRef}
