@@ -304,14 +304,9 @@ ipcMain.handle(
             rel.rel,
           ];
           try {
-            // Somehow, type definition is messed up!
-            /* eslint-disable @typescript-eslint/no-explicit-any */
-            const { stderr } = (await util.promisify(execFile)(
-              graphExec,
-              args,
-              { signal } as any
-            )) as unknown as { stdout: string; stderr: string };
-            /* eslint-enable @typescript-eslint/no-explicit-any */
+            const { stderr } = await util.promisify(execFile)(graphExec, args, {
+              signal,
+            });
             if (stderr) {
               console.log(stderr.trimEnd());
             }
@@ -349,13 +344,9 @@ ipcMain.handle(
         y_tiles.toString(),
       ];
       try {
-        /* eslint-disable @typescript-eslint/no-explicit-any */
-        const { stderr } = (await util.promisify(execFile)(
-          joinTilesExec,
-          args,
-          { signal } as any
-        )) as unknown as { stdout: string; stderr: string };
-        /* eslint-enable @typescript-eslint/no-explicit-any */
+        const { stderr } = await util.promisify(execFile)(joinTilesExec, args, {
+          signal,
+        });
         if (stderr) {
           console.log(stderr.trimEnd());
         }
@@ -375,11 +366,9 @@ ipcMain.handle(
       opts.path,
     ];
     try {
-      /* eslint-disable @typescript-eslint/no-explicit-any */
-      const { stderr } = (await util.promisify(execFile)(composeExec, args, {
+      const { stderr } = await util.promisify(execFile)(composeExec, args, {
         signal,
-      } as any)) as unknown as { stdout: string; stderr: string };
-      /* eslint-enable @typescript-eslint/no-explicit-any */
+      });
       if (stderr) {
         console.log(stderr.trimEnd());
       }
