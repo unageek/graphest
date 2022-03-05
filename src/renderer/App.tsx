@@ -71,11 +71,14 @@ const getDocument = (): Document => {
   const s = store.getState();
   return {
     center: s.center,
-    graphs: Object.values(s.graphs.byId).map((g) => ({
-      color: g.color,
-      penSize: g.penSize,
-      relation: g.relation,
-    })),
+    graphs: s.graphs.allIds.map((id) => {
+      const g = s.graphs.byId[id];
+      return {
+        color: g.color,
+        penSize: g.penSize,
+        relation: g.relation,
+      };
+    }),
     version: 1,
     zoomLevel: s.zoomLevel,
   };
