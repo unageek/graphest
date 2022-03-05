@@ -35,6 +35,19 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     const [map, setMap] = useState<L.Map | undefined>();
     const store = useStore<AppState>();
 
+    const setView = useCallback(
+      (lng: number, lat: number, zoom: number, reset = false) => {
+        if (map === undefined) return;
+        if (reset) {
+          // Initially, `map.getMaxZoom()` is `Infinity`.
+          map.setView([lat, lng], zoom, { animate: false });
+        } else {
+          map.setMaxZoom(zoom).setView([lat, lng], zoom);
+        }
+      },
+      [map]
+    );
+
     const updateMaxBounds = useCallback(() => {
       if (map === undefined) return;
       // To get map coordinates from pixel coordinates, multiply them by `2 ** -zoom`.
@@ -61,45 +74,15 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       map.setMaxZoom(Math.min(maxZoom, 1023));
     }, [map]);
 
-    const setView = useCallback(
-      (lng: number, lat: number, zoom: number, initial = false) => {
-        if (map === undefined) return;
-        if (initial) {
-          // Initially, `map.getMaxZoom()` is `Infinity`.
-          map.setView([lat, lng], zoom);
-          updateMaxBounds();
-          updateMaxZoom();
-        } else {
-          // Let events and layout updates complete first.
-          setTimeout(() => {
-            // Leaflet does not pan by less than a pixel,
-            // so we first need to pan to a location off by a pixel.
-            map
-              .setMaxZoom(zoom)
-              .setView([lat + 2 ** -zoom, lng + 2 ** -zoom], zoom, {});
-            setTimeout(() => {
-              map
-                .setMaxZoom(zoom)
-                .setView([lat, lng], zoom, { animate: false });
-            }, 250); // Leaflet's animation takes 250ms.
-          }, 0);
-        }
-      },
-      [map, updateMaxBounds, updateMaxZoom]
-    );
-
-    const loadViewFromStore = useCallback(
-      (initial = false) => {
-        if (map === undefined) return;
-        const state = store.getState();
-        const { center: cc, zoomLevel: zz } = state;
-        const z = zz + BASE_ZOOM_LEVEL;
-        const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
-        const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
-        setView(x, y, z, initial);
-      },
-      [map, setView, store]
-    );
+    const loadViewFromStore = useCallback(() => {
+      if (map === undefined) return;
+      const state = store.getState();
+      const { center: cc, zoomLevel: zz } = state;
+      const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
+      const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
+      const z = zz + BASE_ZOOM_LEVEL;
+      setView(x, y, z, true);
+    }, [map, setView, store]);
 
     useEffect(() => {
       if (map === undefined) return;
@@ -169,7 +152,9 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       if (map === undefined) return;
 
       // We first need to set the view before calling `map.getCenter()`, `getZoom()`, etc.
-      loadViewFromStore(true);
+      loadViewFromStore();
+      updateMaxBounds();
+      updateMaxZoom();
 
       map
         .on("moveend", () => {
@@ -233,10 +218,11 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         const center = map.getCenter();
         const x = center.lng;
         const y = center.lat;
+        const z = map.getZoom();
         store.dispatch(
           setCenter([x * 2 ** BASE_ZOOM_LEVEL, y * 2 ** BASE_ZOOM_LEVEL])
         );
-        store.dispatch(setZoomLevel(map.getZoom() - BASE_ZOOM_LEVEL));
+        store.dispatch(setZoomLevel(z - BASE_ZOOM_LEVEL));
       }
 
       return function cleanup() {
