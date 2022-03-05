@@ -32,6 +32,7 @@
     "@types/react-dom": "^17.0.11",
     "@types/react-redux": "^7.1.22",
     "@types/resize-observer-browser": "^0.1.7",
+    "@types/yup": "^0.29.13",
     "@typescript-eslint/eslint-plugin": "^5.12.1",
     "@typescript-eslint/parser": "^5.12.1",
     "cross-env": "^7.0.3",
@@ -73,7 +74,8 @@
     "react-redux": "^7.2.6",
     "slate": "^0.73.0",
     "slate-history": "^0.66.0",
-    "slate-react": "^0.73.0"
+    "slate-react": "^0.73.0",
+    "yup": "^0.32.11"
   },
   "productName": "Graphest"
 }

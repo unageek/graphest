@@ -10,6 +10,7 @@ import { useEffect, useRef } from "react";
 import * as ReactDOM from "react-dom";
 import { Provider, useDispatch } from "react-redux";
 import { Command } from "../common/command";
+import { Document } from "../common/document";
 import { ExportImageEntry, ExportImageOptions } from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { RequestRelationResult } from "../common/ipc";
@@ -19,13 +20,18 @@ import { GraphBars } from "./GraphBars";
 import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
 import {
+  addGraph,
+  removeAllGraphs,
+  setCenter,
   setExportImageProgress,
   setHighRes,
   setLastExportImageOpts,
+  setResetView,
   setShowAxes,
   setShowExportImageDialog,
   setShowMajorGrid,
   setShowMinorGrid,
+  setZoomLevel,
   useSelector,
 } from "./models/app";
 import { store } from "./models/store";
@@ -59,6 +65,20 @@ const exportImage = async (opts: ExportImageOptions) => {
     entries,
     opts
   );
+};
+
+const getDocument = (): Document => {
+  const s = store.getState();
+  return {
+    center: s.center,
+    graphs: Object.values(s.graphs.byId).map((g) => ({
+      color: g.color,
+      penSize: g.penSize,
+      relation: g.relation,
+    })),
+    version: 1,
+    zoomLevel: s.zoomLevel,
+  };
 };
 
 const requestRelation = async (
@@ -182,3 +202,30 @@ window.ipcRenderer.on<ipc.ExportImageStatusChanged>(
     store.dispatch(setExportImageProgress(progress));
   }
 );
+
+window.ipcRenderer.on<ipc.InitiateSave>(ipc.initiateSave, (_, to) => {
+  window.ipcRenderer.invoke<ipc.RequestSave>(
+    ipc.requestSave,
+    getDocument(),
+    to
+  );
+});
+
+window.ipcRenderer.on<ipc.InitiateUnload>(ipc.initiateUnload, () => {
+  window.ipcRenderer.invoke<ipc.RequestUnload>(
+    ipc.requestUnload,
+    getDocument()
+  );
+});
+
+window.ipcRenderer.on<ipc.Load>(ipc.load, (_, state) => {
+  store.dispatch(removeAllGraphs());
+  store.dispatch(setCenter(state.center as [number, number]));
+  store.dispatch(setZoomLevel(state.zoomLevel));
+  store.dispatch(setResetView(true));
+  for (const g of state.graphs) {
+    store.dispatch(addGraph(g));
+  }
+});
+
+window.ipcRenderer.invoke<ipc.Ready>(ipc.ready);

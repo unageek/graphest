@@ -1,6 +1,6 @@
 import * as L from "leaflet";
 import { bignum, BigNumber } from "../common/bignumber";
-import { BASE_ZOOM_LEVEL } from "../common/constants";
+import { BASE_ZOOM_LEVEL, GRAPH_TILE_SIZE } from "../common/constants";
 import {
   AxesRenderer,
   Bounds,
@@ -95,7 +95,7 @@ export class AxesLayer extends L.GridLayer {
   }
 
   #drawTile(tile: HTMLCanvasElement, coords: L.Coords, tileRange: L.Bounds) {
-    const widthPerTilef = 2 ** (BASE_ZOOM_LEVEL - coords.z);
+    const widthPerTilef = GRAPH_TILE_SIZE * 2 ** (BASE_ZOOM_LEVEL - coords.z);
     const [s0, s1] = sourcePoints(coords, widthPerTilef);
     const [d0, d1] = destinationPoints();
     const tx = getTransform([s0.x, s1.x], [d0.x, d1.x]);

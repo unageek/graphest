@@ -1,6 +1,14 @@
 import * as assert from "assert";
-import { ChildProcess, execFile } from "child_process";
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
+import { ChildProcess, execFile, spawn } from "child_process";
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  shell,
+} from "electron";
 import installExtension, {
   REACT_DEVELOPER_TOOLS,
   REDUX_DEVTOOLS,
@@ -20,6 +28,7 @@ import {
   PERTURBATION_X,
   PERTURBATION_Y,
 } from "../common/constants";
+import { Document } from "../common/document";
 import {
   ANTI_ALIASING_OPTIONS,
   ExportImageEntry,
@@ -30,9 +39,12 @@ import {
   MAX_EXPORT_TIMEOUT,
 } from "../common/exportImage";
 import * as ipc from "../common/ipc";
+import { SaveTo } from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
+import { fromBase64Url, toBase64Url } from "./encode";
 import { createMainMenu } from "./mainMenu";
+import { deserialize, serialize } from "./serialize";
 
 const fsPromises = fs.promises;
 
@@ -66,6 +78,8 @@ const MAX_ACTIVE_JOBS = 4;
 
 /** The maximum amount of memory in MiB that each running job can use. */
 const JOB_MEM_LIMIT = 64;
+
+const URL_PREFIX = "graphest://";
 
 interface Job {
   aborted: boolean;
@@ -107,13 +121,21 @@ let sleepingJobs: Job[] = [];
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const composeExec: string = getBundledExecutable("compose");
+let currentPath: string | undefined;
 let exportImageAbortController: AbortController | undefined;
 const graphExec: string = getBundledExecutable("graph");
 const joinTilesExec: string = getBundledExecutable("join-tiles");
+let lastSavedData = '{"center":[0,0],"graphs":[],"version":1,"zoomLevel":6}';
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
+let maybeUnsaved = false;
 let nextExportImageId = 0;
 let nextRelId = 0;
+let postStartup: (() => void | Promise<void>) | undefined = () =>
+  openUrl(
+    "graphest://eyJjZW50ZXIiOlswLDBdLCJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicGVuU2l6ZSI6MSwicmVsYXRpb24iOiJ5ID0gc2luKHgpIn1dLCJ2ZXJzaW9uIjoxLCJ6b29tTGV2ZWwiOjZ9"
+  );
+let postUnload: (() => void | Promise<void>) | undefined;
 const relationById = new Map<string, Relation>();
 const relKeyToRelId = new Map<string, string>();
 
@@ -127,9 +149,17 @@ function createMainWindow() {
       spellcheck: false,
     },
     width: 800,
-  }).on("closed", () => {
-    mainWindow = undefined;
-  });
+  })
+    .on("close", (e) => {
+      if (maybeUnsaved) {
+        postUnload = () => mainWindow?.close();
+        mainWindow?.webContents.send(ipc.initiateUnload);
+        e.preventDefault();
+      }
+    })
+    .on("closed", () => {
+      mainWindow = undefined;
+    });
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 }
 
@@ -147,6 +177,17 @@ function resetBrowserZoom() {
   }
 }
 
+// https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("graphest", process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
+  }
+} else {
+  app.setAsDefaultProtocolClient("graphest");
+}
+
 app.whenReady().then(async () => {
   // https://github.com/MarshallOfSound/electron-devtools-installer/issues/195#issuecomment-932634933
   await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS], {
@@ -162,6 +203,18 @@ app.whenReady().then(async () => {
     [Command.HighResolution]: () => {
       mainWindow?.webContents.send(ipc.commandInvoked, Command.HighResolution);
     },
+    [Command.NewDocument]: () => newDocument(),
+    [Command.Open]: () => open(),
+    [Command.OpenFromClipboard]: () => openFromClipboard(),
+    [Command.Save]: () => {
+      mainWindow?.webContents.send(ipc.initiateSave, SaveTo.CurrentFile);
+    },
+    [Command.SaveAs]: () => {
+      mainWindow?.webContents.send(ipc.initiateSave, SaveTo.NewFile);
+    },
+    [Command.SaveToClipboard]: () => {
+      mainWindow?.webContents.send(ipc.initiateSave, SaveTo.Clipboard);
+    },
     [Command.ShowAxes]: () => {
       mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowAxes);
     },
@@ -175,6 +228,14 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(mainMenu);
   createMainWindow();
   autoUpdater.checkForUpdatesAndNotify();
+});
+
+app.on("open-file", (_, path) => {
+  openFile(path);
+});
+
+app.on("open-url", (_, url) => {
+  openUrl(url);
 });
 
 app.on("quit", () => {
@@ -393,6 +454,11 @@ ipcMain.handle(ipc.getDefaultExportImagePath, async (): Promise<string> => {
   }
 });
 
+ipcMain.handle(ipc.ready, () => {
+  postStartup?.();
+  postStartup = undefined;
+});
+
 ipcMain.handle(
   ipc.requestRelation,
   async (
@@ -440,6 +506,10 @@ ipcMain.handle(
   }
 );
 
+ipcMain.handle(ipc.requestSave, async (_, doc: Document, to: SaveTo) => {
+  save(doc, to);
+});
+
 ipcMain.handle(
   ipc.requestTile,
   async (_, relId: string, tileId: string, coords: L.Coords) => {
@@ -462,7 +532,9 @@ ipcMain.handle(
       const pixelOffsetY = bignum(
         (0.5 + PERTURBATION_Y) / (retinaScale * GRAPH_TILE_SIZE)
       );
-      const widthPerTile = bignum(2 ** (BASE_ZOOM_LEVEL - coords.z));
+      const widthPerTile = bignum(
+        GRAPH_TILE_SIZE * 2 ** (BASE_ZOOM_LEVEL - coords.z)
+      );
       const x0 = widthPerTile.times(bignum(coords.x).minus(pixelOffsetX));
       const x1 = widthPerTile.times(bignum(coords.x + 1).minus(pixelOffsetX));
       const y0 = widthPerTile.times(bignum(-coords.y - 1).plus(pixelOffsetY));
@@ -516,6 +588,10 @@ ipcMain.handle(
     }
   }
 );
+
+ipcMain.handle(ipc.requestUnload, async (_, doc: Document): Promise<void> => {
+  unload(doc);
+});
 
 ipcMain.handle(
   ipc.showSaveDialog,
@@ -584,6 +660,24 @@ function deprioritize(job: Job) {
   updateQueue();
 }
 
+function getCurrentFilenameForDisplay(): string {
+  return getFilenameForDisplay(currentPath);
+}
+
+function getFilenameForDisplay(thePath?: string): string {
+  if (thePath !== undefined) {
+    return path.basename(thePath, ".graphest");
+  } else {
+    return "Untitled";
+  }
+}
+
+function newDocument() {
+  openUrl(
+    "graphest://eyJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicGVuU2l6ZSI6MSwicmVsYXRpb24iOiIifV0sInZlcnNpb24iOjF9"
+  );
+}
+
 function notifyExportImageStatusChanged(progress: ExportImageProgress) {
   mainWindow?.webContents.send(ipc.exportImageStatusChanged, progress);
 }
@@ -614,6 +708,83 @@ function notifyTileReady(
   );
 }
 
+async function open() {
+  if (!mainWindow) return;
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    defaultPath: currentPath,
+    filters: [{ name: "Graphest Document", extensions: ["graphest"] }],
+  });
+  if (result.filePaths.length !== 1) return;
+  const path = result.filePaths[0];
+
+  openFile(path);
+}
+
+async function openFile(path: string) {
+  if (!mainWindow) {
+    postStartup = () => openFile(path);
+    return;
+  }
+
+  if (maybeUnsaved) {
+    postUnload = () => openFile(path);
+    mainWindow.webContents.send(ipc.initiateUnload);
+    return;
+  }
+
+  try {
+    const data = await fsPromises.readFile(path, { encoding: "utf8" });
+    const doc = deserialize(data);
+    currentPath = path;
+    lastSavedData = data;
+    maybeUnsaved = true;
+    mainWindow.setRepresentedFilename(path);
+    mainWindow.setTitle(getCurrentFilenameForDisplay());
+    mainWindow.webContents.send(ipc.load, doc);
+  } catch (e) {
+    console.log("open failed", e);
+    dialog.showMessageBox(mainWindow, {
+      message:
+        `The document “${getFilenameForDisplay(path)}”` +
+        " could not be opened.",
+      type: "warning",
+    });
+  }
+}
+
+function openFromClipboard() {
+  openUrl(clipboard.readText());
+}
+
+function openUrl(url: string) {
+  if (!mainWindow) {
+    postStartup = () => openUrl(url);
+    return;
+  }
+
+  if (maybeUnsaved) {
+    postUnload = () => openUrl(url);
+    mainWindow.webContents.send(ipc.initiateUnload);
+    return;
+  }
+
+  if (url.startsWith(URL_PREFIX)) {
+    try {
+      const data = fromBase64Url(url.substring(URL_PREFIX.length));
+      const doc = deserialize(data);
+      currentPath = undefined;
+      lastSavedData = data;
+      maybeUnsaved = true;
+      mainWindow.setRepresentedFilename("");
+      mainWindow.setTitle(getCurrentFilenameForDisplay());
+      mainWindow.webContents.send(ipc.load, doc);
+    } catch (e) {
+      console.log("open failed", e);
+    }
+  }
+}
+
 function popJob(job: Job) {
   const nBefore = countJobs();
   queuedJobs = queuedJobs.filter((j) => j !== job);
@@ -625,6 +796,76 @@ function popJob(job: Job) {
 
 function pushJob(job: Job) {
   queuedJobs.push(job);
+}
+
+async function save(doc: Document, to: SaveTo): Promise<boolean> {
+  if (!mainWindow) return false;
+
+  const data = serialize(doc);
+
+  if (to === SaveTo.Clipboard) {
+    clipboard.writeText(URL_PREFIX + toBase64Url(data));
+  } else {
+    let path = currentPath;
+    if (to === SaveTo.NewFile || path === undefined) {
+      const result = await dialog.showSaveDialog(mainWindow, {
+        defaultPath: path,
+        filters: [{ name: "Graphest Document", extensions: ["graphest"] }],
+      });
+      if (!result.filePath) return false;
+      path = result.filePath;
+    }
+
+    try {
+      await fsPromises.writeFile(path, data);
+      if (process.platform === "darwin") {
+        // Hide filename extension.
+        await spawn("SetFile", ["-a", "E", path]);
+      }
+      currentPath = path;
+      lastSavedData = data;
+      maybeUnsaved = false;
+      mainWindow.setRepresentedFilename(path);
+      mainWindow.setTitle(getCurrentFilenameForDisplay());
+    } catch (e) {
+      console.log("save failed", e);
+      await dialog.showMessageBox({
+        type: "warning",
+        message:
+          `The document “${getCurrentFilenameForDisplay()}” could not be saved` +
+          (to === SaveTo.CurrentFile
+            ? "."
+            : ` as “${getFilenameForDisplay(path)}”.`),
+      });
+    }
+  }
+
+  return true;
+}
+
+async function unload(doc: Document) {
+  const data = serialize(doc);
+
+  if (data === lastSavedData) {
+    maybeUnsaved = false;
+    postUnload?.();
+    postUnload = undefined;
+    return;
+  }
+
+  const result = await dialog.showMessageBox({
+    message: `Do you want to save the changes made to the document “${getCurrentFilenameForDisplay()}”?`,
+    detail: "Your changes will be lost if you don't save them.",
+    buttons: ["Save…", "Don't Save", "Cancel"],
+  });
+  if (
+    (result.response === 0 && (await save(doc, SaveTo.CurrentFile))) ||
+    result.response === 1
+  ) {
+    maybeUnsaved = false;
+    postUnload?.();
+    postUnload = undefined;
+  }
 }
 
 function updateQueue() {

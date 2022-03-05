@@ -25,6 +25,7 @@ export class GraphLayer extends L.GridLayer {
   ) {
     super({
       keepBuffer: 0,
+      tileSize: GRAPH_TILE_SIZE,
       updateWhenZooming: false,
       ...options,
     });

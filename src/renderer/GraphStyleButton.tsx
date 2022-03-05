@@ -13,6 +13,7 @@ import {
 import { SharedColors } from "@fluentui/theme";
 import * as Color from "color";
 import * as React from "react";
+import { MAX_PEN_SIZE } from "../common/constants";
 import { BarIconButton } from "./BarIconButton";
 
 export interface GraphStyleButtonProps {
@@ -92,7 +93,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             <Label style={{ marginRight: "8px" }}>Pen size:</Label>
             <SpinButton
               defaultValue={props.penSize.toString()}
-              max={1000}
+              max={MAX_PEN_SIZE}
               min={0}
               step={0.1}
               styles={{ root: { marginRight: "4px", width: "50px" } }}
