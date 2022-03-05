@@ -811,42 +811,43 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
 
   if (to === SaveTo.Clipboard) {
     clipboard.writeText(URL_PREFIX + toBase64Url(data));
-  } else {
-    let path = currentPath;
-    if (to === SaveTo.NewFile || path === undefined) {
-      const result = await dialog.showSaveDialog(mainWindow, {
-        defaultPath: path,
-        filters: [{ name: "Graphest Document", extensions: ["graphest"] }],
-      });
-      if (!result.filePath) return false;
-      path = result.filePath;
-    }
-
-    try {
-      await fsPromises.writeFile(path, data);
-      if (process.platform === "darwin") {
-        // Hide filename extension.
-        await spawn("SetFile", ["-a", "E", path]);
-      }
-      currentPath = path;
-      lastSavedDoc = doc;
-      maybeUnsaved = false;
-      mainWindow.setRepresentedFilename(path);
-      mainWindow.setTitle(getCurrentFilenameForDisplay());
-    } catch (e) {
-      console.log("save failed", e);
-      await dialog.showMessageBox({
-        type: "warning",
-        message:
-          `The document “${getCurrentFilenameForDisplay()}” could not be saved` +
-          (to === SaveTo.CurrentFile
-            ? "."
-            : ` as “${getFilenameForDisplay(path)}”.`),
-      });
-    }
+    return true;
   }
 
-  return true;
+  let path = currentPath;
+  if (to === SaveTo.NewFile || path === undefined) {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: path,
+      filters: [{ name: "Graphest Document", extensions: ["graphest"] }],
+    });
+    if (!result.filePath) return false;
+    path = result.filePath;
+  }
+
+  try {
+    await fsPromises.writeFile(path, data);
+    if (process.platform === "darwin") {
+      // Hide filename extension.
+      await spawn("SetFile", ["-a", "E", path]);
+    }
+    currentPath = path;
+    lastSavedDoc = doc;
+    maybeUnsaved = false;
+    mainWindow.setRepresentedFilename(path);
+    mainWindow.setTitle(getCurrentFilenameForDisplay());
+    return true;
+  } catch (e) {
+    console.log("save failed", e);
+    await dialog.showMessageBox({
+      type: "warning",
+      message:
+        `The document “${getCurrentFilenameForDisplay()}” could not be saved` +
+        (to === SaveTo.CurrentFile
+          ? "."
+          : ` as “${getFilenameForDisplay(path)}”.`),
+    });
+    return false;
+  }
 }
 
 async function unload(doc: Document) {
