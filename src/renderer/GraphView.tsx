@@ -61,17 +61,45 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       map.setMaxZoom(Math.min(maxZoom, 1023));
     }, [map]);
 
-    const loadViewFromStore = useCallback(() => {
-      if (map === undefined) return;
-      const state = store.getState();
-      const { center: cc, zoomLevel: zz } = state;
-      const z = zz + BASE_ZOOM_LEVEL;
-      const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
-      const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
-      map?.setMaxZoom(z).setView([y, x], z);
-      updateMaxBounds();
-      updateMaxZoom();
-    }, [map, store, updateMaxBounds, updateMaxZoom]);
+    const setView = useCallback(
+      (lng: number, lat: number, zoom: number, initial = false) => {
+        if (map === undefined) return;
+        if (initial) {
+          // Initially, `map.getMaxZoom()` is `Infinity`.
+          map.setView([lat, lng], zoom);
+          updateMaxBounds();
+          updateMaxZoom();
+        } else {
+          // Let events and layout updates complete first.
+          setTimeout(() => {
+            // Leaflet does not pan by less than a pixel,
+            // so we first need to pan to a location off by a pixel.
+            map
+              .setMaxZoom(zoom)
+              .setView([lat + 2 ** -zoom, lng + 2 ** -zoom], zoom, {});
+            setTimeout(() => {
+              map
+                .setMaxZoom(zoom)
+                .setView([lat, lng], zoom, { animate: false });
+            }, 250); // Leaflet's animation takes 250ms.
+          }, 0);
+        }
+      },
+      [map, updateMaxBounds, updateMaxZoom]
+    );
+
+    const loadViewFromStore = useCallback(
+      (initial = false) => {
+        if (map === undefined) return;
+        const state = store.getState();
+        const { center: cc, zoomLevel: zz } = state;
+        const z = zz + BASE_ZOOM_LEVEL;
+        const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
+        const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
+        setView(x, y, z, initial);
+      },
+      [map, setView, store]
+    );
 
     useEffect(() => {
       if (map === undefined) return;
@@ -141,11 +169,13 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       if (map === undefined) return;
 
       // We first need to set the view before calling `map.getCenter()`, `getZoom()`, etc.
-      loadViewFromStore();
+      loadViewFromStore(true);
 
       map
-        .on("move", updateMaxZoom)
-        .on("moveend", saveViewToStore)
+        .on("moveend", () => {
+          updateMaxZoom();
+          saveViewToStore();
+        })
         .on("zoom", updateMaxBounds)
         .on("zoomend", saveViewToStore)
         .on("zoomstart", onZoomStart);
@@ -176,7 +206,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
 
       L.easyButton(
         "<div id='reset-view-button' style='font-size: 16px'></div>",
-        resetView,
+        () => setView(0, 0, INITIAL_ZOOM_LEVEL),
         "Reset view"
       ).addTo(map);
       ReactDOM.render(
@@ -189,20 +219,13 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         // Workaround for an issue that the zoom animation does not occur when the map is centered.
         // This seems to happen when both of the levels from and to which the map is zoomed are ≥ 129.
         // Leaflet apparently has nothing to do with this condition,
-        // so this could be due to a Chromium's behavior.
+        // so this should be due to Chromium's behavior.
         const center = map.getCenter();
         if (center.lat === 0 && center.lng === 0) {
           // Displace the map by a pixel. `map.panBy()` rounds the offset,
           // so we cannot pan by less than a pixel.
           map.panBy(new L.Point(1, 1), { animate: false });
         }
-      }
-
-      function resetView() {
-        const z = INITIAL_ZOOM_LEVEL;
-        map?.setMaxZoom(z).setView([0, 0], z);
-        updateMaxBounds();
-        updateMaxZoom();
       }
 
       function saveViewToStore() {
@@ -220,7 +243,14 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         resizeObserver.disconnect();
         map.remove();
       };
-    }, [loadViewFromStore, map, store, updateMaxBounds, updateMaxZoom]);
+    }, [
+      loadViewFromStore,
+      map,
+      setView,
+      store,
+      updateMaxBounds,
+      updateMaxZoom,
+    ]);
 
     return (
       <div
