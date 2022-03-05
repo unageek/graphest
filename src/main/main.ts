@@ -15,6 +15,7 @@ import installExtension, {
 } from "electron-devtools-installer";
 import { autoUpdater } from "electron-updater";
 import * as fs from "fs";
+import * as _ from "lodash";
 import * as os from "os";
 import * as path from "path";
 import * as url from "url";
@@ -125,7 +126,12 @@ let currentPath: string | undefined;
 let exportImageAbortController: AbortController | undefined;
 const graphExec: string = getBundledExecutable("graph");
 const joinTilesExec: string = getBundledExecutable("join-tiles");
-let lastSavedData = '{"center":[0,0],"graphs":[],"version":1,"zoomLevel":6}';
+let lastSavedDoc: Document = {
+  center: [0, 0],
+  graphs: [],
+  version: 1,
+  zoomLevel: 6,
+};
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindow | undefined;
 let maybeUnsaved = false;
@@ -737,7 +743,7 @@ async function openFile(path: string) {
     const data = await fsPromises.readFile(path, { encoding: "utf8" });
     const doc = deserialize(data);
     currentPath = path;
-    lastSavedData = data;
+    lastSavedDoc = doc;
     maybeUnsaved = true;
     mainWindow.setRepresentedFilename(path);
     mainWindow.setTitle(getCurrentFilenameForDisplay());
@@ -774,7 +780,7 @@ function openUrl(url: string) {
       const data = fromBase64Url(url.substring(URL_PREFIX.length));
       const doc = deserialize(data);
       currentPath = undefined;
-      lastSavedData = data;
+      lastSavedDoc = doc;
       maybeUnsaved = true;
       mainWindow.setRepresentedFilename("");
       mainWindow.setTitle(getCurrentFilenameForDisplay());
@@ -823,7 +829,7 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
         await spawn("SetFile", ["-a", "E", path]);
       }
       currentPath = path;
-      lastSavedData = data;
+      lastSavedDoc = doc;
       maybeUnsaved = false;
       mainWindow.setRepresentedFilename(path);
       mainWindow.setTitle(getCurrentFilenameForDisplay());
@@ -844,9 +850,7 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
 }
 
 async function unload(doc: Document) {
-  const data = serialize(doc);
-
-  if (data === lastSavedData) {
+  if (_.isEqual(doc, lastSavedDoc)) {
     maybeUnsaved = false;
     postUnload?.();
     postUnload = undefined;
