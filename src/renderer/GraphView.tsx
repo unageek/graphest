@@ -35,19 +35,6 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     const [map, setMap] = useState<L.Map | undefined>();
     const store = useStore<AppState>();
 
-    const setView = useCallback(
-      (lng: number, lat: number, zoom: number, reset = false) => {
-        if (map === undefined) return;
-        if (reset) {
-          // Initially, `map.getMaxZoom()` is `Infinity`.
-          map.setView([lat, lng], zoom, { animate: false });
-        } else {
-          map.setMaxZoom(zoom).setView([lat, lng], zoom);
-        }
-      },
-      [map]
-    );
-
     const updateMaxBounds = useCallback(() => {
       if (map === undefined) return;
       // To get map coordinates from pixel coordinates, multiply them by `2 ** -zoom`.
@@ -81,8 +68,8 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
       const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
       const z = zz + BASE_ZOOM_LEVEL;
-      setView(x, y, z, true);
-    }, [map, setView, store]);
+      map.setView([y, x], z, { animate: false });
+    }, [map, store]);
 
     useEffect(() => {
       if (map === undefined) return;
@@ -191,7 +178,10 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
 
       L.easyButton(
         "<div id='reset-view-button' style='font-size: 16px'></div>",
-        () => setView(0, 0, INITIAL_ZOOM_LEVEL),
+        () => {
+          const zoom = INITIAL_ZOOM_LEVEL;
+          map.setMaxZoom(zoom).setView([0, 0], zoom);
+        },
         "Reset view"
       ).addTo(map);
       ReactDOM.render(
@@ -229,14 +219,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         resizeObserver.disconnect();
         map.remove();
       };
-    }, [
-      loadViewFromStore,
-      map,
-      setView,
-      store,
-      updateMaxBounds,
-      updateMaxZoom,
-    ]);
+    }, [loadViewFromStore, map, store, updateMaxBounds, updateMaxZoom]);
 
     return (
       <div
