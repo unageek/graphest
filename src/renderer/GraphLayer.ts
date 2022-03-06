@@ -39,6 +39,7 @@ export class GraphLayer extends L.GridLayer {
 
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("style", "display: none;");
     const filter = document.createElementNS(ns, "filter");
     filter.setAttribute("id", `graph-layer-filter-${graphId}`);
     const dilation = document.createElementNS(ns, "feMorphology");
