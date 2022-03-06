@@ -33,7 +33,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
       styles={{
         menuIcon: { display: "none" },
       }}
-      title="Style"
+      title="Graph style"
     >
       <div
         style={{
@@ -107,9 +107,16 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             />
             <Text>pixels</Text>
           </Stack>
-          <Text variant="small">
-            The pen size is only applied to exported images.
-          </Text>
+          {props.penSize < 1.0 && (
+            <Text variant="small">
+              A pen size less than 1px is only applied to exported images.
+            </Text>
+          )}
+          {props.penSize > 3.0 && (
+            <Text variant="small">
+              A pen size greater then 3px is only applied to exported images.
+            </Text>
+          )}
         </Stack>
       </Stack>
     );
