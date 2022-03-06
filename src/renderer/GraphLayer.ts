@@ -13,9 +13,12 @@ declare module "leaflet" {
 }
 
 export class GraphLayer extends L.GridLayer {
+  #dilationElement: SVGFEMorphologyElement;
   #graph?: Graph;
   #onGraphingStatusChangedBound: ipc.GraphingStatusChanged["listener"];
   #onTileReadyBound: ipc.TileReady["listener"];
+  #styleElement: HTMLStyleElement;
+  #svgElement: SVGSVGElement;
   #unsubscribeFromStore?: Unsubscribe;
 
   constructor(
@@ -24,6 +27,7 @@ export class GraphLayer extends L.GridLayer {
     options?: L.GridLayerOptions
   ) {
     super({
+      className: `graph-layer-${graphId}`,
       keepBuffer: 0,
       tileSize: GRAPH_TILE_SIZE,
       updateWhenZooming: false,
@@ -32,10 +36,29 @@ export class GraphLayer extends L.GridLayer {
     this.#onGraphingStatusChangedBound =
       this.#onGraphingStatusChanged.bind(this);
     this.#onTileReadyBound = this.#onTileReady.bind(this);
+
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    const filter = document.createElementNS(ns, "filter");
+    filter.setAttribute("id", `graph-layer-filter-${graphId}`);
+    const dilation = document.createElementNS(ns, "feMorphology");
+    dilation.setAttribute("operator", "dilate");
+    dilation.setAttribute("radius", "1");
+    filter.appendChild(dilation);
+    svg.appendChild(filter);
+
+    const style = document.createElement("style");
+    style.textContent = `.graph-layer-${graphId} { filter: url(#graph-layer-filter-${graphId}); }`;
+
+    this.#dilationElement = dilation;
+    this.#styleElement = style;
+    this.#svgElement = svg;
   }
 
   onAdd(map: L.Map): this {
     super.onAdd(map);
+    document.body.appendChild(this.#styleElement);
+    document.body.appendChild(this.#svgElement);
     window.ipcRenderer.on<ipc.GraphingStatusChanged>(
       ipc.graphingStatusChanged,
       this.#onGraphingStatusChangedBound
@@ -53,6 +76,8 @@ export class GraphLayer extends L.GridLayer {
     if (this.#graph) {
       this.#abortGraphing(this.#graph.relId);
     }
+    document.body.removeChild(this.#styleElement);
+    document.body.removeChild(this.#svgElement);
     window.ipcRenderer.off<ipc.GraphingStatusChanged>(
       ipc.graphingStatusChanged,
       this.#onGraphingStatusChangedBound
@@ -128,6 +153,10 @@ export class GraphLayer extends L.GridLayer {
       this.#updateColor();
     }
 
+    if (this.#graph.penSize !== oldGraph?.penSize) {
+      this.#updatePenSize();
+    }
+
     if (this.#graph.relId !== oldGraph?.relId) {
       this.#updateRelation(oldGraph?.relId);
     }
@@ -151,7 +180,7 @@ export class GraphLayer extends L.GridLayer {
 
   #updateColor() {
     if (!this.#graph) {
-      throw new Error("`this.graph` must not be undefined");
+      throw new Error("`this.#graph` must not be undefined");
     }
 
     for (const key in this._tiles) {
@@ -162,6 +191,16 @@ export class GraphLayer extends L.GridLayer {
         }
       }
     }
+  }
+
+  #updatePenSize() {
+    if (!this.#graph) {
+      throw new Error("`this.#graph` must not be undefined");
+    }
+
+    const penSize = this.#graph.penSize;
+    const radius = Math.min(Math.max((penSize - 1.0) / 2.0, 0), 1);
+    this.#dilationElement.setAttribute("radius", radius.toString());
   }
 
   async #updateRelation(oldRelId?: string) {
