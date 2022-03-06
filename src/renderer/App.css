@@ -36,10 +36,16 @@ a:not([draggable]) {
 
 .leaflet-bar a /* Zoom buttons */,
 .leaflet-bar button /* Reset view button */ {
+  background: white !important;
   color: #323130 !important; /* neutralPrimary */
 }
 
-.leaflet-bar a:hover,
+.leaflet-bar a.leaflet-disabled /* Zoom buttons */ {
+  background: #f3f2f1 !important; /* neutralLighter */
+  color: #a19f9d !important; /* neutralTertiary */
+}
+
+.leaflet-bar a:hover:not(.leaflet-disabled),
 .leaflet-bar button:hover {
   background: #f3f2f1 !important; /* neutralLighter */
 }
