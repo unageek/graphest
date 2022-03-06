@@ -245,7 +245,7 @@ export class GridLayer extends L.GridLayer {
     outer.appendChild(inner);
 
     setTimeout(() => {
-      const widthPerTilef = 2 ** (BASE_ZOOM_LEVEL - coords.z);
+      const widthPerTilef = GRAPH_TILE_SIZE * 2 ** (BASE_ZOOM_LEVEL - coords.z);
       const [s0, s1] = sourcePoints(coords, widthPerTilef);
       const [d0, d1] = destinationPoints();
       const tx = getTransform([s0.x, s1.x], [d0.x, d1.x]);
