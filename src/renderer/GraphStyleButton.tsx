@@ -94,12 +94,10 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
               min={0}
               step={0.1}
               styles={{ root: { marginRight: "4px", width: "50px" } }}
-              onChange={(_, v) => {
-                if (v === undefined) return;
-                const penSize = Number(v);
-                if (Number.isFinite(penSize)) {
-                  props.onPenSizeChanged(penSize);
-                }
+              onChange={(_, value) => {
+                if (value === undefined) return;
+                const penSize = Number(value);
+                props.onPenSizeChanged(penSize);
               }}
             />
             <Text>pixels</Text>
