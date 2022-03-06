@@ -86,10 +86,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
         </Pivot>
         <Separator styles={{ root: { height: "1px", padding: "0" } }} />
         <Stack style={{ margin: "8px" }}>
-          <Stack
-            horizontal
-            style={{ alignItems: "baseline", marginBottom: "8px" }}
-          >
+          <Stack horizontal style={{ alignItems: "baseline" }}>
             <Label style={{ marginRight: "8px" }}>Pen size:</Label>
             <SpinButton
               defaultValue={props.penSize.toString()}
@@ -108,12 +105,12 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             <Text>pixels</Text>
           </Stack>
           {props.penSize < 1.0 && (
-            <Text variant="small">
+            <Text style={{ marginTop: "8px" }} variant="small">
               A pen size less than 1px is only applied to exported images.
             </Text>
           )}
           {props.penSize > 3.0 && (
-            <Text variant="small">
+            <Text style={{ marginTop: "8px" }} variant="small">
               A pen size greater then 3px is only applied to exported images.
             </Text>
           )}
