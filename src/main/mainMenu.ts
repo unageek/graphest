@@ -28,11 +28,11 @@ export function createMainMenu(actions: MenuActions): Menu {
           accelerator: "CmdOrCtrl+O",
           click: actions[Command.Open],
         },
-        {
-          id: Command.OpenFromClipboard,
-          label: "Open from Clipboard",
-          click: actions[Command.OpenFromClipboard],
-        },
+        // {
+        //   id: Command.OpenFromClipboard,
+        //   label: "Open from Clipboard",
+        //   click: actions[Command.OpenFromClipboard],
+        // },
         { type: "separator" },
         // The Close menu is required for closing the about panel.
         { role: "close" },
@@ -48,11 +48,11 @@ export function createMainMenu(actions: MenuActions): Menu {
           accelerator: "CmdOrCtrl+Shift+S",
           click: actions[Command.SaveAs],
         },
-        {
-          id: Command.SaveToClipboard,
-          label: "Save to Clipboard",
-          click: actions[Command.SaveToClipboard],
-        },
+        // {
+        //   id: Command.SaveToClipboard,
+        //   label: "Save to Clipboard",
+        //   click: actions[Command.SaveToClipboard],
+        // },
         { type: "separator" },
         {
           id: Command.ExportImage,
