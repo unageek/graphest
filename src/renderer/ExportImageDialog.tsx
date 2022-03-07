@@ -22,7 +22,7 @@ import {
   MAX_EXPORT_IMAGE_SIZE,
   MAX_EXPORT_TIMEOUT,
 } from "../common/exportImage";
-import { err, ok, Result } from "../common/result";
+import { tryParseBignum, tryParseIntegerInRange } from "../common/parse";
 import { useSelector } from "./models/app";
 
 export interface ExportImageDialogProps {
@@ -56,30 +56,6 @@ const integerInputStyles = {
   root: {
     width: "100px",
   },
-};
-
-const tryParseBignum = (
-  value?: string
-): Result<BigNumber, string | undefined> => {
-  const val = bignum(value ?? "");
-  if (val.isFinite()) {
-    return ok(val);
-  } else {
-    return err("Value must be a number.");
-  }
-};
-
-const tryParseInteger = (
-  value: string,
-  minValue: number,
-  maxValue: number
-): Result<number, string | undefined> => {
-  const val = Number(value);
-  if (Number.isSafeInteger(val) && val >= minValue && val <= maxValue) {
-    return ok(val);
-  } else {
-    return err(`Value must be between 1 and ${maxValue}.`);
-  }
 };
 
 const validateRange = (min: BigNumber, max: BigNumber): string | undefined => {
@@ -146,7 +122,7 @@ export const ExportImageDialog = (
   const validateHeight = useMemo(
     () =>
       debounce((value: string) => {
-        const result = tryParseInteger(value, 1, MAX_EXPORT_IMAGE_SIZE);
+        const result = tryParseIntegerInRange(value, 1, MAX_EXPORT_IMAGE_SIZE);
         if (result.ok !== undefined) {
           setOpts({ ...opts, height: result.ok });
         }
@@ -158,7 +134,7 @@ export const ExportImageDialog = (
   const validateTimeout = useMemo(
     () =>
       debounce((value: string) => {
-        const result = tryParseInteger(value, 1, MAX_EXPORT_TIMEOUT);
+        const result = tryParseIntegerInRange(value, 1, MAX_EXPORT_TIMEOUT);
         if (result.ok !== undefined) {
           setOpts({ ...opts, timeout: result.ok });
         }
@@ -170,7 +146,7 @@ export const ExportImageDialog = (
   const validateWidth = useMemo(
     () =>
       debounce((value: string) => {
-        const result = tryParseInteger(value, 1, MAX_EXPORT_IMAGE_SIZE);
+        const result = tryParseIntegerInRange(value, 1, MAX_EXPORT_IMAGE_SIZE);
         if (result.ok !== undefined) {
           setOpts({ ...opts, width: result.ok });
         }

@@ -29,6 +29,7 @@ export interface AppState {
   resetView: boolean;
   showAxes: boolean;
   showExportImageDialog: boolean;
+  showGoToDialog: boolean;
   showMajorGrid: boolean;
   showMinorGrid: boolean;
   zoomLevel: number;
@@ -58,6 +59,7 @@ const initialState: AppState = {
   resetView: false,
   showAxes: true,
   showExportImageDialog: false,
+  showGoToDialog: false,
   showMajorGrid: true,
   showMinorGrid: true,
   zoomLevel: INITIAL_ZOOM_LEVEL - BASE_ZOOM_LEVEL,
@@ -207,6 +209,13 @@ const slice = createSlice({
         showExportImageDialog: a.payload.show,
       }),
     },
+    setShowGoToDialog: {
+      prepare: (show: boolean) => ({ payload: { show } }),
+      reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
+        ...s,
+        showGoToDialog: a.payload.show,
+      }),
+    },
     setShowMajorGrid: {
       prepare: (show: boolean) => ({ payload: { show } }),
       reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
@@ -277,6 +286,7 @@ export const {
   setResetView,
   setShowAxes,
   setShowExportImageDialog,
+  setShowGoToDialog,
   setShowMajorGrid,
   setShowMinorGrid,
   setZoomLevel,

@@ -16,6 +16,7 @@ import * as ipc from "../common/ipc";
 import { RequestRelationResult } from "../common/ipc";
 import "./App.css";
 import { ExportImageDialog } from "./ExportImageDialog";
+import { GoToDialog } from "./GoToDialog";
 import { GraphBars } from "./GraphBars";
 import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
@@ -29,6 +30,7 @@ import {
   setResetView,
   setShowAxes,
   setShowExportImageDialog,
+  setShowGoToDialog,
   setShowMajorGrid,
   setShowMinorGrid,
   setZoomLevel,
@@ -106,10 +108,13 @@ const showSaveDialog = async (path: string): Promise<string | undefined> => {
 
 const App = () => {
   const dispatch = useDispatch();
+  const center = useSelector((s) => s.center);
   const exportImageOpts = useSelector((s) => s.lastExportImageOpts);
   const graphViewRef = useRef<HTMLDivElement>(null);
   const showExportImageDialog = useSelector((s) => s.showExportImageDialog);
+  const showGoToDialog = useSelector((s) => s.showGoToDialog);
   const theme = useTheme();
+  const zoomLevel = useSelector((s) => s.zoomLevel);
 
   function focusGraphView() {
     graphViewRef.current?.focus();
@@ -145,7 +150,9 @@ const App = () => {
             focusGraphView={focusGraphView}
             requestRelation={requestRelation}
           />
-          <GraphCommandBar />
+          <GraphCommandBar
+            showGoToDialog={() => dispatch(setShowGoToDialog(true))}
+          />
         </Stack>
         <GraphView grow ref={graphViewRef} />
       </Stack>
@@ -159,6 +166,18 @@ const App = () => {
             dispatch(setLastExportImageOpts(opts));
           }}
           showSaveDialog={showSaveDialog}
+        />
+      )}
+      {showGoToDialog && (
+        <GoToDialog
+          center={center}
+          dismiss={() => dispatch(setShowGoToDialog(false))}
+          goTo={(center, zoomLevel) => {
+            store.dispatch(setCenter(center));
+            store.dispatch(setZoomLevel(zoomLevel));
+            store.dispatch(setResetView(true));
+          }}
+          zoomLevel={zoomLevel}
         />
       )}
     </>
