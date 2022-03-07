@@ -12,14 +12,14 @@ export const tryParseBignum = (value: string): Result<BigNumber, string> => {
 
 export const tryParseIntegerInRange = (
   value: string,
-  minValue: number,
-  maxValue: number
+  min: number,
+  max: number
 ): Result<number, string> => {
   const val = Number.parseInt(value);
-  if (val >= minValue && val <= maxValue) {
+  if (val >= min && val <= max) {
     return ok(val);
   } else {
-    return err(`Value must be an integer between 1 and ${maxValue}.`);
+    return err(`Value must be an integer between 1 and ${max}.`);
   }
 };
 
