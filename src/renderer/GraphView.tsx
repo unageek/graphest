@@ -1,5 +1,6 @@
 import { Icon } from "@fluentui/react";
 import * as L from "leaflet";
+import { ZoomPanOptions } from "leaflet";
 import "leaflet-easybutton/src/easy-button";
 import "leaflet-easybutton/src/easy-button.css";
 import "leaflet/dist/leaflet.css";
@@ -21,6 +22,25 @@ import {
 export interface GraphViewProps {
   grow?: boolean;
 }
+
+// Make sure that when the window size is odd, such as (599, 799),
+// the initial position is exactly (0, 0), and
+// you can go to exact coordinates using "Go To" or "Reset view" buttons.
+
+L.Map.include({
+  // The function is called as
+  //  `setView` → `_resetView` → `_move` → `_getNewPixelOrigin`.
+  //
+  // Removed `._round()` from the original code:
+  //   https://github.com/Leaflet/Leaflet/blob/3b793a3b00ff6a716b84a77f598c8b2bf0ed84dd/src/map/Map.js#L1501-L1504
+  _getNewPixelOrigin: function (center: L.Coords, zoom: number) {
+    console.log("called");
+    const viewHalf = this.getSize()._divideBy(2);
+    return this.project(center, zoom)
+      ._subtract(viewHalf)
+      ._add(this._getMapPanePos());
+  },
+});
 
 export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
   (props, ref) => {
@@ -68,7 +88,8 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
       const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
       const z = zz + BASE_ZOOM_LEVEL;
-      map.setView([y, x], z, { animate: false });
+      // Use `{ reset: true }` to set the view exactly.
+      map.setMaxZoom(z).setView([y, x], z, { reset: true } as ZoomPanOptions);
     }, [map, store]);
 
     useEffect(() => {
@@ -180,7 +201,10 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         "<div id='reset-view-button' style='font-size: 16px'></div>",
         () => {
           const zoom = INITIAL_ZOOM_LEVEL;
-          map.setMaxZoom(zoom).setView([0, 0], zoom);
+          // Use `{ reset: true }` to set the view exactly.
+          map
+            .setMaxZoom(zoom)
+            .setView([0, 0], zoom, { reset: true } as ZoomPanOptions);
         },
         "Reset view"
       ).addTo(map);
