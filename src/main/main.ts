@@ -650,6 +650,14 @@ function countJobs(filter: JobFilter = () => true): number {
   );
 }
 
+function defaultSavePath(): string {
+  try {
+    return path.join(app.getPath("documents"), "Untitled.graphest");
+  } catch {
+    return "";
+  }
+}
+
 function deprioritize(job: Job) {
   if (activeJobs.length <= MAX_ACTIVE_JOBS && sleepingJobs.length === 0) {
     job.proc?.stdin?.write("\n");
@@ -718,7 +726,7 @@ async function open() {
   if (!mainWindow) return;
 
   const result = await dialog.showOpenDialog(mainWindow, {
-    defaultPath: currentPath,
+    defaultPath: currentPath ?? defaultSavePath(),
     filters: [{ name: "Graphest Document", extensions: ["graphest"] }],
   });
   if (result.filePaths.length !== 1) return;
@@ -817,7 +825,7 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
   let path = currentPath;
   if (to === SaveTo.NewFile || path === undefined) {
     const result = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: path,
+      defaultPath: path ?? defaultSavePath(),
       filters: [{ name: "Graphest Document", extensions: ["graphest"] }],
     });
     if (!result.filePath) return false;
