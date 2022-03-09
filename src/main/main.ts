@@ -148,8 +148,8 @@ const relKeyToRelId = new Map<string, string>();
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     height: 600,
-    minHeight: 200,
-    minWidth: 200,
+    minHeight: 300,
+    minWidth: 300,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       spellcheck: false,
