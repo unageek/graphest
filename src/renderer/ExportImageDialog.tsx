@@ -254,9 +254,6 @@ export const ExportImageDialog = (
       }}
       hidden={false}
       maxWidth={"100vw"}
-      modalProps={{
-        isModeless: true,
-      }}
       onDismiss={() => {
         if (!exporting) {
           props.dismiss();
@@ -491,7 +488,7 @@ export const ExportImageDialog = (
           </div>
 
           <DialogFooter>
-            <DefaultButton onClick={props.dismiss} text="Close" />
+            <DefaultButton onClick={props.dismiss} text="Cancel" />
             <PrimaryButton
               disabled={errors.size > 0}
               onClick={send}
