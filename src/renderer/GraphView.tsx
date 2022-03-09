@@ -34,7 +34,6 @@ L.Map.include({
   // Removed `._round()` from the original code:
   //   https://github.com/Leaflet/Leaflet/blob/3b793a3b00ff6a716b84a77f598c8b2bf0ed84dd/src/map/Map.js#L1501-L1504
   _getNewPixelOrigin: function (center: L.Coords, zoom: number) {
-    console.log("called");
     const viewHalf = this.getSize()._divideBy(2);
     return this.project(center, zoom)
       ._subtract(viewHalf)
@@ -89,7 +88,9 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
       const z = zz + BASE_ZOOM_LEVEL;
       // Use `{ reset: true }` to set the view exactly.
-      map.setMaxZoom(z).setView([y, x], z, { reset: true } as ZoomPanOptions);
+      map
+        .setMaxZoom(Infinity)
+        .setView([y, x], z, { reset: true } as ZoomPanOptions);
     }, [map, store]);
 
     useEffect(() => {
@@ -203,7 +204,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
           const zoom = INITIAL_ZOOM_LEVEL;
           // Use `{ reset: true }` to set the view exactly.
           map
-            .setMaxZoom(zoom)
+            .setMaxZoom(Infinity)
             .setView([0, 0], zoom, { reset: true } as ZoomPanOptions);
         },
         "Reset view"
