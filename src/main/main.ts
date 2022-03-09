@@ -862,6 +862,7 @@ async function unload(doc: Document) {
     message: `Do you want to save the changes made to the document “${getCurrentFilenameForDisplay()}”?`,
     detail: "Your changes will be lost if you don't save them.",
     buttons: ["Save…", "Don't Save", "Cancel"],
+    noLink: true,
   });
   if (
     (result.response === 0 && (await save(doc, SaveTo.CurrentFile))) ||
