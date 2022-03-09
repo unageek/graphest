@@ -4,13 +4,13 @@ import {
   DialogFooter,
   Label,
   PrimaryButton,
-  SpinButton,
-  TextField,
 } from "@fluentui/react";
+import { debounce } from "lodash";
 import * as React from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { BASE_ZOOM_LEVEL } from "../common/constants";
-import { tryParseNumber } from "../common/parse";
+import { tryParseIntegerInRange, tryParseNumber } from "../common/parse";
+import { SendableTextField } from "./SendableTextField";
 
 export interface GoToDialogProps {
   dismiss: () => void;
@@ -33,9 +33,14 @@ const integerInputStyles = {
 
 export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
   const [errors, setErrors] = useState<Set<string>>(new Set());
+
   const [x, setX] = useState(props.center[0].toString());
   const [y, setY] = useState(props.center[1].toString());
-  const [zoomLevel, setZoomLevel] = useState(props.zoomLevel);
+  const [zoomLevel, setZoomLevel] = useState(props.zoomLevel.toString());
+
+  const [xErrorMessage, setXErrorMessage] = useState<string>();
+  const [yErrorMessage, setYErrorMessage] = useState<string>();
+  const [zoomLevelErrorMessage, setZoomLevelErrorMessage] = useState<string>();
 
   const addOrRemoveErrors = useCallback(
     (keys: string[], e?: string): string | undefined => {
@@ -53,19 +58,43 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
     [errors]
   );
 
-  const validateX = useCallback(
-    (value: string) => {
-      const result = tryParseNumber(value);
-      addOrRemoveErrors(["x"], result.err);
-    },
+  const send = useCallback(() => {
+    if (errors.size > 0) return;
+    props.goTo(
+      [Number.parseFloat(x), Number.parseFloat(y)],
+      Number.parseInt(zoomLevel)
+    );
+    props.dismiss();
+  }, [errors, props, x, y, zoomLevel]);
+
+  const validateX = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseNumber(value);
+        setXErrorMessage(addOrRemoveErrors(["x"], result.err));
+      }, 200),
     [addOrRemoveErrors]
   );
 
-  const validateY = useCallback(
-    (value: string) => {
-      const result = tryParseNumber(value);
-      addOrRemoveErrors(["y"], result.err);
-    },
+  const validateY = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseNumber(value);
+        setYErrorMessage(addOrRemoveErrors(["y"], result.err));
+      }, 200),
+    [addOrRemoveErrors]
+  );
+
+  const validateZoomLevel = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseIntegerInRange(
+          value,
+          -BASE_ZOOM_LEVEL,
+          BASE_ZOOM_LEVEL
+        );
+        setZoomLevelErrorMessage(addOrRemoveErrors(["zoom-level"], result.err));
+      }, 200),
     [addOrRemoveErrors]
   );
 
@@ -85,34 +114,38 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
           }}
         >
           <Label style={{ textAlign: "right" }}>x:</Label>
-          <TextField
+          <SendableTextField
+            errorMessage={xErrorMessage}
             onChange={(_, value) => {
               if (value === undefined) return;
               setX(value);
               validateX(value);
             }}
+            onSend={send}
             styles={decimalInputStyles}
             value={x.toString()}
           />
           <Label style={{ textAlign: "right" }}>y:</Label>
-          <TextField
+          <SendableTextField
+            errorMessage={yErrorMessage}
             onChange={(_, value) => {
               if (value === undefined) return;
               setY(value);
               validateY(value);
             }}
+            onSend={send}
             styles={decimalInputStyles}
             value={y.toString()}
           />
           <Label style={{ textAlign: "right" }}>Zoom level:</Label>
-          <SpinButton
-            min={-BASE_ZOOM_LEVEL}
-            max={BASE_ZOOM_LEVEL}
+          <SendableTextField
+            errorMessage={zoomLevelErrorMessage}
             onChange={(_, value) => {
               if (value === undefined) return;
-              const zoomLevel = parseFloat(value);
-              setZoomLevel(zoomLevel);
+              setZoomLevel(value);
+              validateZoomLevel(value);
             }}
+            onSend={send}
             styles={integerInputStyles}
             value={zoomLevel.toString()}
           />
@@ -120,17 +153,7 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
 
         <DialogFooter>
           <DefaultButton onClick={props.dismiss} text="Cancel" />
-          <PrimaryButton
-            disabled={errors.size > 0}
-            onClick={() => {
-              props.goTo(
-                [Number.parseFloat(x), Number.parseFloat(y)],
-                zoomLevel
-              );
-              props.dismiss();
-            }}
-            text="Go"
-          />
+          <PrimaryButton disabled={errors.size > 0} onClick={send} text="Go" />
         </DialogFooter>
       </>
     </Dialog>

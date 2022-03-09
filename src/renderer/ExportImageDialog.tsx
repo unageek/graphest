@@ -10,7 +10,6 @@ import {
   ProgressIndicator,
   Stack,
   Text,
-  TextField,
 } from "@fluentui/react";
 import { debounce } from "lodash";
 import * as React from "react";
@@ -24,6 +23,7 @@ import {
 } from "../common/exportImage";
 import { tryParseBignum, tryParseIntegerInRange } from "../common/parse";
 import { useSelector } from "./models/app";
+import { SendableTextField } from "./SendableTextField";
 
 export interface ExportImageDialogProps {
   abort: () => void;
@@ -118,6 +118,14 @@ export const ExportImageDialog = (
     },
     [errors]
   );
+
+  const send = useCallback(async () => {
+    if (errors.size > 0) return;
+    setExporting(true);
+    props.saveOpts(opts);
+    await props.exportImage(opts);
+    props.dismiss();
+  }, [errors, opts, props]);
 
   const validateHeight = useMemo(
     () =>
@@ -310,45 +318,49 @@ export const ExportImageDialog = (
             <Label style={{ gridColumn: "3", padding: "0" }}>Maximum</Label>
 
             <Label style={{ textAlign: "right" }}>x:</Label>
-            <TextField
+            <SendableTextField
               errorMessage={xMinErrorMessage}
               onChange={(_, value) => {
                 if (value === undefined) return;
                 setXMin(value);
                 validateXMin(value);
               }}
+              onSend={send}
               styles={decimalInputStyles}
               value={xMin}
             />
-            <TextField
+            <SendableTextField
               errorMessage={xMaxErrorMessage}
               onChange={(_, value) => {
                 if (value === undefined) return;
                 setXMax(value);
                 validateXMax(value);
               }}
+              onSend={send}
               styles={decimalInputStyles}
               value={xMax}
             />
 
             <Label style={{ textAlign: "right" }}>y:</Label>
-            <TextField
+            <SendableTextField
               errorMessage={yMinErrorMessage}
               onChange={(_, value) => {
                 if (value === undefined) return;
                 setYMin(value);
                 validateYMin(value);
               }}
+              onSend={send}
               styles={decimalInputStyles}
               value={yMin}
             />
-            <TextField
+            <SendableTextField
               errorMessage={yMaxErrorMessage}
               onChange={(_, value) => {
                 if (value === undefined) return;
                 setYMax(value);
                 validateYMax(value);
               }}
+              onSend={send}
               styles={decimalInputStyles}
               value={yMax}
             />
@@ -363,13 +375,14 @@ export const ExportImageDialog = (
               style={{ alignItems: "baseline", gridColumn: "span 2" }}
               tokens={{ childrenGap: "4px" }}
             >
-              <TextField
+              <SendableTextField
                 errorMessage={widthErrorMessage}
                 onChange={(_, value) => {
                   if (value === undefined) return;
                   setWidth(value);
                   validateWidth(value);
                 }}
+                onSend={send}
                 styles={integerInputStyles}
                 value={width}
               />
@@ -384,13 +397,14 @@ export const ExportImageDialog = (
               style={{ alignItems: "baseline", gridColumn: "span 2" }}
               tokens={{ childrenGap: "4px" }}
             >
-              <TextField
+              <SendableTextField
                 errorMessage={heightErrorMessage}
                 onChange={(_, value) => {
                   if (value === undefined) return;
                   setHeight(value);
                   validateHeight(value);
                 }}
+                onSend={send}
                 styles={integerInputStyles}
                 value={height}
               />
@@ -427,13 +441,14 @@ export const ExportImageDialog = (
               style={{ alignItems: "baseline", gridColumn: "span 2" }}
               tokens={{ childrenGap: "4px" }}
             >
-              <TextField
+              <SendableTextField
                 errorMessage={timeoutErrorMessage}
                 onChange={(_, value) => {
                   if (value === undefined) return;
                   setTimeout(value);
                   validateTimeout(value);
                 }}
+                onSend={send}
                 styles={integerInputStyles}
                 value={timeout}
               />
@@ -479,12 +494,7 @@ export const ExportImageDialog = (
             <DefaultButton onClick={props.dismiss} text="Close" />
             <PrimaryButton
               disabled={errors.size > 0}
-              onClick={async () => {
-                setExporting(true);
-                props.saveOpts(opts);
-                await props.exportImage(opts);
-                props.dismiss();
-              }}
+              onClick={send}
               text="Export"
             />
           </DialogFooter>
