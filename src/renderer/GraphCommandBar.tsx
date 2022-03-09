@@ -2,13 +2,9 @@ import { CommandBarButton, Separator } from "@fluentui/react";
 import * as React from "react";
 import { useDispatch } from "react-redux";
 import { Bar } from "./Bar";
-import { newGraph } from "./models/app";
+import { newGraph, setShowGoToDialog } from "./models/app";
 
-export interface GraphCommandBarProps {
-  showGoToDialog: () => void;
-}
-
-export const GraphCommandBar = (props: GraphCommandBarProps): JSX.Element => {
+export const GraphCommandBar = (): JSX.Element => {
   const dispatch = useDispatch();
 
   return (
@@ -21,7 +17,7 @@ export const GraphCommandBar = (props: GraphCommandBarProps): JSX.Element => {
       <Separator vertical />
       <CommandBarButton
         iconProps={{ iconName: "Forward" }}
-        onClick={() => props.showGoToDialog()}
+        onClick={() => dispatch(setShowGoToDialog(true))}
         text="Go To…"
       />
     </Bar>

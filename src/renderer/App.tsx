@@ -150,9 +150,7 @@ const App = () => {
             focusGraphView={focusGraphView}
             requestRelation={requestRelation}
           />
-          <GraphCommandBar
-            showGoToDialog={() => dispatch(setShowGoToDialog(true))}
-          />
+          <GraphCommandBar />
         </Stack>
         <GraphView grow ref={graphViewRef} />
       </Stack>
