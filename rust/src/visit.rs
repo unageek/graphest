@@ -1139,16 +1139,17 @@ impl VisitMut for Transform {
             nary!(Times, xs) => {
                 let len = xs.len();
 
-                // Don't replace 0 x with 0 unless x is totally defined;
+                // (Times … 0 … x …) → (Times … 0 …), where x is totally defined.
+                // Do not drop x if it is not totally defined;
                 // otherwise, tha replacement will alter the domain of the expression.
-                if xs.iter().all(|x| x.totally_defined)
-                    && xs.iter().any(|x| {
-                        matches!(x,
-                            constant!(a) if a.to_f64() == Some(0.0)
-                        )
-                    })
-                {
-                    *xs = vec![Expr::zero()];
+                if xs.iter().any(|x| {
+                    matches!(x,
+                        constant!(a) if a.to_f64() == Some(0.0)
+                    )
+                }) {
+                    xs.retain(|x| {
+                        !x.totally_defined || matches!(x, constant!(a) if a.to_f64() == Some(0.0))
+                    });
                 }
 
                 // Drop ones.
@@ -2159,7 +2160,8 @@ mod tests {
 
         test("0 sin(x)", "0");
         test("0 sqrt(x)", "(Times 0 (Pow x 0.5))");
-        test("1 x", "x");
+        test("0 sqrt(x) sin(x)", "(Times 0 (Pow x 0.5))");
+        test("1 sqrt(x)", "(Pow x 0.5)");
 
         test("x x", "(Pow x 2)");
         test("x x^2", "(Pow x 3)");
