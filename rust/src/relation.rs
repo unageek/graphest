@@ -55,6 +55,7 @@ pub struct Relation {
     x_explicit: Option<StoreIndex>,
     y_explicit: Option<StoreIndex>,
     cached_terms: Vec<Vec<StoreIndex>>,
+    deferred_terms: Vec<StoreIndex>,
     n_theta_range: Interval,
     t_range: Interval,
     relation_type: RelationType,
@@ -200,6 +201,10 @@ impl Relation {
         let ts = &mut self.ts;
         let mut cached_vars = VarSet::EMPTY;
 
+        for i in self.deferred_terms.iter().copied() {
+            ts[i].set_deferred();
+        }
+
         for i in 0..self.vars_ordered.len() {
             if let Some(mx_ts) = cache.get(i, args) {
                 for (&i, mx) in self.cached_terms[i].iter().zip(mx_ts.iter()) {
@@ -220,10 +225,13 @@ impl Relation {
                     };
                     t.put(ts, DecInterval::set_dec(x, d).into());
                 }
-                _ if t.vars.len() <= 1 && cached_vars.contains(t.vars) => {
+                _ if !ts[t.store_index].is_deferred()
+                    && t.vars.len() <= 1
+                    && cached_vars.contains(t.vars) =>
+                {
                     // `t` is constant or cached.
                 }
-                _ => t.put_eval(ts),
+                _ => t.put_eval(&self.terms[..], ts),
             }
         }
 
@@ -234,8 +242,9 @@ impl Relation {
                 .collect(),
         );
 
+        let has_deferred_terms = !self.deferred_terms.is_empty();
         for i in 0..self.vars_ordered.len() {
-            if !cached_vars.contains(self.vars_ordered[i]) {
+            if has_deferred_terms || !cached_vars.contains(self.vars_ordered[i]) {
                 cache.insert_with(i, args, || {
                     self.cached_terms[i]
                         .iter()
@@ -253,7 +262,7 @@ impl Relation {
             // This condition is different from `let StaticTermKind::Constant(_) = t.kind`,
             // as not all constant expressions are folded. See the comment on [`FoldConstant`].
             if t.vars == VarSet::EMPTY {
-                t.put_eval(&mut self.ts);
+                t.put_eval(&self.terms[..], &mut self.ts);
             }
         }
     }
@@ -325,7 +334,8 @@ impl FromStr for Relation {
         FuseMulAdd.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
         assert_eq!(e.ty, ValueType::Boolean);
-        let mut v = AssignId::new();
+        update_laziness(&mut e);
+        let mut v = AssignId::default();
         v.visit_expr_mut(&mut e);
 
         let vars = match relation_type {
@@ -372,6 +382,13 @@ impl FromStr for Relation {
         v.visit_expr(&e);
         let cached_terms = v.get();
 
+        let deferred_terms = terms
+            .iter()
+            .enumerate()
+            .filter(|&(_, t)| t.defer)
+            .map(|(i, _)| StoreIndex::new(i as u32))
+            .collect::<Vec<_>>();
+
         let mut slf = Self {
             ast: e,
             terms,
@@ -382,6 +399,7 @@ impl FromStr for Relation {
             x_explicit,
             y_explicit,
             cached_terms,
+            deferred_terms,
             n_theta_range,
             t_range,
             relation_type,

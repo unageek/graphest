@@ -1194,6 +1194,28 @@ impl VisitMut for Transform {
                             // x x → x^2
                             Some(Expr::binary(Pow, box take(x), box Expr::two()))
                         }
+                        (x, ternary!(IfThenElse, cond, constant!(a), f))
+                        | (ternary!(IfThenElse, cond, constant!(a), f), x)
+                            if x.totally_defined && a.to_f64() == Some(0.0) =>
+                        {
+                            Some(Expr::ternary(
+                                IfThenElse,
+                                box take(cond),
+                                box Expr::nary(Times, vec![Expr::zero()]),
+                                box Expr::nary(Times, vec![take(x), take(f)]),
+                            ))
+                        }
+                        (x, ternary!(IfThenElse, cond, t, constant!(a)))
+                        | (ternary!(IfThenElse, cond, t, constant!(a)), x)
+                            if x.totally_defined && a.to_f64() == Some(0.0) =>
+                        {
+                            Some(Expr::ternary(
+                                IfThenElse,
+                                box take(cond),
+                                box Expr::nary(Times, vec![take(x), take(t)]),
+                                box Expr::nary(Times, vec![Expr::zero()]),
+                            ))
+                        }
                         _ => None,
                     }
                 });
@@ -1461,6 +1483,33 @@ impl VisitMut for UpdateMetadata {
     }
 }
 
+#[derive(Default)]
+struct UpdateLaziness {
+    defer: bool,
+}
+
+impl VisitMut for UpdateLaziness {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use TernaryOp::*;
+
+        match e {
+            ternary!(IfThenElse, cond, t, f) => {
+                self.visit_expr_mut(cond);
+                let bak = self.defer;
+                self.defer = true;
+                self.visit_expr_mut(t);
+                self.visit_expr_mut(f);
+                self.defer = bak;
+            }
+            _ => {
+                traverse_expr_mut(self, e);
+            }
+        }
+        e.defer = self.defer;
+    }
+}
+
+type LazyMap = HashMap<ExprId, bool>;
 type SiteMap = HashMap<ExprId, Site>;
 type UnsafeExprRef = UnsafeRef<Expr>;
 
@@ -1468,25 +1517,17 @@ type UnsafeExprRef = UnsafeRef<Expr>;
 ///
 /// Precondition: [`UpdateMetadata`] have been applied to the expression
 /// and it has not been modified since then.
+#[derive(Default)]
 pub struct AssignId {
     next_id: ExprId,
     next_site: u8,
+    defer_map: LazyMap,
     site_map: SiteMap,
     exprs: Vec<UnsafeExprRef>,
     visited: HashSet<UnsafeExprRef>,
 }
 
 impl AssignId {
-    pub fn new() -> Self {
-        AssignId {
-            next_id: 0,
-            next_site: 0,
-            site_map: HashMap::new(),
-            exprs: vec![],
-            visited: HashSet::new(),
-        }
-    }
-
     /// Returns `true` if the expression can perform branch cut on evaluation.
     fn expr_can_perform_cut(e: &Expr) -> bool {
         use {BinaryOp::*, UnaryOp::*};
@@ -1533,6 +1574,9 @@ impl VisitMut for AssignId {
                 let id = visited.id;
                 e.id = id;
 
+                self.defer_map
+                    .insert(e.id, self.defer_map[&e.id] && e.defer);
+
                 if !self.site_map.contains_key(&id)
                     && Self::expr_can_perform_cut(e)
                     && self.next_site <= Site::MAX
@@ -1545,6 +1589,8 @@ impl VisitMut for AssignId {
                 assert!(self.next_id != UNINIT_EXPR_ID);
                 e.id = self.next_id;
                 self.next_id += 1;
+                self.defer_map
+                    .insert(e.id, e.defer && e.vars != VarSet::EMPTY);
                 let r = UnsafeExprRef::from(e);
                 self.exprs.push(r);
                 self.visited.insert(r);
@@ -1557,6 +1603,7 @@ impl VisitMut for AssignId {
 pub struct CollectStatic<'a> {
     pub terms: Vec<StaticTerm>,
     pub forms: Vec<StaticForm>,
+    defer_map: LazyMap,
     site_map: SiteMap,
     exprs: Vec<UnsafeExprRef>,
     term_index: HashMap<ExprId, usize>,
@@ -1570,6 +1617,7 @@ impl<'a> CollectStatic<'a> {
         let mut slf = Self {
             terms: vec![],
             forms: vec![],
+            defer_map: v.defer_map,
             site_map: v.site_map,
             exprs: v.exprs,
             term_index: HashMap::new(),
@@ -1715,10 +1763,11 @@ impl<'a> CollectStatic<'a> {
                     }
                 };
                 self.terms.push(StaticTerm {
-                    site: self.site_map.get(&t.id).copied(),
+                    defer: *self.defer_map.get(&t.id).unwrap(),
                     kind: k,
-                    vars: t.vars,
+                    site: self.site_map.get(&t.id).copied(),
                     store_index,
+                    vars: t.vars,
                 })
             }
         }
@@ -1890,6 +1939,10 @@ pub fn simplify(e: &mut Expr) {
             break;
         }
     }
+}
+
+pub fn update_laziness(e: &mut Expr) {
+    UpdateLaziness::default().visit_expr_mut(e);
 }
 
 #[cfg(test)]
@@ -2175,6 +2228,23 @@ mod tests {
         test("x^-2 x^3", "(Times (Pow x -2) (Pow x 3))");
         test("x^2 x^2", "(Pow x 4)");
         test("sqrt(x) sqrt(x)", "(Pow (Pow x 0.5) 2)");
+
+        test(
+            "y if(x < 0, 0, 1)",
+            "(IfThenElse (BooleLtZero x) 0 (Times y 1))",
+        );
+        test(
+            "if(x < 0, 0, 1) y",
+            "(IfThenElse (BooleLtZero x) 0 (Times y 1))",
+        );
+        test(
+            "y if(x < 0, 1, 0)",
+            "(IfThenElse (BooleLtZero x) (Times y 1) 0)",
+        );
+        test(
+            "if(x < 0, 1, 0) y",
+            "(IfThenElse (BooleLtZero x) (Times y 1) 0)",
+        );
     }
 
     #[test]

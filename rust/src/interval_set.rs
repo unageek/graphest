@@ -171,6 +171,8 @@ pub struct TupperIntervalSet {
     /// However, this is the only place where we can keep track of the decoration [`Decoration::Trv`]
     /// if the first intervals being inserted are empty, since they will not be stored in `xs`.
     d: Decoration,
+
+    deferred: bool,
 }
 
 impl TupperIntervalSet {
@@ -184,6 +186,7 @@ impl TupperIntervalSet {
         Self {
             xs: TupperIntervalVec::new(),
             d: Decoration::Com,
+            deferred: false,
         }
     }
 
@@ -207,6 +210,10 @@ impl TupperIntervalSet {
         for x in self.xs.iter_mut() {
             x.d = self.d;
         }
+    }
+
+    pub fn is_deferred(&self) -> bool {
+        self.deferred
     }
 
     /// Returns `true` if the set is empty.
@@ -274,6 +281,10 @@ impl TupperIntervalSet {
         }
 
         xs.shrink_to_fit();
+    }
+
+    pub fn set_deferred(&mut self) {
+        self.deferred = true;
     }
 
     /// Returns the only [`f64`] number in the set if `self` contains exactly one interval

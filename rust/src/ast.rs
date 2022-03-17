@@ -166,6 +166,7 @@ impl fmt::Display for ValueType {
 /// An AST node for an expression.
 #[derive(Clone, Debug)]
 pub struct Expr {
+    pub defer: bool,
     pub id: ExprId,
     pub kind: ExprKind,
     pub source_range: Range<usize>,
@@ -300,6 +301,7 @@ impl Expr {
     /// Creates a new expression.
     pub fn new(kind: ExprKind) -> Self {
         Self {
+            defer: false,
             id: UNINIT_EXPR_ID,
             kind,
             source_range: 0..0,
