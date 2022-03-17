@@ -1089,6 +1089,10 @@ impl VisitMut for Transform {
                 *e = take(t);
                 self.modified = true;
             }
+            ternary!(IfThenElse, _, x, y) if x == y => {
+                *e = take(x);
+                self.modified = true;
+            }
             nary!(Plus, xs) => {
                 let len = xs.len();
 
@@ -2149,6 +2153,7 @@ mod tests {
 
         test("if(false, x, y)", "y");
         test("if(true, x, y)", "x");
+        test("if(x < 0, y, y)", "y");
 
         test("0 + x", "x");
         test("x + x", "(Times 2 x)");
