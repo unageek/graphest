@@ -276,7 +276,9 @@ impl TupperIntervalSet {
         if self.is_empty() {
             Self::from(DI_ZERO)
         } else {
-            self.boole_eq_zero_nonempty(site)
+            let mut rs = self.boole_eq_zero_nonempty(site);
+            rs.normalize_boole();
+            rs
         }
     }
 
@@ -291,7 +293,9 @@ impl TupperIntervalSet {
         if self.is_empty() {
             Self::from(DI_ZERO)
         } else {
-            self.boole_le_zero_nonempty(site)
+            let mut rs = self.boole_le_zero_nonempty(site);
+            rs.normalize_boole();
+            rs
         }
     }
 
@@ -306,7 +310,9 @@ impl TupperIntervalSet {
         if self.is_empty() {
             Self::from(DI_ZERO)
         } else {
-            self.boole_lt_zero_nonempty(site)
+            let mut rs = self.boole_lt_zero_nonempty(site);
+            rs.normalize_boole();
+            rs
         }
     }
 
@@ -316,6 +322,16 @@ impl TupperIntervalSet {
             x.inf() < 0.0,
         )))
     });
+
+    fn normalize_boole(&mut self) {
+        let has_zero = self.iter().any(|&x| x.x == I_ZERO);
+        let has_one = self.iter().any(|&x| x.x == I_ONE);
+        match (has_zero, has_one) {
+            (true, false) => *self = TupperIntervalSet::from(DI_ZERO),
+            (false, true) => *self = TupperIntervalSet::from(DI_ONE),
+            _ => (),
+        };
+    }
 
     #[cfg(not(feature = "arb"))]
     impl_op!(cos(x), x.cos());
