@@ -225,11 +225,8 @@ impl Relation {
                     };
                     t.put(ts, DecInterval::set_dec(x, d).into());
                 }
-                _ if !ts[t.store_index].is_unevaluated()
-                    && t.vars.len() <= 1
-                    && cached_vars.contains(t.vars) =>
-                {
-                    // `t` is constant or cached.
+                _ if t.defer || t.vars.len() <= 1 && cached_vars.contains(t.vars) => {
+                    // `t` is either deferred, constant or cached.
                 }
                 _ => t.put_eval(&self.terms[..], ts),
             }
