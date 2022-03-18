@@ -282,7 +282,7 @@ impl StaticTerm {
     fn put_eval_deferred(&self, terms: &[Self], ts: &mut ValueStore<TupperIntervalSet>) {
         use {ScalarTernaryOp::*, StaticTermKind::*};
 
-        if self.defer && !ts[self.store_index].is_deferred() {
+        if self.defer && !ts[self.store_index].is_unevaluated() {
             return;
         }
 

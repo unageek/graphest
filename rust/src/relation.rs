@@ -202,7 +202,7 @@ impl Relation {
         let mut cached_vars = VarSet::EMPTY;
 
         for i in self.deferred_terms.iter().copied() {
-            ts[i].set_deferred();
+            ts[i].set_unevaluated();
         }
 
         for i in 0..self.vars_ordered.len() {
@@ -225,7 +225,7 @@ impl Relation {
                     };
                     t.put(ts, DecInterval::set_dec(x, d).into());
                 }
-                _ if !ts[t.store_index].is_deferred()
+                _ if !ts[t.store_index].is_unevaluated()
                     && t.vars.len() <= 1
                     && cached_vars.contains(t.vars) =>
                 {
