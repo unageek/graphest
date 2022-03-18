@@ -258,7 +258,7 @@ impl StaticTerm {
             Binary(PowRational, x, y) => ts[*x].pow_rational(&ts[*y], self.site),
             Binary(ReSignNonnegative, x, y) => ts[*x].re_sign_nonnegative(&ts[*y], self.site),
             Binary(Sub, x, y) => &ts[*x] - &ts[*y],
-            Ternary(IfThenElse, cond, t, f) => ts[*cond].if_then_else_lazy(|| &ts[*t], || &ts[*f]),
+            Ternary(IfThenElse, cond, t, f) => ts[*cond].if_then_else(&ts[*t], &ts[*f]),
             Ternary(MulAdd, x, y, z) => ts[*x].mul_add(&ts[*y], &ts[*z]),
             Pown(x, n) => ts[*x].pown(*n, self.site),
             Rootn(x, n) => ts[*x].rootn(*n),

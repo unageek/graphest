@@ -636,21 +636,13 @@ impl TupperIntervalSet {
     }
 
     pub fn if_then_else(&self, t: &Self, f: &Self) -> Self {
-        self.if_then_else_lazy(|| t, || f)
-    }
-
-    pub fn if_then_else_lazy<'a, T: FnMut() -> &'a Self, F: FnMut() -> &'a Self>(
-        &'a self,
-        mut t: T,
-        mut f: F,
-    ) -> Self {
         assert!(self.decoration() >= Decoration::Def);
         let mut rs = Self::new();
         for cond in self {
             let xs = if cond.x == I_ZERO {
-                f()
+                f
             } else if cond.x == I_ONE {
-                t()
+                t
             } else {
                 panic!();
             };
