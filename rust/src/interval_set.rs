@@ -212,11 +212,12 @@ impl TupperIntervalSet {
         }
     }
 
+    /// Returns `true` if the interval set is unevaluated.
     pub fn is_deferred(&self) -> bool {
         self.deferred
     }
 
-    /// Returns `true` if the set is empty.
+    /// Returns `true` if the interval set is empty.
     pub fn is_empty(&self) -> bool {
         self.xs.is_empty()
     }
@@ -283,6 +284,7 @@ impl TupperIntervalSet {
         xs.shrink_to_fit();
     }
 
+    /// Mark the interval set as unevaluated.
     pub fn set_deferred(&mut self) {
         self.deferred = true;
     }
