@@ -172,7 +172,7 @@ pub struct TupperIntervalSet {
     /// if the first intervals being inserted are empty, since they will not be stored in `xs`.
     d: Decoration,
 
-    deferred: bool,
+    unevaluated: bool,
 }
 
 impl TupperIntervalSet {
@@ -186,7 +186,7 @@ impl TupperIntervalSet {
         Self {
             xs: TupperIntervalVec::new(),
             d: Decoration::Com,
-            deferred: false,
+            unevaluated: false,
         }
     }
 
@@ -219,7 +219,7 @@ impl TupperIntervalSet {
 
     /// Returns `true` if the interval set is unevaluated.
     pub fn is_unevaluated(&self) -> bool {
-        self.deferred
+        self.unevaluated
     }
 
     /// Returns an iterator over the intervals.
@@ -286,7 +286,7 @@ impl TupperIntervalSet {
 
     /// Mark the interval set as unevaluated.
     pub fn set_unevaluated(&mut self) {
-        self.deferred = true;
+        self.unevaluated = true;
     }
 
     /// Returns the only [`f64`] number in the set if `self` contains exactly one interval
