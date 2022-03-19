@@ -22,7 +22,7 @@ use std::{
     hash::{Hash, Hasher},
     marker::Sized,
     mem::take,
-    ops::Deref,
+    ops::{Deref, Range},
 };
 
 /// A visitor that visits AST nodes in depth-first order.
@@ -1190,6 +1190,28 @@ impl VisitMut for Transform {
                             // x x → x^2
                             Some(Expr::binary(Pow, box take(x), box Expr::two()))
                         }
+                        (x, ternary!(IfThenElse, cond, constant!(a), f))
+                        | (ternary!(IfThenElse, cond, constant!(a), f), x)
+                            if x.totally_defined && a.to_f64() == Some(0.0) =>
+                        {
+                            Some(Expr::ternary(
+                                IfThenElse,
+                                box take(cond),
+                                box Expr::nary(Times, vec![Expr::zero()]),
+                                box Expr::nary(Times, vec![take(x), take(f)]),
+                            ))
+                        }
+                        (x, ternary!(IfThenElse, cond, t, constant!(a)))
+                        | (ternary!(IfThenElse, cond, t, constant!(a)), x)
+                            if x.totally_defined && a.to_f64() == Some(0.0) =>
+                        {
+                            Some(Expr::ternary(
+                                IfThenElse,
+                                box take(cond),
+                                box Expr::nary(Times, vec![take(x), take(t)]),
+                                box Expr::nary(Times, vec![Expr::zero()]),
+                            ))
+                        }
                         _ => None,
                     }
                 });
@@ -1549,28 +1571,155 @@ impl VisitMut for AssignId {
     }
 }
 
+pub struct AssignBranchIds {
+    branch_id: usize,
+    branch_ids: HashMap<UnsafeExprRef, HashSet<usize>>,
+    next_branch_id: usize,
+}
+
+impl AssignBranchIds {
+    pub fn new() -> Self {
+        Self {
+            branch_id: 0,
+            branch_ids: HashMap::new(),
+            next_branch_id: 1,
+        }
+    }
+}
+
+impl VisitMut for AssignBranchIds {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        use TernaryOp::*;
+
+        let branch_id_bak = self.branch_id;
+        match e {
+            ternary!(IfThenElse, cond, t, f) => {
+                self.visit_expr_mut(cond);
+
+                self.branch_id = self.next_branch_id;
+                self.visit_expr_mut(t);
+                self.next_branch_id += 1;
+
+                self.branch_id = self.next_branch_id;
+                self.visit_expr_mut(f);
+                self.next_branch_id += 1;
+            }
+            _ => traverse_expr_mut(self, e),
+        }
+        self.branch_id = branch_id_bak;
+
+        self.branch_ids
+            .entry(UnsafeExprRef::from(e))
+            .and_modify(|ids| {
+                ids.insert(self.branch_id);
+            })
+            .or_insert_with(|| {
+                let mut ids = HashSet::new();
+                ids.insert(self.branch_id);
+                ids
+            });
+    }
+}
+
+pub struct AssignBranchId {
+    branch_ids: HashMap<UnsafeExprRef, HashSet<usize>>,
+    real_exprs_per_branch: Vec<usize>,
+    vars: VarSet,
+    visited: HashSet<UnsafeExprRef>,
+}
+
+impl AssignBranchId {
+    pub fn new(collect: AssignBranchIds, vars: VarSet) -> Self {
+        Self {
+            branch_ids: collect.branch_ids,
+            real_exprs_per_branch: vec![0; collect.next_branch_id],
+            vars,
+            visited: HashSet::new(),
+        }
+    }
+}
+
+impl VisitMut for AssignBranchId {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        traverse_expr_mut(self, e);
+
+        let e_ref = UnsafeExprRef::from(e);
+        if e.ty == ValueType::Real {
+            e.branch_id = match e {
+                constant!(_) | var!(_) => 0,
+                _ => {
+                    let ids = self.branch_ids.get(&e_ref).unwrap();
+                    if ids.len() == 1 {
+                        // The node does not appear in other branches.
+                        *ids.iter().next().unwrap()
+                    } else {
+                        // The node appears in multiple branches.
+                        0
+                    }
+                }
+            };
+
+            match e {
+                var!(_) if !self.vars.contains(e.vars) => (),
+                _ => {
+                    if let Some(visited) = self.visited.get(&e_ref) {
+                        e.index_in_branch = visited.index_in_branch;
+                    } else {
+                        e.index_in_branch = self.real_exprs_per_branch[e.branch_id];
+                        self.real_exprs_per_branch[e.branch_id] += 1;
+                        self.visited.insert(e_ref);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Collects [`StaticTerm`]s and [`StaticForm`]s in ascending order of the IDs.
 pub struct CollectStatic<'a> {
     pub terms: Vec<StaticTerm>,
     pub forms: Vec<StaticForm>,
+    pub eval_terms: Range<usize>,
     site_map: SiteMap,
     exprs: Vec<UnsafeExprRef>,
-    term_index: HashMap<ExprId, usize>,
+    real_exprs: Vec<UnsafeExprRef>,
+    index_prefix: Vec<usize>,
     form_index: HashMap<ExprId, FormIndex>,
-    next_scalar_store_index: u32,
     var_index: &'a HashMap<VarSet, VarIndex>,
 }
 
 impl<'a> CollectStatic<'a> {
-    pub fn new(v: AssignId, var_index: &'a HashMap<VarSet, VarIndex>) -> Self {
+    pub fn new(
+        v: AssignId,
+        v_branch_id: AssignBranchId,
+        var_index: &'a HashMap<VarSet, VarIndex>,
+    ) -> Self {
+        let mut index_prefix = vec![0];
+        index_prefix.extend({
+            v_branch_id.real_exprs_per_branch.iter().scan(0, |acc, n| {
+                *acc += n;
+                Some(*acc)
+            })
+        });
+
+        let mut real_exprs = vec![None; *index_prefix.last().unwrap()];
+        for e in &v.exprs {
+            if e.index_in_branch != usize::MAX {
+                let index = index_prefix[e.branch_id] + e.index_in_branch;
+                real_exprs[index] = Some(UnsafeExprRef::from(e));
+            }
+        }
+        let real_exprs = real_exprs.iter().map(|e| e.unwrap()).collect::<Vec<_>>();
+
         let mut slf = Self {
             terms: vec![],
             forms: vec![],
+            eval_terms: 0..index_prefix[1],
             site_map: v.site_map,
             exprs: v.exprs,
-            term_index: HashMap::new(),
+            real_exprs,
+            index_prefix,
             form_index: HashMap::new(),
-            next_scalar_store_index: 0,
             var_index,
         };
         slf.collect_terms();
@@ -1581,7 +1730,7 @@ impl<'a> CollectStatic<'a> {
 
     fn collect_terms(&mut self) {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
-        for t in self.exprs.iter().copied() {
+        for (i, t) in self.real_exprs.iter().copied().enumerate() {
             let k = match &*t {
                 bool_constant!(_) => None,
                 constant!(x) => Some(StaticTermKind::Constant(box x.interval().clone())),
@@ -1651,7 +1800,7 @@ impl<'a> CollectStatic<'a> {
                     };
                     Some(StaticTermKind::RankedMinMax(
                         op,
-                        box xs.iter().map(|x| self.store_index(x)).collect(),
+                        xs.iter().map(|x| self.store_index(x)).collect(),
                         self.store_index(n),
                     ))
                 }
@@ -1682,13 +1831,9 @@ impl<'a> CollectStatic<'a> {
                     })
                 })()
                 .map(|op| StaticTermKind::Binary(op, self.store_index(x), self.store_index(y))),
-                ternary!(op, x, y, z) => Some(match op {
-                    IfThenElse => ScalarTernaryOp::IfThenElse,
-                    MulAdd => ScalarTernaryOp::MulAdd,
-                })
-                .map(|op| {
+                ternary!(MulAdd, x, y, z) => Some({
                     StaticTermKind::Ternary(
-                        op,
+                        ScalarTernaryOp::MulAdd,
                         self.store_index(x),
                         self.store_index(y),
                         self.store_index(z),
@@ -1697,23 +1842,41 @@ impl<'a> CollectStatic<'a> {
                 nary!(List | Plus | Times, _) => None,
                 pown!(x, n) => Some(StaticTermKind::Pown(self.store_index(x), *n)),
                 rootn!(x, n) => Some(StaticTermKind::Rootn(self.store_index(x), *n)),
+                ternary!(IfThenElse, cond, t, f) => {
+                    let t_start = match t.branch_id {
+                        0 => 0,
+                        id => self.index_prefix[id] as u32,
+                    };
+                    let t_end = match t.branch_id {
+                        0 => 0,
+                        id => self.index_prefix[id + 1] as u32,
+                    };
+                    let f_start = match f.branch_id {
+                        0 => 0,
+                        id => self.index_prefix[id] as u32,
+                    };
+                    let f_end = match f.branch_id {
+                        0 => 0,
+                        id => self.index_prefix[id + 1] as u32,
+                    };
+                    Some({
+                        StaticTermKind::IfThenElse(
+                            self.store_index(cond),
+                            self.store_index(t),
+                            self.store_index(f),
+                            t_start..t_end,
+                            f_start..f_end,
+                        )
+                    })
+                }
                 error!() => panic!(),
                 uninit!() => panic!(),
             };
             if let Some(k) = k {
-                self.term_index.insert(t.id, self.terms.len());
-                let store_index = match *t {
-                    nary!(_, _) => StoreIndex::new(0), // List values are not stored.
-                    _ => {
-                        let i = self.next_scalar_store_index;
-                        self.next_scalar_store_index += 1;
-                        StoreIndex::new(i)
-                    }
-                };
                 self.terms.push(StaticTerm {
                     kind: k,
                     site: self.site_map.get(&t.id).copied(),
-                    store_index,
+                    store_index: StoreIndex::new(i as u32),
                     vars: t.vars,
                 })
             }
@@ -1769,7 +1932,7 @@ impl<'a> CollectStatic<'a> {
     }
 
     fn store_index(&self, e: &Expr) -> StoreIndex {
-        self.terms[self.term_index[&e.id]].store_index
+        StoreIndex::new((self.index_prefix[e.branch_id] + e.index_in_branch) as u32)
     }
 }
 
@@ -1778,16 +1941,16 @@ impl<'a> CollectStatic<'a> {
 /// where `x` is the variable specified in the constructor.
 pub struct FindExplicitRelation<'a> {
     collector: &'a CollectStatic<'a>,
-    variable: VarSet,
     store_index: Option<StoreIndex>,
+    variable: VarSet,
 }
 
 impl<'a> FindExplicitRelation<'a> {
     pub fn new(collector: &'a CollectStatic, variable: VarSet) -> Self {
         Self {
             collector,
-            variable,
             store_index: None,
+            variable,
         }
     }
 
@@ -1802,8 +1965,9 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
         match e {
             binary!(And, _, _) => traverse_expr(self, e),
             binary!(ExplicitRel(_), x @ var!(_), e) if x.vars == self.variable => {
-                self.store_index =
-                    Some(self.collector.terms[self.collector.term_index[&e.id]].store_index);
+                self.store_index = Some(StoreIndex::new(
+                    (self.collector.index_prefix[e.branch_id] + e.index_in_branch) as u32,
+                ));
             }
             _ => (),
         }
@@ -1814,8 +1978,7 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
 /// Expressions of the kind [`ExprKind::Var`](crate::ast::ExprKind::Var) are excluded from collection.
 pub struct FindMaximalScalarTerms<'a> {
     mx: Vec<Vec<StoreIndex>>,
-    terms: Vec<StaticTerm>,
-    term_index: HashMap<ExprId, usize>,
+    index_prefix: Vec<usize>,
     var_index: &'a HashMap<VarSet, VarIndex>,
 }
 
@@ -1824,8 +1987,7 @@ impl<'a> FindMaximalScalarTerms<'a> {
         let var_index = collector.var_index;
         Self {
             mx: vec![vec![]; var_index.len()],
-            terms: collector.terms,
-            term_index: collector.term_index,
+            index_prefix: collector.index_prefix,
             var_index,
         }
     }
@@ -1848,8 +2010,10 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms<'a> {
             }
             vars if vars.len() == 1 && e.ty == ValueType::Real => {
                 if !matches!(e, var!(_)) {
-                    self.mx[self.var_index[&vars] as usize]
-                        .push(self.terms[self.term_index[&e.id]].store_index);
+                    let index = StoreIndex::new(
+                        (self.index_prefix[e.branch_id] + e.index_in_branch) as u32,
+                    );
+                    self.mx[self.var_index[&vars] as usize].push(index);
                 }
                 // Stop traversal.
             }
