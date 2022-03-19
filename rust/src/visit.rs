@@ -38,7 +38,7 @@ where
 #[allow(clippy::many_single_char_names)]
 fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
     match e {
-        unary!(_, x) => v.visit_expr(x),
+        unary!(_, x) | pown!(x, _) | rootn!(x, _) => v.visit_expr(x),
         binary!(_, x, y) => {
             v.visit_expr(x);
             v.visit_expr(y);
@@ -53,8 +53,6 @@ fn traverse_expr<'a, V: Visit<'a>>(v: &mut V, e: &'a Expr) {
                 v.visit_expr(x);
             }
         }
-        pown!(x, _) => v.visit_expr(x),
-        rootn!(x, _) => v.visit_expr(x),
         bool_constant!(_) | constant!(_) | var!(_) | error!() => (),
         uninit!() => panic!(),
     };
@@ -73,7 +71,7 @@ where
 #[allow(clippy::many_single_char_names)]
 fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
     match e {
-        unary!(_, x) => v.visit_expr_mut(x),
+        unary!(_, x) | pown!(x, _) | rootn!(x, _) => v.visit_expr_mut(x),
         binary!(_, x, y) => {
             v.visit_expr_mut(x);
             v.visit_expr_mut(y);
@@ -88,8 +86,6 @@ fn traverse_expr_mut<V: VisitMut>(v: &mut V, e: &mut Expr) {
                 v.visit_expr_mut(x);
             }
         }
-        pown!(x, _) => v.visit_expr_mut(x),
-        rootn!(x, _) => v.visit_expr_mut(x),
         bool_constant!(_) | constant!(_) | var!(_) | error!() => (),
         uninit!() => panic!(),
     };
