@@ -1715,10 +1715,10 @@ impl<'a> CollectStatic<'a> {
                     }
                 };
                 self.terms.push(StaticTerm {
-                    site: self.site_map.get(&t.id).copied(),
                     kind: k,
-                    vars: t.vars,
+                    site: self.site_map.get(&t.id).copied(),
                     store_index,
+                    vars: t.vars,
                 })
             }
         }

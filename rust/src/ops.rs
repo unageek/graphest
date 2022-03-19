@@ -152,10 +152,10 @@ pub enum StaticTermKind {
 /// A term in a cache-efficient representation.
 #[derive(Clone, Debug)]
 pub struct StaticTerm {
-    pub site: Option<Site>,
     pub kind: StaticTermKind,
-    pub vars: VarSet,
+    pub site: Option<Site>,
     pub store_index: StoreIndex,
+    pub vars: VarSet,
 }
 
 impl StaticTerm {
