@@ -332,6 +332,7 @@ impl FromStr for Relation {
         UpdateMetadata.visit_expr_mut(&mut e);
         assert_eq!(e.ty, ValueType::Boolean);
         update_laziness(&mut e);
+        UpdateMetadata.visit_expr_mut(&mut e);
         let mut v = AssignId::default();
         v.visit_expr_mut(&mut e);
 

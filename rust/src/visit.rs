@@ -616,18 +616,34 @@ impl VisitMut for ExpandComplexFunctions {
                     *e = new_e;
                 }
             }
-            ternary!(IfThenElse, cond, t, f) if e.ty == ComplexT => {
+            ternary!(IfThenElse(lazy), cond, t, f) if e.ty == ComplexT => {
+                let lazy = *lazy;
                 *e = match (t, f) {
                     (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
                         Complex,
-                        box Expr::ternary(IfThenElse, box cond.clone(), box take(a), box take(x)),
-                        box Expr::ternary(IfThenElse, box take(cond), box take(b), box take(y)),
+                        box Expr::ternary(
+                            IfThenElse(lazy),
+                            box cond.clone(),
+                            box take(a),
+                            box take(x),
+                        ),
+                        box Expr::ternary(
+                            IfThenElse(lazy),
+                            box take(cond),
+                            box take(b),
+                            box take(y),
+                        ),
                     ),
                     (binary!(Complex, a, b), x) => Expr::binary(
                         Complex,
-                        box Expr::ternary(IfThenElse, box cond.clone(), box take(a), box take(x)),
                         box Expr::ternary(
-                            IfThenElse,
+                            IfThenElse(lazy),
+                            box cond.clone(),
+                            box take(a),
+                            box take(x),
+                        ),
+                        box Expr::ternary(
+                            IfThenElse(lazy),
                             box take(cond),
                             box take(b),
                             box Expr::zero(),
@@ -635,9 +651,14 @@ impl VisitMut for ExpandComplexFunctions {
                     ),
                     (a, binary!(Complex, x, y)) => Expr::binary(
                         Complex,
-                        box Expr::ternary(IfThenElse, box cond.clone(), box take(a), box take(x)),
                         box Expr::ternary(
-                            IfThenElse,
+                            IfThenElse(lazy),
+                            box cond.clone(),
+                            box take(a),
+                            box take(x),
+                        ),
+                        box Expr::ternary(
+                            IfThenElse(lazy),
                             box take(cond),
                             box Expr::zero(),
                             box take(y),
@@ -1081,15 +1102,15 @@ impl VisitMut for Transform {
                 *e = take(x);
                 self.modified = true;
             }
-            ternary!(IfThenElse, constant!(a), _, f) if a.to_f64() == Some(0.0) => {
+            ternary!(IfThenElse(_), constant!(a), _, f) if a.to_f64() == Some(0.0) => {
                 *e = take(f);
                 self.modified = true;
             }
-            ternary!(IfThenElse, constant!(a), t, _) if a.to_f64() == Some(1.0) => {
+            ternary!(IfThenElse(_), constant!(a), t, _) if a.to_f64() == Some(1.0) => {
                 *e = take(t);
                 self.modified = true;
             }
-            ternary!(IfThenElse, _, x, y) if x == y => {
+            ternary!(IfThenElse(_), _, x, y) if x == y => {
                 *e = take(x);
                 self.modified = true;
             }
@@ -1194,23 +1215,23 @@ impl VisitMut for Transform {
                             // x x → x^2
                             Some(Expr::binary(Pow, box take(x), box Expr::two()))
                         }
-                        (x, ternary!(IfThenElse, cond, constant!(a), f))
-                        | (ternary!(IfThenElse, cond, constant!(a), f), x)
+                        (x, ternary!(IfThenElse(lazy), cond, constant!(a), f))
+                        | (ternary!(IfThenElse(lazy), cond, constant!(a), f), x)
                             if x.totally_defined && a.to_f64() == Some(0.0) =>
                         {
                             Some(Expr::ternary(
-                                IfThenElse,
+                                IfThenElse(*lazy),
                                 box take(cond),
                                 box Expr::nary(Times, vec![Expr::zero()]),
                                 box Expr::nary(Times, vec![take(x), take(f)]),
                             ))
                         }
-                        (x, ternary!(IfThenElse, cond, t, constant!(a)))
-                        | (ternary!(IfThenElse, cond, t, constant!(a)), x)
+                        (x, ternary!(IfThenElse(lazy), cond, t, constant!(a)))
+                        | (ternary!(IfThenElse(lazy), cond, t, constant!(a)), x)
                             if x.totally_defined && a.to_f64() == Some(0.0) =>
                         {
                             Some(Expr::ternary(
-                                IfThenElse,
+                                IfThenElse(*lazy),
                                 box take(cond),
                                 box Expr::nary(Times, vec![take(x), take(t)]),
                                 box Expr::nary(Times, vec![Expr::zero()]),
@@ -1493,13 +1514,14 @@ impl VisitMut for UpdateLaziness {
         use TernaryOp::*;
 
         match e {
-            ternary!(IfThenElse, cond, t, f) => {
+            ternary!(IfThenElse(false), cond, t, f) if t.cost + f.cost >= 500 => {
                 self.visit_expr_mut(cond);
                 let bak = self.defer;
                 self.defer = true;
                 self.visit_expr_mut(t);
                 self.visit_expr_mut(f);
                 self.defer = bak;
+                *e = Expr::ternary(IfThenElse(true), box take(cond), box take(t), box take(f));
             }
             _ => {
                 traverse_expr_mut(self, e);
@@ -1509,7 +1531,7 @@ impl VisitMut for UpdateLaziness {
     }
 }
 
-type LazyMap = HashMap<ExprId, bool>;
+type DeferMap = HashMap<ExprId, bool>;
 type SiteMap = HashMap<ExprId, Site>;
 type UnsafeExprRef = UnsafeRef<Expr>;
 
@@ -1521,7 +1543,7 @@ type UnsafeExprRef = UnsafeRef<Expr>;
 pub struct AssignId {
     next_id: ExprId,
     next_site: u8,
-    defer_map: LazyMap,
+    defer_map: DeferMap,
     site_map: SiteMap,
     exprs: Vec<UnsafeExprRef>,
     visited: HashSet<UnsafeExprRef>,
@@ -1603,7 +1625,7 @@ impl VisitMut for AssignId {
 pub struct CollectStatic<'a> {
     pub terms: Vec<StaticTerm>,
     pub forms: Vec<StaticForm>,
-    defer_map: LazyMap,
+    defer_map: DeferMap,
     site_map: SiteMap,
     exprs: Vec<UnsafeExprRef>,
     term_index: HashMap<ExprId, usize>,
@@ -1735,7 +1757,7 @@ impl<'a> CollectStatic<'a> {
                 })()
                 .map(|op| StaticTermKind::Binary(op, self.store_index(x), self.store_index(y))),
                 ternary!(op, x, y, z) => Some(match op {
-                    IfThenElse => ScalarTernaryOp::IfThenElse,
+                    IfThenElse(lazy) => ScalarTernaryOp::IfThenElse(*lazy),
                     MulAdd => ScalarTernaryOp::MulAdd,
                 })
                 .map(|op| {
@@ -2069,7 +2091,7 @@ mod tests {
             ExpandBoole.visit_expr_mut(&mut e);
             assert_eq!(
                 format!("{}", e.dump_short()),
-                format!("(IfThenElse {} x y)", expected)
+                format!("(IfThenElse(false) {} x y)", expected)
             );
         }
 
@@ -2231,19 +2253,19 @@ mod tests {
 
         test(
             "y if(x < 0, 0, 1)",
-            "(IfThenElse (BooleLtZero x) 0 (Times y 1))",
+            "(IfThenElse(false) (BooleLtZero x) 0 (Times y 1))",
         );
         test(
             "if(x < 0, 0, 1) y",
-            "(IfThenElse (BooleLtZero x) 0 (Times y 1))",
+            "(IfThenElse(false) (BooleLtZero x) 0 (Times y 1))",
         );
         test(
             "y if(x < 0, 1, 0)",
-            "(IfThenElse (BooleLtZero x) (Times y 1) 0)",
+            "(IfThenElse(false) (BooleLtZero x) (Times y 1) 0)",
         );
         test(
             "if(x < 0, 1, 0) y",
-            "(IfThenElse (BooleLtZero x) (Times y 1) 0)",
+            "(IfThenElse(false) (BooleLtZero x) (Times y 1) 0)",
         );
     }
 

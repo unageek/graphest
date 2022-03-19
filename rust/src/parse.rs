@@ -658,7 +658,10 @@ mod tests {
         test("lcm(x, y, z)", "(Lcm (Lcm x y) z)");
         test("max(x, y, z)", "(Max (Max x y) z)");
         test("min(x, y, z)", "(Min (Min x y) z)");
-        test("if(x = 0, y, z)", "(IfThenElse (Boole (Eq x 0)) y z)");
+        test(
+            "if(x = 0, y, z)",
+            "(IfThenElse(false) (Boole (Eq x 0)) y z)",
+        );
         test("rankedMax([x, y, z], k)", "(RankedMax (List x y z) k)");
         test("rankedMin([x, y, z], k)", "(RankedMin (List x y z) k)");
         test("x ^ y ^ z", "(Pow x (Pow y z))");

@@ -117,7 +117,7 @@ pub enum ScalarBinaryOp {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ScalarTernaryOp {
-    IfThenElse,
+    IfThenElse(bool),
     MulAdd,
 }
 
@@ -176,7 +176,7 @@ impl StaticTerm {
         }
 
         match &self.kind {
-            Ternary(IfThenElse, _, _, _) => self.put_eval_deferred(terms, ts),
+            Ternary(IfThenElse(true), _, _, _) => self.put_eval_deferred(terms, ts),
             _ => self.put(ts, self.eval(ts)),
         }
     }
@@ -258,7 +258,7 @@ impl StaticTerm {
             Binary(PowRational, x, y) => ts[*x].pow_rational(&ts[*y], self.site),
             Binary(ReSignNonnegative, x, y) => ts[*x].re_sign_nonnegative(&ts[*y], self.site),
             Binary(Sub, x, y) => &ts[*x] - &ts[*y],
-            Ternary(IfThenElse, cond, t, f) => ts[*cond].if_then_else(&ts[*t], &ts[*f]),
+            Ternary(IfThenElse(_), cond, t, f) => ts[*cond].if_then_else(&ts[*t], &ts[*f]),
             Ternary(MulAdd, x, y, z) => ts[*x].mul_add(&ts[*y], &ts[*z]),
             Pown(x, n) => ts[*x].pown(*n, self.site),
             Rootn(x, n) => ts[*x].rootn(*n),
@@ -299,7 +299,7 @@ impl StaticTerm {
                 terms[y.0 as usize].put_eval_deferred(terms, ts);
                 self.put(ts, self.eval(ts));
             }
-            Ternary(IfThenElse, cond, t, f) => {
+            Ternary(IfThenElse(_), cond, t, f) => {
                 terms[cond.0 as usize].put_eval_deferred(terms, ts);
                 let cond = &ts[*cond];
                 let eval_t = cond.iter().any(|x| x.x == const_interval!(1.0, 1.0));

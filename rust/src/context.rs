@@ -374,7 +374,7 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
                 arity: 3,
                 body: {
                     Expr::ternary(
-                        IfThenElse,
+                        IfThenElse(false),
                         box Expr::unary(Boole, box Expr::var("#0")),
                         box Expr::var("#1"),
                         box Expr::var("#2"),

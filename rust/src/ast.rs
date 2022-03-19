@@ -115,7 +115,8 @@ pub enum BinaryOp {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum TernaryOp {
-    IfThenElse,
+    /// `IfThenElse(true)` is evaluated lazily.
+    IfThenElse(bool),
     MulAdd,
 }
 
@@ -166,6 +167,7 @@ impl fmt::Display for ValueType {
 /// An AST node for an expression.
 #[derive(Clone, Debug)]
 pub struct Expr {
+    pub cost: usize,
     pub defer: bool,
     pub id: ExprId,
     pub kind: ExprKind,
@@ -301,6 +303,7 @@ impl Expr {
     /// Creates a new expression.
     pub fn new(kind: ExprKind) -> Self {
         Self {
+            cost: 0,
             defer: false,
             id: UNINIT_EXPR_ID,
             kind,
@@ -519,7 +522,7 @@ impl Expr {
                 _,
                 _
             ) => None,
-            ternary!(IfThenElse, cond, t, f) => {
+            ternary!(IfThenElse(_), cond, t, f) => {
                 Some(cond.eval()?.if_then_else(t.eval()?, f.eval()?))
             }
             ternary!(MulAdd, _, _, _) => None,
@@ -531,14 +534,15 @@ impl Expr {
         }
     }
 
-    /// Updates [`Expr::totally_defined`], [`Expr::ty`], [`Expr::vars`], and [`Expr::internal_hash`]
-    /// of the expression.
+    /// Updates the fields [`Expr::cost`], [`Expr::totally_defined`], [`Expr::ty`], [`Expr::vars`],
+    /// and [`Expr::internal_hash`] of the expression.
     ///
     /// Precondition: the function is called on all sub-expressions
     /// and they have not been modified since then.
     pub fn update_metadata(&mut self) {
+        self.cost = self.cost();
+        self.totally_defined = self.totally_defined();
         self.ty = self.value_type();
-        self.totally_defined = self.totally_defined(); // Requires `self.ty`.
         self.vars = self.variables();
         self.internal_hash = {
             // Use `DefaultHasher::new` so that the value of `internal_hash` will be deterministic.
@@ -551,6 +555,80 @@ impl Expr {
     pub fn with_source_range(mut self, range: Range<usize>) -> Self {
         self.source_range = range;
         self
+    }
+
+    /// Returns a rough estimate of the time cost of evaluating the expression.
+    ///
+    /// At the moment, GCD, LCM, and operations that involves MPFR/Arb operations are given
+    /// cost 100; and others are given cost 0.
+    fn cost(&self) -> usize {
+        use {BinaryOp::*, UnaryOp::*};
+
+        match self {
+            unary!(
+                Acos | Acosh
+                    | AiryAi
+                    | AiryAiPrime
+                    | AiryBi
+                    | AiryBiPrime
+                    | Asin
+                    | Asinh
+                    | Atan
+                    | Atanh
+                    | Chi
+                    | Ci
+                    | Cos
+                    | Cosh
+                    | Digamma
+                    | Ei
+                    | EllipticE
+                    | EllipticK
+                    | Erf
+                    | Erfc
+                    | Erfi
+                    | Exp
+                    | FresnelC
+                    | FresnelS
+                    | Gamma
+                    | InverseErf
+                    | InverseErfc
+                    | Li
+                    | Ln
+                    | Shi
+                    | Si
+                    | Sin
+                    | Sinc
+                    | Sinh
+                    | Tan
+                    | Tanh
+                    | Zeta,
+                x
+            )
+            | pown!(x, _)
+            | rootn!(x, _) => 100 + x.cost,
+            binary!(
+                Atan2
+                    | BesselI
+                    | BesselJ
+                    | BesselK
+                    | BesselY
+                    | GammaInc
+                    | Gcd
+                    | LambertW
+                    | Lcm
+                    | Log
+                    | Pow
+                    | PowRational,
+                x,
+                y
+            ) => 100 + x.cost + y.cost,
+            unary!(_, x) => x.cost,
+            binary!(_, x, y) => x.cost + y.cost,
+            ternary!(_, x, y, z) => x.cost + y.cost + z.cost,
+            nary!(_, xs) => xs.iter().map(|x| x.cost).sum(),
+            uninit!() => panic!(),
+            _ => 0,
+        }
     }
 
     fn dump(&self, kind: DumpKind) -> impl fmt::Display + '_ {
@@ -608,7 +686,7 @@ impl Expr {
                 x.totally_defined
                     && matches!(y.rational(), Some(q) if *q >= 0 && q.denom().is_odd())
             }
-            ternary!(IfThenElse, _, t, f) => t.totally_defined && f.totally_defined,
+            ternary!(IfThenElse(_), _, t, f) => t.totally_defined && f.totally_defined,
             ternary!(MulAdd, x, y, z) => {
                 x.totally_defined && y.totally_defined && z.totally_defined
             }
@@ -688,7 +766,7 @@ impl Expr {
             {
                 ComplexT
             }
-            ternary!(IfThenElse, cond, t, f)
+            ternary!(IfThenElse(_), cond, t, f)
                 if real(cond)
                     && real_or_complex(t)
                     && real_or_complex(f)
@@ -782,7 +860,7 @@ impl Expr {
                 y
             ) if real(x) && real(y) => Real,
             binary!(RankedMax | RankedMin, x, y) if real_vector(x) && real(y) => Real,
-            ternary!(IfThenElse, cond, t, f) if real(cond) && real(t) && real(f) => Real,
+            ternary!(IfThenElse(_), cond, t, f) if real(cond) && real(t) && real(f) => Real,
             ternary!(MulAdd, x, y, z) if real(x) && real(y) && real(z) => Real,
             nary!(Plus | Times, xs) if xs.iter().all(real) => Real,
             pown!(x, _) | rootn!(x, _) if real(x) => Real,
