@@ -529,8 +529,8 @@ impl Expr {
         }
     }
 
-    /// Updates [`Expr::totally_defined`], [`Expr::ty`], [`Expr::vars`], and [`Expr::internal_hash`]
-    /// of the expression.
+    /// Updates the fields [`Expr::totally_defined`], [`Expr::ty`], [`Expr::vars`],
+    /// and [`Expr::internal_hash`] of the expression.
     ///
     /// Precondition: the function is called on all sub-expressions
     /// and they have not been modified since then.
