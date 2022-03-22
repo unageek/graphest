@@ -2335,6 +2335,23 @@ mod tests {
         test("x^-2 x^3", "(Times (Pow x -2) (Pow x 3))");
         test("x^2 x^2", "(Pow x 4)");
         test("sqrt(x) sqrt(x)", "(Pow (Pow x 0.5) 2)");
+
+        test(
+            "y if(x < 0, 0, 1)",
+            "(IfThenElse (BooleLtZero x) 0 (Times y 1))",
+        );
+        test(
+            "if(x < 0, 0, 1) y",
+            "(IfThenElse (BooleLtZero x) 0 (Times y 1))",
+        );
+        test(
+            "y if(x < 0, 1, 0)",
+            "(IfThenElse (BooleLtZero x) (Times y 1) 0)",
+        );
+        test(
+            "if(x < 0, 1, 0) y",
+            "(IfThenElse (BooleLtZero x) (Times y 1) 0)",
+        );
     }
 
     #[test]
