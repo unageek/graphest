@@ -1197,7 +1197,7 @@ impl VisitMut for Transform {
                             Some(Expr::ternary(
                                 IfThenElse,
                                 box take(cond),
-                                box Expr::nary(Times, vec![Expr::zero()]),
+                                box Expr::zero(),
                                 box Expr::nary(Times, vec![take(x), take(f)]),
                             ))
                         }
@@ -1209,7 +1209,7 @@ impl VisitMut for Transform {
                                 IfThenElse,
                                 box take(cond),
                                 box Expr::nary(Times, vec![take(x), take(t)]),
-                                box Expr::nary(Times, vec![Expr::zero()]),
+                                box Expr::zero(),
                             ))
                         }
                         _ => None,
