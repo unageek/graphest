@@ -1739,14 +1739,14 @@ impl<'a> CollectStatic<'a> {
 
     fn collect_terms(&mut self) {
         use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
-        for (i, t) in self.real_exprs.iter().copied().enumerate() {
-            let k = match &*t {
+        for (i, e) in self.real_exprs.iter().copied().enumerate() {
+            let k = match &*e {
                 bool_constant!(_) => None,
                 constant!(x) => Some(StaticTermKind::Constant(box x.interval().clone())),
                 var!(_) => self
                     .var_index
-                    .get(&t.vars)
-                    .map(|&i| StaticTermKind::Var(i, t.vars.var_type())),
+                    .get(&e.vars)
+                    .map(|&i| StaticTermKind::Var(i, e.vars.var_type())),
                 unary!(op, x) => (|| {
                     Some(match op {
                         Abs => ScalarUnaryOp::Abs,
@@ -1884,9 +1884,9 @@ impl<'a> CollectStatic<'a> {
             if let Some(k) = k {
                 self.terms.push(StaticTerm {
                     kind: k,
-                    site: self.site_map.get(&UnsafeExprRef::from(&t)).copied(),
+                    site: self.site_map.get(&UnsafeExprRef::from(&e)).copied(),
                     store_index: StoreIndex::new(i as u32),
-                    vars: t.vars,
+                    vars: e.vars,
                 })
             }
         }
@@ -1894,8 +1894,8 @@ impl<'a> CollectStatic<'a> {
 
     fn collect_atomic_forms(&mut self) {
         use BinaryOp::*;
-        for t in self.bool_exprs.iter().copied() {
-            let k = match &*t {
+        for e in self.bool_exprs.iter().copied() {
+            let k = match &*e {
                 binary!(op @ (Eq | Le | Lt), x, _) => {
                     let op = match op {
                         Eq => RelOp::EqZero,
@@ -1909,7 +1909,7 @@ impl<'a> CollectStatic<'a> {
             };
             if let Some(k) = k {
                 self.form_index
-                    .insert(UnsafeExprRef::from(&t), self.forms.len() as FormIndex);
+                    .insert(UnsafeExprRef::from(&e), self.forms.len() as FormIndex);
                 self.forms.push(StaticForm { kind: k })
             }
         }
@@ -1917,8 +1917,8 @@ impl<'a> CollectStatic<'a> {
 
     fn collect_non_atomic_forms(&mut self) {
         use {BinaryOp::*, UnaryOp::*};
-        for t in self.bool_exprs.iter().copied() {
-            let k = match &*t {
+        for e in self.bool_exprs.iter().copied() {
+            let k = match &*e {
                 bool_constant!(a) => Some(StaticFormKind::Constant(*a)),
                 binary!(ExplicitRel(_), _, _) => Some(StaticFormKind::Constant(true)),
                 unary!(Not, x) => Some(StaticFormKind::Not(self.form_index(x))),
@@ -1932,7 +1932,7 @@ impl<'a> CollectStatic<'a> {
             };
             if let Some(k) = k {
                 self.form_index
-                    .insert(UnsafeExprRef::from(&t), self.forms.len() as FormIndex);
+                    .insert(UnsafeExprRef::from(&e), self.forms.len() as FormIndex);
                 self.forms.push(StaticForm { kind: k })
             }
         }
