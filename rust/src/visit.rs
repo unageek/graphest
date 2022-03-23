@@ -1571,6 +1571,10 @@ impl VisitMut for AssignId {
     }
 }
 
+/// Assigns an ID starting from 0 to sub-expressions of each branch of [`TernaryOp::IfThenElse`].
+///
+/// The id 0 is for sub-expressions that belong to the root branch.
+/// Sub-expressions shared by multiple branches will have all those ids.
 pub struct AssignBranchIds {
     branch_id: usize,
     branch_ids: HashMap<UnsafeExprRef, HashSet<usize>>,
@@ -1621,6 +1625,12 @@ impl VisitMut for AssignBranchIds {
     }
 }
 
+/// Assigns the unique branch ID to each sub-expression.
+///
+/// Sub-expressions shared by multiple branches will have the id 0.
+///
+/// Precondition: [`UpdateMetadata`] and [`AssignBranchIds`] have been applied to the expression
+/// and it has not been modified since then.
 pub struct AssignBranchId {
     branch_ids: HashMap<UnsafeExprRef, HashSet<usize>>,
     real_exprs_per_branch: Vec<usize>,
