@@ -1488,8 +1488,9 @@ type UnsafeExprRef = UnsafeRef<Expr>;
 /// Precondition: [`UpdateMetadata`] have been applied to the expression
 /// and it has not been modified since then.
 pub struct AssignSite {
-    exprs: Vec<UnsafeExprRef>,
+    bool_exprs: Vec<UnsafeExprRef>,
     next_site: u8,
+    real_exprs: Vec<UnsafeExprRef>,
     site_map: SiteMap,
     visited: HashSet<UnsafeExprRef>,
 }
@@ -1497,8 +1498,9 @@ pub struct AssignSite {
 impl AssignSite {
     pub fn new() -> Self {
         AssignSite {
-            exprs: vec![],
+            bool_exprs: vec![],
             next_site: 0,
+            real_exprs: vec![],
             site_map: HashMap::new(),
             visited: HashSet::new(),
         }
@@ -1557,7 +1559,11 @@ impl VisitMut for AssignSite {
                 }
             }
             _ => {
-                self.exprs.push(e_ref);
+                match e.ty {
+                    ValueType::Boolean => self.bool_exprs.push(e_ref),
+                    ValueType::Real => self.real_exprs.push(e_ref),
+                    _ => (),
+                }
                 self.visited.insert(e_ref);
             }
         }
@@ -1684,7 +1690,7 @@ pub struct CollectStatic<'a> {
     pub forms: Vec<StaticForm>,
     pub eval_terms: Range<usize>,
     site_map: SiteMap,
-    exprs: Vec<UnsafeExprRef>,
+    bool_exprs: Vec<UnsafeExprRef>,
     real_exprs: Vec<UnsafeExprRef>,
     index_prefix: Vec<usize>,
     form_index: HashMap<UnsafeExprRef, FormIndex>,
@@ -1706,7 +1712,7 @@ impl<'a> CollectStatic<'a> {
         });
 
         let mut real_exprs = vec![None; *index_prefix.last().unwrap()];
-        for e in &v.exprs {
+        for e in &v.real_exprs {
             if e.index_in_branch != usize::MAX {
                 let index = index_prefix[e.branch_id] + e.index_in_branch;
                 real_exprs[index] = Some(UnsafeExprRef::from(e));
@@ -1719,7 +1725,7 @@ impl<'a> CollectStatic<'a> {
             forms: vec![],
             eval_terms: 0..index_prefix[1],
             site_map: v.site_map,
-            exprs: v.exprs,
+            bool_exprs: v.bool_exprs,
             real_exprs,
             index_prefix,
             form_index: HashMap::new(),
@@ -1888,7 +1894,7 @@ impl<'a> CollectStatic<'a> {
 
     fn collect_atomic_forms(&mut self) {
         use BinaryOp::*;
-        for t in self.exprs.iter().copied() {
+        for t in self.bool_exprs.iter().copied() {
             let k = match &*t {
                 binary!(op @ (Eq | Le | Lt), x, _) => {
                     let op = match op {
@@ -1911,7 +1917,7 @@ impl<'a> CollectStatic<'a> {
 
     fn collect_non_atomic_forms(&mut self) {
         use {BinaryOp::*, UnaryOp::*};
-        for t in self.exprs.iter().copied() {
+        for t in self.bool_exprs.iter().copied() {
             let k = match &*t {
                 bool_constant!(a) => Some(StaticFormKind::Constant(*a)),
                 binary!(ExplicitRel(_), _, _) => Some(StaticFormKind::Constant(true)),
