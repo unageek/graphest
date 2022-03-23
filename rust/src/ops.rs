@@ -2,7 +2,8 @@ use crate::{
     interval_set::{DecSignSet, Site, TupperIntervalSet},
     vars::{VarIndex, VarSet, VarType},
 };
-use std::ops::{Index, IndexMut};
+use inari::const_interval;
+use std::ops::{Index, IndexMut, Range};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct StoreIndex(u32);
@@ -116,7 +117,6 @@ pub enum ScalarBinaryOp {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ScalarTernaryOp {
-    IfThenElse,
     MulAdd,
 }
 
@@ -143,10 +143,8 @@ pub enum StaticTermKind {
     Ternary(ScalarTernaryOp, StoreIndex, StoreIndex, StoreIndex),
     Pown(StoreIndex, i32),
     Rootn(StoreIndex, u32),
-    // Box the `Vec` to keep the enum small.
-    // Operations involving lists are relatively rare, so it would be worth the cost of the extra indirection.
-    #[allow(clippy::box_collection)]
-    RankedMinMax(RankedMinMaxOp, Box<Vec<StoreIndex>>, StoreIndex),
+    RankedMinMax(RankedMinMaxOp, Vec<StoreIndex>, StoreIndex),
+    IfThenElse(StoreIndex, StoreIndex, StoreIndex, Range<u32>, Range<u32>),
 }
 
 /// A term in a cache-efficient representation.
@@ -166,11 +164,16 @@ impl StaticTerm {
     /// Evaluates the term and puts the result in the value store.
     ///
     /// Panics if the term is of the kind [`StaticTermKind::Var`].
-    pub fn put_eval(&self, ts: &mut ValueStore<TupperIntervalSet>) {
+    pub fn put_eval(&self, terms: &[Self], ts: &mut ValueStore<TupperIntervalSet>) {
         use {
             RankedMinMaxOp::*, ScalarBinaryOp::*, ScalarTernaryOp::*, ScalarUnaryOp::*,
             StaticTermKind::*,
         };
+
+        if !ts[self.store_index].is_unevaluated() {
+            return;
+        }
+
         match &self.kind {
             Constant(x) => self.put(ts, *x.clone()),
             Unary(Abs, x) => self.put(ts, ts[*x].abs()),
@@ -244,9 +247,6 @@ impl StaticTerm {
                 self.put(ts, ts[*x].re_sign_nonnegative(&ts[*y], self.site))
             }
             Binary(Sub, x, y) => self.put(ts, &ts[*x] - &ts[*y]),
-            Ternary(IfThenElse, cond, t, f) => {
-                self.put(ts, ts[*cond].if_then_else(&ts[*t], &ts[*f]))
-            }
             Ternary(MulAdd, x, y, z) => self.put(ts, ts[*x].mul_add(&ts[*y], &ts[*z])),
             Pown(x, n) => self.put(ts, ts[*x].pown(*n, self.site)),
             Rootn(x, n) => self.put(ts, ts[*x].rootn(*n)),
@@ -269,6 +269,22 @@ impl StaticTerm {
                         self.site,
                     ),
                 );
+            }
+            IfThenElse(cond, t, f, t_range, f_range) => {
+                let c = &ts[*cond];
+                let eval_t = c.iter().any(|x| x.x == const_interval!(1.0, 1.0));
+                let eval_f = c.iter().any(|x| x.x == const_interval!(0.0, 0.0));
+                if eval_t {
+                    for i in t_range.clone() {
+                        terms[i as usize].put_eval(terms, ts);
+                    }
+                }
+                if eval_f {
+                    for i in f_range.clone() {
+                        terms[i as usize].put_eval(terms, ts);
+                    }
+                }
+                self.put(ts, ts[*cond].if_then_else(&ts[*t], &ts[*f]))
             }
             Var(_, _) => panic!("variables cannot be evaluated"),
         }
@@ -314,8 +330,8 @@ mod tests {
 
     #[test]
     fn struct_size() {
-        assert_eq!(size_of::<StaticTermKind>(), 16);
-        assert_eq!(size_of::<StaticTerm>(), 24);
+        assert_eq!(size_of::<StaticTermKind>(), 32);
+        assert_eq!(size_of::<StaticTerm>(), 40);
         assert_eq!(size_of::<StaticFormKind>(), 12);
         assert_eq!(size_of::<StaticForm>(), 12);
     }

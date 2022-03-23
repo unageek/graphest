@@ -15,7 +15,7 @@ use crate::{
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use rug::Integer;
-use std::{collections::HashMap, iter::once, mem::take, str::FromStr};
+use std::{collections::HashMap, iter::once, mem::take, ops::Range, str::FromStr};
 
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -50,6 +50,7 @@ pub struct Relation {
     terms: Vec<StaticTerm>,
     forms: Vec<StaticForm>,
     n_atom_forms: usize,
+    eval_terms: Range<usize>,
     ts: ValueStore<TupperIntervalSet>,
     eval_count: usize,
     x_explicit: Option<StoreIndex>,
@@ -200,6 +201,12 @@ impl Relation {
         let ts = &mut self.ts;
         let mut cached_vars = VarSet::EMPTY;
 
+        for t in &self.terms {
+            if !t.vars.is_empty() {
+                ts[t.store_index].set_unevaluated();
+            }
+        }
+
         for i in 0..self.vars_ordered.len() {
             if let Some(mx_ts) = cache.get(i, args) {
                 for (&i, mx) in self.cached_terms[i].iter().zip(mx_ts.iter()) {
@@ -209,7 +216,7 @@ impl Relation {
             }
         }
 
-        for t in &self.terms {
+        for t in &self.terms[self.eval_terms.clone()] {
             match t.kind {
                 StaticTermKind::Var(i, ty) => {
                     let x = args[i as usize];
@@ -223,7 +230,7 @@ impl Relation {
                 _ if t.vars.len() <= 1 && cached_vars.contains(t.vars) => {
                     // `t` is constant or cached.
                 }
-                _ => t.put_eval(ts),
+                _ => t.put_eval(&self.terms[..], ts),
             }
         }
 
@@ -250,10 +257,12 @@ impl Relation {
 
     fn initialize(&mut self) {
         for t in &self.terms {
+            self.ts[t.store_index].set_unevaluated();
+
             // This condition is different from `let StaticTermKind::Constant(_) = t.kind`,
             // as not all constant expressions are folded. See the comment on [`FoldConstant`].
-            if t.vars == VarSet::EMPTY {
-                t.put_eval(&mut self.ts);
+            if t.vars.is_empty() {
+                t.put_eval(&self.terms[..], &mut self.ts);
             }
         }
     }
@@ -325,8 +334,6 @@ impl FromStr for Relation {
         FuseMulAdd.visit_expr_mut(&mut e);
         UpdateMetadata.visit_expr_mut(&mut e);
         assert_eq!(e.ty, ValueType::Boolean);
-        let mut v = AssignId::new();
-        v.visit_expr_mut(&mut e);
 
         let vars = match relation_type {
             RelationType::ExplicitFunctionOfX(_) => e.vars.difference(VarSet::Y),
@@ -351,7 +358,13 @@ impl FromStr for Relation {
             .map(|(i, &v)| (v, i as VarIndex))
             .collect::<HashMap<VarSet, VarIndex>>();
 
-        let collector = CollectStatic::new(v, &var_index);
+        let mut v = AssignId::new();
+        v.visit_expr_mut(&mut e);
+        let mut v_branch_ids = AssignBranchIds::new();
+        v_branch_ids.visit_expr_mut(&mut e);
+        let mut v_branch_id = AssignBranchId::new(v_branch_ids, vars);
+        v_branch_id.visit_expr_mut(&mut e);
+        let collector = CollectStatic::new(v, v_branch_id, &var_index);
         let terms = collector.terms.clone();
         let forms = collector.forms.clone();
         let n_terms = terms.len();
@@ -359,6 +372,7 @@ impl FromStr for Relation {
             .iter()
             .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _)))
             .count();
+        let eval_terms = collector.eval_terms.clone();
 
         let mut v = FindExplicitRelation::new(&collector, VarSet::X);
         v.visit_expr(&e);
@@ -377,6 +391,7 @@ impl FromStr for Relation {
             terms,
             forms,
             n_atom_forms,
+            eval_terms,
             ts: ValueStore::new(TupperIntervalSet::new(), n_terms),
             eval_count: 0,
             x_explicit,
