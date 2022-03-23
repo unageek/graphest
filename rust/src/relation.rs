@@ -358,7 +358,7 @@ impl FromStr for Relation {
             .map(|(i, &v)| (v, i as VarIndex))
             .collect::<HashMap<VarSet, VarIndex>>();
 
-        let mut v = AssignId::new();
+        let mut v = AssignSite::new();
         v.visit_expr_mut(&mut e);
         let mut v_branch_ids = AssignBranchIds::new();
         v_branch_ids.visit_expr_mut(&mut e);

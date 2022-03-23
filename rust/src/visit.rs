@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expr, ExprId, NaryOp, TernaryOp, UnaryOp, ValueType, UNINIT_EXPR_ID},
+    ast::{BinaryOp, Expr, NaryOp, TernaryOp, UnaryOp, ValueType},
     binary, bool_constant, constant,
     context::{Context, Def, VarProps},
     error,
@@ -1479,28 +1479,27 @@ impl VisitMut for UpdateMetadata {
     }
 }
 
-type SiteMap = HashMap<ExprId, Site>;
+type SiteMap = HashMap<UnsafeExprRef, Site>;
 type UnsafeExprRef = UnsafeRef<Expr>;
 
-/// Assigns an [`ExprId`] to each unique expression in topological order.
+/// Assigns a branch cut site to each sub-expression which appears multiple times
+/// and can perform branch cut.
 ///
 /// Precondition: [`UpdateMetadata`] have been applied to the expression
 /// and it has not been modified since then.
-pub struct AssignId {
-    next_id: ExprId,
+pub struct AssignSite {
+    exprs: Vec<UnsafeExprRef>,
     next_site: u8,
     site_map: SiteMap,
-    exprs: Vec<UnsafeExprRef>,
     visited: HashSet<UnsafeExprRef>,
 }
 
-impl AssignId {
+impl AssignSite {
     pub fn new() -> Self {
-        AssignId {
-            next_id: 0,
+        AssignSite {
+            exprs: vec![],
             next_site: 0,
             site_map: HashMap::new(),
-            exprs: vec![],
             visited: HashSet::new(),
         }
     }
@@ -1542,30 +1541,24 @@ impl AssignId {
     }
 }
 
-impl VisitMut for AssignId {
+impl VisitMut for AssignSite {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
         traverse_expr_mut(self, e);
 
-        match self.visited.get(&UnsafeExprRef::from(e)) {
-            Some(visited) => {
-                let id = visited.id;
-                e.id = id;
-
-                if !self.site_map.contains_key(&id)
+        let e_ref = UnsafeExprRef::from(e);
+        match self.visited.get(&e_ref) {
+            Some(_) => {
+                if !self.site_map.contains_key(&e_ref)
                     && Self::expr_can_perform_cut(e)
                     && self.next_site <= Site::MAX
                 {
-                    self.site_map.insert(id, Site::new(self.next_site));
+                    self.site_map.insert(e_ref, Site::new(self.next_site));
                     self.next_site += 1;
                 }
             }
             _ => {
-                assert!(self.next_id != UNINIT_EXPR_ID);
-                e.id = self.next_id;
-                self.next_id += 1;
-                let r = UnsafeExprRef::from(e);
-                self.exprs.push(r);
-                self.visited.insert(r);
+                self.exprs.push(e_ref);
+                self.visited.insert(e_ref);
             }
         }
     }
@@ -1694,13 +1687,13 @@ pub struct CollectStatic<'a> {
     exprs: Vec<UnsafeExprRef>,
     real_exprs: Vec<UnsafeExprRef>,
     index_prefix: Vec<usize>,
-    form_index: HashMap<ExprId, FormIndex>,
+    form_index: HashMap<UnsafeExprRef, FormIndex>,
     var_index: &'a HashMap<VarSet, VarIndex>,
 }
 
 impl<'a> CollectStatic<'a> {
     pub fn new(
-        v: AssignId,
+        v: AssignSite,
         v_branch_id: AssignBranchId,
         var_index: &'a HashMap<VarSet, VarIndex>,
     ) -> Self {
@@ -1885,7 +1878,7 @@ impl<'a> CollectStatic<'a> {
             if let Some(k) = k {
                 self.terms.push(StaticTerm {
                     kind: k,
-                    site: self.site_map.get(&t.id).copied(),
+                    site: self.site_map.get(&UnsafeExprRef::from(&t)).copied(),
                     store_index: StoreIndex::new(i as u32),
                     vars: t.vars,
                 })
@@ -1909,7 +1902,8 @@ impl<'a> CollectStatic<'a> {
                 _ => None,
             };
             if let Some(k) = k {
-                self.form_index.insert(t.id, self.forms.len() as FormIndex);
+                self.form_index
+                    .insert(UnsafeExprRef::from(&t), self.forms.len() as FormIndex);
                 self.forms.push(StaticForm { kind: k })
             }
         }
@@ -1931,14 +1925,15 @@ impl<'a> CollectStatic<'a> {
                 _ => None,
             };
             if let Some(k) = k {
-                self.form_index.insert(t.id, self.forms.len() as FormIndex);
+                self.form_index
+                    .insert(UnsafeExprRef::from(&t), self.forms.len() as FormIndex);
                 self.forms.push(StaticForm { kind: k })
             }
         }
     }
 
     fn form_index(&self, e: &Expr) -> FormIndex {
-        self.form_index[&e.id]
+        self.form_index[&UnsafeExprRef::from(e)]
     }
 
     fn store_index(&self, e: &Expr) -> StoreIndex {

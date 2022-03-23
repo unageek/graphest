@@ -7,9 +7,6 @@ use std::{
     ops::Range,
 };
 
-pub type ExprId = u32;
-pub const UNINIT_EXPR_ID: ExprId = ExprId::MAX;
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ExplicitRelOp {
     Eq,
@@ -167,7 +164,6 @@ impl fmt::Display for ValueType {
 #[derive(Clone, Debug)]
 pub struct Expr {
     pub branch_id: usize,
-    pub id: ExprId,
     pub index_in_branch: usize,
     pub kind: ExprKind,
     pub source_range: Range<usize>,
@@ -303,7 +299,6 @@ impl Expr {
     pub fn new(kind: ExprKind) -> Self {
         Self {
             branch_id: usize::MAX,
-            id: UNINIT_EXPR_ID,
             index_in_branch: usize::MAX,
             kind,
             source_range: 0..0,
