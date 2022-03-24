@@ -360,11 +360,11 @@ impl FromStr for Relation {
 
         let mut v = AssignSite::new();
         v.visit_expr_mut(&mut e);
-        let mut v_branch_ids = AssignBranchIds::new();
-        v_branch_ids.visit_expr_mut(&mut e);
-        let mut v_branch_id = AssignBranchId::new(v_branch_ids, vars);
-        v_branch_id.visit_expr_mut(&mut e);
-        let collector = CollectStatic::new(v, v_branch_id, &var_index);
+        let mut assign_branch_id = AssignBranchId::new(vars);
+        assign_branch_id.visit_expr_mut(&mut e);
+        let mut collect_real_exprs = CollectRealExprs::new(assign_branch_id);
+        collect_real_exprs.visit_expr_mut(&mut e);
+        let collector = CollectStatic::new(v, collect_real_exprs, &var_index);
         let terms = collector.terms.clone();
         let forms = collector.forms.clone();
         let n_terms = terms.len();

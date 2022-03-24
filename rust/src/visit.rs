@@ -178,7 +178,7 @@ impl VisitMut for Substitute {
         if let var!(x) = e {
             if let Some(x) = x.strip_prefix('#') {
                 if let Ok(i) = x.parse::<usize>() {
-                    *e = self.args.get(i).unwrap().clone()
+                    *e = self.args[i].clone()
                 }
             }
         }
@@ -1485,6 +1485,8 @@ type UnsafeExprRef = UnsafeRef<Expr>;
 /// Assigns a branch cut site to each sub-expression which appears multiple times
 /// and can perform branch cut.
 ///
+/// It also collects boolean-valued expressions in the topological order.
+///
 /// Precondition: [`UpdateMetadata`] have been applied to the expression
 /// and it has not been modified since then.
 pub struct AssignSite {
@@ -1570,27 +1572,33 @@ impl VisitMut for AssignSite {
     }
 }
 
-/// Assigns an ID starting from 0 to sub-expressions of each branch of [`TernaryOp::IfThenElse`].
+/// Assigns an ID starting from 0 to each branch of [`TernaryOp::IfThenElse`].
+/// The ID 0 is for the root branch, which has no [`TernaryOp::IfThenElse`] in ancestors.
 ///
-/// The id 0 is for sub-expressions that belong to the root branch.
-/// Sub-expressions shared by multiple branches will have all those ids.
-pub struct AssignBranchIds {
+/// Each sub-expression will be labeled with the branch ID, if the ID is unique.
+/// Sub-expressions shared by multiple branches will have the ID 0.
+///
+/// Precondition: [`UpdateMetadata`] has been applied to the expression
+/// and it has not been modified since then.
+pub struct AssignBranchId {
     branch_id: usize,
-    branch_ids: HashMap<UnsafeExprRef, HashSet<usize>>,
+    branch_id_map: HashMap<UnsafeExprRef, usize>,
     next_branch_id: usize,
+    vars: VarSet,
 }
 
-impl AssignBranchIds {
-    pub fn new() -> Self {
+impl AssignBranchId {
+    pub fn new(vars: VarSet) -> Self {
         Self {
             branch_id: 0,
-            branch_ids: HashMap::new(),
+            branch_id_map: HashMap::new(),
             next_branch_id: 1,
+            vars,
         }
     }
 }
 
-impl VisitMut for AssignBranchIds {
+impl VisitMut for AssignBranchId {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
         use TernaryOp::*;
 
@@ -1611,124 +1619,118 @@ impl VisitMut for AssignBranchIds {
         }
         self.branch_id = branch_id_bak;
 
-        self.branch_ids
-            .entry(UnsafeExprRef::from(e))
-            .and_modify(|ids| {
-                ids.insert(self.branch_id);
-            })
-            .or_insert_with(|| {
-                let mut ids = HashSet::new();
-                ids.insert(self.branch_id);
-                ids
-            });
-    }
-}
-
-/// Assigns the unique branch ID to each sub-expression.
-///
-/// Sub-expressions shared by multiple branches will have the id 0.
-///
-/// Precondition: [`UpdateMetadata`] and [`AssignBranchIds`] have been applied to the expression
-/// and it has not been modified since then.
-pub struct AssignBranchId {
-    branch_ids: HashMap<UnsafeExprRef, HashSet<usize>>,
-    real_exprs_per_branch: Vec<usize>,
-    vars: VarSet,
-    visited: HashSet<UnsafeExprRef>,
-}
-
-impl AssignBranchId {
-    pub fn new(collect: AssignBranchIds, vars: VarSet) -> Self {
-        Self {
-            branch_ids: collect.branch_ids,
-            real_exprs_per_branch: vec![0; collect.next_branch_id],
-            vars,
-            visited: HashSet::new(),
-        }
-    }
-}
-
-impl VisitMut for AssignBranchId {
-    fn visit_expr_mut(&mut self, e: &mut Expr) {
-        traverse_expr_mut(self, e);
-
-        let e_ref = UnsafeExprRef::from(e);
-        if e.ty == ValueType::Real {
-            e.branch_id = match e {
-                constant!(_) | var!(_) => 0,
-                _ => {
-                    let ids = self.branch_ids.get(&e_ref).unwrap();
-                    if ids.len() == 1 {
-                        // The node does not appear in other branches.
-                        *ids.iter().next().unwrap()
-                    } else {
-                        // The node appears in multiple branches.
-                        0
-                    }
-                }
-            };
-
-            match e {
-                var!(_) if !self.vars.contains(e.vars) => (),
-                _ => {
-                    if let Some(visited) = self.visited.get(&e_ref) {
-                        e.index_in_branch = visited.index_in_branch;
-                    } else {
-                        e.index_in_branch = self.real_exprs_per_branch[e.branch_id];
-                        self.real_exprs_per_branch[e.branch_id] += 1;
-                        self.visited.insert(e_ref);
-                    }
-                }
+        match e {
+            var!(_) if !self.vars.contains(e.vars) => (),
+            _ if e.ty != ValueType::Real => (),
+            _ => {
+                self.branch_id_map
+                    .entry(UnsafeExprRef::from(e))
+                    .and_modify(|id| {
+                        if *id != self.branch_id {
+                            *id = 0;
+                        }
+                    })
+                    .or_insert_with(|| match e {
+                        constant!(_) | var!(_) => 0,
+                        _ => self.branch_id,
+                    });
             }
         }
     }
 }
 
-/// Collects [`StaticTerm`]s and [`StaticForm`]s in ascending order of the IDs.
-pub struct CollectStatic<'a> {
-    pub terms: Vec<StaticTerm>,
-    pub forms: Vec<StaticForm>,
-    pub eval_terms: Range<usize>,
-    site_map: SiteMap,
-    bool_exprs: Vec<UnsafeExprRef>,
-    real_exprs: Vec<UnsafeExprRef>,
+/// Collects real-valued expressions, ordered by branch ID and then topologically.
+///
+/// Precondition: [`AssignBranchId`] has been applied to the expression
+/// and it has not been modified since then.
+pub struct CollectRealExprs {
+    branch_id_map: HashMap<UnsafeExprRef, usize>,
+    exprs: Vec<Option<UnsafeExprRef>>,
+    index_map: HashMap<UnsafeExprRef, usize>,
     index_prefix: Vec<usize>,
-    form_index: HashMap<UnsafeExprRef, FormIndex>,
-    var_index: &'a HashMap<VarSet, VarIndex>,
+    next_index: Vec<usize>,
 }
 
-impl<'a> CollectStatic<'a> {
-    pub fn new(
-        v: AssignSite,
-        v_branch_id: AssignBranchId,
-        var_index: &'a HashMap<VarSet, VarIndex>,
-    ) -> Self {
+impl CollectRealExprs {
+    pub fn new(assign_branch_id: AssignBranchId) -> Self {
+        let n_branches = assign_branch_id.next_branch_id;
+        let mut real_exprs_per_branch = vec![0; n_branches];
+        for id in assign_branch_id.branch_id_map.values() {
+            real_exprs_per_branch[*id] += 1;
+        }
+
         let mut index_prefix = vec![0];
         index_prefix.extend({
-            v_branch_id.real_exprs_per_branch.iter().scan(0, |acc, n| {
+            real_exprs_per_branch.iter().scan(0, |acc, n| {
                 *acc += n;
                 Some(*acc)
             })
         });
 
-        let mut real_exprs = vec![None; *index_prefix.last().unwrap()];
-        for e in &v.real_exprs {
-            if e.index_in_branch != usize::MAX {
-                let index = index_prefix[e.branch_id] + e.index_in_branch;
-                real_exprs[index] = Some(UnsafeExprRef::from(e));
-            }
-        }
-        let real_exprs = real_exprs.iter().map(|e| e.unwrap()).collect::<Vec<_>>();
+        let next_index = index_prefix[..index_prefix.len() - 1].to_vec();
 
-        let mut slf = Self {
-            terms: vec![],
-            forms: vec![],
-            eval_terms: 0..index_prefix[1],
-            site_map: v.site_map,
-            bool_exprs: v.bool_exprs,
-            real_exprs,
+        Self {
+            branch_id_map: assign_branch_id.branch_id_map,
+            exprs: vec![None; *index_prefix.last().unwrap()],
+            index_map: HashMap::new(),
             index_prefix,
+            next_index,
+        }
+    }
+}
+
+impl VisitMut for CollectRealExprs {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        traverse_expr_mut(self, e);
+
+        let e_ref = UnsafeExprRef::from(e);
+        if let Some(branch_id) = self.branch_id_map.get(&e_ref) {
+            self.index_map.entry(e_ref).or_insert_with(|| {
+                let index = self.next_index[*branch_id];
+                self.exprs[index] = Some(e_ref);
+                self.next_index[*branch_id] += 1;
+                index
+            });
+        }
+    }
+}
+
+/// Collects [`StaticTerm`]s and [`StaticForm`]s.
+pub struct CollectStatic<'a> {
+    pub eval_terms: Range<usize>,
+    pub forms: Vec<StaticForm>,
+    pub terms: Vec<StaticTerm>,
+    bool_exprs: Vec<UnsafeExprRef>,
+    branch_id_map: HashMap<UnsafeExprRef, usize>,
+    form_index: HashMap<UnsafeExprRef, FormIndex>,
+    real_expr_index_map: HashMap<UnsafeExprRef, usize>,
+    real_expr_index_prefix: Vec<usize>,
+    real_exprs: Vec<UnsafeExprRef>,
+    site_map: SiteMap,
+    var_index: &'a HashMap<VarSet, VarIndex>,
+}
+
+impl<'a> CollectStatic<'a> {
+    pub fn new(
+        assign_site: AssignSite,
+        collect_real_exprs: CollectRealExprs,
+        var_index: &'a HashMap<VarSet, VarIndex>,
+    ) -> Self {
+        let mut slf = Self {
+            eval_terms: 0..collect_real_exprs.index_prefix[1],
+            forms: vec![],
+            terms: vec![],
+            bool_exprs: assign_site.bool_exprs,
+            branch_id_map: collect_real_exprs.branch_id_map,
             form_index: HashMap::new(),
+            real_expr_index_map: collect_real_exprs.index_map,
+            real_expr_index_prefix: collect_real_exprs.index_prefix,
+            real_exprs: collect_real_exprs
+                .exprs
+                .into_iter()
+                .map(|e| e.unwrap())
+                .collect::<Vec<_>>(),
+            site_map: assign_site.site_map,
             var_index,
         };
         slf.collect_terms();
@@ -1852,21 +1854,25 @@ impl<'a> CollectStatic<'a> {
                 pown!(x, n) => Some(StaticTermKind::Pown(self.store_index(x), *n)),
                 rootn!(x, n) => Some(StaticTermKind::Rootn(self.store_index(x), *n)),
                 ternary!(IfThenElse, cond, t, f) => {
-                    let t_start = match t.branch_id {
+                    let t_ref = UnsafeExprRef::from(t);
+                    let f_ref = UnsafeExprRef::from(f);
+                    let t_branch_id = self.branch_id_map[&t_ref];
+                    let f_branch_id = self.branch_id_map[&f_ref];
+                    let t_start = match t_branch_id {
                         0 => 0,
-                        id => self.index_prefix[id] as u32,
+                        id => self.real_expr_index_prefix[id] as u32,
                     };
-                    let t_end = match t.branch_id {
+                    let t_end = match t_branch_id {
                         0 => 0,
-                        id => self.index_prefix[id + 1] as u32,
+                        id => self.real_expr_index_prefix[id + 1] as u32,
                     };
-                    let f_start = match f.branch_id {
+                    let f_start = match f_branch_id {
                         0 => 0,
-                        id => self.index_prefix[id] as u32,
+                        id => self.real_expr_index_prefix[id] as u32,
                     };
-                    let f_end = match f.branch_id {
+                    let f_end = match f_branch_id {
                         0 => 0,
-                        id => self.index_prefix[id + 1] as u32,
+                        id => self.real_expr_index_prefix[id + 1] as u32,
                     };
                     Some({
                         StaticTermKind::IfThenElse(
@@ -1943,7 +1949,9 @@ impl<'a> CollectStatic<'a> {
     }
 
     fn store_index(&self, e: &Expr) -> StoreIndex {
-        StoreIndex::new((self.index_prefix[e.branch_id] + e.index_in_branch) as u32)
+        let e_ref = UnsafeExprRef::from(e);
+        let index = self.real_expr_index_map[&e_ref];
+        StoreIndex::new(index as u32)
     }
 }
 
@@ -1977,7 +1985,7 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
             binary!(And, _, _) => traverse_expr(self, e),
             binary!(ExplicitRel(_), x @ var!(_), e) if x.vars == self.variable => {
                 self.store_index = Some(StoreIndex::new(
-                    (self.collector.index_prefix[e.branch_id] + e.index_in_branch) as u32,
+                    self.collector.real_expr_index_map[&UnsafeExprRef::from(e)] as u32,
                 ));
             }
             _ => (),
@@ -1989,7 +1997,7 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
 /// Expressions of the kind [`ExprKind::Var`](crate::ast::ExprKind::Var) are excluded from collection.
 pub struct FindMaximalScalarTerms<'a> {
     mx: Vec<Vec<StoreIndex>>,
-    index_prefix: Vec<usize>,
+    real_expr_index_map: HashMap<UnsafeExprRef, usize>,
     var_index: &'a HashMap<VarSet, VarIndex>,
 }
 
@@ -1998,7 +2006,7 @@ impl<'a> FindMaximalScalarTerms<'a> {
         let var_index = collector.var_index;
         Self {
             mx: vec![vec![]; var_index.len()],
-            index_prefix: collector.index_prefix,
+            real_expr_index_map: collector.real_expr_index_map,
             var_index,
         }
     }
@@ -2021,9 +2029,8 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms<'a> {
             }
             vars if vars.len() == 1 && e.ty == ValueType::Real => {
                 if !matches!(e, var!(_)) {
-                    let index = StoreIndex::new(
-                        (self.index_prefix[e.branch_id] + e.index_in_branch) as u32,
-                    );
+                    let index =
+                        StoreIndex::new(self.real_expr_index_map[&UnsafeExprRef::from(e)] as u32);
                     self.mx[self.var_index[&vars] as usize].push(index);
                 }
                 // Stop traversal.
