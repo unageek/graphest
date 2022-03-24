@@ -163,8 +163,6 @@ impl fmt::Display for ValueType {
 /// An AST node for an expression.
 #[derive(Clone, Debug)]
 pub struct Expr {
-    pub branch_id: usize,
-    pub index_in_branch: usize,
     pub kind: ExprKind,
     pub source_range: Range<usize>,
     pub totally_defined: bool,
@@ -298,8 +296,6 @@ impl Expr {
     /// Creates a new expression.
     pub fn new(kind: ExprKind) -> Self {
         Self {
-            branch_id: usize::MAX,
-            index_in_branch: usize::MAX,
             kind,
             source_range: 0..0,
             totally_defined: false,
