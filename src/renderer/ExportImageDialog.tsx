@@ -1,4 +1,5 @@
 import {
+  Checkbox,
   DefaultButton,
   Dialog,
   DialogFooter,
@@ -408,6 +409,16 @@ export const ExportImageDialog = (
               <Text>pixels</Text>
             </Stack>
 
+            <Checkbox
+              defaultChecked={opts.transparent}
+              label="Transparent background"
+              onChange={(_, checked) => {
+                if (checked === undefined) return;
+                setOpts({ ...opts, transparent: checked });
+              }}
+              styles={{ root: { gridColumn: "2 / span 2" } }}
+            />
+
             <div style={{ gridColumn: "1" }} />
 
             <Label style={{ gridColumn: "1", textAlign: "right" }}>
@@ -416,9 +427,8 @@ export const ExportImageDialog = (
             <Dropdown
               defaultSelectedKey={opts.antiAliasing.toString()}
               onChange={(_, option) => {
-                if (option) {
-                  setOpts({ ...opts, antiAliasing: Number(option.key) });
-                }
+                if (option === undefined) return;
+                setOpts({ ...opts, antiAliasing: Number(option.key) });
               }}
               options={antiAliasingOptions}
               styles={integerInputStyles}

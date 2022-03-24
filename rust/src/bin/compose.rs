@@ -64,6 +64,7 @@ fn main() {
                 .forbid_empty_values(true)
                 .value_name("file"),
         )
+        .arg(Arg::new("transparent").long("transparent"))
         .get_matches();
 
     let entries = matches
@@ -77,6 +78,7 @@ fn main() {
         })
         .collect::<Vec<_>>();
     let output = matches.value_of_os("output").unwrap().to_owned();
+    let transparent = matches.is_present("transparent");
 
     let mut sepia = None;
     let mut composed = None;
@@ -90,7 +92,7 @@ fn main() {
         assert_eq!(im.height(), sepia.height());
         let composed = composed.get_or_insert_with(|| {
             let mut composed = RgbaImage::new(im.width(), im.height());
-            composed.fill(255);
+            composed.fill(if transparent { 0 } else { 255 });
             composed
         });
         sepia_tone(&im, entry.color, sepia);

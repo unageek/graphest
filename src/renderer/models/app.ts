@@ -49,6 +49,7 @@ const initialState: AppState = {
     height: 1024,
     path: "",
     timeout: 1000,
+    transparent: false,
     width: 1024,
     xMax: "10",
     xMin: "-10",

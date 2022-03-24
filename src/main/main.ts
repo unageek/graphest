@@ -431,6 +431,7 @@ ipcMain.handle(
       ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
       "--output",
       opts.path,
+      ...(opts.transparent ? ["--transparent"] : []),
     ];
     try {
       const { stderr } = await util.promisify(execFile)(composeExec, args, {

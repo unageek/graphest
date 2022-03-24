@@ -29,6 +29,7 @@ export interface ExportImageOptions {
   height: number;
   path: string;
   timeout: number;
+  transparent: boolean;
   width: number;
   xMax: string;
   xMin: string;
