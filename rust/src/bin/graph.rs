@@ -273,7 +273,7 @@ fn main() {
                 .forbid_empty_values(true)
                 .allow_invalid_utf8(true)
                 .value_name("file")
-                .help("File that contains the relation to plot.."),
+                .help("Path to the file that contains the relation to plot."),
         )
         .arg(
             Arg::new("mem-limit")
