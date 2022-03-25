@@ -376,17 +376,17 @@ fn main() {
         .get_matches();
 
     let rel = matches
-        .value_of("relation")
-        .map_or_else(
-            || {
-                let input = matches.value_of_os("input").unwrap();
-                fs::read_to_string(input).unwrap_or_else(|e| {
-                    eprintln!("{}: {}", e, input.to_string_lossy());
-                    process::exit(1);
-                })
-            },
-            |r| r.to_owned(),
-        )
+        .value_of_t::<String>("relation")
+        .unwrap_or_else(|e| {
+            let input = matches.value_of_os("input").unwrap_or_else(|| {
+                eprintln!("{}", e);
+                process::exit(1);
+            });
+            fs::read_to_string(&input).unwrap_or_else(|e| {
+                eprintln!("{}: {}", e, input.to_string_lossy());
+                process::exit(1);
+            })
+        })
         .parse::<Relation>()
         .unwrap_or_else(|e| {
             eprintln!("{}", e);
