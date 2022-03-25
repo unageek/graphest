@@ -104,7 +104,7 @@ interface Relation {
   id: string;
   nextTileNumber: number;
   outDir: string;
-  rel: string;
+  suffixArgs: string[];
   tiles: Map<string, Tile>;
 }
 
@@ -367,8 +367,7 @@ ipcMain.handle(
             opts.antiAliasing.toString(),
             "--timeout",
             opts.timeout.toString(),
-            "--",
-            rel.rel,
+            ...rel.suffixArgs,
           ];
           try {
             const { stderr } = await util.promisify(execFile)(graphExec, args, {
@@ -385,10 +384,9 @@ ipcMain.handle(
                 (x_tiles * y_tiles * newEntries.length),
             });
           } catch ({ name, stderr }) {
-            if (typeof stderr !== "string") {
-              throw new Error("unexpected type");
-            }
-            console.log(stderr.trimEnd());
+            console.log(
+              typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
+            );
             console.log("`graph` failed:", `'${args.join("' '")}'`);
             return;
           }
@@ -418,10 +416,9 @@ ipcMain.handle(
           console.log(stderr.trimEnd());
         }
       } catch ({ stderr }) {
-        if (typeof stderr !== "string") {
-          throw new Error("unexpected type");
-        }
-        console.log(stderr.trimEnd());
+        console.log(
+          typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
+        );
         console.log("`join-tiles` failed:", `'${args.join("' '")}'`);
         return;
       }
@@ -441,10 +438,9 @@ ipcMain.handle(
         console.log(stderr.trimEnd());
       }
     } catch ({ stderr }) {
-      if (typeof stderr !== "string") {
-        throw new Error("unexpected type");
-      }
-      console.log(stderr.trimEnd());
+      console.log(
+        typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
+      );
       console.log("`compose` failed:", `'${args.join("' '")}'`);
       return;
     }
@@ -475,7 +471,16 @@ ipcMain.handle(
     highRes: boolean
   ): Promise<ipc.RequestRelationResult> => {
     try {
-      const args = ["--parse", "--dump-ast", "--", rel];
+      let suffixArgs = [];
+      // https://docs.microsoft.com/en-us/troubleshoot/windows-client/shell-experience/command-line-string-limitation
+      if (rel.length > 5000) {
+        const relationFile = path.join(baseOutDir, nextRelId.toString() + ".i");
+        await fsPromises.writeFile(relationFile, rel);
+        suffixArgs = ["--input", relationFile];
+      } else {
+        suffixArgs = ["--", rel];
+      }
+      const args = ["--dump-ast", "--parse", ...suffixArgs];
       const { stdout } = await util.promisify(execFile)(graphExec, args);
       const ast = stdout.split("\n")[0];
       const relKey = graphId + ":" + highRes.toString() + ":" + ast;
@@ -490,25 +495,30 @@ ipcMain.handle(
           id: relId,
           nextTileNumber: 0,
           outDir,
-          rel,
+          suffixArgs,
           tiles: new Map(),
         });
         relKeyToRelId.set(relKey, relId);
       }
       return result.ok(relId);
     } catch ({ stderr }) {
-      if (typeof stderr !== "string") {
-        throw new Error("`stderr` must be a string");
+      if (typeof stderr === "string") {
+        const lines = stderr.split("\n");
+        const start =
+          parseInt((lines[1].match(/^.*:\d+:(\d+)/) as RegExpMatchArray)[1]) -
+          1;
+        const len = (lines[3].match(/~*$/) as RegExpMatchArray)[0].length;
+        const message = (lines[1].match(/error: (.*)$/) as RegExpMatchArray)[1];
+        return result.err({
+          range: new Range(start, start + len),
+          message,
+        });
+      } else {
+        return result.err({
+          range: new Range(0, 0),
+          message: "unexpected error",
+        });
       }
-      const lines = stderr.split("\n");
-      const start =
-        parseInt((lines[1].match(/^.*:\d+:(\d+)/) as RegExpMatchArray)[1]) - 1;
-      const len = (lines[3].match(/~*$/) as RegExpMatchArray)[0].length;
-      const message = (lines[1].match(/error: (.*)$/) as RegExpMatchArray)[1];
-      return result.err({
-        range: new Range(start, start + len),
-        message,
-      });
     }
   }
 );
@@ -579,8 +589,7 @@ ipcMain.handle(
           "--mem-limit",
           JOB_MEM_LIMIT.toString(),
           "--pause-per-iteration",
-          "--",
-          rel.rel,
+          ...rel.suffixArgs,
         ],
         outFile,
         relId,
