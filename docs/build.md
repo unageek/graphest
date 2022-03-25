@@ -32,10 +32,11 @@
    choco install git msys2 nodejs
    ```
 
-   Add the following directory to PATH:
+   Add the following directories to PATH:
 
    ```
    C:\tools\msys64\usr\bin
+   C:\tools\msys64\mingw64\bin
    ```
 
 1. Build tools
