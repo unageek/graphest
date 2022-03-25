@@ -6,7 +6,7 @@ use graphest::{
 use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
-use std::{ffi::OsString, io::stdin, time::Duration};
+use std::{ffi::OsString, fs, io::stdin, process, time::Duration};
 
 /// Dilates the image by convolution by FFT,
 /// and returns the index of the top-left corner of the image after discarding the padding.
@@ -267,6 +267,15 @@ fn main() {
         .arg(Arg::new("dump-ast").long("dump-ast").hide(true))
         .arg(Arg::new("gray-alpha").long("gray-alpha").hide(true))
         .arg(
+            Arg::new("input")
+                .short('i')
+                .long("input")
+                .forbid_empty_values(true)
+                .allow_invalid_utf8(true)
+                .value_name("file")
+                .help("File that contains the relation to plot.."),
+        )
+        .arg(
             Arg::new("mem-limit")
                 .long("mem-limit")
                 .default_value("1024")
@@ -280,6 +289,7 @@ fn main() {
                 .long("output")
                 .default_value("graph.png")
                 .forbid_empty_values(true)
+                .allow_invalid_utf8(true)
                 .value_name("file")
                 .help("Path to the output image. It must end with '.png'."),
         )
@@ -365,7 +375,23 @@ fn main() {
         )
         .get_matches();
 
-    let rel = matches.value_of_t_or_exit::<Relation>("relation");
+    let rel = matches
+        .value_of("relation")
+        .map_or_else(
+            || {
+                let input = matches.value_of_os("input").unwrap();
+                fs::read_to_string(input).unwrap_or_else(|e| {
+                    eprintln!("{}: {}", e, input.to_string_lossy());
+                    process::exit(1);
+                })
+            },
+            |r| r.to_owned(),
+        )
+        .parse::<Relation>()
+        .unwrap_or_else(|e| {
+            eprintln!("{}", e);
+            process::exit(1);
+        });
     if matches.is_present("dump-ast") {
         println!("{}", rel.ast().dump_full());
     }
