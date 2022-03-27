@@ -8,7 +8,7 @@
 
 [Download the app](https://github.com/unageek/graphest/releases) (available for both macOS and Windows), and try plotting some of the [example relations](Examples.md).
 
-<img align="right" width="456" alt="cover image" src="docs/cover.png">
+<img align="right" width="415" alt="cover image" src="docs/cover.png">
 
 ## Features
 
