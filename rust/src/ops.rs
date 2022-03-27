@@ -109,6 +109,7 @@ pub enum ScalarBinaryOp {
     Min,
     Mod,
     Mul,
+    PolyLog,
     Pow,
     PowRational,
     ReSignNonnegative,
@@ -241,6 +242,7 @@ impl StaticTerm {
             Binary(Min, x, y) => self.put(ts, ts[*x].min(&ts[*y])),
             Binary(Mod, x, y) => self.put(ts, ts[*x].modulo(&ts[*y], self.site)),
             Binary(Mul, x, y) => self.put(ts, &ts[*x] * &ts[*y]),
+            Binary(PolyLog, n, x) => self.put(ts, ts[*n].polylog(&ts[*x])),
             Binary(Pow, x, y) => self.put(ts, ts[*x].pow(&ts[*y], self.site)),
             Binary(PowRational, x, y) => self.put(ts, ts[*x].pow_rational(&ts[*y], self.site)),
             Binary(ReSignNonnegative, x, y) => {

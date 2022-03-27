@@ -363,6 +363,7 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("mod", Def::binary(Mod))
         .def("*", Def::binary(Mul))
         .def("||", Def::binary(Or))
+        .def("Li", Def::binary(PolyLog))
         .def("^", Def::binary(Pow))
         .def("^^", Def::binary(PowRational))
         .def("rankedMax", Def::binary(RankedMax))

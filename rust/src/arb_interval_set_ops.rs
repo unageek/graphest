@@ -66,6 +66,10 @@ macro_rules! impl_arb_op {
         }
     };
 
+    ($op:ident($x:ident, $y:ident), $result:expr) => {
+        impl_arb_op!($op($x, $y), $result, Ternary::True);
+    };
+
     ($op:ident($x:ident, $y:ident), $result:expr, $def:expr) => {
         pub fn $op(&self, rhs: &Self) -> Self {
             let mut rs = Self::new();
@@ -103,6 +107,7 @@ const USE_MPFR_SIN_COS_ABOVE: f64 = 0.999999;
 
 const M_ONE_TO_ONE: Interval = const_interval!(-1.0, 1.0);
 const N_INF_TO_ZERO: Interval = const_interval!(f64::NEG_INFINITY, 0.0);
+const N_INF_TO_ONE: Interval = const_interval!(f64::NEG_INFINITY, 1.0);
 const ONE_HALF: Interval = const_interval!(0.5, 0.5);
 const ONE_TO_INF: Interval = const_interval!(1.0, f64::INFINITY);
 const ZERO: Interval = const_interval!(0.0, 0.0);
@@ -915,8 +920,28 @@ impl TupperIntervalSet {
             arb_ln(x)
         } else {
             x.ln()
+        }
+    );
+
+    impl_arb_op!(
+        polylog(n, x),
+        {
+            let x = x.intersection(N_INF_TO_ONE);
+            let a = x.inf();
+            let b = x.sup();
+            let c = n.inf();
+            let d = n.sup();
+            if a >= 0.0 || c >= 0.0 {
+                let a = interval!(a, a).unwrap();
+                let b = interval!(b, b).unwrap();
+                let c = interval!(c, c).unwrap();
+                let d = interval!(d, d).unwrap();
+                interval!(arb_polylog_rd(d, a), arb_polylog_ru(c, b)).unwrap()
+            } else {
+                arb_polylog(n, x)
+            }
         },
-        gt!(x, 0.0)
+        lt!(x, 1.0) | gt!(n, 1.0) & le!(x, 1.0)
     );
 
     pub fn pow(&self, rhs: &Self, site: Option<Site>) -> Self {
@@ -1371,6 +1396,13 @@ arb_fn!(
     Interval::ENTIRE
 );
 arb_fn!(
+    arb_polylog(n, x),
+    arb_polylog(n, n, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE,
+    arb_polylog_rd,
+    arb_polylog_ru
+);
+arb_fn!(
     arb_pow(x, y),
     arb_pow(x, x, y, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE
@@ -1519,6 +1551,7 @@ mod tests {
             TupperIntervalSet::bessel_k,
             TupperIntervalSet::bessel_y,
             TupperIntervalSet::gamma_inc,
+            TupperIntervalSet::polylog,
         ];
         let ns = vec![-2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]
             .into_iter()

@@ -1833,6 +1833,7 @@ impl<'a> CollectStatic<'a> {
                         Min => ScalarBinaryOp::Min,
                         Mod => ScalarBinaryOp::Mod,
                         Mul => ScalarBinaryOp::Mul,
+                        PolyLog => ScalarBinaryOp::PolyLog,
                         Pow => ScalarBinaryOp::Pow,
                         PowRational => ScalarBinaryOp::PowRational,
                         ReSignNonnegative => ScalarBinaryOp::ReSignNonnegative,

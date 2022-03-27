@@ -102,6 +102,7 @@ pub enum BinaryOp {
     Mod,
     Mul,
     Or,
+    PolyLog,
     Pow,
     PowRational,
     RankedMax,
@@ -485,6 +486,7 @@ impl Expr {
             binary!(Min, x, y) => Some(x.eval()?.min(y.eval()?)),
             binary!(Mod, x, y) => Some(x.eval()?.modulo(y.eval()?)),
             binary!(Mul, x, y) => Some(x.eval()? * y.eval()?),
+            binary!(PolyLog, n, x) => Some(n.eval()?.pow(x.eval()?)),
             binary!(Pow, x, y) => Some(x.eval()?.pow(y.eval()?)),
             binary!(PowRational, x, y) => Some(x.eval()?.pow_rational(y.eval()?)),
             binary!(RankedMax, nary!(List, xs), n) => {
@@ -767,6 +769,7 @@ impl Expr {
                     | Min
                     | Mod
                     | Mul
+                    | PolyLog
                     | Pow
                     | PowRational
                     | ReSignNonnegative

@@ -172,6 +172,7 @@ impl Real {
     impl_op!(modulo(x, y), x.modulo(&y, None), rational_ops::modulo(x, y));
     impl_op!(mul(x, y), &x * &y, Some(x * y));
     impl_op!(neg(x), -&x, Some(-x));
+    impl_op!(polylog(n, x));
     impl_op!(pow(x, y), x.pow(&y, None), rational_ops::pow(x, y));
     impl_op!(
         pow_rational(x, y),
