@@ -58,7 +58,7 @@
     "webpack-cli": "^4.9.2"
   },
   "dependencies": {
-    "@fluentui/react": "^8.62.0",
+    "@fluentui/react": "^8.62.3",
     "@fontsource/dejavu-mono": "^4.5.2",
     "@fontsource/noto-sans": "^4.5.5",
     "@fortawesome/fontawesome-free": "^6.1.0",
