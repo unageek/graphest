@@ -349,9 +349,9 @@ dependencies = [
 
 [[package]]
 name = "inari"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6eea9cbe7cbbfad7df4f0106cba2ec9351a3fe64841b432b9339c4ce7f37622f"
+checksum = "c50d2769f6a5a13df027cf44c06270bdab78854d2cde919d66776a77c3079e78"
 dependencies = [
  "cfg-if",
  "forward_ref",
