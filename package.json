@@ -74,7 +74,7 @@
     "react-redux": "^7.2.6",
     "slate": "^0.76.0",
     "slate-history": "^0.66.0",
-    "slate-react": "^0.76.0",
+    "slate-react": "^0.76.1",
     "yup": "^0.32.11"
   },
   "productName": "Graphest"
