@@ -628,6 +628,8 @@ mod tests {
         test("erfcinv(x)", "(InverseErfc x)");
         test("li(x)", "(Li x)");
         test("ln(x)", "(Ln x)");
+        test("lnGamma(x)", "(LnGamma x)");
+        test("lnΓ(x)", "(LnGamma x)");
         test("-x", "(Neg x)"); // hyphen-minus
         test("−x", "(Neg x)"); // minus sign
         test("Re(x)", "(Re x)");

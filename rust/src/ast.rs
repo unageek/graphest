@@ -57,6 +57,7 @@ pub enum UnaryOp {
     InverseErfc,
     Li,
     Ln,
+    LnGamma,
     Neg,
     Not,
     Re,
@@ -456,6 +457,7 @@ impl Expr {
             unary!(InverseErfc, x) => Some(x.eval()?.inverse_erfc()),
             unary!(Li, x) => Some(x.eval()?.li()),
             unary!(Ln, x) => Some(x.eval()?.ln()),
+            unary!(LnGamma, x) => Some(x.eval()?.ln_gamma()),
             unary!(Shi, x) => Some(x.eval()?.shi()),
             unary!(Si, x) => Some(x.eval()?.si()),
             unary!(Sin, x) => Some(x.eval()?.sin()),
@@ -734,6 +736,7 @@ impl Expr {
                     | InverseErfc
                     | Li
                     | Ln
+                    | LnGamma
                     | Neg
                     | Re
                     | Recip

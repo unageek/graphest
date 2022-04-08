@@ -33,6 +33,7 @@ t!(t_41c51c4052894908ad252aa1f45f30ac, "y = erfinv(x)");
 t!(t_944c89064a004af9bcda883f98785d4c, "y = exp(x)");
 t!(t_0d3db3fb75604b85893ef6935b6f6ce8, "y = floor(x)");
 t!(t_4e62c6b2dc704f47a8275b5f412b6f6c, "y = Γ(x)");
+t!(t_50f32698582b4c4da21202d71998a54b, "y = lnΓ(x)");
 t!(t_9903294009524c4aa671b035804cd213, "y = Γ(-1, x)");
 t!(t_7ba9b50587f64182a5fb7130232843f6, "y = Γ(0, x)");
 t!(t_3d165e6f280540cf88da4b1ececeb299, "y = Γ(1, x)");

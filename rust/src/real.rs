@@ -166,6 +166,7 @@ impl Real {
     impl_op!(lcm(x, y), x.lcm(&y, None), rational_ops::lcm(x, y));
     impl_op!(li(x));
     impl_op!(ln(x));
+    impl_op!(ln_gamma(x));
     impl_op!(log(x, b), x.log(&b, None));
     impl_op!(max(x, y), x.max(&y), rational_ops::max(x, y));
     impl_op!(min(x, y), x.min(&y), rational_ops::min(x, y));

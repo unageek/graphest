@@ -919,6 +919,24 @@ impl TupperIntervalSet {
         gt!(x, 0.0)
     );
 
+    impl_arb_op!(
+        ln_gamma(x),
+        {
+            const ARGMIN_RD: f64 = 1.4616321449683622;
+            const ARGMIN_RU: f64 = 1.4616321449683625;
+            let a = x.inf();
+            let b = x.sup();
+            if a <= 0.0 && b <= ARGMIN_RD {
+                interval!(arb_lgamma_rd(i(b)), f64::INFINITY).unwrap()
+            } else if a >= ARGMIN_RU && b == f64::INFINITY {
+                interval!(arb_lgamma_rd(i(a)), f64::INFINITY).unwrap()
+            } else {
+                arb_lgamma(x)
+            }
+        },
+        gt!(x, 0.0)
+    );
+
     pub fn pow(&self, rhs: &Self, site: Option<Site>) -> Self {
         if self.iter().all(|x| {
             let a = x.x.inf();
@@ -1359,6 +1377,13 @@ arb_fn!(
     arb_lambert_w_m1_ru
 );
 arb_fn!(
+    arb_lgamma(x),
+    arb_lgamma(x, x, f64::MANTISSA_DIGITS.into()),
+    const_interval!(-0.12148629053584961, f64::INFINITY),
+    arb_lgamma_rd,
+    _arb_lgamma_ru
+);
+arb_fn!(
     _arb_li(x),
     arb_hypgeom_li(x, x, 0, f64::MANTISSA_DIGITS.into()),
     Interval::ENTIRE,
@@ -1503,6 +1528,7 @@ mod tests {
             TupperIntervalSet::inverse_erf,
             TupperIntervalSet::inverse_erfc,
             TupperIntervalSet::li,
+            TupperIntervalSet::ln_gamma,
             TupperIntervalSet::shi,
             TupperIntervalSet::si,
             TupperIntervalSet::zeta,

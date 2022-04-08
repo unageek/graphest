@@ -316,6 +316,8 @@ static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
         .def("erfcinv", Def::unary(InverseErfc))
         .def("li", Def::unary(Li))
         .def("ln", Def::unary(Ln))
+        .def("lnGamma", Def::unary(LnGamma))
+        .def("lnΓ", Def::unary(LnGamma))
         .def("-", Def::unary(Neg))
         .def("!", Def::unary(Not))
         .def("Re", Def::unary(Re))
