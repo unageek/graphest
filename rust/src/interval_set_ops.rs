@@ -1279,6 +1279,7 @@ impl TupperIntervalSet {
     requires_arb!(inverse_erfc(x));
     requires_arb!(lambert_w(k, x));
     requires_arb!(li(x));
+    requires_arb!(ln_gamma(x));
     requires_arb!(shi(x));
     requires_arb!(si(x));
     requires_arb!(zeta(x));

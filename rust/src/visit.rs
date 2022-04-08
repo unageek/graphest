@@ -1786,6 +1786,7 @@ impl<'a> CollectStatic<'a> {
                         InverseErfc => ScalarUnaryOp::InverseErfc,
                         Li => ScalarUnaryOp::Li,
                         Ln => ScalarUnaryOp::Ln,
+                        LnGamma => ScalarUnaryOp::LnGamma,
                         Neg => ScalarUnaryOp::Neg,
                         Recip => ScalarUnaryOp::Recip,
                         Shi => ScalarUnaryOp::Shi,

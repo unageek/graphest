@@ -699,6 +699,12 @@ https://functions.wolfram.com/ElementaryFunctions/ProductLog2/[WFS]
 |https://mathworld.wolfram.com/GammaFunction.html[MW]
 https://functions.wolfram.com/GammaBetaErf/Gamma/[WFS]
 
+// |`lnGamma(x)` or `lnΓ(x)`
+// |stem:[\ln Γ(x)]
+// |The logarithm of the gamma function.
+// |https://mathworld.wolfram.com/LogGammaFunction.html[MW]
+// https://functions.wolfram.com/GammaBetaErf/LogGamma/[WFS]
+
 |`Gamma(a, x)` or `Γ(a, x)`
 |stem:[Γ(a, x)]
 |The https://en.wikipedia.org/wiki/Incomplete_gamma_function[upper incomplete gamma function]. +
