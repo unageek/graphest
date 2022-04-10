@@ -1,7 +1,6 @@
-use std::ffi::OsString;
-
 use clap::{Arg, Command};
 use image::{imageops, io::Reader as ImageReader, DynamicImage, GrayAlphaImage};
+use std::ffi::OsString;
 
 fn main() {
     let matches = Command::new("join-tiles")
