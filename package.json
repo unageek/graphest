@@ -41,7 +41,7 @@
     "electron-builder": "^23.0.3",
     "electron-devtools-installer": "^3.2.0",
     "electron-notarize": "^1.2.1",
-    "electron-updater": "^4.6.5",
+    "electron-updater": "^5.0.1",
     "eslint": "^8.12.0",
     "eslint-plugin-react-hooks": "^4.4.0",
     "eslint-webpack-plugin": "^3.1.1",
