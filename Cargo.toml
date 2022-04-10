@@ -1,5 +1,10 @@
 [workspace]
-members = ["rust", "rust/graphest-arb-sys", "rust/graphest-fftw-sys"]
+members = [
+    "rust",
+    "rust/graphest-arb-sys",
+    "rust/graphest-fftw-sys",
+    "rust/graphest-webp-sys",
+]
 default-members = ["rust"]
 
 [profile.release]

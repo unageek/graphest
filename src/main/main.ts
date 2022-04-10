@@ -305,9 +305,9 @@ ipcMain.handle(
     const newEntries = [];
     for (const entry of entries) {
       newEntries.push({
-        path: path.join(outDir, nextExportImageId.toString() + ".png"),
+        path: path.join(outDir, nextExportImageId.toString() + ".webp"),
         tilePathPrefix: path.join(outDir, nextExportImageId.toString() + "-"),
-        tilePathSuffix: ".png",
+        tilePathSuffix: ".webp",
         ...entry,
       });
       nextExportImageId++;
@@ -557,7 +557,7 @@ ipcMain.handle(
       const y0 = widthPerTile.times(bignum(-coords.y - 1).plus(pixelOffsetY));
       const y1 = widthPerTile.times(bignum(-coords.y).plus(pixelOffsetY));
 
-      const outFile = path.join(rel.outDir, rel.nextTileNumber + ".png");
+      const outFile = path.join(rel.outDir, rel.nextTileNumber + ".webp");
       rel.nextTileNumber++;
 
       const newTile: Tile = {

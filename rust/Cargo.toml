@@ -34,6 +34,9 @@ optional = true
 [dependencies.graphest-fftw-sys]
 path = "graphest-fftw-sys"
 
+[dependencies.graphest-webp-sys]
+path = "graphest-webp-sys"
+
 [dependencies.image]
 version = "0.24"
 default-features = false

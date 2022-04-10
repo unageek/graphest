@@ -11,6 +11,7 @@ pub use crate::{
     image::{Image, PixelIndex},
     relation::{Relation, RelationType},
     ternary::Ternary,
+    webp::{load_webp, save_webp},
 };
 
 #[cfg(feature = "arb")]
@@ -38,3 +39,4 @@ mod ternary;
 mod traits;
 mod vars;
 mod visit;
+mod webp;

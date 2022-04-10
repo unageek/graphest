@@ -1,7 +1,7 @@
-use std::ffi::OsString;
-
 use clap::{Arg, Command};
-use image::{imageops, io::Reader as ImageReader, DynamicImage, GrayAlphaImage};
+use graphest::{load_webp, save_webp};
+use image::{imageops, RgbaImage};
+use std::ffi::OsString;
 
 fn main() {
     let matches = Command::new("join-tiles")
@@ -58,7 +58,7 @@ fn main() {
     let x_tiles = matches.value_of_t_or_exit::<u32>("x-tiles");
     let y_tiles = matches.value_of_t_or_exit::<u32>("y-tiles");
 
-    let mut im = GrayAlphaImage::new(size[0], size[1]);
+    let mut im = RgbaImage::new(size[0], size[1]);
     let mut i = 0;
     for i_tile in 0..y_tiles {
         let mut j = 0;
@@ -71,19 +71,12 @@ fn main() {
             ]
             .into_iter()
             .collect::<OsString>();
-            let tile = ImageReader::open(&path)
-                .unwrap_or_else(|_| panic!("failed to open the image '{:?}'", path))
-                .decode()
-                .unwrap_or_else(|_| panic!("failed to decode the image '{:?}'", path));
+            let tile = load_webp(&path)
+                .unwrap_or_else(|_| panic!("failed to open the image '{:?}'", path));
             let tile_width = tile.width();
             let tile_height = tile.height();
             assert!(last_tile_height.is_none() || last_tile_height == Some(tile_height));
-            match tile {
-                DynamicImage::ImageLumaA8(tile) => {
-                    imageops::replace(&mut im, &tile, j as i64, i as i64);
-                }
-                _ => panic!("only LumaA8 images are supported"),
-            }
+            imageops::replace(&mut im, &tile, j as i64, i as i64);
             last_tile_height = Some(tile_height);
             j += tile_width;
         }
@@ -92,5 +85,5 @@ fn main() {
     }
     assert_eq!(i, size[1]);
 
-    im.save(output).expect("failed to save the image");
+    save_webp(&im, output).expect("failed to save the image");
 }

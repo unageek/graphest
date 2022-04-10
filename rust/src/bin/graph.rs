@@ -1,9 +1,9 @@
 use clap::{Arg, Command};
 use graphest::{
-    Box2D, Constant, Explicit, FftImage, Graph, GraphingStatistics, Image, Implicit, Padding,
-    Parametric, PixelIndex, Relation, RelationType, Ternary,
+    save_webp, Box2D, Constant, Explicit, FftImage, Graph, GraphingStatistics, Image, Implicit,
+    Padding, Parametric, PixelIndex, Relation, RelationType, Ternary,
 };
-use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
+use image::{imageops, Rgba, RgbaImage};
 use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
 use std::{ffi::OsString, fs, io::stdin, process, time::Duration};
@@ -538,15 +538,15 @@ struct PlotOptions {
 }
 
 fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
-    let mut gray_alpha_im: Option<GrayAlphaImage> = None;
-    let mut rgb_im: Option<RgbImage> = None;
+    let mut gray_alpha_im: Option<RgbaImage> = None;
+    let mut rgb_im: Option<RgbaImage> = None;
     let mut raw_im = Image::<Ternary>::new(opts.graph_size[0], opts.graph_size[1]);
     let cropped_width = raw_im.width() - (opts.dilation_kernel.width() - 1);
     let cropped_height = raw_im.height() - (opts.dilation_kernel.height() - 1);
     if opts.gray_alpha {
-        gray_alpha_im = Some(GrayAlphaImage::new(cropped_width, cropped_height));
+        gray_alpha_im = Some(RgbaImage::new(cropped_width, cropped_height));
     } else {
-        rgb_im = Some(RgbImage::new(cropped_width, cropped_height));
+        rgb_im = Some(RgbaImage::new(cropped_width, cropped_height));
     }
 
     let mut prev_stat = graph.get_statistics();
@@ -567,9 +567,9 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
                 for j in 0..im.width() {
                     *im.get_pixel_mut(j, i) =
                         match raw_im[PixelIndex::new(top_left.x + j, top_left.y + i)] {
-                            Ternary::True => LumaA([0, 255]),
-                            Ternary::Uncertain => LumaA([0, 128]),
-                            Ternary::False => LumaA([0, 0]),
+                            Ternary::True => Rgba([0, 0, 0, 255]),
+                            Ternary::Uncertain => Rgba([0, 0, 0, 128]),
+                            Ternary::False => Rgba([0, 0, 0, 0]),
                         };
                 }
             }
@@ -579,15 +579,15 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
                 opts.output_size[1],
                 imageops::FilterType::Triangle,
             );
-            im.save(&opts.output).expect("saving image failed");
+            save_webp(&im, &opts.output).expect("saving image failed");
         } else if let Some(im) = &mut rgb_im {
             for i in 0..im.height() {
                 for j in 0..im.width() {
                     *im.get_pixel_mut(j, i) =
                         match raw_im[PixelIndex::new(top_left.x + j, top_left.y + i)] {
-                            Ternary::True => Rgb([0, 0, 0]),
-                            Ternary::Uncertain => Rgb([64, 128, 192]),
-                            Ternary::False => Rgb([255, 255, 255]),
+                            Ternary::True => Rgba([0, 0, 0, 255]),
+                            Ternary::Uncertain => Rgba([64, 128, 192, 255]),
+                            Ternary::False => Rgba([255, 255, 255, 255]),
                         };
                 }
             }
@@ -597,7 +597,7 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
                 opts.output_size[1],
                 imageops::FilterType::Triangle,
             );
-            im.save(&opts.output).expect("saving image failed");
+            save_webp(&im, &opts.output).expect("saving image failed");
         }
     };
 

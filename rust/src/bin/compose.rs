@@ -1,10 +1,30 @@
 use clap::{Arg, Command};
-use image::{imageops, io::Reader as ImageReader, DynamicImage, Rgba, RgbaImage};
+use graphest::load_webp;
+use image::{imageops, Rgba, RgbaImage};
 
 #[derive(Clone, Debug)]
 struct Entry {
     color: Rgba<u8>,
     file: String,
+}
+
+fn colorize(src: &RgbaImage, color: Rgba<u8>, dst: &mut RgbaImage) {
+    fn to_f64(c: u8) -> f64 {
+        c as f64 / 255.0
+    }
+
+    fn to_u8(c: f64) -> u8 {
+        (256.0 * c).floor().min(255.0) as u8
+    }
+
+    for (src, dst) in src.pixels().zip(dst.pixels_mut()) {
+        *dst = Rgba([
+            color[0],
+            color[1],
+            color[2],
+            to_u8(to_f64(src[3]) * to_f64(color[3])),
+        ]);
+    }
 }
 
 fn parse_color(color: &str) -> Rgba<u8> {
@@ -20,30 +40,6 @@ fn parse_color(color: &str) -> Rgba<u8> {
     let b = 16 * digits[4] + digits[5];
     let a = 16 * digits[6] + digits[7];
     Rgba([r as u8, g as u8, b as u8, a as u8])
-}
-
-fn sepia_tone(src: &DynamicImage, color: Rgba<u8>, dst: &mut RgbaImage) {
-    fn to_f64(c: u8) -> f64 {
-        c as f64 / 255.0
-    }
-
-    fn to_u8(c: f64) -> u8 {
-        (256.0 * c).floor().min(255.0) as u8
-    }
-
-    match src {
-        DynamicImage::ImageLumaA8(im) => {
-            for (src, dst) in im.pixels().zip(dst.pixels_mut()) {
-                *dst = Rgba([
-                    color[0],
-                    color[1],
-                    color[2],
-                    to_u8(to_f64(src[1]) * to_f64(color[3])),
-                ]);
-            }
-        }
-        _ => panic!("only LumaA8 images are supported"),
-    }
 }
 
 fn main() {
@@ -83,10 +79,8 @@ fn main() {
     let mut sepia = None;
     let mut composed = None;
     for entry in entries {
-        let im = ImageReader::open(&entry.file)
-            .unwrap_or_else(|_| panic!("failed to open the image '{}'", entry.file))
-            .decode()
-            .unwrap_or_else(|_| panic!("failed to decode the image '{}'", entry.file));
+        let im = load_webp(&entry.file)
+            .unwrap_or_else(|_| panic!("failed to open the image '{}'", entry.file));
         let sepia = sepia.get_or_insert_with(|| RgbaImage::new(im.width(), im.height()));
         assert_eq!(im.width(), sepia.width());
         assert_eq!(im.height(), sepia.height());
@@ -95,7 +89,7 @@ fn main() {
             composed.fill(if transparent { 0 } else { 255 });
             composed
         });
-        sepia_tone(&im, entry.color, sepia);
+        colorize(&im, entry.color, sepia);
         imageops::overlay(composed, sepia, 0, 0);
     }
 
