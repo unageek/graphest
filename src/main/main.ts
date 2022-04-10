@@ -508,7 +508,7 @@ ipcMain.handle(
           parseInt((lines[1].match(/^.*:\d+:(\d+)/) as RegExpMatchArray)[1]) -
           1;
         const len = (lines[3].match(/~*$/) as RegExpMatchArray)[0].length;
-        const message = (lines[1].match(/error: (.*)$/) as RegExpMatchArray)[1];
+        const message = (lines[1].match(/: (.*)$/) as RegExpMatchArray)[1];
         return result.err({
           range: new Range(start, start + len),
           message,

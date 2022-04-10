@@ -458,7 +458,7 @@ export const RelationInput = (props: RelationInputProps) => {
         }}
         title={
           validationError && !showValidationError
-            ? "Press the Enter key to see the details of the error."
+            ? "Press Enter/Return to see the details of the error."
             : undefined
         }
       >
@@ -483,7 +483,7 @@ export const RelationInput = (props: RelationInputProps) => {
         />
         {validationError && showValidationError && (
           <div className="relation-input-error-message">
-            Error: {validationError.message}
+            {validationError.message}
           </div>
         )}
       </div>

@@ -759,7 +759,7 @@ impl TupperIntervalSet {
         {
             assert!(
                 s.is_singleton(),
-                "`a` must be an exact number in `Gamma(a, x)`"
+                "`a` must be exactly representable as a binary64 number in `Γ(a, x)`"
             );
             let s = s.inf();
             if s > 0.0 && s % 1.0 == 0.0 {
@@ -871,7 +871,7 @@ impl TupperIntervalSet {
                 }
             }
         } else {
-            panic!("`k` must be either 0 or -1 in `W(k, x)`");
+            panic!("`k` must be either 0 or −1 in `W(k, x)`");
         }
         rs.normalize(false);
         rs

@@ -520,7 +520,7 @@ pub fn format_error(source: &str, range: Range<usize>, message: &str) -> String 
 
     format!(
         r"
-input:{}:{}: error: {}
+input:{}:{}: {}
 {}
 {:col$}{}
 ",
@@ -544,10 +544,10 @@ fn convert_error(input: InputWithContext, e: Error<InputWithContext>) -> String 
     };
 
     let message = match e.kind {
-        ErrorKind::ExpectedChar(c) => format!("expected '{}'", c),
-        ErrorKind::ExpectedEof => "unexpected input".to_owned(),
-        ErrorKind::ExpectedExpr => "expected expression".to_owned(),
-        ErrorKind::UnknownIdentifier(name) => format!("'{}' is not defined", name),
+        ErrorKind::ExpectedChar(c) => format!("SyntaxError: expected '{}'", c),
+        ErrorKind::ExpectedEof => "SyntaxError: unexpected input".to_owned(),
+        ErrorKind::ExpectedExpr => "SyntaxError: expected expression".to_owned(),
+        ErrorKind::UnknownIdentifier(name) => format!("NameError: '{}' is not defined", name),
         _ => panic!("unexpected error kind"),
     };
 

@@ -219,6 +219,89 @@ where
     }
 }
 
+/// Updates metadata of the expression recursively.
+pub struct UpdateMetadata;
+
+impl VisitMut for UpdateMetadata {
+    fn visit_expr_mut(&mut self, e: &mut Expr) {
+        traverse_expr_mut(self, e);
+        e.update_metadata();
+    }
+}
+
+/// Precondition: [`UpdateMetadata`] have been applied to the expression
+/// and it has not been modified since then.
+#[derive(Default)]
+struct FindTypeError<'a> {
+    error: Option<(&'a Expr, &'static str)>,
+}
+
+impl<'a> Visit<'a> for FindTypeError<'a> {
+    fn visit_expr(&mut self, e: &'a Expr) {
+        traverse_expr(self, e);
+
+        if self.error.is_some() {
+            return;
+        }
+
+        if e.ty == ValueType::Unknown {
+            self.error = Some((e, "cannot interpret the expression"));
+        }
+    }
+}
+
+#[derive(Default)]
+struct FindValueError<'a> {
+    error: Option<(&'a Expr, &'static str)>,
+}
+
+impl<'a> Visit<'a> for FindValueError<'a> {
+    fn visit_expr(&mut self, e: &'a Expr) {
+        use BinaryOp::*;
+        traverse_expr(self, e);
+
+        if self.error.is_some() {
+            return;
+        }
+
+        match e {
+            binary!(BesselI | BesselJ | BesselK | BesselY, n, _) => {
+                const MESSAGE: &str = "the value must be an integer or a half-integer";
+                match n {
+                    constant!(a) if a.to_f64().is_some() => {
+                        let a = a.to_f64().unwrap();
+                        if a % 0.5 != 0.0 {
+                            self.error = Some((n, MESSAGE))
+                        }
+                    }
+                    _ => self.error = Some((n, MESSAGE)),
+                }
+            }
+            binary!(GammaInc, s, _) => {
+                const MESSAGE: &str =
+                    "the value must be exactly representable as a binary64 number";
+                match s {
+                    constant!(a) if a.to_f64().is_some() => (),
+                    _ => self.error = Some((s, MESSAGE)),
+                }
+            }
+            binary!(LambertW, k, _) => {
+                const MESSAGE: &str = "the value must be either 0 or −1";
+                match k {
+                    constant!(a) if a.to_f64().is_some() => {
+                        let a = a.to_f64().unwrap();
+                        if a != 0.0 && a != -1.0 {
+                            self.error = Some((k, MESSAGE))
+                        }
+                    }
+                    _ => self.error = Some((k, MESSAGE)),
+                }
+            }
+            _ => (),
+        }
+    }
+}
+
 /// Distributes [`UnaryOp::Not`] over [`BinaryOp::And`] and [`BinaryOp::Or`],
 /// and then eliminates double negations.
 pub struct NormalizeNotExprs;
@@ -1452,33 +1535,6 @@ impl VisitMut for FuseMulAdd {
     }
 }
 
-/// Precondition: [`UpdateMetadata`] have been applied to the expression
-/// and it has not been modified since then.
-#[derive(Default)]
-struct FindUnknownTypeExpr<'a> {
-    e: Option<&'a Expr>,
-}
-
-impl<'a> Visit<'a> for FindUnknownTypeExpr<'a> {
-    fn visit_expr(&mut self, e: &'a Expr) {
-        traverse_expr(self, e);
-
-        if self.e.is_none() && e.ty == ValueType::Unknown {
-            self.e = Some(e);
-        }
-    }
-}
-
-/// Updates metadata of the expression recursively.
-pub struct UpdateMetadata;
-
-impl VisitMut for UpdateMetadata {
-    fn visit_expr_mut(&mut self, e: &mut Expr) {
-        traverse_expr_mut(self, e);
-        e.update_metadata();
-    }
-}
-
 type SiteMap = HashMap<UnsafeExprRef, Site>;
 type UnsafeExprRef = UnsafeRef<Expr>;
 
@@ -2047,10 +2103,16 @@ pub fn expand_complex_functions(e: &mut Expr) {
     ExpandComplexFunctions::default().visit_expr_mut(e);
 }
 
-pub fn find_unknown_type_expr(e: &Expr) -> Option<&Expr> {
-    let mut v = FindUnknownTypeExpr::default();
+pub fn find_type_error(e: &Expr) -> Option<(&Expr, &str)> {
+    let mut v = FindTypeError::default();
     v.visit_expr(e);
-    v.e
+    v.error
+}
+
+pub fn find_value_error(e: &Expr) -> Option<(&Expr, &str)> {
+    let mut v = FindValueError::default();
+    v.visit_expr(e);
+    v.error
 }
 
 /// Precondition: [`PreTransform`] has been applied to the expression.

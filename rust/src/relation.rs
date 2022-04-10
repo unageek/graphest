@@ -274,11 +274,11 @@ impl FromStr for Relation {
     fn from_str(s: &str) -> Result<Self, String> {
         let mut e = parse_expr(s, &[Context::builtin()])?;
         UpdateMetadata.visit_expr_mut(&mut e);
-        if let Some(e) = find_unknown_type_expr(&e) {
+        if let Some((e, message)) = find_type_error(&e) {
             return Err(format_error(
                 s,
                 e.source_range.clone(),
-                "cannot interpret the expression",
+                &format!("TypeError: {}", message),
             ));
         }
         if e.ty != ValueType::Boolean {
@@ -286,10 +286,17 @@ impl FromStr for Relation {
                 s,
                 e.source_range.clone(),
                 &format!(
-                    "relation must be of type `{}` but not `{}`",
+                    "TypeError: relation must be of type `{}` but not `{}`",
                     ValueType::Boolean,
                     e.ty
                 ),
+            ));
+        }
+        if let Some((e, message)) = find_value_error(&e) {
+            return Err(format_error(
+                s,
+                e.source_range.clone(),
+                &format!("ValueError: {}", message),
             ));
         }
         NormalizeNotExprs.visit_expr_mut(&mut e);
