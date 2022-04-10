@@ -927,11 +927,11 @@ impl TupperIntervalSet {
             let a = x.inf();
             let b = x.sup();
             if a <= 0.0 && b <= ARGMIN_RD {
-                interval!(arb_lgamma_rd(i(b)), f64::INFINITY).unwrap()
+                interval!(arb_ln_gamma_rd(i(b)), f64::INFINITY).unwrap()
             } else if a >= ARGMIN_RU && b == f64::INFINITY {
-                interval!(arb_lgamma_rd(i(a)), f64::INFINITY).unwrap()
+                interval!(arb_ln_gamma_rd(i(a)), f64::INFINITY).unwrap()
             } else {
-                arb_lgamma(x)
+                arb_ln_gamma(x)
             }
         },
         gt!(x, 0.0)
@@ -1377,11 +1377,11 @@ arb_fn!(
     arb_lambert_w_m1_ru
 );
 arb_fn!(
-    arb_lgamma(x),
+    arb_ln_gamma(x),
     arb_lgamma(x, x, f64::MANTISSA_DIGITS.into()),
     const_interval!(-0.12148629053584961, f64::INFINITY),
-    arb_lgamma_rd,
-    _arb_lgamma_ru
+    arb_ln_gamma_rd,
+    _arb_ln_gamma_ru
 );
 arb_fn!(
     _arb_li(x),
