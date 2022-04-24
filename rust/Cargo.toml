@@ -49,7 +49,7 @@ version = "1.8"
 features = ["specialization"]
 
 [dev-dependencies.uuid]
-version = "0.8"
+version = "1.0"
 default-features = false
 
 [lib]
