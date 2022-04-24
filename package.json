@@ -64,7 +64,7 @@
     "@reduxjs/toolkit": "^1.8.1",
     "bignumber.js": "^9.0.2",
     "color": "^4.2.3",
-    "leaflet": "^1.7.1",
+    "leaflet": "^1.8.0",
     "leaflet-easybutton": "^2.4.0",
     "lodash": "^4.17.21",
     "react": "^17.0.1",
