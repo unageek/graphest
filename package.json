@@ -71,7 +71,7 @@
     "react-beautiful-dnd": "^13.1.0",
     "react-dom": "^17.0.2",
     "react-redux": "^8.0.0",
-    "slate": "^0.77.0",
+    "slate": "^0.77.2",
     "slate-history": "^0.66.0",
     "slate-react": "^0.77.3",
     "yup": "^0.32.11"
