@@ -17,7 +17,7 @@ fn execute(cmd: &mut Command) -> bool {
 fn is_valid_id(id: &str) -> bool {
     &id[0..2] == "t_"
         && Uuid::parse_str(&id[2..]).map_or(false, |u| {
-            u.get_variant() == Some(uuid::Variant::RFC4122)
+            u.get_variant() == uuid::Variant::RFC4122
                 && u.get_version() == Some(uuid::Version::Random)
         })
 }
