@@ -10,8 +10,33 @@ export function createMainMenu(actions: MenuActions): Menu {
   // https://github.com/electron/electron/blob/main/lib/browser/api/menu-item-roles.ts
   const isMac = process.platform === "darwin";
   const isRetina = screen.getPrimaryDisplay().scaleFactor === 2;
+  const preferences = {
+    id: Command.Preferences,
+    label: "P&references…",
+    accelerator: "CmdOrCtrl+,",
+    click: actions[Command.Preferences],
+  };
   return Menu.buildFromTemplate([
-    ...(isMac ? [{ role: "appMenu" }] : []),
+    ...(isMac
+      ? [
+          {
+            role: "appMenu",
+            submenu: [
+              { role: "about" },
+              { type: "separator" },
+              preferences,
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ]
+      : []),
     {
       role: "fileMenu",
       label: "&File",
@@ -63,7 +88,27 @@ export function createMainMenu(actions: MenuActions): Menu {
         ...(isMac ? [] : [{ role: "quit" }]),
       ],
     },
-    { role: "editMenu", label: "&Edit" },
+    {
+      role: "editMenu",
+      label: "&Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "delete" },
+        ...(isMac
+          ? [{ role: "selectAll" }]
+          : [
+              { type: "separator" },
+              { role: "selectAll" },
+              { type: "separator" },
+              preferences,
+            ]),
+      ],
+    },
     {
       label: "&Graph",
       submenu: [

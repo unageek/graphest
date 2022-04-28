@@ -6,6 +6,7 @@ import {
   ExportImageOptions,
   ExportImageProgress,
 } from "./exportImage";
+import { Preferences } from "./preferences";
 import { Range } from "./range";
 import { Result } from "./result";
 
@@ -98,6 +99,13 @@ export interface RequestUnload extends MessageToMain {
   result: void;
 }
 
+export const savePreferences = "save-preferences";
+export interface SavePreferences extends MessageToMain {
+  channel: typeof savePreferences;
+  args: [prefs: Preferences];
+  result: void;
+}
+
 export const showSaveDialog = "show-save-dialog";
 export interface ShowSaveDialog extends MessageToMain {
   channel: typeof showSaveDialog;
@@ -144,6 +152,16 @@ export const load = "load";
 export interface Load extends MessageToRenderer {
   channel: typeof load;
   args: [doc: Document];
+}
+
+export const preferencesChanged = "preferences-changed";
+export interface PreferencesChanged extends MessageToRenderer {
+  channel: typeof preferencesChanged;
+  args: [prefs: Preferences];
+  listener: (
+    event: IpcRendererEvent,
+    ...args: PreferencesChanged["args"]
+  ) => void;
 }
 
 export const tileReady = "tile-ready";

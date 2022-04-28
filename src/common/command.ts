@@ -5,6 +5,7 @@ export enum Command {
   NewDocument = "new-document",
   Open = "open",
   OpenFromClipboard = "open-from-clipboard",
+  Preferences = "preferences",
   Save = "save",
   SaveAs = "save-as",
   SaveToClipboard = "save-to-clipboard",

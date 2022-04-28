@@ -92,13 +92,13 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
               defaultValue={props.penSize.toString()}
               max={MAX_PEN_SIZE}
               min={0}
-              step={0.1}
-              styles={{ root: { marginRight: "4px", width: "50px" } }}
               onChange={(_, value) => {
                 if (value === undefined) return;
                 const penSize = Number(value);
                 props.onPenSizeChanged(penSize);
               }}
+              step={0.1}
+              styles={{ root: { marginRight: "4px", width: "50px" } }}
             />
             <Text>pixels</Text>
           </Stack>

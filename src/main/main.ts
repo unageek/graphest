@@ -39,6 +39,7 @@ import {
 } from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { SaveTo } from "../common/ipc";
+import { Preferences } from "../common/preferences";
 import { Range } from "../common/range";
 import * as result from "../common/result";
 import { fromBase64Url, toBase64Url } from "./encode";
@@ -85,13 +86,18 @@ interface BrowserWindowWithTypedWebContents extends Electron.BrowserWindow {
 /** The maximum number of running (both active and sleeping) jobs. */
 const MAX_JOBS = 32;
 
-/** The maximum number of active jobs. */
-const MAX_ACTIVE_JOBS = 4;
-
 /** The maximum amount of memory in MiB that each running job can use. */
 const JOB_MEM_LIMIT = 64;
 
 const URL_PREFIX = "graphest://";
+
+const nCpus = os.cpus().length;
+const preferences: Preferences = {
+  constants: {
+    numberOfCpus: nCpus,
+  },
+  maxCpuUsage: Math.min(4, nCpus),
+};
 
 interface Job {
   aborted: boolean;
@@ -156,7 +162,7 @@ let postUnload: (() => void | Promise<void>) | undefined;
 const relationById = new Map<string, Relation>();
 const relKeyToRelId = new Map<string, string>();
 
-function createMainWindow() {
+async function createMainWindow() {
   mainWindow = new BrowserWindow({
     height: 690,
     minHeight: 300,
@@ -177,7 +183,9 @@ function createMainWindow() {
     .on("closed", () => {
       mainWindow = undefined;
     });
-  mainWindow.loadFile(path.join(__dirname, "index.html"));
+  await mainWindow.loadFile(path.join(__dirname, "index.html"));
+
+  mainWindow.webContents.send(ipc.preferencesChanged, preferences);
 }
 
 function resetBrowserZoom() {
@@ -229,6 +237,9 @@ app.whenReady().then(async () => {
     [Command.NewDocument]: () => newDocument(),
     [Command.Open]: () => open(),
     [Command.OpenFromClipboard]: () => openFromClipboard(),
+    [Command.Preferences]: () => {
+      mainWindow?.webContents.send(ipc.commandInvoked, Command.Preferences);
+    },
     [Command.Save]: () => {
       mainWindow?.webContents.send<ipc.InitiateSave>(
         ipc.initiateSave,
@@ -267,7 +278,7 @@ app.whenReady().then(async () => {
     },
   });
   Menu.setApplicationMenu(mainMenu);
-  createMainWindow();
+  await createMainWindow();
   autoUpdater.checkForUpdatesAndNotify();
 });
 
@@ -638,6 +649,20 @@ ipcMain.handle<ipc.RequestUnload>(ipc.requestUnload, async (_, doc) => {
   unload(doc);
 });
 
+ipcMain.handle<ipc.SavePreferences>(
+  ipc.savePreferences,
+  async (_, prefs: Preferences) => {
+    if (
+      Number.isInteger(prefs.maxCpuUsage) &&
+      prefs.maxCpuUsage >= 1 &&
+      prefs.maxCpuUsage <= preferences.constants.numberOfCpus
+    ) {
+      preferences.maxCpuUsage = prefs.maxCpuUsage;
+    }
+    mainWindow?.webContents.send(ipc.preferencesChanged, preferences);
+  }
+);
+
 ipcMain.handle<ipc.ShowSaveDialog>(ipc.showSaveDialog, async (_, path) => {
   if (!mainWindow) return undefined;
   const result = await dialog.showSaveDialog(mainWindow, {
@@ -695,7 +720,10 @@ function defaultSavePath(): string {
 }
 
 function deprioritize(job: Job) {
-  if (activeJobs.length <= MAX_ACTIVE_JOBS && sleepingJobs.length === 0) {
+  if (
+    activeJobs.length <= preferences.maxCpuUsage &&
+    sleepingJobs.length === 0
+  ) {
     job.proc?.stdin?.write("\n");
     return;
   }
@@ -926,7 +954,10 @@ async function unload(doc: Document) {
 }
 
 function updateQueue() {
-  while (activeJobs.length < MAX_ACTIVE_JOBS && sleepingJobs.length > 0) {
+  while (
+    activeJobs.length < preferences.maxCpuUsage &&
+    sleepingJobs.length > 0
+  ) {
     const job = sleepingJobs.shift();
     if (job !== undefined) {
       activeJobs.push(job);
@@ -978,7 +1009,7 @@ function updateQueue() {
       });
 
       const nBefore = countJobs();
-      if (activeJobs.length < MAX_ACTIVE_JOBS) {
+      if (activeJobs.length < preferences.maxCpuUsage) {
         activeJobs.push(job);
         job.proc.stdin?.write("\n");
       } else {

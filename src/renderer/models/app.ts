@@ -9,6 +9,7 @@ import {
   ExportImageOptions,
   ExportImageProgress,
 } from "../../common/exportImage";
+import { Preferences, STUB_PREFERENCES } from "../../common/preferences";
 import { GraphData } from "../graphData";
 import {
   Graph,
@@ -26,12 +27,14 @@ export interface AppState {
   highRes: boolean;
   lastExportImageOpts: ExportImageOptions;
   nextGraphId: number;
+  preferences: Preferences;
   resetView: boolean;
   showAxes: boolean;
   showExportImageDialog: boolean;
   showGoToDialog: boolean;
   showMajorGrid: boolean;
   showMinorGrid: boolean;
+  showPreferencesDialog: boolean;
   zoomLevel: number;
 }
 
@@ -57,12 +60,14 @@ const initialState: AppState = {
     yMin: "-10",
   },
   nextGraphId: 0,
+  preferences: STUB_PREFERENCES,
   resetView: false,
   showAxes: true,
   showExportImageDialog: false,
   showGoToDialog: false,
   showMajorGrid: true,
   showMinorGrid: true,
+  showPreferencesDialog: false,
   zoomLevel: INITIAL_ZOOM_LEVEL - BASE_ZOOM_LEVEL,
 };
 
@@ -189,6 +194,13 @@ const slice = createSlice({
         lastExportImageOpts: a.payload.opts,
       }),
     },
+    setPreferences: {
+      prepare: (prefs: Preferences) => ({ payload: { prefs } }),
+      reducer: (s, a: PayloadAction<{ prefs: Preferences }>) => ({
+        ...s,
+        preferences: a.payload.prefs,
+      }),
+    },
     setResetView: {
       prepare: (reset: boolean) => ({ payload: { reset } }),
       reducer: (s, a: PayloadAction<{ reset: boolean }>) => ({
@@ -229,6 +241,13 @@ const slice = createSlice({
       reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
         ...s,
         showMinorGrid: a.payload.show,
+      }),
+    },
+    setShowPreferencesDialog: {
+      prepare: (show: boolean) => ({ payload: { show } }),
+      reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
+        ...s,
+        showPreferencesDialog: a.payload.show,
       }),
     },
     setZoomLevel: {
@@ -284,12 +303,14 @@ export const {
   setExportImageProgress,
   setHighRes,
   setLastExportImageOpts,
+  setPreferences,
   setResetView,
   setShowAxes,
   setShowExportImageDialog,
   setShowGoToDialog,
   setShowMajorGrid,
   setShowMinorGrid,
+  setShowPreferencesDialog,
   setZoomLevel,
 } = slice.actions;
 

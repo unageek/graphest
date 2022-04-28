@@ -27,16 +27,19 @@ import {
   setExportImageProgress,
   setHighRes,
   setLastExportImageOpts,
+  setPreferences,
   setResetView,
   setShowAxes,
   setShowExportImageDialog,
   setShowGoToDialog,
   setShowMajorGrid,
   setShowMinorGrid,
+  setShowPreferencesDialog,
   setZoomLevel,
   useSelector,
 } from "./models/app";
 import { store } from "./models/store";
+import { PreferencesDialog } from "./PreferencesDialog";
 
 const abortExportImage = async () => {
   await window.ipcRenderer.invoke<ipc.AbortExportImage>(ipc.abortExportImage);
@@ -113,6 +116,7 @@ const App = () => {
   const graphViewRef = useRef<HTMLDivElement>(null);
   const showExportImageDialog = useSelector((s) => s.showExportImageDialog);
   const showGoToDialog = useSelector((s) => s.showGoToDialog);
+  const showPreferencesDialog = useSelector((s) => s.showPreferencesDialog);
   const theme = useTheme();
   const zoomLevel = useSelector((s) => s.zoomLevel);
 
@@ -178,6 +182,17 @@ const App = () => {
           zoomLevel={zoomLevel}
         />
       )}
+      {showPreferencesDialog && (
+        <PreferencesDialog
+          dismiss={() => dispatch(setShowPreferencesDialog(false))}
+          save={(prefs) =>
+            window.ipcRenderer.invoke<ipc.SavePreferences>(
+              ipc.savePreferences,
+              prefs
+            )
+          }
+        />
+      )}
     </>
   );
 };
@@ -203,6 +218,9 @@ window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
       break;
     case Command.HighResolution:
       store.dispatch(setHighRes(!state.highRes));
+      break;
+    case Command.Preferences:
+      store.dispatch(setShowPreferencesDialog(true));
       break;
     case Command.ShowAxes:
       store.dispatch(setShowAxes(!state.showAxes));
@@ -247,5 +265,12 @@ window.ipcRenderer.on<ipc.Load>(ipc.load, (_, state) => {
     store.dispatch(addGraph(g));
   }
 });
+
+window.ipcRenderer.on<ipc.PreferencesChanged>(
+  ipc.preferencesChanged,
+  (_, prefs) => {
+    store.dispatch(setPreferences(prefs));
+  }
+);
 
 window.ipcRenderer.invoke<ipc.Ready>(ipc.ready);
