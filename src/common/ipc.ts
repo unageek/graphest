@@ -46,14 +46,14 @@ export const exportImage = "export-image";
 export interface ExportImage extends MessageToMain {
   channel: typeof exportImage;
   args: [entries: ExportImageEntry[], opts: ExportImageOptions];
-  result: Promise<void>;
+  result: void;
 }
 
 export const getDefaultExportImagePath = "get-default-export-image-path";
 export interface GetDefaultExportImagePath extends MessageToMain {
   channel: typeof getDefaultExportImagePath;
   args: [];
-  result: Promise<string>;
+  result: string;
 }
 
 export const openUrl = "open-url";
@@ -81,7 +81,7 @@ export const requestSave = "request-save";
 export interface RequestSave extends MessageToMain {
   channel: typeof requestSave;
   args: [doc: Document, to: SaveTo];
-  result: Promise<void>;
+  result: void;
 }
 
 export const requestTile = "request-tile";
@@ -95,14 +95,14 @@ export const requestUnload = "request-unload";
 export interface RequestUnload extends MessageToMain {
   channel: typeof requestUnload;
   args: [doc: Document];
-  result: Promise<void>;
+  result: void;
 }
 
 export const showSaveDialog = "show-save-dialog";
 export interface ShowSaveDialog extends MessageToMain {
   channel: typeof showSaveDialog;
   args: [path: string];
-  result: Promise<string | undefined>;
+  result: string | undefined;
 }
 
 export interface MessageToRenderer {

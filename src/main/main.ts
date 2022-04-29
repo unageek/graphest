@@ -457,7 +457,7 @@ ipcMain.handle(ipc.getDefaultExportImagePath, async (): Promise<string> => {
   }
 });
 
-ipcMain.handle(ipc.ready, () => {
+ipcMain.handle(ipc.ready, async () => {
   postStartup?.();
   postStartup = undefined;
 });
