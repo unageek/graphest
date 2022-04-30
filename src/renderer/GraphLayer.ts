@@ -15,8 +15,8 @@ declare module "leaflet" {
 export class GraphLayer extends L.GridLayer {
   #dilationElement: SVGFEMorphologyElement;
   #graph?: Graph;
-  #onGraphingStatusChangedBound: ipc.GraphingStatusChanged["listener"];
-  #onTileReadyBound: ipc.TileReady["listener"];
+  #onGraphingStatusChangedBound: ipc.RendererListener<ipc.GraphingStatusChanged>;
+  #onTileReadyBound: ipc.RendererListener<ipc.TileReady>;
   #styleElement: HTMLStyleElement;
   #svgElement: SVGSVGElement;
   #unsubscribeFromStore?: Unsubscribe;
@@ -163,7 +163,7 @@ export class GraphLayer extends L.GridLayer {
     }
   }
 
-  #onGraphingStatusChanged: ipc.GraphingStatusChanged["listener"] = (
+  #onGraphingStatusChanged: ipc.RendererListener<ipc.GraphingStatusChanged> = (
     _,
     relId,
     processing
@@ -173,7 +173,12 @@ export class GraphLayer extends L.GridLayer {
     }
   };
 
-  #onTileReady: ipc.TileReady["listener"] = (_, relId, tileId, url) => {
+  #onTileReady: ipc.RendererListener<ipc.TileReady> = (
+    _,
+    relId,
+    tileId,
+    url
+  ) => {
     if (relId === this.#graph?.relId) {
       this.#updateTile(tileId, url);
     }
