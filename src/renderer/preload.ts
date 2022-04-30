@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import * as ipc from "../common/ipc";
+import { MessageToRenderer } from "../common/ipc";
 
 const safeIpcRenderer: ipc.IpcRenderer = {
   invoke<T extends ipc.MessageToMain>(
@@ -9,18 +10,19 @@ const safeIpcRenderer: ipc.IpcRenderer = {
     return ipcRenderer.invoke(channel, ...args);
   },
 
-  on<T extends ipc.MessageToRenderer>(
+  on<T extends MessageToRenderer>(
     channel: T["channel"],
-    listener: T["listener"]
+    listener: ipc.RendererListener<T>
   ) {
     ipcRenderer.on(channel, listener);
   },
 
-  off<T extends ipc.MessageToRenderer>(
+  off<T extends MessageToRenderer>(
     channel: T["channel"],
-    listener: T["listener"]
+    listener: ipc.RendererListener<T>
   ) {
-    ipcRenderer.off(channel, listener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ipcRenderer.off(channel, listener as (...args: any[]) => void);
   },
 };
 

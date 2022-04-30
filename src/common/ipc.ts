@@ -1,4 +1,4 @@
-import { IpcRendererEvent } from "electron";
+import { IpcMainInvokeEvent, IpcRendererEvent } from "electron";
 import { Command } from "./command";
 import { Document } from "./document";
 import {
@@ -108,64 +108,66 @@ export interface ShowSaveDialog extends MessageToMain {
 export interface MessageToRenderer {
   channel: string;
   args: unknown[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  listener: (event: IpcRendererEvent, ...args: any[]) => void;
 }
 
 export const commandInvoked = "command-invoked";
 export interface CommandInvoked extends MessageToRenderer {
   channel: typeof commandInvoked;
   args: [command: Command];
-  listener: (event: IpcRendererEvent, ...args: CommandInvoked["args"]) => void;
 }
 
 export const exportImageStatusChanged = "export-image-status-changed";
 export interface ExportImageStatusChanged extends MessageToRenderer {
   channel: typeof exportImageStatusChanged;
   args: [progress: ExportImageProgress];
-  listener: (
-    event: IpcRendererEvent,
-    ...args: ExportImageStatusChanged["args"]
-  ) => void;
 }
 
 export const graphingStatusChanged = "graphing-status-changed";
 export interface GraphingStatusChanged extends MessageToRenderer {
   channel: typeof graphingStatusChanged;
   args: [relId: string, processing: boolean];
-  listener: (
-    event: IpcRendererEvent,
-    ...args: GraphingStatusChanged["args"]
-  ) => void;
 }
 
 export const initiateSave = "initiate-save";
 export interface InitiateSave extends MessageToRenderer {
   channel: typeof initiateSave;
   args: [to: SaveTo];
-  listener: (event: IpcRendererEvent, ...args: InitiateSave["args"]) => void;
 }
 
 export const initiateUnload = "initiate-unload";
 export interface InitiateUnload extends MessageToRenderer {
   channel: typeof initiateUnload;
   args: [];
-  listener: (event: IpcRendererEvent, ...args: InitiateUnload["args"]) => void;
 }
 
 export const load = "load";
 export interface Load extends MessageToRenderer {
   channel: typeof load;
   args: [doc: Document];
-  listener: (event: IpcRendererEvent, ...args: Load["args"]) => void;
 }
 
 export const tileReady = "tile-ready";
 export interface TileReady extends MessageToRenderer {
   channel: typeof tileReady;
   args: [relId: string, tileId: string, url: string];
-  listener: (event: IpcRendererEvent, ...args: TileReady["args"]) => void;
 }
+
+export type MainListener<T extends MessageToMain> = (
+  event: IpcMainInvokeEvent,
+  ...args: T["args"]
+) => Promise<T["result"]>;
+
+export interface IpcMain {
+  handle<T extends MessageToMain>(
+    channel: T["channel"],
+    listener: MainListener<T>
+  ): void;
+}
+
+export type RendererListener<T extends MessageToRenderer> = (
+  event: IpcRendererEvent,
+  ...args: T["args"]
+) => void;
 
 export interface IpcRenderer {
   invoke<T extends MessageToMain>(
@@ -175,11 +177,11 @@ export interface IpcRenderer {
 
   on<T extends MessageToRenderer>(
     channel: T["channel"],
-    listener: T["listener"]
+    listener: RendererListener<T>
   ): void;
 
   off<T extends MessageToRenderer>(
     channel: T["channel"],
-    listener: T["listener"]
+    listener: RendererListener<T>
   ): void;
 }

@@ -5,7 +5,7 @@ import {
   BrowserWindow,
   clipboard,
   dialog,
-  ipcMain,
+  ipcMain as untypedIpcMain,
   Menu,
   shell,
 } from "electron";
@@ -32,8 +32,6 @@ import {
 import { Document } from "../common/document";
 import {
   ANTI_ALIASING_OPTIONS,
-  ExportImageEntry,
-  ExportImageOptions,
   ExportImageProgress,
   EXPORT_GRAPH_TILE_SIZE,
   MAX_EXPORT_IMAGE_SIZE,
@@ -48,6 +46,19 @@ import { createMainMenu } from "./mainMenu";
 import { deserialize, serialize } from "./serialize";
 
 const fsPromises = fs.promises;
+
+const ipcMain = untypedIpcMain as ipc.IpcMain;
+
+interface TypedWebContents extends Electron.WebContents {
+  send<T extends ipc.MessageToRenderer>(
+    channel: T["channel"],
+    ...args: T["args"]
+  ): void;
+}
+
+interface BrowserWindowWithTypedWebContents extends Electron.BrowserWindow {
+  webContents: TypedWebContents;
+}
 
 // The Lifecycle of a Job
 //
@@ -133,7 +144,7 @@ let lastSavedDoc: Document = {
   zoomLevel: 6,
 };
 let mainMenu: Menu | undefined;
-let mainWindow: BrowserWindow | undefined;
+let mainWindow: BrowserWindowWithTypedWebContents | undefined;
 let maybeUnsaved = false;
 let nextExportImageId = 0;
 let nextRelId = 0;
@@ -159,7 +170,7 @@ function createMainWindow() {
     .on("close", (e) => {
       if (maybeUnsaved) {
         postUnload = () => mainWindow?.close();
-        mainWindow?.webContents.send(ipc.initiateUnload);
+        mainWindow?.webContents.send<ipc.InitiateUnload>(ipc.initiateUnload);
         e.preventDefault();
       }
     })
@@ -204,31 +215,55 @@ app.whenReady().then(async () => {
   mainMenu = createMainMenu({
     [Command.AbortGraphing]: () => abortJobs(),
     [Command.ExportImage]: () => {
-      mainWindow?.webContents.send(ipc.commandInvoked, Command.ExportImage);
+      mainWindow?.webContents.send<ipc.CommandInvoked>(
+        ipc.commandInvoked,
+        Command.ExportImage
+      );
     },
     [Command.HighResolution]: () => {
-      mainWindow?.webContents.send(ipc.commandInvoked, Command.HighResolution);
+      mainWindow?.webContents.send<ipc.CommandInvoked>(
+        ipc.commandInvoked,
+        Command.HighResolution
+      );
     },
     [Command.NewDocument]: () => newDocument(),
     [Command.Open]: () => open(),
     [Command.OpenFromClipboard]: () => openFromClipboard(),
     [Command.Save]: () => {
-      mainWindow?.webContents.send(ipc.initiateSave, SaveTo.CurrentFile);
+      mainWindow?.webContents.send<ipc.InitiateSave>(
+        ipc.initiateSave,
+        SaveTo.CurrentFile
+      );
     },
     [Command.SaveAs]: () => {
-      mainWindow?.webContents.send(ipc.initiateSave, SaveTo.NewFile);
+      mainWindow?.webContents.send<ipc.InitiateSave>(
+        ipc.initiateSave,
+        SaveTo.NewFile
+      );
     },
     [Command.SaveToClipboard]: () => {
-      mainWindow?.webContents.send(ipc.initiateSave, SaveTo.Clipboard);
+      mainWindow?.webContents.send<ipc.InitiateSave>(
+        ipc.initiateSave,
+        SaveTo.Clipboard
+      );
     },
     [Command.ShowAxes]: () => {
-      mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowAxes);
+      mainWindow?.webContents.send<ipc.CommandInvoked>(
+        ipc.commandInvoked,
+        Command.ShowAxes
+      );
     },
     [Command.ShowMajorGrid]: () => {
-      mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowMajorGrid);
+      mainWindow?.webContents.send<ipc.CommandInvoked>(
+        ipc.commandInvoked,
+        Command.ShowMajorGrid
+      );
     },
     [Command.ShowMinorGrid]: () => {
-      mainWindow?.webContents.send(ipc.commandInvoked, Command.ShowMinorGrid);
+      mainWindow?.webContents.send<ipc.CommandInvoked>(
+        ipc.commandInvoked,
+        Command.ShowMinorGrid
+      );
     },
   });
   Menu.setApplicationMenu(mainMenu);
@@ -253,185 +288,160 @@ app.on("window-all-closed", () => {
   app.quit();
 });
 
-ipcMain.handle(ipc.abortExportImage, async () => {
+ipcMain.handle<ipc.AbortExportImage>(ipc.abortExportImage, async () => {
   exportImageAbortController?.abort();
 });
 
-ipcMain.handle(ipc.abortGraphing, async (_, relId: string, tileId?: string) => {
-  abortJobs(
-    (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId)
-  );
-});
+ipcMain.handle<ipc.AbortGraphing>(
+  ipc.abortGraphing,
+  async (_, relId, tileId) => {
+    abortJobs(
+      (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId)
+    );
+  }
+);
 
-ipcMain.handle(
-  ipc.exportImage,
-  async (
-    _,
-    entries: ExportImageEntry[],
-    opts: ExportImageOptions
-  ): Promise<void> => {
-    const outDir = path.join(baseOutDir, "export");
-    if (!fs.existsSync(outDir)) {
-      await fsPromises.mkdir(outDir);
-    }
+ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
+  const outDir = path.join(baseOutDir, "export");
+  if (!fs.existsSync(outDir)) {
+    await fsPromises.mkdir(outDir);
+  }
 
-    const bounds = [
-      bignum(opts.xMin),
-      bignum(opts.xMax),
-      bignum(opts.yMin),
-      bignum(opts.yMax),
-    ];
+  const bounds = [
+    bignum(opts.xMin),
+    bignum(opts.xMax),
+    bignum(opts.yMin),
+    bignum(opts.yMax),
+  ];
 
-    if (
-      !(
-        bounds.every((x) => x.isFinite()) &&
-        bounds[0].lt(bounds[1]) &&
-        bounds[2].lt(bounds[3]) &&
-        ANTI_ALIASING_OPTIONS.includes(opts.antiAliasing) &&
-        Number.isInteger(opts.height) &&
-        opts.height > 0 &&
-        opts.height <= MAX_EXPORT_IMAGE_SIZE &&
-        Number.isInteger(opts.timeout) &&
-        opts.timeout > 0 &&
-        opts.timeout <= MAX_EXPORT_TIMEOUT &&
-        Number.isInteger(opts.width) &&
-        opts.width > 0 &&
-        opts.width <= MAX_EXPORT_IMAGE_SIZE
-      )
-    ) {
+  if (
+    !(
+      bounds.every((x) => x.isFinite()) &&
+      bounds[0].lt(bounds[1]) &&
+      bounds[2].lt(bounds[3]) &&
+      ANTI_ALIASING_OPTIONS.includes(opts.antiAliasing) &&
+      Number.isInteger(opts.height) &&
+      opts.height > 0 &&
+      opts.height <= MAX_EXPORT_IMAGE_SIZE &&
+      Number.isInteger(opts.timeout) &&
+      opts.timeout > 0 &&
+      opts.timeout <= MAX_EXPORT_TIMEOUT &&
+      Number.isInteger(opts.width) &&
+      opts.width > 0 &&
+      opts.width <= MAX_EXPORT_IMAGE_SIZE
+    )
+  ) {
+    return;
+  }
+
+  const newEntries = [];
+  for (const entry of entries) {
+    newEntries.push({
+      path: path.join(outDir, nextExportImageId.toString() + ".png"),
+      tilePathPrefix: path.join(outDir, nextExportImageId.toString() + "-"),
+      tilePathSuffix: ".png",
+      ...entry,
+    });
+    nextExportImageId++;
+  }
+
+  const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
+  const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
+  const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
+  const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
+
+  exportImageAbortController = new AbortController();
+  const { signal } = exportImageAbortController;
+
+  for (let k = 0; k < newEntries.length; k++) {
+    const entry = newEntries[k];
+    const rel = relationById.get(entry.relId);
+    if (rel === undefined) {
       return;
     }
 
-    const newEntries = [];
-    for (const entry of entries) {
-      newEntries.push({
-        path: path.join(outDir, nextExportImageId.toString() + ".png"),
-        tilePathPrefix: path.join(outDir, nextExportImageId.toString() + "-"),
-        tilePathSuffix: ".png",
-        ...entry,
-      });
-      nextExportImageId++;
-    }
+    const x_tiles = Math.ceil(
+      (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE
+    );
+    const y_tiles = Math.ceil(
+      (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
+    );
+    const tile_width = Math.ceil(opts.width / x_tiles);
+    const tile_height = Math.ceil(opts.height / y_tiles);
+    for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
+      const i = i_tile * tile_height;
+      const height = Math.min(tile_height, opts.height - i);
+      for (let j_tile = 0; j_tile < x_tiles; j_tile++) {
+        const j = j_tile * tile_width;
+        const width = Math.min(tile_width, opts.width - j);
 
-    const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
-    const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
-    const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
-    const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
+        const bounds = [
+          x0.plus(pixelWidth.times(j)),
+          x0.plus(pixelWidth.times(j + width)),
+          y1.minus(pixelHeight.times(i + height)),
+          y1.minus(pixelHeight.times(i)),
+        ];
 
-    exportImageAbortController = new AbortController();
-    const { signal } = exportImageAbortController;
-
-    for (let k = 0; k < newEntries.length; k++) {
-      const entry = newEntries[k];
-      const rel = relationById.get(entry.relId);
-      if (rel === undefined) {
-        return;
-      }
-
-      const x_tiles = Math.ceil(
-        (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE
-      );
-      const y_tiles = Math.ceil(
-        (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
-      );
-      const tile_width = Math.ceil(opts.width / x_tiles);
-      const tile_height = Math.ceil(opts.height / y_tiles);
-      for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
-        const i = i_tile * tile_height;
-        const height = Math.min(tile_height, opts.height - i);
-        for (let j_tile = 0; j_tile < x_tiles; j_tile++) {
-          const j = j_tile * tile_width;
-          const width = Math.min(tile_width, opts.width - j);
-
-          const bounds = [
-            x0.plus(pixelWidth.times(j)),
-            x0.plus(pixelWidth.times(j + width)),
-            y1.minus(pixelHeight.times(i + height)),
-            y1.minus(pixelHeight.times(i)),
-          ];
-
-          const path = `${entry.tilePathPrefix}${i_tile}-${j_tile}${entry.tilePathSuffix}`;
-          const args = [
-            "--bounds",
-            ...bounds.map((b) => b.toString()),
-            "--gray-alpha",
-            "--output",
-            path,
-            "--output-once",
-            "--pen-size",
-            entry.penSize.toString(),
-            "--size",
-            width.toString(),
-            height.toString(),
-            "--ssaa",
-            opts.antiAliasing.toString(),
-            "--timeout",
-            opts.timeout.toString(),
-            ...rel.suffixArgs,
-          ];
-          try {
-            const { stderr } = await util.promisify(execFile)(graphExec, args, {
-              signal,
-            });
-            if (stderr) {
-              console.log(stderr.trimEnd());
-            }
-            notifyExportImageStatusChanged({
-              lastStderr: stderr.trimEnd(),
-              lastUrl: url.pathToFileURL(path).toString(),
-              progress:
-                (x_tiles * y_tiles * k + x_tiles * i_tile + j_tile + 1) /
-                (x_tiles * y_tiles * newEntries.length),
-            });
-          } catch ({ name, stderr }) {
-            console.log(
-              typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
-            );
-            console.log("`graph` failed:", `'${args.join("' '")}'`);
-            return;
+        const path = `${entry.tilePathPrefix}${i_tile}-${j_tile}${entry.tilePathSuffix}`;
+        const args = [
+          "--bounds",
+          ...bounds.map((b) => b.toString()),
+          "--gray-alpha",
+          "--output",
+          path,
+          "--output-once",
+          "--pen-size",
+          entry.penSize.toString(),
+          "--size",
+          width.toString(),
+          height.toString(),
+          "--ssaa",
+          opts.antiAliasing.toString(),
+          "--timeout",
+          opts.timeout.toString(),
+          ...rel.suffixArgs,
+        ];
+        try {
+          const { stderr } = await util.promisify(execFile)(graphExec, args, {
+            signal,
+          });
+          if (stderr) {
+            console.log(stderr.trimEnd());
           }
+          notifyExportImageStatusChanged({
+            lastStderr: stderr.trimEnd(),
+            lastUrl: url.pathToFileURL(path).toString(),
+            progress:
+              (x_tiles * y_tiles * k + x_tiles * i_tile + j_tile + 1) /
+              (x_tiles * y_tiles * newEntries.length),
+          });
+        } catch ({ name, stderr }) {
+          console.log(
+            typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
+          );
+          console.log("`graph` failed:", `'${args.join("' '")}'`);
+          return;
         }
-      }
-
-      const args = [
-        "--output",
-        entry.path,
-        "--prefix",
-        entry.tilePathPrefix,
-        "--size",
-        opts.width.toString(),
-        opts.height.toString(),
-        "--suffix",
-        entry.tilePathSuffix,
-        "--x-tiles",
-        x_tiles.toString(),
-        "--y-tiles",
-        y_tiles.toString(),
-      ];
-      try {
-        const { stderr } = await util.promisify(execFile)(joinTilesExec, args, {
-          signal,
-        });
-        if (stderr) {
-          console.log(stderr.trimEnd());
-        }
-      } catch ({ stderr }) {
-        console.log(
-          typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
-        );
-        console.log("`join-tiles` failed:", `'${args.join("' '")}'`);
-        return;
       }
     }
 
     const args = [
-      ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
       "--output",
-      opts.path,
-      ...(opts.transparent ? ["--transparent"] : []),
+      entry.path,
+      "--prefix",
+      entry.tilePathPrefix,
+      "--size",
+      opts.width.toString(),
+      opts.height.toString(),
+      "--suffix",
+      entry.tilePathSuffix,
+      "--x-tiles",
+      x_tiles.toString(),
+      "--y-tiles",
+      y_tiles.toString(),
     ];
     try {
-      const { stderr } = await util.promisify(execFile)(composeExec, args, {
+      const { stderr } = await util.promisify(execFile)(joinTilesExec, args, {
         signal,
       });
       if (stderr) {
@@ -441,35 +451,54 @@ ipcMain.handle(
       console.log(
         typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
       );
-      console.log("`compose` failed:", `'${args.join("' '")}'`);
+      console.log("`join-tiles` failed:", `'${args.join("' '")}'`);
       return;
     }
+  }
 
-    await shell.openPath(opts.path);
+  const args = [
+    ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
+    "--output",
+    opts.path,
+    ...(opts.transparent ? ["--transparent"] : []),
+  ];
+  try {
+    const { stderr } = await util.promisify(execFile)(composeExec, args, {
+      signal,
+    });
+    if (stderr) {
+      console.log(stderr.trimEnd());
+    }
+  } catch ({ stderr }) {
+    console.log(
+      typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
+    );
+    console.log("`compose` failed:", `'${args.join("' '")}'`);
+    return;
+  }
+
+  await shell.openPath(opts.path);
+});
+
+ipcMain.handle<ipc.GetDefaultExportImagePath>(
+  ipc.getDefaultExportImagePath,
+  async () => {
+    try {
+      return path.join(app.getPath("pictures"), "graph.png");
+    } catch {
+      return "";
+    }
   }
 );
 
-ipcMain.handle(ipc.getDefaultExportImagePath, async (): Promise<string> => {
-  try {
-    return path.join(app.getPath("pictures"), "graph.png");
-  } catch {
-    return "";
-  }
-});
-
-ipcMain.handle(ipc.ready, async () => {
+ipcMain.handle<ipc.Ready>(ipc.ready, async () => {
   postStartup?.();
   postStartup = undefined;
 });
 
-ipcMain.handle(
+ipcMain.handle<ipc.RequestRelation>(
   ipc.requestRelation,
-  async (
-    _,
-    rel: string,
-    graphId: string,
-    highRes: boolean
-  ): Promise<ipc.RequestRelationResult> => {
+  async (_, rel, graphId, highRes) => {
     try {
       let suffixArgs = [];
       // https://docs.microsoft.com/en-us/troubleshoot/windows-client/shell-experience/command-line-string-limitation
@@ -523,13 +552,13 @@ ipcMain.handle(
   }
 );
 
-ipcMain.handle(ipc.requestSave, async (_, doc: Document, to: SaveTo) => {
+ipcMain.handle<ipc.RequestSave>(ipc.requestSave, async (_, doc, to) => {
   save(doc, to);
 });
 
-ipcMain.handle(
+ipcMain.handle<ipc.RequestTile>(
   ipc.requestTile,
-  async (_, relId: string, tileId: string, coords: L.Coords) => {
+  async (_, relId, tileId, coords) => {
     const rel = relationById.get(relId);
     if (rel === undefined) {
       return;
@@ -605,21 +634,18 @@ ipcMain.handle(
   }
 );
 
-ipcMain.handle(ipc.requestUnload, async (_, doc: Document): Promise<void> => {
+ipcMain.handle<ipc.RequestUnload>(ipc.requestUnload, async (_, doc) => {
   unload(doc);
 });
 
-ipcMain.handle(
-  ipc.showSaveDialog,
-  async (_, path: string): Promise<string | undefined> => {
-    if (!mainWindow) return undefined;
-    const result = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: path,
-      filters: [{ name: "PNG", extensions: ["png"] }],
-    });
-    return result.filePath;
-  }
-);
+ipcMain.handle<ipc.ShowSaveDialog>(ipc.showSaveDialog, async (_, path) => {
+  if (!mainWindow) return undefined;
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: path,
+    filters: [{ name: "PNG", extensions: ["png"] }],
+  });
+  return result.filePath;
+});
 
 function abortJobs(filter: JobFilter = () => true) {
   const jobsToAbort = queuedJobs
@@ -703,11 +729,18 @@ function newDocument() {
 }
 
 function notifyExportImageStatusChanged(progress: ExportImageProgress) {
-  mainWindow?.webContents.send(ipc.exportImageStatusChanged, progress);
+  mainWindow?.webContents.send<ipc.ExportImageStatusChanged>(
+    ipc.exportImageStatusChanged,
+    progress
+  );
 }
 
 function notifyGraphingStatusChanged(relId: string, processing: boolean) {
-  mainWindow?.webContents.send(ipc.graphingStatusChanged, relId, processing);
+  mainWindow?.webContents.send<ipc.GraphingStatusChanged>(
+    ipc.graphingStatusChanged,
+    relId,
+    processing
+  );
 }
 
 function notifyTileReady(
@@ -724,7 +757,7 @@ function notifyTileReady(
     tile.version = (tile.version ?? 0) + 1;
   }
 
-  mainWindow?.webContents.send(
+  mainWindow?.webContents.send<ipc.TileReady>(
     ipc.tileReady,
     relId,
     tileId,
@@ -753,7 +786,7 @@ async function openFile(path: string) {
 
   if (maybeUnsaved) {
     postUnload = () => openFile(path);
-    mainWindow.webContents.send(ipc.initiateUnload);
+    mainWindow.webContents.send<ipc.InitiateUnload>(ipc.initiateUnload);
     return;
   }
 
@@ -765,7 +798,7 @@ async function openFile(path: string) {
     maybeUnsaved = true;
     mainWindow.setRepresentedFilename(path);
     mainWindow.setTitle(getCurrentFilenameForDisplay());
-    mainWindow.webContents.send(ipc.load, doc);
+    mainWindow.webContents.send<ipc.Load>(ipc.load, doc);
   } catch (e) {
     console.log("open failed", e);
     dialog.showMessageBox(mainWindow, {
@@ -789,7 +822,7 @@ function openUrl(url: string) {
 
   if (maybeUnsaved) {
     postUnload = () => openUrl(url);
-    mainWindow.webContents.send(ipc.initiateUnload);
+    mainWindow.webContents.send<ipc.InitiateUnload>(ipc.initiateUnload);
     return;
   }
 
@@ -802,7 +835,7 @@ function openUrl(url: string) {
       maybeUnsaved = true;
       mainWindow.setRepresentedFilename("");
       mainWindow.setTitle(getCurrentFilenameForDisplay());
-      mainWindow.webContents.send(ipc.load, doc);
+      mainWindow.webContents.send<ipc.Load>(ipc.load, doc);
     } catch (e) {
       console.log("open failed", e);
     }
