@@ -1,4 +1,12 @@
-import { Dialog, Label, SpinButton, Stack, Text } from "@fluentui/react";
+import {
+  DefaultButton,
+  Dialog,
+  DialogFooter,
+  Label,
+  SpinButton,
+  Stack,
+  Text,
+} from "@fluentui/react";
 import * as React from "react";
 import { Preferences } from "../common/preferences";
 import { useSelector } from "./models/app";
@@ -51,6 +59,10 @@ export const PreferencesDialog = (
           <Text>×100%</Text>
         </Stack>
       </div>
+
+      <DialogFooter>
+        <DefaultButton onClick={props.dismiss} text="Close" />
+      </DialogFooter>
     </Dialog>
   );
 };

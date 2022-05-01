@@ -91,8 +91,8 @@ const JOB_MEM_LIMIT = 64;
 
 const URL_PREFIX = "graphest://";
 
-const settingsJson = path.join(app.getPath("userData"), "settings.json");
-const settings = JSON.parse(fs.readFileSync(settingsJson, "utf8"));
+// const settingsJson = path.join(app.getPath("userData"), "settings.json");
+// const settings = JSON.parse(fs.readFileSync(settingsJson, "utf8"));
 
 const nCpus = os.cpus().length;
 const preferences: Preferences = {
