@@ -376,11 +376,12 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
         workers++;
         const worker = new Worker(
           new URL("./graphTaskWorker.ts", import.meta.url),
-          {
-            workerData: task,
-          }
+          { workerData: task }
         );
         worker.on("message", ({ stderr }: { stderr: string }) => {
+          workers--;
+          completedTasks++;
+
           if (stderr) {
             console.log(stderr.trimEnd());
           }
@@ -390,8 +391,6 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
             progress: completedTasks / totalTasks,
           });
 
-          workers--;
-          completedTasks++;
           if (completedTasks === totalTasks) {
             resolve(null);
           } else if (tasks.length > 0 && workers < maxWorkers) {
