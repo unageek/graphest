@@ -158,7 +158,7 @@ let postUnload: (() => void | Promise<void>) | undefined;
 const relationById = new Map<string, Relation>();
 const relKeyToRelId = new Map<string, string>();
 
-async function createMainWindow() {
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     height: 690,
     minHeight: 300,
@@ -179,7 +179,7 @@ async function createMainWindow() {
     .on("closed", () => {
       mainWindow = undefined;
     });
-  await mainWindow.loadFile(path.join(__dirname, "index.html"));
+  mainWindow.loadFile(path.join(__dirname, "index.html"));
 }
 
 function resetBrowserZoom() {
