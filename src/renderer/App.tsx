@@ -54,15 +54,12 @@ const exportImage = async (opts: ExportImageOptions) => {
 
   store.dispatch(
     setExportImageProgress({
-      lastStderr: "",
-      // 1x1 transparent image.
-      lastUrl:
-        "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==",
+      messages: [],
       progress: 0,
     })
   );
 
-  return await window.ipcRenderer.invoke<ipc.ExportImage>(
+  await window.ipcRenderer.invoke<ipc.ExportImage>(
     ipc.exportImage,
     entries,
     opts

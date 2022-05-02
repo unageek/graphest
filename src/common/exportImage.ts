@@ -51,10 +51,8 @@ export interface ExportImageOptions {
 }
 
 export interface ExportImageProgress {
-  /** The standard error output of the last-saved tile. */
-  lastStderr: string;
-  /** The URL of the last-saved tile. */
-  lastUrl: string;
+  /** The standard error outputs generated during export. */
+  messages: string[];
   /** The ratio of completed tiles (0 to 1). */
   progress: number;
 }

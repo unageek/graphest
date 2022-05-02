@@ -311,244 +311,214 @@ ipcMain.handle<ipc.AbortGraphing>(
   }
 );
 
-ipcMain.handle<ipc.ExportImage>(
-  ipc.exportImage,
-  async (_, entries, opts): Promise<string[]> => {
-    const outDir = path.join(baseOutDir, "export");
-    if (!fs.existsSync(outDir)) {
-      await fsPromises.mkdir(outDir);
+ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
+  const outDir = path.join(baseOutDir, "export");
+  if (!fs.existsSync(outDir)) {
+    await fsPromises.mkdir(outDir);
+  }
+
+  const bounds = [
+    bignum(opts.xMin),
+    bignum(opts.xMax),
+    bignum(opts.yMin),
+    bignum(opts.yMax),
+  ];
+
+  if (
+    !(
+      bounds.every((x) => x.isFinite()) &&
+      bounds[0].lt(bounds[1]) &&
+      bounds[2].lt(bounds[3]) &&
+      ANTI_ALIASING_OPTIONS.includes(opts.antiAliasing) &&
+      Number.isInteger(opts.height) &&
+      opts.height > 0 &&
+      opts.height <= MAX_EXPORT_IMAGE_SIZE &&
+      Number.isInteger(opts.timeout) &&
+      opts.timeout > 0 &&
+      opts.timeout <= MAX_EXPORT_TIMEOUT &&
+      Number.isInteger(opts.width) &&
+      opts.width > 0 &&
+      opts.width <= MAX_EXPORT_IMAGE_SIZE
+    )
+  ) {
+    return;
+  }
+
+  const newEntries = [];
+  for (const entry of entries) {
+    const rel = relationById.get(entry.relId);
+    if (rel === undefined) {
+      return;
     }
 
-    const bounds = [
-      bignum(opts.xMin),
-      bignum(opts.xMax),
-      bignum(opts.yMin),
-      bignum(opts.yMax),
-    ];
+    newEntries.push({
+      path: path.join(outDir, nextExportImageId.toString() + ".png"),
+      rel,
+      tilePathPrefix: path.join(outDir, nextExportImageId.toString() + "-"),
+      tilePathSuffix: ".png",
+      ...entry,
+    });
+    nextExportImageId++;
+  }
 
-    if (
-      !(
-        bounds.every((x) => x.isFinite()) &&
-        bounds[0].lt(bounds[1]) &&
-        bounds[2].lt(bounds[3]) &&
-        ANTI_ALIASING_OPTIONS.includes(opts.antiAliasing) &&
-        Number.isInteger(opts.height) &&
-        opts.height > 0 &&
-        opts.height <= MAX_EXPORT_IMAGE_SIZE &&
-        Number.isInteger(opts.timeout) &&
-        opts.timeout > 0 &&
-        opts.timeout <= MAX_EXPORT_TIMEOUT &&
-        Number.isInteger(opts.width) &&
-        opts.width > 0 &&
-        opts.width <= MAX_EXPORT_IMAGE_SIZE
-      )
-    ) {
-      return [];
-    }
+  const abortController = new AbortController();
+  exportImageAbortController = abortController;
 
-    const newEntries = [];
-    for (const entry of entries) {
-      const rel = relationById.get(entry.relId);
-      if (rel === undefined) {
-        return [];
-      }
+  const messages: string[] = [];
+  function runGraphTasks(tasks: GraphWorkerArgs[]) {
+    return new Promise((resolve, reject) => {
+      const maxWorkers = os.cpus().length;
+      const totalTasks = tasks.length;
+      const workers: Worker[] = [];
+      let completedTasks = 0;
 
-      newEntries.push({
-        path: path.join(outDir, nextExportImageId.toString() + ".png"),
-        rel,
-        tilePathPrefix: path.join(outDir, nextExportImageId.toString() + "-"),
-        tilePathSuffix: ".png",
-        ...entry,
+      abortController.signal.addEventListener("abort", () => {
+        for (const worker of workers) {
+          worker.terminate();
+        }
       });
-      nextExportImageId++;
-    }
 
-    const abortController = new AbortController();
-    exportImageAbortController = abortController;
+      function run() {
+        const task = tasks.shift();
+        if (task === undefined) {
+          return;
+        }
 
-    const messages: string[] = [];
-    function runGraphTasks(tasks: GraphWorkerArgs[]) {
-      return new Promise((resolve, reject) => {
-        const maxWorkers = os.cpus().length;
-        const totalTasks = tasks.length;
-        const workers: Worker[] = [];
-        let completedTasks = 0;
+        const worker = new Worker(
+          new URL("./execFileWorker.ts", import.meta.url),
+          { workerData: task }
+        );
+        workers.push(worker);
 
-        abortController.signal.addEventListener("abort", () => {
-          for (const worker of workers) {
-            worker.terminate();
+        worker.on("message", ({ stderr }: ExecFileWorkerResult) => {
+          completedTasks++;
+
+          if (stderr) {
+            messages.push(stderr.trimEnd());
+            console.warn(stderr.trimEnd());
+          }
+          notifyExportImageStatusChanged({
+            messages: [...new Set(messages)],
+            progress: completedTasks / totalTasks,
+          });
+
+          if (completedTasks === totalTasks) {
+            resolve(null);
           }
         });
-
-        function run() {
-          const task = tasks.shift();
-          if (task === undefined) {
-            return;
-          }
-
-          const worker = new Worker(
-            new URL("./execFileWorker.ts", import.meta.url),
-            { workerData: task }
-          );
-          workers.push(worker);
-
-          worker.on("message", ({ stderr }: ExecFileWorkerResult) => {
-            completedTasks++;
-
-            if (stderr) {
-              messages.push(stderr.trimEnd());
-              console.warn(stderr.trimEnd());
-            }
-            notifyExportImageStatusChanged({
-              lastStderr: stderr,
-              lastUrl: url.pathToFileURL(task.outFile).toString(),
-              progress: completedTasks / totalTasks,
-            });
-
-            if (completedTasks === totalTasks) {
-              resolve(null);
-            }
-          });
-          worker.on("error", ({ stderr }: ExecFileWorkerError) => {
-            if (stderr) {
-              console.warn(stderr.trimEnd());
-            }
-            console.error("`graph` failed:", `'${task.args.join("' '")}'`);
-            abortController.abort();
-          });
-          worker.on("exit", () => {
-            workers.splice(workers.indexOf(worker), 1);
-
-            if (abortController.signal.aborted) {
-              reject();
-            } else if (tasks.length > 0 && workers.length < maxWorkers) {
-              run();
-            }
-          });
-        }
-
-        while (tasks.length > 0 && workers.length < maxWorkers) {
-          run();
-        }
-      });
-    }
-
-    const x_tiles = Math.ceil(
-      (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE
-    );
-    const y_tiles = Math.ceil(
-      (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
-    );
-    const tile_width = Math.ceil(opts.width / x_tiles);
-    const tile_height = Math.ceil(opts.height / y_tiles);
-
-    const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
-    const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
-    const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
-    const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
-
-    const graphTasks: GraphWorkerArgs[] = [];
-    for (let k = 0; k < newEntries.length; k++) {
-      const entry = newEntries[k];
-
-      for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
-        const i = i_tile * tile_height;
-        const height = Math.min(tile_height, opts.height - i);
-        for (let j_tile = 0; j_tile < x_tiles; j_tile++) {
-          const j = j_tile * tile_width;
-          const width = Math.min(tile_width, opts.width - j);
-
-          const bounds = [
-            x0.plus(pixelWidth.times(j)),
-            x0.plus(pixelWidth.times(j + width)),
-            y1.minus(pixelHeight.times(i + height)),
-            y1.minus(pixelHeight.times(i)),
-          ];
-
-          const path = `${entry.tilePathPrefix}${k}-${i_tile}-${j_tile}${entry.tilePathSuffix}`;
-          const args = [
-            "--bounds",
-            ...bounds.map((b) => b.toString()),
-            "--gray-alpha",
-            "--output",
-            path,
-            "--output-once",
-            "--pen-size",
-            entry.penSize.toString(),
-            "--size",
-            width.toString(),
-            height.toString(),
-            "--ssaa",
-            opts.antiAliasing.toString(),
-            "--timeout",
-            (1000 * opts.timeout).toString(),
-            ...entry.rel.suffixArgs,
-          ];
-          graphTasks.push({
-            args,
-            executable: graphExec,
-            outFile: path,
-          });
-        }
-      }
-    }
-
-    try {
-      await runGraphTasks(graphTasks);
-    } catch {
-      return [];
-    }
-
-    for (let k = 0; k < newEntries.length; k++) {
-      const entry = newEntries[k];
-
-      const args = [
-        "--output",
-        entry.path,
-        "--prefix",
-        `${entry.tilePathPrefix}${k}-`,
-        "--size",
-        opts.width.toString(),
-        opts.height.toString(),
-        "--suffix",
-        entry.tilePathSuffix,
-        "--x-tiles",
-        x_tiles.toString(),
-        "--y-tiles",
-        y_tiles.toString(),
-      ];
-      try {
-        const { stderr } = await util.promisify(execFile)(
-          concatenateExec,
-          args,
-          {
-            signal: abortController.signal,
-          }
-        );
-        if (stderr) {
-          console.warn(stderr.trimEnd());
-        }
-      } catch ({ stderr }) {
-        if (typeof stderr === "string") {
+        worker.on("error", ({ stderr }: ExecFileWorkerError) => {
           if (stderr) {
             console.warn(stderr.trimEnd());
           }
-        } else {
-          console.warn("unexpected error");
-        }
-        console.error("`concatenate` failed:", `'${args.join("' '")}'`);
-        return [];
+          console.error("`graph` failed:", `'${task.args.join("' '")}'`);
+          abortController.abort();
+        });
+        worker.on("exit", () => {
+          workers.splice(workers.indexOf(worker), 1);
+
+          if (abortController.signal.aborted) {
+            reject();
+          } else if (tasks.length > 0 && workers.length < maxWorkers) {
+            run();
+          }
+        });
+      }
+
+      while (tasks.length > 0 && workers.length < maxWorkers) {
+        run();
+      }
+    });
+  }
+
+  const x_tiles = Math.ceil(
+    (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE
+  );
+  const y_tiles = Math.ceil(
+    (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
+  );
+  const tile_width = Math.ceil(opts.width / x_tiles);
+  const tile_height = Math.ceil(opts.height / y_tiles);
+
+  const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
+  const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
+  const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
+  const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
+
+  const graphTasks: GraphWorkerArgs[] = [];
+  for (let k = 0; k < newEntries.length; k++) {
+    const entry = newEntries[k];
+
+    for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
+      const i = i_tile * tile_height;
+      const height = Math.min(tile_height, opts.height - i);
+      for (let j_tile = 0; j_tile < x_tiles; j_tile++) {
+        const j = j_tile * tile_width;
+        const width = Math.min(tile_width, opts.width - j);
+
+        const bounds = [
+          x0.plus(pixelWidth.times(j)),
+          x0.plus(pixelWidth.times(j + width)),
+          y1.minus(pixelHeight.times(i + height)),
+          y1.minus(pixelHeight.times(i)),
+        ];
+
+        const path = `${entry.tilePathPrefix}${k}-${i_tile}-${j_tile}${entry.tilePathSuffix}`;
+        const args = [
+          "--bounds",
+          ...bounds.map((b) => b.toString()),
+          "--gray-alpha",
+          "--output",
+          path,
+          "--output-once",
+          "--pen-size",
+          entry.penSize.toString(),
+          "--size",
+          width.toString(),
+          height.toString(),
+          "--ssaa",
+          opts.antiAliasing.toString(),
+          "--timeout",
+          (1000 * opts.timeout).toString(),
+          ...entry.rel.suffixArgs,
+        ];
+        graphTasks.push({
+          args,
+          executable: graphExec,
+          outFile: path,
+        });
       }
     }
+  }
+
+  // Try to make the progress uniform.
+  _.shuffle(graphTasks);
+
+  try {
+    await runGraphTasks(graphTasks);
+  } catch {
+    return;
+  }
+
+  for (let k = 0; k < newEntries.length; k++) {
+    const entry = newEntries[k];
 
     const args = [
-      ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
       "--output",
-      opts.path,
-      ...(opts.transparent ? ["--transparent"] : []),
+      entry.path,
+      "--prefix",
+      `${entry.tilePathPrefix}${k}-`,
+      "--size",
+      opts.width.toString(),
+      opts.height.toString(),
+      "--suffix",
+      entry.tilePathSuffix,
+      "--x-tiles",
+      x_tiles.toString(),
+      "--y-tiles",
+      y_tiles.toString(),
     ];
     try {
-      const { stderr } = await util.promisify(execFile)(composeExec, args, {
+      const { stderr } = await util.promisify(execFile)(concatenateExec, args, {
         signal: abortController.signal,
       });
       if (stderr) {
@@ -562,15 +532,38 @@ ipcMain.handle<ipc.ExportImage>(
       } else {
         console.warn("unexpected error");
       }
-      console.error("`compose` failed:", `'${args.join("' '")}'`);
-      return [];
+      console.error("`concatenate` failed:", `'${args.join("' '")}'`);
+      return;
     }
-
-    await shell.openPath(opts.path);
-
-    return [...new Set(messages)];
   }
-);
+
+  const args = [
+    ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
+    "--output",
+    opts.path,
+    ...(opts.transparent ? ["--transparent"] : []),
+  ];
+  try {
+    const { stderr } = await util.promisify(execFile)(composeExec, args, {
+      signal: abortController.signal,
+    });
+    if (stderr) {
+      console.warn(stderr.trimEnd());
+    }
+  } catch ({ stderr }) {
+    if (typeof stderr === "string") {
+      if (stderr) {
+        console.warn(stderr.trimEnd());
+      }
+    } else {
+      console.warn("unexpected error");
+    }
+    console.error("`compose` failed:", `'${args.join("' '")}'`);
+    return;
+  }
+
+  await shell.openPath(opts.path);
+});
 
 ipcMain.handle<ipc.GetDefaultExportImagePath>(
   ipc.getDefaultExportImagePath,

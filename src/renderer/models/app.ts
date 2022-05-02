@@ -38,8 +38,7 @@ export interface AppState {
 const initialState: AppState = {
   center: [0, 0],
   exportImageProgress: {
-    lastStderr: "",
-    lastUrl: "",
+    messages: [],
     progress: 0,
   },
   graphs: { byId: {}, allIds: [] },

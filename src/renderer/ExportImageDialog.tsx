@@ -14,7 +14,7 @@ import {
 } from "@fluentui/react";
 import { debounce } from "lodash";
 import * as React from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { bignum, BigNumber } from "../common/bignumber";
 import {
   ExportImageOptions,
@@ -29,7 +29,7 @@ import { SendableTextField } from "./SendableTextField";
 export interface ExportImageDialogProps {
   abort: () => void;
   dismiss: () => void;
-  exportImage: (opts: ExportImageOptions) => Promise<string[]>;
+  exportImage: (opts: ExportImageOptions) => Promise<void>;
   opts: ExportImageOptions;
   saveOpts: (opts: ExportImageOptions) => void;
   showSaveDialog: (path: string) => Promise<string | undefined>;
@@ -75,7 +75,6 @@ export const ExportImageDialog = (
   props: ExportImageDialogProps
 ): JSX.Element => {
   const [errors, setErrors] = useState<Set<string>>(new Set());
-  const [messages, setMessages] = useState<string[]>([]);
   const [opts, setOpts] = useState(props.opts);
   const progress = useSelector((s) => s.exportImageProgress);
   const [state, setState] = useState(State.Initial);
@@ -131,13 +130,8 @@ export const ExportImageDialog = (
     if (errors.size > 0) return;
     setState(State.Exporting);
     props.saveOpts(opts);
-    const messages = await props.exportImage(opts);
-    if (messages.length === 0) {
-      props.dismiss();
-    } else {
-      setState(State.Exported);
-      setMessages(messages);
-    }
+    await props.exportImage(opts);
+    setState(State.Exported);
   }, [errors, opts, props]);
 
   const validateHeight = useMemo(
@@ -256,6 +250,12 @@ export const ExportImageDialog = (
     [addOrRemoveErrors, opts, yMax]
   );
 
+  useEffect(() => {
+    if (state === State.Exported && progress.messages.length === 0) {
+      props.dismiss();
+    }
+  }, [progress.messages.length, props, state]);
+
   const tilesPerRelation =
     Math.ceil((opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE) *
     Math.ceil((opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE);
@@ -263,7 +263,7 @@ export const ExportImageDialog = (
   return (
     <Dialog
       dialogContentProps={{
-        title: "Export as Image",
+        title: state === State.Initial ? "Export as Image" : "",
       }}
       hidden={false}
       maxWidth={"100vw"}
@@ -488,16 +488,13 @@ export const ExportImageDialog = (
 
           case State.Exporting:
             return (
-              <div
-                style={{
-                  display: "grid",
-                  gap: "16px",
-                  gridTemplateRows: "auto auto",
-                }}
+              <Stack
+                tokens={{ childrenGap: "8px" }}
+                style={{ minWidth: "300px" }}
               >
                 <div
                   style={{
-                    alignItems: "center",
+                    alignItems: "end",
                     display: "grid",
                     gap: "4px",
                     gridTemplateColumns: "1fr auto",
@@ -516,47 +513,33 @@ export const ExportImageDialog = (
                     title="Cancel"
                   />
                 </div>
-                <img
-                  style={{ gridRow: "2" }}
-                  width="256"
-                  height="256"
-                  src={progress.lastUrl}
-                />
-                <div
-                  style={{
-                    gridRow: "3",
-                    minHeight: "1em",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {progress.lastStderr}
-                </div>
-              </div>
+                {progress.messages.length > 0 && (
+                  <Stack>
+                    {progress.messages.map((message, index) => (
+                      <Text key={index}>{message}</Text>
+                    ))}
+                  </Stack>
+                )}
+              </Stack>
             );
 
           case State.Exported:
             return (
               <>
-                <Text block>Some messages were generated during export:</Text>
-                {messages.map((warning, index) => (
-                  <Text
-                    key={index}
-                    styles={{
-                      root: {
-                        display: "list-item",
-                        listStylePosition: "inside",
-                        listStyleType: "disc",
-                        margin: "0.5em 0",
-                        paddingLeft: "1em",
-                      },
-                    }}
-                  >
-                    {warning}
-                  </Text>
-                ))}
+                <Stack
+                  tokens={{ childrenGap: "8px" }}
+                  style={{ minWidth: "300px" }}
+                >
+                  <ProgressIndicator label="Exported" percentComplete={1} />
+                  <Stack>
+                    {progress.messages.map((message, index) => (
+                      <Text key={index}>{message}</Text>
+                    ))}
+                  </Stack>
+                </Stack>
 
                 <DialogFooter>
-                  <DefaultButton onClick={props.dismiss} text="Close" />
+                  <DefaultButton onClick={props.dismiss} text="Done" />
                 </DialogFooter>
               </>
             );

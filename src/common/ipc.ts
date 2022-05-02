@@ -46,7 +46,7 @@ export const exportImage = "export-image";
 export interface ExportImage extends MessageToMain {
   channel: typeof exportImage;
   args: [entries: ExportImageEntry[], opts: ExportImageOptions];
-  result: string[];
+  result: void;
 }
 
 export const getDefaultExportImagePath = "get-default-export-image-path";
