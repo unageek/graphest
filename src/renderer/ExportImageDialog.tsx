@@ -37,13 +37,9 @@ export interface ExportImageDialogProps {
 
 const antiAliasingOptions: IDropdownOption[] = [
   { key: "1", text: "None" },
-  { key: "3", text: "3 × 3" },
   { key: "5", text: "5 × 5" },
-  { key: "7", text: "7 × 7" },
   { key: "9", text: "9 × 9" },
-  { key: "11", text: "11 × 11" },
   { key: "13", text: "13 × 13" },
-  { key: "15", text: "15 × 15" },
   { key: "17", text: "17 × 17" },
 ];
 
