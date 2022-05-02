@@ -48,7 +48,7 @@ const initialState: AppState = {
     antiAliasing: 5,
     height: 1024,
     path: "",
-    timeout: 1,
+    timeout: 10,
     transparent: false,
     width: 1024,
     xMax: "10",
