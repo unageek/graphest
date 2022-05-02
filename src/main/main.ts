@@ -42,7 +42,7 @@ import * as ipc from "../common/ipc";
 import { SaveTo } from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
-import { fromBase64Url, toBase64Url } from "./encode";
+import { fromBase64Url, toBase64Url } from "./base64Url";
 import {
   ExecFileWorkerArgs,
   ExecFileWorkerError,
