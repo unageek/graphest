@@ -1,7 +1,6 @@
 import { ExecFileException } from "child_process";
 
 export interface ExecFileWorkerArgs {
-  abortController: AbortController;
   args: string[];
   executable: string;
 }

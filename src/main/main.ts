@@ -367,27 +367,28 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
     return new Promise((resolve, reject) => {
       const maxWorkers = os.cpus().length;
       const totalTasks = tasks.length;
-      let workers = 0;
+      const workers: Worker[] = [];
       let completedTasks = 0;
 
-      function run() {
-        if (abortController.signal.aborted) {
-          reject("aborted");
-          return;
+      abortController.signal.addEventListener("abort", () => {
+        for (const worker of workers) {
+          worker.terminate();
         }
+      });
 
+      function run() {
         const task = tasks.shift();
         if (task === undefined) {
           return;
         }
 
-        workers++;
         const worker = new Worker(
           new URL("./execFileWorker.ts", import.meta.url),
           { workerData: task }
         );
+        workers.push(worker);
+
         worker.on("message", ({ stderr }: ExecFileWorkerResult) => {
-          workers--;
           completedTasks++;
 
           if (stderr) {
@@ -401,8 +402,6 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
 
           if (completedTasks === totalTasks) {
             resolve(null);
-          } else if (tasks.length > 0 && workers < maxWorkers) {
-            run();
           }
         });
         worker.on("error", ({ stderr }: ExecFileWorkerError) => {
@@ -411,11 +410,19 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
           }
           console.error("`graph` failed:", `'${task.args.join("' '")}'`);
           abortController.abort();
-          reject(null);
+        });
+        worker.on("exit", () => {
+          workers.splice(workers.indexOf(worker), 1);
+
+          if (abortController.signal.aborted) {
+            reject();
+          } else if (tasks.length > 0 && workers.length < maxWorkers) {
+            run();
+          }
         });
       }
 
-      while (tasks.length > 0 && workers < maxWorkers) {
+      while (tasks.length > 0 && workers.length < maxWorkers) {
         run();
       }
     });
@@ -472,7 +479,6 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
           ...rel.suffixArgs,
         ];
         tasks.push({
-          abortController,
           args,
           executable: graphExec,
           outFile: path,
