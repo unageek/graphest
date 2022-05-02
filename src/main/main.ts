@@ -346,8 +346,14 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
 
   const newEntries = [];
   for (const entry of entries) {
+    const rel = relationById.get(entry.relId);
+    if (rel === undefined) {
+      return;
+    }
+
     newEntries.push({
       path: path.join(outDir, nextExportImageId.toString() + ".png"),
+      rel,
       tilePathPrefix: path.join(outDir, nextExportImageId.toString() + "-"),
       tilePathSuffix: ".png",
       ...entry,
@@ -437,14 +443,10 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
   const tile_width = Math.ceil(opts.width / x_tiles);
   const tile_height = Math.ceil(opts.height / y_tiles);
 
+  const graphTasks: GraphWorkerArgs[] = [];
   for (let k = 0; k < newEntries.length; k++) {
     const entry = newEntries[k];
-    const rel = relationById.get(entry.relId);
-    if (rel === undefined) {
-      return;
-    }
 
-    const tasks: GraphWorkerArgs[] = [];
     for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
       const i = i_tile * tile_height;
       const height = Math.min(tile_height, opts.height - i);
@@ -459,7 +461,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
           y1.minus(pixelHeight.times(i)),
         ];
 
-        const path = `${entry.tilePathPrefix}${i_tile}-${j_tile}${entry.tilePathSuffix}`;
+        const path = `${entry.tilePathPrefix}${k}-${i_tile}-${j_tile}${entry.tilePathSuffix}`;
         const args = [
           "--bounds",
           ...bounds.map((b) => b.toString()),
@@ -476,27 +478,31 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
           opts.antiAliasing.toString(),
           "--timeout",
           opts.timeout.toString(),
-          ...rel.suffixArgs,
+          ...entry.rel.suffixArgs,
         ];
-        tasks.push({
+        graphTasks.push({
           args,
           executable: graphExec,
           outFile: path,
         });
       }
     }
+  }
 
-    try {
-      await runGraphTasks(tasks);
-    } catch {
-      return;
-    }
+  try {
+    await runGraphTasks(graphTasks);
+  } catch {
+    return;
+  }
+
+  for (let k = 0; k < newEntries.length; k++) {
+    const entry = newEntries[k];
 
     const args = [
       "--output",
       entry.path,
       "--prefix",
-      entry.tilePathPrefix,
+      `${entry.tilePathPrefix}${k}-`,
       "--size",
       opts.width.toString(),
       opts.height.toString(),
