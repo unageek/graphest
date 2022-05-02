@@ -428,21 +428,21 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
     });
   }
 
+  const x_tiles = Math.ceil(
+    (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE
+  );
+  const y_tiles = Math.ceil(
+    (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
+  );
+  const tile_width = Math.ceil(opts.width / x_tiles);
+  const tile_height = Math.ceil(opts.height / y_tiles);
+
   for (let k = 0; k < newEntries.length; k++) {
     const entry = newEntries[k];
     const rel = relationById.get(entry.relId);
     if (rel === undefined) {
       return;
     }
-
-    const x_tiles = Math.ceil(
-      (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE
-    );
-    const y_tiles = Math.ceil(
-      (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
-    );
-    const tile_width = Math.ceil(opts.width / x_tiles);
-    const tile_height = Math.ceil(opts.height / y_tiles);
 
     const tasks: GraphWorkerArgs[] = [];
     for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
