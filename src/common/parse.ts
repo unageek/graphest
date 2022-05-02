@@ -10,14 +10,23 @@ export const tryParseBignum = (value: string): Result<BigNumber, string> => {
   }
 };
 
+export const tryParseInteger = (value: string): Result<number, string> => {
+  const val = Number(value);
+  if (/^\s*[+-]?\d+\s*$/.test(value) && Number.isFinite(val)) {
+    return ok(val);
+  } else {
+    return err(`Value must be an integer.`);
+  }
+};
+
 export const tryParseIntegerInRange = (
   value: string,
   min: number,
   max: number
 ): Result<number, string> => {
-  const val = Number(value);
-  if (/^\s*[+-]?\d+\s*$/.test(value) && val >= min && val <= max) {
-    return ok(val);
+  const val = tryParseInteger(value);
+  if (val.ok && val.ok >= min && val.ok <= max) {
+    return val;
   } else {
     return err(`Value must be an integer between ${min} and ${max}.`);
   }
@@ -32,5 +41,18 @@ export const tryParseNumber = (value: string): Result<number, string> => {
     return ok(val);
   } else {
     return err(`Value must be a number.`);
+  }
+};
+
+export const tryParseNumberInRange = (
+  value: string,
+  min: number,
+  max: number
+): Result<number, string> => {
+  const val = tryParseNumber(value);
+  if (val.ok && val.ok >= min && val.ok <= max) {
+    return val;
+  } else {
+    return err(`Value must be a number between ${min} and ${max}.`);
   }
 };
