@@ -61,11 +61,10 @@ doc = false
 test = false
 
 [[bin]]
-name = "graph"
-doc = false
-
-[[bin]]
-name = "join-tiles"
-path = "src/bin/join_tiles.rs"
+name = "concatenate"
 doc = false
 test = false
+
+[[bin]]
+name = "graph"
+doc = false

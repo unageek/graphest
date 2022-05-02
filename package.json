@@ -6,7 +6,7 @@
   "scripts": {
     "build": "npm-run-all build:*",
     "build:app": "webpack",
-    "build:rust": "cargo build --release && mkdirp dist && rm -f dist/{compose,graph,join-tiles} && cp target/release/{compose,graph,join-tiles} dist/",
+    "build:rust": "cargo build --release && mkdirp dist && rm -f dist/{compose,concatenate,graph} && cp target/release/{compose,concatenate,graph} dist/",
     "clean": "npm-run-all clean:*",
     "clean:app": "rm -rf dist release",
     "clean:rust": "rm -rf target",

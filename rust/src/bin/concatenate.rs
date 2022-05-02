@@ -3,7 +3,7 @@ use image::{imageops, io::Reader as ImageReader, DynamicImage, GrayAlphaImage};
 use std::ffi::OsString;
 
 fn main() {
-    let matches = Command::new("join-tiles")
+    let matches = Command::new("concatenate")
         .about("Concatenates tiles of graphs.")
         .arg(
             Arg::new("output")

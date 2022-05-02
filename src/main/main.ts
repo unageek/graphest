@@ -143,10 +143,10 @@ let sleepingJobs: Job[] = [];
 
 const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const composeExec: string = getBundledExecutable("compose");
+const concatenateExec: string = getBundledExecutable("concatenate");
 let currentPath: string | undefined;
 let exportImageAbortController: AbortController | undefined;
 const graphExec: string = getBundledExecutable("graph");
-const joinTilesExec: string = getBundledExecutable("join-tiles");
 let lastSavedDoc: Document = {
   center: [0, 0],
   graphs: [],
@@ -508,7 +508,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
       y_tiles.toString(),
     ];
     try {
-      const { stderr } = await util.promisify(execFile)(joinTilesExec, args, {
+      const { stderr } = await util.promisify(execFile)(concatenateExec, args, {
         signal: abortController.signal,
       });
       if (stderr) {
@@ -522,7 +522,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
       } else {
         console.warn("unexpected error");
       }
-      console.error("`join-tiles` failed:", `'${args.join("' '")}'`);
+      console.error("`concatenate` failed:", `'${args.join("' '")}'`);
       return;
     }
   }

@@ -48,7 +48,7 @@ fn sepia_tone(src: &DynamicImage, color: Rgba<u8>, dst: &mut RgbaImage) {
 
 fn main() {
     let matches = Command::new("compose")
-        .about("Colorizes and alpha-composes gray-alpha graph images.")
+        .about("Colorizes and alpha-composes gray-alpha graphs.")
         .arg(
             Arg::new("add")
                 .long("add")
