@@ -62,7 +62,7 @@ const exportImage = async (opts: ExportImageOptions) => {
     })
   );
 
-  await window.ipcRenderer.invoke<ipc.ExportImage>(
+  return await window.ipcRenderer.invoke<ipc.ExportImage>(
     ipc.exportImage,
     entries,
     opts

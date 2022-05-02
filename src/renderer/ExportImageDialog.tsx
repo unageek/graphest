@@ -29,7 +29,7 @@ import { SendableTextField } from "./SendableTextField";
 export interface ExportImageDialogProps {
   abort: () => void;
   dismiss: () => void;
-  exportImage: (opts: ExportImageOptions) => Promise<void>;
+  exportImage: (opts: ExportImageOptions) => Promise<string[]>;
   opts: ExportImageOptions;
   saveOpts: (opts: ExportImageOptions) => void;
   showSaveDialog: (path: string) => Promise<string | undefined>;
@@ -65,13 +65,20 @@ const validateRange = (min: BigNumber, max: BigNumber): string | undefined => {
   }
 };
 
+enum State {
+  Initial = "initial",
+  Exporting = "exporting",
+  Exported = "exported",
+}
+
 export const ExportImageDialog = (
   props: ExportImageDialogProps
 ): JSX.Element => {
   const [errors, setErrors] = useState<Set<string>>(new Set());
-  const [exporting, setExporting] = useState(false);
+  const [messages, setMessages] = useState<string[]>([]);
   const [opts, setOpts] = useState(props.opts);
   const progress = useSelector((s) => s.exportImageProgress);
+  const [state, setState] = useState(State.Initial);
 
   // Field values.
   const [height, setHeight] = useState(opts.height.toString());
@@ -122,10 +129,15 @@ export const ExportImageDialog = (
 
   const send = useCallback(async () => {
     if (errors.size > 0) return;
-    setExporting(true);
+    setState(State.Exporting);
     props.saveOpts(opts);
-    await props.exportImage(opts);
-    props.dismiss();
+    const messages = await props.exportImage(opts);
+    if (messages.length === 0) {
+      props.dismiss();
+    } else {
+      setState(State.Exported);
+      setMessages(messages);
+    }
   }, [errors, opts, props]);
 
   const validateHeight = useMemo(
@@ -251,262 +263,305 @@ export const ExportImageDialog = (
   return (
     <Dialog
       dialogContentProps={{
-        title: exporting ? "" : "Export as Image",
+        title: "Export as Image",
       }}
       hidden={false}
       maxWidth={"100vw"}
       onDismiss={() => {
-        if (!exporting) {
+        if (state !== State.Exporting) {
           props.dismiss();
         }
       }}
     >
-      {exporting ? (
-        <div
-          style={{
-            display: "grid",
-            gap: "16px",
-            gridTemplateRows: "auto auto",
-          }}
-        >
-          <div
-            style={{
-              alignItems: "center",
-              display: "grid",
-              gap: "4px",
-              gridTemplateColumns: "1fr auto",
-            }}
-          >
-            <ProgressIndicator
-              label="Exporting…"
-              percentComplete={progress.progress}
-            />
-            <IconButton
-              iconProps={{ iconName: "Cancel" }}
-              onClick={() => {
-                props.abort();
-                props.dismiss();
-              }}
-              title="Cancel"
-            />
-          </div>
-          <img
-            style={{ gridRow: "2" }}
-            width="256"
-            height="256"
-            src={progress.lastUrl}
-          />
-          <div
-            style={{ gridRow: "3", minHeight: "1em", whiteSpace: "pre-wrap" }}
-          >
-            {progress.lastStderr}
-          </div>
-        </div>
-      ) : (
-        <>
-          <div
-            style={{
-              alignItems: "baseline",
-              display: "grid",
-              gap: "8px",
-              gridTemplateColumns: "auto auto auto",
-            }}
-          >
-            <Label style={{ gridColumn: "2", padding: "0" }}>Minimum</Label>
-            <Label style={{ gridColumn: "3", padding: "0" }}>Maximum</Label>
+      {(() => {
+        switch (state) {
+          case State.Initial:
+            return (
+              <>
+                <div
+                  style={{
+                    alignItems: "baseline",
+                    display: "grid",
+                    gap: "8px",
+                    gridTemplateColumns: "auto auto auto",
+                  }}
+                >
+                  <Label style={{ gridColumn: "2", padding: "0" }}>
+                    Minimum
+                  </Label>
+                  <Label style={{ gridColumn: "3", padding: "0" }}>
+                    Maximum
+                  </Label>
 
-            <Label style={{ textAlign: "right" }}>x:</Label>
-            <SendableTextField
-              errorMessage={xMinErrorMessage}
-              onChange={(_, value) => {
-                if (value === undefined) return;
-                setXMin(value);
-                validateXMin(value);
-              }}
-              onSend={send}
-              styles={decimalInputStyles}
-              value={xMin}
-            />
-            <SendableTextField
-              errorMessage={xMaxErrorMessage}
-              onChange={(_, value) => {
-                if (value === undefined) return;
-                setXMax(value);
-                validateXMax(value);
-              }}
-              onSend={send}
-              styles={decimalInputStyles}
-              value={xMax}
-            />
+                  <Label style={{ textAlign: "right" }}>x:</Label>
+                  <SendableTextField
+                    errorMessage={xMinErrorMessage}
+                    onChange={(_, value) => {
+                      if (value === undefined) return;
+                      setXMin(value);
+                      validateXMin(value);
+                    }}
+                    onSend={send}
+                    styles={decimalInputStyles}
+                    value={xMin}
+                  />
+                  <SendableTextField
+                    errorMessage={xMaxErrorMessage}
+                    onChange={(_, value) => {
+                      if (value === undefined) return;
+                      setXMax(value);
+                      validateXMax(value);
+                    }}
+                    onSend={send}
+                    styles={decimalInputStyles}
+                    value={xMax}
+                  />
 
-            <Label style={{ textAlign: "right" }}>y:</Label>
-            <SendableTextField
-              errorMessage={yMinErrorMessage}
-              onChange={(_, value) => {
-                if (value === undefined) return;
-                setYMin(value);
-                validateYMin(value);
-              }}
-              onSend={send}
-              styles={decimalInputStyles}
-              value={yMin}
-            />
-            <SendableTextField
-              errorMessage={yMaxErrorMessage}
-              onChange={(_, value) => {
-                if (value === undefined) return;
-                setYMax(value);
-                validateYMax(value);
-              }}
-              onSend={send}
-              styles={decimalInputStyles}
-              value={yMax}
-            />
+                  <Label style={{ textAlign: "right" }}>y:</Label>
+                  <SendableTextField
+                    errorMessage={yMinErrorMessage}
+                    onChange={(_, value) => {
+                      if (value === undefined) return;
+                      setYMin(value);
+                      validateYMin(value);
+                    }}
+                    onSend={send}
+                    styles={decimalInputStyles}
+                    value={yMin}
+                  />
+                  <SendableTextField
+                    errorMessage={yMaxErrorMessage}
+                    onChange={(_, value) => {
+                      if (value === undefined) return;
+                      setYMax(value);
+                      validateYMax(value);
+                    }}
+                    onSend={send}
+                    styles={decimalInputStyles}
+                    value={yMax}
+                  />
 
-            <div />
+                  <div />
 
-            <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Width:
-            </Label>
-            <Stack
-              horizontal
-              style={{ alignItems: "baseline", gridColumn: "span 2" }}
-              tokens={{ childrenGap: "4px" }}
-            >
-              <SendableTextField
-                errorMessage={widthErrorMessage}
-                onChange={(_, value) => {
-                  if (value === undefined) return;
-                  setWidth(value);
-                  validateWidth(value);
-                }}
-                onSend={send}
-                styles={integerInputStyles}
-                value={width}
-              />
-              <Text>pixels</Text>
-            </Stack>
+                  <Label style={{ gridColumn: "1", textAlign: "right" }}>
+                    Width:
+                  </Label>
+                  <Stack
+                    horizontal
+                    style={{ alignItems: "baseline", gridColumn: "span 2" }}
+                    tokens={{ childrenGap: "4px" }}
+                  >
+                    <SendableTextField
+                      errorMessage={widthErrorMessage}
+                      onChange={(_, value) => {
+                        if (value === undefined) return;
+                        setWidth(value);
+                        validateWidth(value);
+                      }}
+                      onSend={send}
+                      styles={integerInputStyles}
+                      value={width}
+                    />
+                    <Text>pixels</Text>
+                  </Stack>
 
-            <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Height:
-            </Label>
-            <Stack
-              horizontal
-              style={{ alignItems: "baseline", gridColumn: "span 2" }}
-              tokens={{ childrenGap: "4px" }}
-            >
-              <SendableTextField
-                errorMessage={heightErrorMessage}
-                onChange={(_, value) => {
-                  if (value === undefined) return;
-                  setHeight(value);
-                  validateHeight(value);
-                }}
-                onSend={send}
-                styles={integerInputStyles}
-                value={height}
-              />
-              <Text>pixels</Text>
-            </Stack>
+                  <Label style={{ gridColumn: "1", textAlign: "right" }}>
+                    Height:
+                  </Label>
+                  <Stack
+                    horizontal
+                    style={{ alignItems: "baseline", gridColumn: "span 2" }}
+                    tokens={{ childrenGap: "4px" }}
+                  >
+                    <SendableTextField
+                      errorMessage={heightErrorMessage}
+                      onChange={(_, value) => {
+                        if (value === undefined) return;
+                        setHeight(value);
+                        validateHeight(value);
+                      }}
+                      onSend={send}
+                      styles={integerInputStyles}
+                      value={height}
+                    />
+                    <Text>pixels</Text>
+                  </Stack>
 
-            <Checkbox
-              defaultChecked={opts.transparent}
-              label="Transparent background"
-              onChange={(_, checked) => {
-                if (checked === undefined) return;
-                setOpts({ ...opts, transparent: checked });
-              }}
-              styles={{ root: { gridColumn: "2 / span 2" } }}
-            />
+                  <Checkbox
+                    defaultChecked={opts.transparent}
+                    label="Transparent background"
+                    onChange={(_, checked) => {
+                      if (checked === undefined) return;
+                      setOpts({ ...opts, transparent: checked });
+                    }}
+                    styles={{ root: { gridColumn: "2 / span 2" } }}
+                  />
 
-            <div style={{ gridColumn: "1" }} />
+                  <div style={{ gridColumn: "1" }} />
 
-            <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Anti-aliasing:
-            </Label>
-            <Dropdown
-              defaultSelectedKey={opts.antiAliasing.toString()}
-              onChange={(_, option) => {
-                if (option === undefined) return;
-                setOpts({ ...opts, antiAliasing: Number(option.key) });
-              }}
-              options={antiAliasingOptions}
-              styles={integerInputStyles}
-            />
+                  <Label style={{ gridColumn: "1", textAlign: "right" }}>
+                    Anti-aliasing:
+                  </Label>
+                  <Dropdown
+                    defaultSelectedKey={opts.antiAliasing.toString()}
+                    onChange={(_, option) => {
+                      if (option === undefined) return;
+                      setOpts({ ...opts, antiAliasing: Number(option.key) });
+                    }}
+                    options={antiAliasingOptions}
+                    styles={integerInputStyles}
+                  />
 
-            <div style={{ gridColumn: "1" }} />
+                  <div style={{ gridColumn: "1" }} />
 
-            <Text style={{ gridColumn: "span 2" }}>
-              {tilesPerRelation} {tilesPerRelation > 1 ? "tiles" : "tile"} per
-              relation will be processed.
-            </Text>
-            <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Per-tile timeout:
-            </Label>
-            <Stack
-              horizontal
-              style={{ alignItems: "baseline", gridColumn: "span 2" }}
-              tokens={{ childrenGap: "4px" }}
-            >
-              <SendableTextField
-                errorMessage={timeoutErrorMessage}
-                onChange={(_, value) => {
-                  if (value === undefined) return;
-                  setTimeout(value);
-                  validateTimeout(value);
-                }}
-                onSend={send}
-                styles={integerInputStyles}
-                value={timeout}
-              />
-              <Text>seconds</Text>
-            </Stack>
+                  <Text style={{ gridColumn: "span 2" }}>
+                    {tilesPerRelation} {tilesPerRelation > 1 ? "tiles" : "tile"}{" "}
+                    per relation will be processed.
+                  </Text>
+                  <Label style={{ gridColumn: "1", textAlign: "right" }}>
+                    Per-tile timeout:
+                  </Label>
+                  <Stack
+                    horizontal
+                    style={{ alignItems: "baseline", gridColumn: "span 2" }}
+                    tokens={{ childrenGap: "4px" }}
+                  >
+                    <SendableTextField
+                      errorMessage={timeoutErrorMessage}
+                      onChange={(_, value) => {
+                        if (value === undefined) return;
+                        setTimeout(value);
+                        validateTimeout(value);
+                      }}
+                      onSend={send}
+                      styles={integerInputStyles}
+                      value={timeout}
+                    />
+                    <Text>seconds</Text>
+                  </Stack>
 
-            <div style={{ gridColumn: "1" }} />
+                  <div style={{ gridColumn: "1" }} />
 
-            <Label style={{ gridColumn: "1", textAlign: "right" }}>
-              Save as:
-            </Label>
-            <Stack
-              horizontal
-              style={{ alignItems: "baseline", gridColumn: "span 2" }}
-              tokens={{ childrenGap: "8px" }}
-            >
-              <Text
-                styles={{
-                  root: {
-                    maxWidth: "200px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  },
+                  <Label style={{ gridColumn: "1", textAlign: "right" }}>
+                    Save as:
+                  </Label>
+                  <Stack
+                    horizontal
+                    style={{ alignItems: "baseline", gridColumn: "span 2" }}
+                    tokens={{ childrenGap: "8px" }}
+                  >
+                    <Text
+                      styles={{
+                        root: {
+                          maxWidth: "200px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        },
+                      }}
+                    >
+                      {briefPath}
+                    </Text>
+                    <DefaultButton
+                      onClick={async () => {
+                        const path = await props.showSaveDialog(opts.path);
+                        // `path` can be an empty string if the user cancels the dialog on macOS.
+                        if (path) {
+                          setOpts({ ...opts, path });
+                        }
+                      }}
+                      text="Change…"
+                    />
+                  </Stack>
+                </div>
+
+                <DialogFooter>
+                  <DefaultButton onClick={props.dismiss} text="Cancel" />
+                  <PrimaryButton
+                    disabled={errors.size > 0}
+                    onClick={send}
+                    text="Export"
+                  />
+                </DialogFooter>
+              </>
+            );
+
+          case State.Exporting:
+            return (
+              <div
+                style={{
+                  display: "grid",
+                  gap: "16px",
+                  gridTemplateRows: "auto auto",
                 }}
               >
-                {briefPath}
-              </Text>
-              <DefaultButton
-                onClick={async () => {
-                  const path = await props.showSaveDialog(opts.path);
-                  // `path` can be an empty string if the user cancels the dialog on macOS.
-                  if (path) {
-                    setOpts({ ...opts, path });
-                  }
-                }}
-                text="Change…"
-              />
-            </Stack>
-          </div>
+                <div
+                  style={{
+                    alignItems: "center",
+                    display: "grid",
+                    gap: "4px",
+                    gridTemplateColumns: "1fr auto",
+                  }}
+                >
+                  <ProgressIndicator
+                    label="Exporting…"
+                    percentComplete={progress.progress}
+                  />
+                  <IconButton
+                    iconProps={{ iconName: "Cancel" }}
+                    onClick={() => {
+                      props.abort();
+                      props.dismiss();
+                    }}
+                    title="Cancel"
+                  />
+                </div>
+                <img
+                  style={{ gridRow: "2" }}
+                  width="256"
+                  height="256"
+                  src={progress.lastUrl}
+                />
+                <div
+                  style={{
+                    gridRow: "3",
+                    minHeight: "1em",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {progress.lastStderr}
+                </div>
+              </div>
+            );
 
-          <DialogFooter>
-            <DefaultButton onClick={props.dismiss} text="Cancel" />
-            <PrimaryButton
-              disabled={errors.size > 0}
-              onClick={send}
-              text="Export"
-            />
-          </DialogFooter>
-        </>
-      )}
+          case State.Exported:
+            return (
+              <>
+                <Text block>Some messages were generated during export:</Text>
+                {messages.map((warning, index) => (
+                  <Text
+                    key={index}
+                    styles={{
+                      root: {
+                        display: "list-item",
+                        listStylePosition: "inside",
+                        listStyleType: "disc",
+                        margin: "0.5em 0",
+                        paddingLeft: "1em",
+                      },
+                    }}
+                  >
+                    {warning}
+                  </Text>
+                ))}
+
+                <DialogFooter>
+                  <DefaultButton onClick={props.dismiss} text="Close" />
+                </DialogFooter>
+              </>
+            );
+        }
+      })()}
     </Dialog>
   );
 };
