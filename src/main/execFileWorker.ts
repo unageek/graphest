@@ -1,9 +1,11 @@
 import { execFile } from "child_process";
 import { parentPort, workerData } from "worker_threads";
-import { GraphTask } from "./graphTask";
+import { ExecFileWorkerArgs } from "./execFileWorkerInterfaces";
 
-const { abortController, args, executable }: GraphTask = workerData;
+const { abortController, args, executable }: ExecFileWorkerArgs = workerData;
 
+// Mimic the behavior of `promisify(execFile)`:
+//   https://github.com/nodejs/node/blob/f8ca5dfea462d05c4fadd6a935f375a7aa71f8be/lib/child_process.js#L227
 execFile(
   executable,
   args,

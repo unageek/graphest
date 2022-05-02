@@ -43,7 +43,11 @@ import { SaveTo } from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
 import { fromBase64Url, toBase64Url } from "./encode";
-import { GraphTask } from "./graphTask";
+import {
+  ExecFileWorkerArgs,
+  ExecFileWorkerError,
+  ExecFileWorkerResult,
+} from "./execFileWorkerInterfaces";
 import { createMainMenu } from "./mainMenu";
 import { deserialize, serialize } from "./serialize";
 
@@ -119,6 +123,10 @@ interface Relation {
   outDir: string;
   suffixArgs: string[];
   tiles: Map<string, Tile>;
+}
+
+export interface GraphWorkerArgs extends ExecFileWorkerArgs {
+  outFile: string;
 }
 
 function getBundledExecutable(name: string): string {
@@ -355,7 +363,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
   const abortController = new AbortController();
   exportImageAbortController = abortController;
 
-  function runGraphTasks(tasks: GraphTask[]) {
+  function runGraphTasks(tasks: GraphWorkerArgs[]) {
     return new Promise((resolve, reject) => {
       const maxWorkers = os.cpus().length;
       const totalTasks = tasks.length;
@@ -375,15 +383,15 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
 
         workers++;
         const worker = new Worker(
-          new URL("./graphTaskWorker.ts", import.meta.url),
+          new URL("./execFileWorker.ts", import.meta.url),
           { workerData: task }
         );
-        worker.on("message", ({ stderr }: { stderr: string }) => {
+        worker.on("message", ({ stderr }: ExecFileWorkerResult) => {
           workers--;
           completedTasks++;
 
           if (stderr) {
-            console.log(stderr.trimEnd());
+            console.warn(stderr.trimEnd());
           }
           notifyExportImageStatusChanged({
             lastStderr: stderr,
@@ -397,11 +405,11 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
             run();
           }
         });
-        worker.on("error", ({ stderr }: { stderr: string }) => {
-          console.log(
-            typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
-          );
-          console.log("`graph` failed:", `'${task.args.join("' '")}'`);
+        worker.on("error", ({ stderr }: ExecFileWorkerError) => {
+          if (stderr) {
+            console.warn(stderr.trimEnd());
+          }
+          console.error("`graph` failed:", `'${task.args.join("' '")}'`);
           abortController.abort();
           reject(null);
         });
@@ -429,7 +437,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
     const tile_width = Math.ceil(opts.width / x_tiles);
     const tile_height = Math.ceil(opts.height / y_tiles);
 
-    const tasks: GraphTask[] = [];
+    const tasks: GraphWorkerArgs[] = [];
     for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
       const i = i_tile * tile_height;
       const height = Math.min(tile_height, opts.height - i);
@@ -498,13 +506,17 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
         signal: abortController.signal,
       });
       if (stderr) {
-        console.log(stderr.trimEnd());
+        console.warn(stderr.trimEnd());
       }
     } catch ({ stderr }) {
-      console.log(
-        typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
-      );
-      console.log("`join-tiles` failed:", `'${args.join("' '")}'`);
+      if (typeof stderr === "string") {
+        if (stderr) {
+          console.warn(stderr.trimEnd());
+        }
+      } else {
+        console.warn("unexpected error");
+      }
+      console.error("`join-tiles` failed:", `'${args.join("' '")}'`);
       return;
     }
   }
@@ -520,13 +532,17 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
       signal: abortController.signal,
     });
     if (stderr) {
-      console.log(stderr.trimEnd());
+      console.warn(stderr.trimEnd());
     }
   } catch ({ stderr }) {
-    console.log(
-      typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
-    );
-    console.log("`compose` failed:", `'${args.join("' '")}'`);
+    if (typeof stderr === "string") {
+      if (stderr) {
+        console.warn(stderr.trimEnd());
+      }
+    } else {
+      console.warn("unexpected error");
+    }
+    console.error("`compose` failed:", `'${args.join("' '")}'`);
     return;
   }
 
