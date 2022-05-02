@@ -16,7 +16,7 @@ export const MAX_EXPORT_IMAGE_SIZE = 16384;
 /**
  * The maximum value for {@link ExportImageOptions.timeout}.
  */
-export const MAX_EXPORT_TIMEOUT = 300000;
+export const MAX_EXPORT_TIMEOUT = 300;
 
 export interface ExportImageEntry {
   /** The color of the graph as a case-insensitive hex code (`#RRGGBB`). */
@@ -34,7 +34,7 @@ export interface ExportImageOptions {
   height: number;
   /** The path where the image will be saved. */
   path: string;
-  /** The timeout in milliseconds. */
+  /** The per-tile timeout in seconds. */
   timeout: number;
   /** Make the image background transparent. */
   transparent: boolean;

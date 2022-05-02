@@ -459,7 +459,7 @@ export const ExportImageDialog = (
                 styles={integerInputStyles}
                 value={timeout}
               />
-              <Text>milliseconds</Text>
+              <Text>seconds</Text>
             </Stack>
 
             <div style={{ gridColumn: "1" }} />

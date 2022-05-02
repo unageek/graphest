@@ -477,7 +477,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
           "--ssaa",
           opts.antiAliasing.toString(),
           "--timeout",
-          opts.timeout.toString(),
+          (1000 * opts.timeout).toString(),
           ...entry.rel.suffixArgs,
         ];
         graphTasks.push({
