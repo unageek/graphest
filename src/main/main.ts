@@ -364,9 +364,9 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   const abortController = new AbortController();
   exportImageAbortController = abortController;
 
-  const messages: string[] = [];
   function runGraphTasks(tasks: GraphWorkerArgs[]) {
     return new Promise((resolve, reject) => {
+      const messages = new Set<string>();
       const maxWorkers = os.cpus().length;
       const totalTasks = tasks.length;
       const workers: Worker[] = [];
@@ -394,11 +394,11 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
           completedTasks++;
 
           if (stderr) {
-            messages.push(stderr.trimEnd());
+            messages.add(stderr.trimEnd());
             console.warn(stderr.trimEnd());
           }
           notifyExportImageStatusChanged({
-            messages: [...new Set(messages)],
+            messages: [...messages],
             progress: completedTasks / totalTasks,
           });
 
