@@ -20,6 +20,7 @@ import * as os from "os";
 import * as path from "path";
 import * as url from "url";
 import * as util from "util";
+import { Worker } from "worker_threads";
 import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
 import {
@@ -42,6 +43,11 @@ import { SaveTo } from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
 import { fromBase64Url, toBase64Url } from "./encode";
+import {
+  ExecFileWorkerArgs,
+  ExecFileWorkerError,
+  ExecFileWorkerResult,
+} from "./execFileWorkerInterfaces";
 import { createMainMenu } from "./mainMenu";
 import { deserialize, serialize } from "./serialize";
 
@@ -117,6 +123,10 @@ interface Relation {
   outDir: string;
   suffixArgs: string[];
   tiles: Map<string, Tile>;
+}
+
+export interface GraphWorkerArgs extends ExecFileWorkerArgs {
+  outFile: string;
 }
 
 function getBundledExecutable(name: string): string {
@@ -350,8 +360,73 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
   const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
   const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
 
-  exportImageAbortController = new AbortController();
-  const { signal } = exportImageAbortController;
+  const abortController = new AbortController();
+  exportImageAbortController = abortController;
+
+  function runGraphTasks(tasks: GraphWorkerArgs[]) {
+    return new Promise((resolve, reject) => {
+      const maxWorkers = os.cpus().length;
+      const totalTasks = tasks.length;
+      const workers: Worker[] = [];
+      let completedTasks = 0;
+
+      abortController.signal.addEventListener("abort", () => {
+        for (const worker of workers) {
+          worker.terminate();
+        }
+      });
+
+      function run() {
+        const task = tasks.shift();
+        if (task === undefined) {
+          return;
+        }
+
+        const worker = new Worker(
+          new URL("./execFileWorker.ts", import.meta.url),
+          { workerData: task }
+        );
+        workers.push(worker);
+
+        worker.on("message", ({ stderr }: ExecFileWorkerResult) => {
+          completedTasks++;
+
+          if (stderr) {
+            console.warn(stderr.trimEnd());
+          }
+          notifyExportImageStatusChanged({
+            lastStderr: stderr,
+            lastUrl: url.pathToFileURL(task.outFile).toString(),
+            progress: completedTasks / totalTasks,
+          });
+
+          if (completedTasks === totalTasks) {
+            resolve(null);
+          }
+        });
+        worker.on("error", ({ stderr }: ExecFileWorkerError) => {
+          if (stderr) {
+            console.warn(stderr.trimEnd());
+          }
+          console.error("`graph` failed:", `'${task.args.join("' '")}'`);
+          abortController.abort();
+        });
+        worker.on("exit", () => {
+          workers.splice(workers.indexOf(worker), 1);
+
+          if (abortController.signal.aborted) {
+            reject();
+          } else if (tasks.length > 0 && workers.length < maxWorkers) {
+            run();
+          }
+        });
+      }
+
+      while (tasks.length > 0 && workers.length < maxWorkers) {
+        run();
+      }
+    });
+  }
 
   for (let k = 0; k < newEntries.length; k++) {
     const entry = newEntries[k];
@@ -368,6 +443,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
     );
     const tile_width = Math.ceil(opts.width / x_tiles);
     const tile_height = Math.ceil(opts.height / y_tiles);
+
+    const tasks: GraphWorkerArgs[] = [];
     for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
       const i = i_tile * tile_height;
       const height = Math.min(tile_height, opts.height - i);
@@ -401,28 +478,18 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
           opts.timeout.toString(),
           ...rel.suffixArgs,
         ];
-        try {
-          const { stderr } = await util.promisify(execFile)(graphExec, args, {
-            signal,
-          });
-          if (stderr) {
-            console.log(stderr.trimEnd());
-          }
-          notifyExportImageStatusChanged({
-            lastStderr: stderr.trimEnd(),
-            lastUrl: url.pathToFileURL(path).toString(),
-            progress:
-              (x_tiles * y_tiles * k + x_tiles * i_tile + j_tile + 1) /
-              (x_tiles * y_tiles * newEntries.length),
-          });
-        } catch ({ name, stderr }) {
-          console.log(
-            typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
-          );
-          console.log("`graph` failed:", `'${args.join("' '")}'`);
-          return;
-        }
+        tasks.push({
+          args,
+          executable: graphExec,
+          outFile: path,
+        });
       }
+    }
+
+    try {
+      await runGraphTasks(tasks);
+    } catch {
+      return;
     }
 
     const args = [
@@ -442,16 +509,20 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
     ];
     try {
       const { stderr } = await util.promisify(execFile)(joinTilesExec, args, {
-        signal,
+        signal: abortController.signal,
       });
       if (stderr) {
-        console.log(stderr.trimEnd());
+        console.warn(stderr.trimEnd());
       }
     } catch ({ stderr }) {
-      console.log(
-        typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
-      );
-      console.log("`join-tiles` failed:", `'${args.join("' '")}'`);
+      if (typeof stderr === "string") {
+        if (stderr) {
+          console.warn(stderr.trimEnd());
+        }
+      } else {
+        console.warn("unexpected error");
+      }
+      console.error("`join-tiles` failed:", `'${args.join("' '")}'`);
       return;
     }
   }
@@ -464,16 +535,20 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (_, entries, opts) => {
   ];
   try {
     const { stderr } = await util.promisify(execFile)(composeExec, args, {
-      signal,
+      signal: abortController.signal,
     });
     if (stderr) {
-      console.log(stderr.trimEnd());
+      console.warn(stderr.trimEnd());
     }
   } catch ({ stderr }) {
-    console.log(
-      typeof stderr === "string" ? stderr.trimEnd() : "unexpected error"
-    );
-    console.log("`compose` failed:", `'${args.join("' '")}'`);
+    if (typeof stderr === "string") {
+      if (stderr) {
+        console.warn(stderr.trimEnd());
+      }
+    } else {
+      console.warn("unexpected error");
+    }
+    console.error("`compose` failed:", `'${args.join("' '")}'`);
     return;
   }
 

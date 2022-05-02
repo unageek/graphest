@@ -3,6 +3,7 @@
     "forceConsistentCasingInFileNames": true,
     "jsx": "react",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "module": "ES2020",
     "moduleResolution": "node",
     "sourceMap": true,
     "strict": true,
