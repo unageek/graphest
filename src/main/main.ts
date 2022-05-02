@@ -125,10 +125,6 @@ interface Relation {
   tiles: Map<string, Tile>;
 }
 
-export interface GraphWorkerArgs extends ExecFileWorkerArgs {
-  outFile: string;
-}
-
 function getBundledExecutable(name: string): string {
   // ".exe" is required for pointing to executables inside .asar archives.
   return path.join(
@@ -364,7 +360,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   const abortController = new AbortController();
   exportImageAbortController = abortController;
 
-  function runGraphTasks(tasks: GraphWorkerArgs[]) {
+  function runGraphTasks(tasks: ExecFileWorkerArgs[]) {
     return new Promise((resolve, reject) => {
       const messages = new Set<string>();
       const maxWorkers = os.cpus().length;
@@ -444,7 +440,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
   const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
 
-  const graphTasks: GraphWorkerArgs[] = [];
+  const graphTasks: ExecFileWorkerArgs[] = [];
   for (let k = 0; k < newEntries.length; k++) {
     const entry = newEntries[k];
 
@@ -484,7 +480,6 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
         graphTasks.push({
           args,
           executable: graphExec,
-          outFile: path,
         });
       }
     }
