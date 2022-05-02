@@ -55,6 +55,6 @@ export interface ExportImageProgress {
   lastStderr: string;
   /** The URL of the last-saved tile. */
   lastUrl: string;
-  /** The ratio of complete tiles (0 to 1). */
+  /** The ratio of completed tiles (0 to 1). */
   progress: number;
 }
