@@ -24,9 +24,9 @@ export const tryParseIntegerInRange = (
   min: number,
   max: number
 ): Result<number, string> => {
-  const val = tryParseInteger(value);
-  if (val.ok && val.ok >= min && val.ok <= max) {
-    return val;
+  const result = tryParseInteger(value);
+  if (result.ok && result.ok >= min && result.ok <= max) {
+    return result;
   } else {
     return err(`Value must be an integer between ${min} and ${max}.`);
   }
@@ -49,9 +49,9 @@ export const tryParseNumberInRange = (
   min: number,
   max: number
 ): Result<number, string> => {
-  const val = tryParseNumber(value);
-  if (val.ok && val.ok >= min && val.ok <= max) {
-    return val;
+  const result = tryParseNumber(value);
+  if (result.ok && result.ok >= min && result.ok <= max) {
+    return result;
   } else {
     return err(`Value must be a number between ${min} and ${max}.`);
   }
