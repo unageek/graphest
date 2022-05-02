@@ -57,6 +57,7 @@ export function createMainMenu(actions: MenuActions): Menu {
         {
           id: Command.ExportImage,
           label: "Export as Image…",
+          accelerator: "CmdOrCtrl+Shift+E",
           click: actions[Command.ExportImage],
         },
         { type: "separator" },
