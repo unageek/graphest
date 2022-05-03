@@ -425,14 +425,14 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
     });
   }
 
-  const x_tiles = Math.ceil(
+  const xTiles = Math.ceil(
     (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE
   );
-  const y_tiles = Math.ceil(
+  const yTiles = Math.ceil(
     (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
   );
-  const tile_width = opts.width / x_tiles;
-  const tile_height = opts.height / y_tiles;
+  const tileWidth = opts.width / xTiles;
+  const tileHeight = opts.height / yTiles;
 
   const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
   const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
@@ -443,13 +443,13 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   for (let k = 0; k < newEntries.length; k++) {
     const entry = newEntries[k];
 
-    for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
-      const i0 = Math.round(i_tile * tile_height);
-      const i1 = Math.round((i_tile + 1) * tile_height);
+    for (let iTile = 0; iTile < yTiles; iTile++) {
+      const i0 = Math.round(iTile * tileHeight);
+      const i1 = Math.round((iTile + 1) * tileHeight);
       const height = i1 - i0;
-      for (let j_tile = 0; j_tile < x_tiles; j_tile++) {
-        const j0 = Math.round(j_tile * tile_width);
-        const j1 = Math.round((j_tile + 1) * tile_width);
+      for (let jTile = 0; jTile < xTiles; jTile++) {
+        const j0 = Math.round(jTile * tileWidth);
+        const j1 = Math.round((jTile + 1) * tileWidth);
         const width = j1 - j0;
 
         const bounds = [
@@ -459,7 +459,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
           y1.minus(pixelHeight.times(i0)),
         ];
 
-        const path = `${entry.tilePathPrefix}${k}-${i_tile}-${j_tile}${entry.tilePathSuffix}`;
+        const path = `${entry.tilePathPrefix}${k}-${iTile}-${jTile}${entry.tilePathSuffix}`;
         const args = [
           "--bounds",
           ...bounds.map((b) => b.toString()),
@@ -509,9 +509,9 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
       "--suffix",
       entry.tilePathSuffix,
       "--x-tiles",
-      x_tiles.toString(),
+      xTiles.toString(),
       "--y-tiles",
-      y_tiles.toString(),
+      yTiles.toString(),
     ];
     try {
       const { stderr } = await util.promisify(execFile)(concatenateExec, args, {
