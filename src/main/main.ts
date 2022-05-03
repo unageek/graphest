@@ -431,8 +431,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   const y_tiles = Math.ceil(
     (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
   );
-  const tile_width = Math.ceil(opts.width / x_tiles);
-  const tile_height = Math.ceil(opts.height / y_tiles);
+  const tile_width = opts.width / x_tiles;
+  const tile_height = opts.height / y_tiles;
 
   const pixelWidth = bounds[1].minus(bounds[0]).div(opts.width);
   const pixelHeight = bounds[3].minus(bounds[2]).div(opts.height);
@@ -444,17 +444,19 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
     const entry = newEntries[k];
 
     for (let i_tile = 0; i_tile < y_tiles; i_tile++) {
-      const i = i_tile * tile_height;
-      const height = Math.min(tile_height, opts.height - i);
+      const i0 = Math.round(i_tile * tile_height);
+      const i1 = Math.round((i_tile + 1) * tile_height);
+      const height = i1 - i0;
       for (let j_tile = 0; j_tile < x_tiles; j_tile++) {
-        const j = j_tile * tile_width;
-        const width = Math.min(tile_width, opts.width - j);
+        const j0 = Math.round(j_tile * tile_width);
+        const j1 = Math.round((j_tile + 1) * tile_width);
+        const width = j1 - j0;
 
         const bounds = [
-          x0.plus(pixelWidth.times(j)),
-          x0.plus(pixelWidth.times(j + width)),
-          y1.minus(pixelHeight.times(i + height)),
-          y1.minus(pixelHeight.times(i)),
+          x0.plus(pixelWidth.times(j0)),
+          x0.plus(pixelWidth.times(j1)),
+          y1.minus(pixelHeight.times(i1)),
+          y1.minus(pixelHeight.times(i0)),
         ];
 
         const path = `${entry.tilePathPrefix}${k}-${i_tile}-${j_tile}${entry.tilePathSuffix}`;
