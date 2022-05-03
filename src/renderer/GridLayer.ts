@@ -1,5 +1,5 @@
 import * as L from "leaflet";
-import { bignum, BigNumber } from "../common/bignumber";
+import { bignum, BigNumber } from "../common/bignumberForGrid";
 import { BASE_ZOOM_LEVEL, GRAPH_TILE_SIZE } from "../common/constants";
 import {
   AxesRenderer,
@@ -9,13 +9,6 @@ import {
   loadFonts,
   suggestGridIntervals,
 } from "../common/gridRenderer";
-
-BigNumber.config({
-  EXPONENTIAL_AT: 5,
-  // Division is used for inverting mantissas and transform to pixel coordinates,
-  // which do not require much precision.
-  DECIMAL_PLACES: 2,
-});
 
 const RETINA_SCALE = window.devicePixelRatio;
 const TILE_SIZE = 256;

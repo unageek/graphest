@@ -1,12 +1,5 @@
-import { bignum, BigNumber } from "./bignumber";
+import { bignum, BigNumber } from "./bignumberForGrid";
 import { Rect } from "./rect";
-
-BigNumber.config({
-  EXPONENTIAL_AT: 5,
-  // Division is used for inverting mantissas and transform to pixel coordinates,
-  // which do not require much precision.
-  DECIMAL_PLACES: 2,
-});
 
 const ZERO: BigNumber = bignum(0);
 const ONE: BigNumber = bignum(1);
