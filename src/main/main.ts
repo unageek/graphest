@@ -391,7 +391,6 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
 
           if (stderr) {
             messages.add(stderr.trimEnd());
-            console.warn(stderr.trimEnd());
           }
           notifyExportImageStatusChanged({
             messages: [...messages],

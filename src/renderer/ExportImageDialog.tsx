@@ -259,7 +259,14 @@ export const ExportImageDialog = (
   return (
     <Dialog
       dialogContentProps={{
-        title: state === State.Initial ? "Export as Image" : "",
+        title: "Export as Image",
+        styles:
+          state === State.Initial
+            ? {}
+            : {
+                header: { display: "none" },
+                inner: { padding: "24px" },
+              },
       }}
       hidden={false}
       maxWidth={"100vw"}
@@ -268,6 +275,7 @@ export const ExportImageDialog = (
           props.dismiss();
         }
       }}
+      styles={{ main: { minHeight: "0" } }}
     >
       {(() => {
         switch (state) {
@@ -483,60 +491,44 @@ export const ExportImageDialog = (
             );
 
           case State.Exporting:
-            return (
-              <Stack
-                tokens={{ childrenGap: "8px" }}
-                style={{ minWidth: "300px" }}
-              >
-                <div
-                  style={{
-                    alignItems: "end",
-                    display: "grid",
-                    gap: "4px",
-                    gridTemplateColumns: "1fr auto",
-                  }}
-                >
-                  <ProgressIndicator
-                    label="Exporting…"
-                    percentComplete={progress.progress}
-                  />
-                  <IconButton
-                    iconProps={{ iconName: "Cancel" }}
-                    onClick={() => {
-                      props.abort();
-                      props.dismiss();
-                    }}
-                    title="Cancel"
-                  />
-                </div>
-                {progress.messages.length > 0 && (
-                  <Stack>
-                    {progress.messages.map((message, index) => (
-                      <Text key={index}>{message}</Text>
-                    ))}
-                  </Stack>
-                )}
-              </Stack>
-            );
-
           case State.Exported:
             return (
               <>
-                <Stack
-                  tokens={{ childrenGap: "8px" }}
-                  style={{ minWidth: "300px" }}
-                >
-                  <ProgressIndicator label="Exported" percentComplete={1} />
-                  <Stack>
-                    {progress.messages.map((message, index) => (
-                      <Text key={index}>{message}</Text>
-                    ))}
+                <div style={{ minWidth: "300px" }}>
+                  <Stack horizontal tokens={{ childrenGap: "4px" }}>
+                    <Stack.Item grow>
+                      <ProgressIndicator
+                        label={
+                          state === State.Exporting ? "Exporting…" : "Exported"
+                        }
+                        percentComplete={progress.progress}
+                      />
+                    </Stack.Item>
+                    {state === State.Exporting && (
+                      <Stack.Item align="end">
+                        <IconButton
+                          iconProps={{ iconName: "Cancel" }}
+                          onClick={() => {
+                            props.abort();
+                            props.dismiss();
+                          }}
+                          title="Cancel"
+                        />
+                      </Stack.Item>
+                    )}
                   </Stack>
-                </Stack>
+                  {progress.messages.map((message, index) => (
+                    <Text block key={index}>
+                      {message}
+                    </Text>
+                  ))}
+                </div>
 
-                <DialogFooter>
-                  <DefaultButton onClick={props.dismiss} text="Done" />
-                </DialogFooter>
+                {state === State.Exported && (
+                  <DialogFooter>
+                    <DefaultButton onClick={props.dismiss} text="Done" />
+                  </DialogFooter>
+                )}
               </>
             );
         }
