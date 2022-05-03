@@ -256,6 +256,11 @@ export const ExportImageDialog = (
     Math.ceil((opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE) *
     Math.ceil((opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE);
 
+  const minPenSize = bignum(1).div(bignum(opts.antiAliasing));
+  const digits = Math.floor(-Math.log10(opts.antiAliasing));
+  const scale = bignum(10).pow(digits - 1);
+  const approxMinPenSize = minPenSize.div(scale).ceil().times(scale);
+
   return (
     <Dialog
       dialogContentProps={{
@@ -416,12 +421,19 @@ export const ExportImageDialog = (
                     styles={integerInputStyles}
                   />
 
+                  <Stack style={{ gridColumn: "2 / span 2" }}>
+                    <Text>
+                      Minimum pen size: {approxMinPenSize.toString()} pixel
+                    </Text>
+                    <Text>
+                      {tilesPerRelation}{" "}
+                      {tilesPerRelation > 1 ? "tiles" : "tile"} per relation
+                      will be processed.
+                    </Text>
+                  </Stack>
+
                   <div style={{ gridColumn: "1" }} />
 
-                  <Text style={{ gridColumn: "span 2" }}>
-                    {tilesPerRelation} {tilesPerRelation > 1 ? "tiles" : "tile"}{" "}
-                    per relation will be processed.
-                  </Text>
                   <Label style={{ gridColumn: "1", textAlign: "right" }}>
                     Per-tile timeout:
                   </Label>
