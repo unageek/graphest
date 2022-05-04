@@ -1,7 +1,7 @@
 /**
  * Valid values for {@link ExportImageOptions.antiAliasing}.
  */
-export const ANTI_ALIASING_OPTIONS = [1, 5, 9, 13, 17];
+export const ANTI_ALIASING_OPTIONS = [1, 5, 9, 13, 17, 21, 25];
 
 /**
  * The width/height of graph tiles used for exporting in pixels.

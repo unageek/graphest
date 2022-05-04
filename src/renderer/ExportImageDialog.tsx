@@ -41,6 +41,8 @@ const antiAliasingOptions: IDropdownOption[] = [
   { key: "9", text: "9 × 9" },
   { key: "13", text: "13 × 13" },
   { key: "17", text: "17 × 17" },
+  { key: "21", text: "21 × 21" },
+  { key: "25", text: "25 × 25" },
 ];
 
 const decimalInputStyles = {
