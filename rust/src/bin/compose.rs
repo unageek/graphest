@@ -28,7 +28,7 @@ fn sepia_tone(src: &DynamicImage, color: Rgba<u8>, dst: &mut RgbaImage) {
     }
 
     fn to_u8(c: f64) -> u8 {
-        (256.0 * c).floor().min(255.0) as u8
+        (255.0 * c).round() as u8
     }
 
     match src {
