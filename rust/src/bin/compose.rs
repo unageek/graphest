@@ -8,8 +8,8 @@ struct Entry {
 }
 
 fn colorize(im: &mut Rgba32FImage, color: Rgba<f32>) {
-    for pixel in im.pixels_mut() {
-        *pixel = Rgba([color[0], color[1], color[2], pixel[3] * color[3]]);
+    for p in im.pixels_mut() {
+        *p = Rgba([color[0], color[1], color[2], p[3] * color[3]]);
     }
 }
 
@@ -23,12 +23,12 @@ fn linear_to_srgb(im: &mut Rgba32FImage) {
         }
     }
 
-    for pixel in im.pixels_mut() {
-        *pixel = Rgba([
-            linear_to_srgb(pixel[0]),
-            linear_to_srgb(pixel[1]),
-            linear_to_srgb(pixel[2]),
-            pixel[3],
+    for p in im.pixels_mut() {
+        *p = Rgba([
+            linear_to_srgb(p[0]),
+            linear_to_srgb(p[1]),
+            linear_to_srgb(p[2]),
+            p[3],
         ]);
     }
 }
