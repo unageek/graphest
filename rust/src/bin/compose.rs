@@ -1,13 +1,48 @@
 use clap::{Arg, Command};
-use image::{imageops, io::Reader as ImageReader, DynamicImage, Rgba, RgbaImage};
+use image::{imageops, io::Reader as ImageReader, DynamicImage, Rgba, Rgba32FImage};
 
 #[derive(Clone, Debug)]
 struct Entry {
-    color: Rgba<u8>,
+    color: Rgba<f32>,
     file: String,
 }
 
-fn parse_color(color: &str) -> Rgba<u8> {
+fn colorize(im: &mut Rgba32FImage, color: Rgba<f32>) {
+    for p in im.pixels_mut() {
+        *p = Rgba([color[0], color[1], color[2], p[3] * color[3]]);
+    }
+}
+
+/// Converts the color space of the image from linearized sRGB to sRGB.
+fn linear_to_srgb(im: &mut Rgba32FImage) {
+    fn linear_to_srgb(c: f32) -> f32 {
+        if c <= 0.0031308 {
+            12.92 * c
+        } else {
+            1.055 * c.powf(1.0 / 2.4) - 0.055
+        }
+    }
+
+    for p in im.pixels_mut() {
+        *p = Rgba([
+            linear_to_srgb(p[0]),
+            linear_to_srgb(p[1]),
+            linear_to_srgb(p[2]),
+            p[3],
+        ]);
+    }
+}
+
+/// Parses a hex color string and returns the result as a linearized sRGB value.
+fn parse_color(color: &str) -> Rgba<f32> {
+    fn srgb_to_linear(c: f32) -> f32 {
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    }
+
     let chars = color.chars().collect::<Vec<_>>();
     assert_eq!(chars.len(), 9);
     assert_eq!(chars[0], '#');
@@ -15,40 +50,16 @@ fn parse_color(color: &str) -> Rgba<u8> {
         .iter()
         .map(|c| c.to_digit(16).unwrap())
         .collect::<Vec<_>>();
-    let r = 16 * digits[0] + digits[1];
-    let g = 16 * digits[2] + digits[3];
-    let b = 16 * digits[4] + digits[5];
-    let a = 16 * digits[6] + digits[7];
-    Rgba([r as u8, g as u8, b as u8, a as u8])
-}
-
-fn sepia_tone(src: &DynamicImage, color: Rgba<u8>, dst: &mut RgbaImage) {
-    fn to_f64(c: u8) -> f64 {
-        c as f64 / 255.0
-    }
-
-    fn to_u8(c: f64) -> u8 {
-        (255.0 * c).round() as u8
-    }
-
-    match src {
-        DynamicImage::ImageLumaA8(im) => {
-            for (src, dst) in im.pixels().zip(dst.pixels_mut()) {
-                *dst = Rgba([
-                    color[0],
-                    color[1],
-                    color[2],
-                    to_u8(to_f64(src[1]) * to_f64(color[3])),
-                ]);
-            }
-        }
-        _ => panic!("only LumaA8 images are supported"),
-    }
+    let r = (16 * digits[0] + digits[1]) as f32 / 255.0;
+    let g = (16 * digits[2] + digits[3]) as f32 / 255.0;
+    let b = (16 * digits[4] + digits[5]) as f32 / 255.0;
+    let a = (16 * digits[6] + digits[7]) as f32 / 255.0;
+    Rgba([srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b), a])
 }
 
 fn main() {
     let matches = Command::new("compose")
-        .about("Colorizes and alpha-composes gray-alpha graphs.")
+        .about("Colorizes and alpha-composes gray-alpha images.")
         .arg(
             Arg::new("add")
                 .long("add")
@@ -80,26 +91,31 @@ fn main() {
     let output = matches.value_of_os("output").unwrap().to_owned();
     let transparent = matches.is_present("transparent");
 
-    let mut sepia = None;
     let mut composed = None;
     for entry in entries {
-        let im = ImageReader::open(&entry.file)
+        let mut im = ImageReader::open(&entry.file)
             .unwrap_or_else(|_| panic!("failed to open the image '{}'", entry.file))
             .decode()
-            .unwrap_or_else(|_| panic!("failed to decode the image '{}'", entry.file));
-        let sepia = sepia.get_or_insert_with(|| RgbaImage::new(im.width(), im.height()));
-        assert_eq!(im.width(), sepia.width());
-        assert_eq!(im.height(), sepia.height());
+            .unwrap_or_else(|_| panic!("failed to decode the image '{}'", entry.file))
+            .into_rgba32f();
         let composed = composed.get_or_insert_with(|| {
-            let mut composed = RgbaImage::new(im.width(), im.height());
-            composed.fill(if transparent { 0 } else { 255 });
+            let mut composed = Rgba32FImage::new(im.width(), im.height());
+            composed.fill(if transparent { 0.0 } else { 1.0 });
             composed
         });
-        sepia_tone(&im, entry.color, sepia);
-        imageops::overlay(composed, sepia, 0, 0);
+
+        assert_eq!(im.width(), composed.width());
+        assert_eq!(im.height(), composed.height());
+
+        colorize(&mut im, entry.color);
+        imageops::overlay(composed, &im, 0, 0);
     }
 
-    if let Some(composed) = composed {
-        composed.save(output).expect("failed to save the image");
+    if let Some(mut composed) = composed {
+        linear_to_srgb(&mut composed);
+        DynamicImage::ImageRgba32F(composed)
+            .to_rgba8()
+            .save(output)
+            .expect("failed to save the image");
     }
 }

@@ -3,10 +3,12 @@ use graphest::{
     Box2D, Constant, Explicit, FftImage, Graph, GraphingStatistics, Image, Implicit, Padding,
     Parametric, PixelIndex, Relation, RelationType, Ternary,
 };
-use image::{imageops, GrayAlphaImage, LumaA, Rgb, RgbImage};
+use image::{imageops, ImageBuffer, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
 use std::{ffi::OsString, fs, io::stdin, process, time::Duration};
+
+type GrayAlpha16Image = ImageBuffer<LumaA<u16>, Vec<u16>>;
 
 /// Dilates the image by convolution by FFT,
 /// and returns the index of the top-left corner of the image after discarding the padding.
@@ -360,10 +362,7 @@ fn main() {
                 .forbid_empty_values(true)
                 .value_name("scale")
                 .next_line_help(true)
-                .help(
-                    "Anti-alias the graph by supersampling pixels by the given scale.\n\
-                     Odd numbers ranging from 1 (no anti-aliasing) to 17 are accepted.",
-                ),
+                .help("Anti-alias the graph by supersampling pixels by the given scale."),
         )
         .arg(
             Arg::new("timeout")
@@ -538,13 +537,13 @@ struct PlotOptions {
 }
 
 fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
-    let mut gray_alpha_im: Option<GrayAlphaImage> = None;
+    let mut gray_alpha_im: Option<GrayAlpha16Image> = None;
     let mut rgb_im: Option<RgbImage> = None;
     let mut raw_im = Image::<Ternary>::new(opts.graph_size[0], opts.graph_size[1]);
     let cropped_width = raw_im.width() - (opts.dilation_kernel.width() - 1);
     let cropped_height = raw_im.height() - (opts.dilation_kernel.height() - 1);
     if opts.gray_alpha {
-        gray_alpha_im = Some(GrayAlphaImage::new(cropped_width, cropped_height));
+        gray_alpha_im = Some(GrayAlpha16Image::new(cropped_width, cropped_height));
     } else {
         rgb_im = Some(RgbImage::new(cropped_width, cropped_height));
     }
@@ -567,8 +566,8 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
                 for j in 0..im.width() {
                     *im.get_pixel_mut(j, i) =
                         match raw_im[PixelIndex::new(top_left.x + j, top_left.y + i)] {
-                            Ternary::True => LumaA([0, 255]),
-                            Ternary::Uncertain => LumaA([0, 128]),
+                            Ternary::True => LumaA([0, 65535]),
+                            Ternary::Uncertain => LumaA([0, 32768]),
                             Ternary::False => LumaA([0, 0]),
                         };
                 }
