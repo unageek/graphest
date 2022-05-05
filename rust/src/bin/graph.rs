@@ -572,12 +572,14 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
                         };
                 }
             }
-            let im = imageops::resize(
-                im,
-                opts.output_size[0],
-                opts.output_size[1],
-                imageops::FilterType::Triangle,
-            );
+            if im.width() != opts.output_size[0] || im.height() != opts.output_size[1] {
+                *im = imageops::resize(
+                    im,
+                    opts.output_size[0],
+                    opts.output_size[1],
+                    imageops::FilterType::Triangle,
+                );
+            }
             im.save(&opts.output).expect("saving image failed");
         } else if let Some(im) = &mut rgb_im {
             for i in 0..im.height() {
@@ -590,12 +592,14 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
                         };
                 }
             }
-            let im = imageops::resize(
-                im,
-                opts.output_size[0],
-                opts.output_size[1],
-                imageops::FilterType::Triangle,
-            );
+            if im.width() != opts.output_size[0] || im.height() != opts.output_size[1] {
+                *im = imageops::resize(
+                    im,
+                    opts.output_size[0],
+                    opts.output_size[1],
+                    imageops::FilterType::Triangle,
+                );
+            }
             im.save(&opts.output).expect("saving image failed");
         }
     };
