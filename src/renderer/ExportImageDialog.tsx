@@ -521,26 +521,33 @@ export const ExportImageDialog = (
             return (
               <>
                 <div style={{ minWidth: "300px" }}>
-                  <Stack horizontal tokens={{ childrenGap: "4px" }}>
+                  <Label style={{ padding: "0" }}>
+                    {state === State.Exporting ? "Exporting…" : "Exported"}
+                  </Label>
+                  <Stack
+                    horizontal
+                    tokens={{ childrenGap: "4px" }}
+                    verticalAlign="center"
+                  >
                     <Stack.Item grow>
-                      <ProgressIndicator
-                        label={
-                          state === State.Exporting ? "Exporting…" : "Exported"
-                        }
-                        percentComplete={progress.progress}
-                      />
+                      <ProgressIndicator percentComplete={progress.progress} />
                     </Stack.Item>
                     {state === State.Exporting && (
-                      <Stack.Item align="end">
-                        <IconButton
-                          iconProps={{ iconName: "Cancel" }}
-                          onClick={() => {
-                            props.abort();
-                            props.dismiss();
-                          }}
-                          title="Cancel"
-                        />
-                      </Stack.Item>
+                      <IconButton
+                        iconProps={{ iconName: "Cancel" }}
+                        onClick={() => {
+                          props.abort();
+                          props.dismiss();
+                        }}
+                        styles={{
+                          root: {
+                            height: "24px",
+                            margin: "-4px",
+                            width: "24px",
+                          },
+                        }}
+                        title="Cancel"
+                      />
                     )}
                   </Stack>
                   {progress.messages.map((message, index) => (
