@@ -33,8 +33,10 @@ fn linear_to_srgb(im: &mut Rgba32FImage) {
     }
 }
 
-/// Parses a hex color string and returns the result as a linearized sRGB value.
-fn parse_color(color: &str) -> Rgba<f32> {
+/// Parses a hex color string.
+///
+/// Linearized sRGB value is returned if `correct_alpha` is `true`.
+fn parse_color(color: &str, correct_alpha: bool) -> Rgba<f32> {
     fn srgb_to_linear(c: f32) -> f32 {
         if c <= 0.04045 {
             c / 12.92
@@ -54,7 +56,11 @@ fn parse_color(color: &str) -> Rgba<f32> {
     let g = (16 * digits[2] + digits[3]) as f32 / 255.0;
     let b = (16 * digits[4] + digits[5]) as f32 / 255.0;
     let a = (16 * digits[6] + digits[7]) as f32 / 255.0;
-    Rgba([srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b), a])
+    if correct_alpha {
+        Rgba([srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b), a])
+    } else {
+        Rgba([r, g, b, a])
+    }
 }
 
 fn main() {
@@ -68,6 +74,7 @@ fn main() {
                 .forbid_empty_values(true)
                 .value_names(&["file", "color"]),
         )
+        .arg(Arg::new("correct-alpha").long("correct-alpha"))
         .arg(
             Arg::new("output")
                 .long("output")
@@ -78,13 +85,14 @@ fn main() {
         .arg(Arg::new("transparent").long("transparent"))
         .get_matches();
 
+    let correct_alpha = matches.is_present("correct-alpha");
     let entries = matches
         .values_of("add")
         .unwrap()
         .collect::<Vec<_>>()
         .chunks_exact(2)
         .map(|e| Entry {
-            color: parse_color(e[1]),
+            color: parse_color(e[1], correct_alpha),
             file: e[0].into(),
         })
         .collect::<Vec<_>>();
@@ -98,6 +106,9 @@ fn main() {
             .decode()
             .unwrap_or_else(|_| panic!("failed to decode the image '{}'", entry.file))
             .into_rgba32f();
+        if !correct_alpha {
+            linear_to_srgb(&mut im);
+        }
         let composed = composed.get_or_insert_with(|| {
             let mut composed = Rgba32FImage::new(im.width(), im.height());
             composed.fill(if transparent { 0.0 } else { 1.0 });
@@ -112,7 +123,9 @@ fn main() {
     }
 
     if let Some(mut composed) = composed {
-        linear_to_srgb(&mut composed);
+        if correct_alpha {
+            linear_to_srgb(&mut composed);
+        }
         DynamicImage::ImageRgba32F(composed)
             .to_rgba8()
             .save(output)

@@ -45,6 +45,7 @@ const initialState: AppState = {
   highRes: false,
   lastExportImageOpts: {
     antiAliasing: 5,
+    correctAlpha: false,
     height: 1024,
     path: "",
     timeout: 10,

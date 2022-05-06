@@ -535,6 +535,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
 
   const args = [
     ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
+    ...(opts.correctAlpha ? ["--correct-alpha"] : []),
     "--output",
     opts.path,
     ...(opts.transparent ? ["--transparent"] : []),
