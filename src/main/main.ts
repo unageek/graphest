@@ -413,13 +413,13 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
 
           if (abortController.signal.aborted) {
             reject();
-          } else if (tasks.length > 0 && workers.length < maxWorkers) {
+          } else {
             run();
           }
         });
       }
 
-      while (tasks.length > 0 && workers.length < maxWorkers) {
+      for (let i = 0; i < maxWorkers; i++) {
         run();
       }
     });
