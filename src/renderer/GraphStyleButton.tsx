@@ -86,7 +86,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
         </Pivot>
         <Separator styles={{ root: { height: "1px", padding: "0" } }} />
         <Stack style={{ margin: "8px" }}>
-          <Stack horizontal style={{ alignItems: "baseline" }}>
+          <Stack horizontal verticalAlign="baseline">
             <Label style={{ marginRight: "8px" }}>Pen size:</Label>
             <SpinButton
               defaultValue={props.penSize.toString()}

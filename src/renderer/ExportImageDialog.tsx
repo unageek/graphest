@@ -359,8 +359,9 @@ export const ExportImageDialog = (
                   </Label>
                   <Stack
                     horizontal
-                    style={{ alignItems: "baseline", gridColumn: "span 2" }}
+                    style={{ gridColumn: "span 2" }}
                     tokens={{ childrenGap: "4px" }}
+                    verticalAlign="baseline"
                   >
                     <SendableTextField
                       errorMessage={widthErrorMessage}
@@ -381,8 +382,9 @@ export const ExportImageDialog = (
                   </Label>
                   <Stack
                     horizontal
-                    style={{ alignItems: "baseline", gridColumn: "span 2" }}
+                    style={{ gridColumn: "span 2" }}
                     tokens={{ childrenGap: "4px" }}
+                    verticalAlign="baseline"
                   >
                     <SendableTextField
                       errorMessage={heightErrorMessage}
@@ -453,8 +455,9 @@ export const ExportImageDialog = (
                   </Label>
                   <Stack
                     horizontal
-                    style={{ alignItems: "baseline", gridColumn: "span 2" }}
+                    style={{ gridColumn: "span 2" }}
                     tokens={{ childrenGap: "4px" }}
+                    verticalAlign="baseline"
                   >
                     <SendableTextField
                       errorMessage={timeoutErrorMessage}
@@ -477,8 +480,9 @@ export const ExportImageDialog = (
                   </Label>
                   <Stack
                     horizontal
-                    style={{ alignItems: "baseline", gridColumn: "span 2" }}
+                    style={{ gridColumn: "span 2" }}
                     tokens={{ childrenGap: "8px" }}
+                    verticalAlign="baseline"
                   >
                     <Text
                       styles={{
