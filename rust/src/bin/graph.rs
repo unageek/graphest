@@ -537,6 +537,7 @@ struct PlotOptions {
 }
 
 fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
+    // Use 16-bit as gamma correction will be applied by the program `compose`.
     let mut gray_alpha_im: Option<GrayAlpha16Image> = None;
     let mut rgb_im: Option<RgbImage> = None;
     let mut raw_im = Image::<Ternary>::new(opts.graph_size[0], opts.graph_size[1]);
