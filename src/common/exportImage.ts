@@ -30,6 +30,8 @@ export interface ExportImageEntry {
 export interface ExportImageOptions {
   /** The level of anti-aliasing. */
   antiAliasing: number;
+  /** Perform alpha composition in linear color space. */
+  correctAlpha: boolean;
   /** The height of the image in pixels. */
   height: number;
   /** The path where the image will be saved. */

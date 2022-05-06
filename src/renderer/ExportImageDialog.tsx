@@ -406,6 +406,18 @@ export const ExportImageDialog = (
                       setOpts({ ...opts, transparent: checked });
                     }}
                     styles={{ root: { gridColumn: "2 / span 2" } }}
+                    title="Make the image background transparent."
+                  />
+
+                  <Checkbox
+                    defaultChecked={opts.correctAlpha}
+                    label="Correct alpha composition"
+                    onChange={(_, checked) => {
+                      if (checked === undefined) return;
+                      setOpts({ ...opts, correctAlpha: checked });
+                    }}
+                    styles={{ root: { gridColumn: "2 / span 2" } }}
+                    title="Perform alpha composition in linear color space."
                   />
 
                   <div style={{ gridColumn: "1" }} />
