@@ -106,9 +106,6 @@ fn main() {
             .decode()
             .unwrap_or_else(|_| panic!("failed to decode the image '{}'", entry.file))
             .into_rgba32f();
-        if !correct_alpha {
-            linear_to_srgb(&mut im);
-        }
         let composed = composed.get_or_insert_with(|| {
             let mut composed = Rgba32FImage::new(im.width(), im.height());
             composed.fill(if transparent { 0.0 } else { 1.0 });
