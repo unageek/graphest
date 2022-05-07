@@ -439,7 +439,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
   const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
 
-  const graphTasks: ExecFileWorkerArgs[] = [];
+  let graphTasks: ExecFileWorkerArgs[] = [];
   for (let k = 0; k < newEntries.length; k++) {
     const entry = newEntries[k];
 
@@ -487,7 +487,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   }
 
   // Try to make the progress uniform.
-  _.shuffle(graphTasks);
+  graphTasks = _.shuffle(graphTasks);
 
   try {
     await runGraphTasks(graphTasks);
