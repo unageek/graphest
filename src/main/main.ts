@@ -20,7 +20,6 @@ import * as os from "os";
 import * as path from "path";
 import * as url from "url";
 import * as util from "util";
-import { Worker } from "worker_threads";
 import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
 import {
@@ -43,11 +42,6 @@ import { SaveTo } from "../common/ipc";
 import { Range } from "../common/range";
 import * as result from "../common/result";
 import { fromBase64Url, toBase64Url } from "./base64Url";
-import {
-  ExecFileWorkerArgs,
-  ExecFileWorkerError,
-  ExecFileWorkerResult,
-} from "./execFileWorkerInterfaces";
 import { createMainMenu } from "./mainMenu";
 import { deserialize, serialize } from "./serialize";
 
@@ -98,6 +92,10 @@ const MAX_ACTIVE_JOBS = 4;
 const JOB_MEM_LIMIT = 64;
 
 const URL_PREFIX = "graphest://";
+
+interface GraphTask {
+  args: string[];
+}
 
 interface Job {
   aborted: boolean;
@@ -329,6 +327,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
       Number.isInteger(opts.height) &&
       opts.height > 0 &&
       opts.height <= MAX_EXPORT_IMAGE_SIZE &&
+      path &&
       Number.isInteger(opts.timeout) &&
       opts.timeout > 0 &&
       opts.timeout <= MAX_EXPORT_TIMEOUT &&
@@ -360,19 +359,12 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   const abortController = new AbortController();
   exportImageAbortController = abortController;
 
-  function runGraphTasks(tasks: ExecFileWorkerArgs[]) {
+  function runGraphTasks(tasks: GraphTask[]) {
     return new Promise((resolve, reject) => {
       const messages = new Set<string>();
-      const maxWorkers = os.cpus().length;
+      const maxProcesses = os.cpus().length;
       const totalTasks = tasks.length;
-      const workers: Worker[] = [];
       let completedTasks = 0;
-
-      abortController.signal.addEventListener("abort", () => {
-        for (const worker of workers) {
-          worker.terminate();
-        }
-      });
 
       function run() {
         const task = tasks.shift();
@@ -380,46 +372,40 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
           return;
         }
 
-        const worker = new Worker(
-          new URL("./execFileWorker.ts", import.meta.url),
-          { workerData: task }
+        execFile(
+          graphExec,
+          task.args,
+          { signal: abortController.signal },
+          (error, _stdout, stderr) => {
+            if (error !== null) {
+              if (stderr) {
+                console.warn(stderr.trimEnd());
+              }
+              console.error("`graph` failed:", `'${task.args.join("' '")}'`);
+              abortController.abort();
+              reject();
+            } else {
+              completedTasks++;
+
+              if (stderr) {
+                messages.add(stderr.trimEnd());
+              }
+              notifyExportImageStatusChanged({
+                messages: [...messages],
+                progress: completedTasks / totalTasks,
+              });
+
+              if (completedTasks === totalTasks) {
+                resolve(null);
+              } else {
+                run();
+              }
+            }
+          }
         );
-        workers.push(worker);
-
-        worker.on("message", ({ stderr }: ExecFileWorkerResult) => {
-          completedTasks++;
-
-          if (stderr) {
-            messages.add(stderr.trimEnd());
-          }
-          notifyExportImageStatusChanged({
-            messages: [...messages],
-            progress: completedTasks / totalTasks,
-          });
-
-          if (completedTasks === totalTasks) {
-            resolve(null);
-          }
-        });
-        worker.on("error", ({ stderr }: ExecFileWorkerError) => {
-          if (stderr) {
-            console.warn(stderr.trimEnd());
-          }
-          console.error("`graph` failed:", `'${task.args.join("' '")}'`);
-          abortController.abort();
-        });
-        worker.on("exit", () => {
-          workers.splice(workers.indexOf(worker), 1);
-
-          if (abortController.signal.aborted) {
-            reject();
-          } else {
-            run();
-          }
-        });
       }
 
-      for (let i = 0; i < maxWorkers; i++) {
+      for (let i = 0; i < maxProcesses; i++) {
         run();
       }
     });
@@ -439,7 +425,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   const x0 = bounds[0].minus(pixelWidth.times(PERTURBATION_X));
   const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
 
-  let graphTasks: ExecFileWorkerArgs[] = [];
+  let graphTasks: GraphTask[] = [];
   for (let k = 0; k < newEntries.length; k++) {
     const entry = newEntries[k];
 
@@ -478,10 +464,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
           (1000 * opts.timeout).toString(),
           ...entry.rel.suffixArgs,
         ];
-        graphTasks.push({
-          args,
-          executable: graphExec,
-        });
+        graphTasks.push({ args });
       }
     }
   }
