@@ -9,6 +9,8 @@ import {
   Label,
   PrimaryButton,
   ProgressIndicator,
+  ScreenWidthMaxSmall,
+  ScreenWidthMinSmall,
   Stack,
   Text,
 } from "@fluentui/react";
@@ -48,6 +50,15 @@ const antiAliasingOptions: IDropdownOption[] = [
 const decimalInputStyles = {
   root: {
     width: "150px",
+  },
+};
+
+const headerlessDialogStyles = {
+  header: { display: "none" },
+  inner: {
+    padding: "24px",
+    [`@media (min-width: ${ScreenWidthMinSmall}px) and (max-width: ${ScreenWidthMaxSmall}px)`]:
+      { padding: "16px" },
   },
 };
 
@@ -267,13 +278,7 @@ export const ExportImageDialog = (
     <Dialog
       dialogContentProps={{
         title: "Export as Image",
-        styles:
-          state === State.Initial
-            ? {}
-            : {
-                header: { display: "none" },
-                inner: { padding: "24px" },
-              },
+        styles: state === State.Initial ? {} : headerlessDialogStyles,
       }}
       hidden={false}
       maxWidth={"100vw"}
