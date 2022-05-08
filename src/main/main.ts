@@ -366,43 +366,41 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
       const totalTasks = tasks.length;
       let completedTasks = 0;
 
-      function run() {
+      async function run() {
         const task = tasks.shift();
         if (task === undefined) {
           return;
         }
 
-        execFile(
-          graphExec,
-          task.args,
-          { signal: abortController.signal },
-          (error, _stdout, stderr) => {
-            if (error !== null) {
-              if (stderr) {
-                console.warn(stderr.trimEnd());
-              }
-              console.error("`graph` failed:", `'${task.args.join("' '")}'`);
-              abortController.abort();
-              reject();
-            } else {
-              completedTasks++;
+        try {
+          const { stderr } = await util.promisify(execFile)(
+            graphExec,
+            task.args,
+            { signal: abortController.signal }
+          );
+          completedTasks++;
 
-              if (stderr) {
-                messages.add(stderr.trimEnd());
-              }
-              notifyExportImageStatusChanged({
-                messages: [...messages],
-                progress: completedTasks / totalTasks,
-              });
-
-              if (completedTasks === totalTasks) {
-                resolve(null);
-              } else {
-                run();
-              }
-            }
+          if (stderr) {
+            messages.add(stderr.trimEnd());
           }
-        );
+          notifyExportImageStatusChanged({
+            messages: [...messages],
+            progress: completedTasks / totalTasks,
+          });
+
+          if (completedTasks === totalTasks) {
+            resolve(null);
+          } else {
+            run();
+          }
+        } catch ({ stderr }) {
+          if (typeof stderr === "string" && stderr) {
+            console.warn(stderr.trimEnd());
+          }
+          console.error("`graph` failed:", `'${task.args.join("' '")}'`);
+          abortController.abort();
+          reject();
+        }
       }
 
       for (let i = 0; i < maxProcesses; i++) {
@@ -504,12 +502,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
         console.warn(stderr.trimEnd());
       }
     } catch ({ stderr }) {
-      if (typeof stderr === "string") {
-        if (stderr) {
-          console.warn(stderr.trimEnd());
-        }
-      } else {
-        console.warn("unexpected error");
+      if (typeof stderr === "string" && stderr) {
+        console.warn(stderr.trimEnd());
       }
       console.error("`concatenate` failed:", `'${args.join("' '")}'`);
       return;
@@ -531,12 +525,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
       console.warn(stderr.trimEnd());
     }
   } catch ({ stderr }) {
-    if (typeof stderr === "string") {
-      if (stderr) {
-        console.warn(stderr.trimEnd());
-      }
-    } else {
-      console.warn("unexpected error");
+    if (typeof stderr === "string" && stderr) {
+      console.warn(stderr.trimEnd());
     }
     console.error("`compose` failed:", `'${args.join("' '")}'`);
     return;
