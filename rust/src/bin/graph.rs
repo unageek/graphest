@@ -408,13 +408,11 @@ fn main() {
     let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
     let output = matches.value_of_os("output").unwrap().to_owned();
     let output_once = matches.is_present("output-once");
-    let output_padding = {
-        Padding {
-            bottom: matches.value_of_t_or_exit::<u32>("pad-bottom"),
-            left: matches.value_of_t_or_exit::<u32>("pad-left"),
-            right: matches.value_of_t_or_exit::<u32>("pad-right"),
-            top: matches.value_of_t_or_exit::<u32>("pad-top"),
-        }
+    let output_padding = Padding {
+        bottom: matches.value_of_t_or_exit::<u32>("pad-bottom"),
+        left: matches.value_of_t_or_exit::<u32>("pad-left"),
+        right: matches.value_of_t_or_exit::<u32>("pad-right"),
+        top: matches.value_of_t_or_exit::<u32>("pad-top"),
     };
     let output_size = {
         let s = matches.values_of_t_or_exit::<u32>("size");
