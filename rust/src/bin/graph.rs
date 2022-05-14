@@ -454,15 +454,19 @@ fn main() {
         DilationSize::Large
     };
 
+    // The support radius of the resampling filter used when resizing the image.
+    // More precisely, it is ⌈r - 1/2⌉, where r is the support radius.
+    let resampling_radius = if ssaa > 1 { 1 } else { 0 };
+
     let graph_padding = Padding {
-        bottom: ssaa * output_padding.bottom + dilation_kernel.height() / 2,
-        left: ssaa * output_padding.left + dilation_kernel.width() / 2,
-        right: ssaa * output_padding.right + dilation_kernel.width() / 2,
-        top: ssaa * output_padding.top + dilation_kernel.height() / 2,
+        bottom: ssaa * (output_padding.bottom + resampling_radius) + dilation_kernel.height() / 2,
+        left: ssaa * (output_padding.left + resampling_radius) + dilation_kernel.width() / 2,
+        right: ssaa * (output_padding.right + resampling_radius) + dilation_kernel.width() / 2,
+        top: ssaa * (output_padding.top + resampling_radius) + dilation_kernel.height() / 2,
     };
     let graph_size = [
-        ssaa * output_size[0] + (dilation_kernel.width() - 1),
-        ssaa * output_size[1] + (dilation_kernel.height() - 1),
+        ssaa * (output_size[0] + 2 * resampling_radius) + (dilation_kernel.width() - 1),
+        ssaa * (output_size[1] + 2 * resampling_radius) + (dilation_kernel.height() - 1),
     ];
 
     let opts = PlotOptions {
@@ -474,6 +478,7 @@ fn main() {
         output_once,
         output_size,
         pause_per_iteration,
+        resampling_radius,
         timeout,
     };
     let region = Box2D::new(bounds[0], bounds[1], bounds[2], bounds[3]);
@@ -531,6 +536,7 @@ struct PlotOptions {
     output_once: bool,
     output_size: [u32; 2],
     pause_per_iteration: bool,
+    resampling_radius: u32,
     timeout: Option<Duration>,
 }
 
@@ -574,10 +580,18 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
             if im.width() != opts.output_size[0] || im.height() != opts.output_size[1] {
                 let im = imageops::resize(
                     im,
-                    opts.output_size[0],
-                    opts.output_size[1],
+                    opts.output_size[0] + 2 * opts.resampling_radius,
+                    opts.output_size[1] + 2 * opts.resampling_radius,
                     imageops::FilterType::Triangle,
                 );
+                let im = imageops::crop_imm(
+                    &im,
+                    opts.resampling_radius,
+                    opts.resampling_radius,
+                    opts.output_size[0],
+                    opts.output_size[1],
+                )
+                .to_image();
                 im.save(&opts.output).expect("saving image failed");
             } else {
                 im.save(&opts.output).expect("saving image failed");
@@ -596,10 +610,18 @@ fn plot<G: Graph>(mut graph: G, opts: PlotOptions) {
             if im.width() != opts.output_size[0] || im.height() != opts.output_size[1] {
                 let im = imageops::resize(
                     im,
-                    opts.output_size[0],
-                    opts.output_size[1],
+                    opts.output_size[0] + 2 * opts.resampling_radius,
+                    opts.output_size[1] + 2 * opts.resampling_radius,
                     imageops::FilterType::Triangle,
                 );
+                let im = imageops::crop_imm(
+                    &im,
+                    opts.resampling_radius,
+                    opts.resampling_radius,
+                    opts.output_size[0],
+                    opts.output_size[1],
+                )
+                .to_image();
                 im.save(&opts.output).expect("saving image failed");
             } else {
                 im.save(&opts.output).expect("saving image failed");
