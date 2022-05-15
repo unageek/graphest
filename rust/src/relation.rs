@@ -775,12 +775,12 @@ fn relation_type(e: &mut Expr) -> RelationType {
 
     if e.vars.is_empty() {
         Constant
+    } else if normalize_parametric_relation(e) {
+        Parametric
     } else if let Some(op) = normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
         ExplicitFunctionOfX(op)
     } else if let Some(op) = normalize_explicit_relation(e, VarSet::X, VarSet::Y) {
         ExplicitFunctionOfY(op)
-    } else if normalize_parametric_relation(e) {
-        Parametric
     } else {
         Implicit
     }
@@ -842,10 +842,6 @@ mod tests {
         assert_eq!(f("x = sin(y)"), ExplicitFunctionOfY(Eq));
         assert_eq!(f("x = sin(y) && 0 < y < 1 < 2"), ExplicitFunctionOfY(Eq));
         assert_eq!(f("0 < y < 1 < 2 && sin(y) = x"), ExplicitFunctionOfY(Eq));
-        assert!(matches!(
-            f("x = 1 && y = 1"),
-            ExplicitFunctionOfX(Eq) | ExplicitFunctionOfY(Eq)
-        ));
         assert_eq!(f("x y = 0"), Implicit);
         assert_eq!(f("y = sin(x y)"), Implicit);
         assert_eq!(f("sin(x) = 0"), Implicit);
@@ -858,6 +854,7 @@ mod tests {
         assert_eq!(f("x = θ"), Implicit);
         assert_eq!(f("x = theta"), Implicit);
         assert_eq!(f("x = m + n"), Implicit);
+        assert_eq!(f("x = 1 && y = 1"), Parametric); // For plotting a point with inexact coordinates.
         assert_eq!(f("x = 1 && y = m + n"), Parametric);
         assert_eq!(f("x = m + n && y = 1"), Parametric);
         assert_eq!(f("x = 1 && y = sin(t)"), Parametric);
