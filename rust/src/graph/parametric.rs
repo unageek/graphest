@@ -114,12 +114,17 @@ impl Parametric {
         let mut args = self.rel.create_args();
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
-            let next_dir = self.subdivision_dirs[b.next_dir_index as usize];
+            let next_dir = if (b.next_dir_index as usize) < self.subdivision_dirs.len() {
+                Some(self.subdivision_dirs[b.next_dir_index as usize])
+            } else {
+                None
+            };
             match next_dir {
-                VarSet::M => subdivide_m(&mut sub_bs, &b),
-                VarSet::N => subdivide_n(&mut sub_bs, &b),
-                VarSet::T => subdivide_t(&mut sub_bs, &b),
-                _ => panic!(),
+                Some(VarSet::M) => subdivide_m(&mut sub_bs, &b),
+                Some(VarSet::N) => subdivide_n(&mut sub_bs, &b),
+                Some(VarSet::T) => subdivide_t(&mut sub_bs, &b),
+                Some(_) => panic!(),
+                _ => sub_bs.push(b.clone()),
             }
 
             let n_sub_bs = sub_bs.len();
@@ -135,9 +140,10 @@ impl Parametric {
             }
 
             let n_max = match next_dir {
-                VarSet::M | VarSet::N => 3,
-                VarSet::T => 1000, // Avoid repeated subdivision of t.
-                _ => panic!(),
+                Some(VarSet::M | VarSet::N) => 3,
+                Some(VarSet::T) => 1000, // Avoid repeated subdivision of t.
+                Some(_) => panic!(),
+                _ => 1,
             };
 
             let it = (0..self.subdivision_dirs.len())
@@ -155,11 +161,13 @@ impl Parametric {
                 .take(self.subdivision_dirs.len());
 
             for (mut sub_b, incomplete_pixels) in incomplete_sub_bs.drain(..) {
-                let next_dir_index = it.clone().find(|&i| {
-                    let d = self.subdivision_dirs[i];
-                    d == VarSet::M && sub_b.m.is_subdivisible()
-                        || d == VarSet::N && sub_b.n.is_subdivisible()
-                        || d == VarSet::T && sub_b.t.is_subdivisible()
+                let next_dir_index = next_dir.and_then(|_| {
+                    it.clone().find(|&i| {
+                        let d = self.subdivision_dirs[i];
+                        d == VarSet::M && sub_b.m.is_subdivisible()
+                            || d == VarSet::N && sub_b.n.is_subdivisible()
+                            || d == VarSet::T && sub_b.t.is_subdivisible()
+                    })
                 });
 
                 if let Some(i) = next_dir_index {
