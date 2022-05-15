@@ -32,7 +32,7 @@
     "@types/react-dom": "^17.0.16",
     "@types/resize-observer-browser": "^0.1.7",
     "@types/yup": "^0.29.13",
-    "@typescript-eslint/eslint-plugin": "^5.22.0",
+    "@typescript-eslint/eslint-plugin": "^5.23.0",
     "@typescript-eslint/parser": "^5.23.0",
     "cross-env": "^7.0.3",
     "css-loader": "^6.7.1",
