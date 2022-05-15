@@ -5,8 +5,8 @@ pub use crate::{
     fftw::FftImage,
     geom::Box2D,
     graph::{
-        constant::Constant, explicit::Explicit, implicit::Implicit, parametric::Parametric, Graph,
-        GraphingStatistics, Padding,
+        explicit::Explicit, implicit::Implicit, parametric::Parametric, Graph, GraphingStatistics,
+        Padding,
     },
     image::{Image, PixelIndex},
     relation::{Relation, RelationType},

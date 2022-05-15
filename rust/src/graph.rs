@@ -64,7 +64,6 @@ pub struct Padding {
     pub top: u32,
 }
 
-pub mod constant;
 pub mod explicit;
 pub mod implicit;
 pub mod parametric;

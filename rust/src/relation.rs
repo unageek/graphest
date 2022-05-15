@@ -20,8 +20,6 @@ use std::{collections::HashMap, iter::once, mem::take, ops::Range, str::FromStr}
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelationType {
-    /// The relation contains no variables.
-    Constant,
     /// The relation is of the form y op f(x) ∧ P(x), where P(x) is an optional constraint on x.
     ExplicitFunctionOfX(ExplicitRelOp),
     /// The relation is of the form x op f(y) ∧ P(y), where P(y) is an optional constraint on y.
@@ -114,7 +112,7 @@ impl Relation {
         })
     }
 
-    /// Evaluates the implicit or constant relation.
+    /// Evaluates the implicit relation.
     ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_implicit<'a>(
@@ -122,10 +120,7 @@ impl Relation {
         args: &EvalArgs,
         cache: &'a mut EvalImplicitCache,
     ) -> &'a EvalResult {
-        assert!(matches!(
-            self.relation_type,
-            RelationType::Constant | RelationType::Implicit
-        ));
+        assert_eq!(self.relation_type, RelationType::Implicit);
         self.eval_count += 1;
 
         cache
@@ -773,9 +768,7 @@ fn relation_type(e: &mut Expr) -> RelationType {
 
     UpdateMetadata.visit_expr_mut(e);
 
-    if e.vars.is_empty() {
-        Constant
-    } else if normalize_parametric_relation(e) {
+    if normalize_parametric_relation(e) {
         Parametric
     } else if let Some(op) = normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
         ExplicitFunctionOfX(op)
@@ -825,7 +818,6 @@ mod tests {
             rel.parse::<Relation>().unwrap().relation_type()
         }
 
-        assert_eq!(f("1 < 2"), Constant);
         assert_eq!(f("y = 1"), ExplicitFunctionOfX(Eq));
         assert_eq!(f("y ≥ 1"), ExplicitFunctionOfX(Ge));
         assert_eq!(f("y > 1"), ExplicitFunctionOfX(Gt));
@@ -842,6 +834,7 @@ mod tests {
         assert_eq!(f("x = sin(y)"), ExplicitFunctionOfY(Eq));
         assert_eq!(f("x = sin(y) && 0 < y < 1 < 2"), ExplicitFunctionOfY(Eq));
         assert_eq!(f("0 < y < 1 < 2 && sin(y) = x"), ExplicitFunctionOfY(Eq));
+        assert_eq!(f("1 < 2"), Implicit);
         assert_eq!(f("x y = 0"), Implicit);
         assert_eq!(f("y = sin(x y)"), Implicit);
         assert_eq!(f("sin(x) = 0"), Implicit);
