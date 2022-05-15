@@ -55,10 +55,16 @@ impl Implicit {
 
         let vars = rel.vars();
         let var_indices = rel.var_indices().clone();
-        let subdivision_dirs = [XY, VarSet::M, VarSet::N, VarSet::N_THETA, VarSet::T]
-            .into_iter()
-            .filter(|&d| (XY | vars).contains(d))
-            .collect();
+        let mut subdivision_dirs = if vars.contains(VarSet::X) || vars.contains(VarSet::Y) {
+            vec![XY]
+        } else {
+            vec![]
+        };
+        subdivision_dirs.extend(
+            [VarSet::M, VarSet::N, VarSet::N_THETA, VarSet::T]
+                .into_iter()
+                .filter(|&d| vars.contains(d)),
+        );
 
         let mut g = Self {
             rel,
@@ -138,14 +144,19 @@ impl Implicit {
         let mut args = self.rel.create_args();
         while let Some(b) = self.bs_to_subdivide.pop_front() {
             let bi = self.bs_to_subdivide.begin_index() - 1;
-            let next_dir = self.subdivision_dirs[b.next_dir_index as usize];
+            let next_dir = if (b.next_dir_index as usize) < self.subdivision_dirs.len() {
+                Some(self.subdivision_dirs[b.next_dir_index as usize])
+            } else {
+                None
+            };
             match next_dir {
-                XY => self.subdivide_xy(&mut sub_bs, &b),
-                VarSet::M => subdivide_m(&mut sub_bs, &b),
-                VarSet::N => subdivide_n(&mut sub_bs, &b),
-                VarSet::N_THETA => subdivide_n_theta(&mut sub_bs, &b),
-                VarSet::T => subdivide_t_twice(&mut sub_bs, &b),
-                _ => panic!(),
+                Some(XY) => self.subdivide_xy(&mut sub_bs, &b),
+                Some(VarSet::M) => subdivide_m(&mut sub_bs, &b),
+                Some(VarSet::N) => subdivide_n(&mut sub_bs, &b),
+                Some(VarSet::N_THETA) => subdivide_n_theta(&mut sub_bs, &b),
+                Some(VarSet::T) => subdivide_t_twice(&mut sub_bs, &b),
+                Some(_) => panic!(),
+                _ => sub_bs.push(b.clone()),
             }
 
             let n_sub_bs = sub_bs.len();
@@ -161,10 +172,11 @@ impl Implicit {
             }
 
             let n_max = match next_dir {
-                XY => 4,
-                VarSet::M | VarSet::N | VarSet::N_THETA => 3,
-                VarSet::T => 1000, // Avoid repeated subdivision of t.
-                _ => panic!(),
+                Some(XY) => 4,
+                Some(VarSet::M | VarSet::N | VarSet::N_THETA) => 3,
+                Some(VarSet::T) => 1000, // Avoid repeated subdivision of t.
+                Some(_) => panic!(),
+                _ => 1,
             };
 
             let it = (0..self.subdivision_dirs.len())
@@ -182,20 +194,21 @@ impl Implicit {
                 .take(self.subdivision_dirs.len());
 
             for mut sub_b in incomplete_sub_bs.drain(..) {
-                let next_dir_index = it.clone().find(|&i| {
-                    let d = self.subdivision_dirs[i];
-                    d == XY && sub_b.x.is_subdivisible()
-                        || d == VarSet::M && sub_b.m.is_subdivisible()
-                        || d == VarSet::N && sub_b.n.is_subdivisible()
-                        || d == VarSet::N_THETA && sub_b.n_theta.is_subdivisible()
-                        || d == VarSet::T && sub_b.t.is_subdivisible()
+                let next_dir_index = next_dir.and_then(|_| {
+                    it.clone().find(|&i| {
+                        let d = self.subdivision_dirs[i];
+                        d == XY && sub_b.x.is_subdivisible()
+                            || d == VarSet::M && sub_b.m.is_subdivisible()
+                            || d == VarSet::N && sub_b.n.is_subdivisible()
+                            || d == VarSet::N_THETA && sub_b.n_theta.is_subdivisible()
+                            || d == VarSet::T && sub_b.t.is_subdivisible()
+                    })
                 });
 
                 if let Some(i) = next_dir_index {
                     sub_b.next_dir_index = i as u8;
                 } else {
                     // Cannot subdivide in any direction.
-                    assert!(sub_b.x.is_subpixel());
                     for p in &self.pixels_in_image(&b) {
                         self.im[p] = PixelState::Uncertain(None);
                     }
