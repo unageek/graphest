@@ -339,7 +339,12 @@ impl TupperIntervalSet {
     #[cfg(not(feature = "arb"))]
     impl_op!(cosh(x), x.cosh());
 
-    impl_op_cut!(digamma(x), {
+    #[cfg(not(feature = "arb"))]
+    pub fn digamma(&self, site: Option<Site>) -> Self {
+        self.digamma_impl(site)
+    }
+
+    impl_op_cut!(digamma_impl(x), {
         let a = x.inf();
         let b = x.sup();
         let ia = a.ceil();
@@ -1825,7 +1830,7 @@ mod tests {
         test!(
             f,
             i!(1.0),
-            (vec![i!(-0.5772156649015329, -0.5772156649015328)], Com)
+            @loose_for_arb (vec![i!(-0.5772156649015329, -0.5772156649015328)], Com)
         );
 
         test!(
