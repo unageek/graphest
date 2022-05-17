@@ -535,6 +535,29 @@ impl TupperIntervalSet {
         }
     );
 
+    pub fn digamma(&self, site: Option<Site>) -> Self {
+        if self.iter().all(|x| {
+            let a = x.x.inf();
+            let b = x.x.sup();
+            b < 0.0 && a.ceil() > b.floor() || a > 0.0 && b < f64::INFINITY
+        }) {
+            let mut rs = Self::new();
+            for x in self {
+                let a = x.x.inf();
+                let b = x.x.sup();
+                let dec = Decoration::Com.min(x.d);
+                let a = interval!(a, a).unwrap();
+                let b = interval!(b, b).unwrap();
+                let y = interval!(arb_digamma_rd(a), arb_digamma_ru(b)).unwrap();
+                rs.insert(TupperInterval::new(DecInterval::set_dec(y, dec), x.g));
+            }
+            rs.normalize(false);
+            rs
+        } else {
+            self.digamma_impl(site)
+        }
+    }
+
     impl_arb_op!(
         ei(x),
         {
@@ -1288,6 +1311,13 @@ arb_fn!(
     arb_cosh(x),
     arb_cosh(x, x, f64::MANTISSA_DIGITS.into()),
     ONE_TO_INF
+);
+arb_fn!(
+    _arb_digamma(x),
+    arb_digamma(x, x, f64::MANTISSA_DIGITS.into()),
+    Interval::ENTIRE,
+    arb_digamma_rd,
+    arb_digamma_ru
 );
 arb_fn!(
     _arb_ei(x),
