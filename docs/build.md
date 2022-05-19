@@ -10,38 +10,37 @@
    xcode-select --install
    ```
 
-1. [Rust](https://rustup.rs)
-
 1. [Homebrew](https://brew.sh)
 
-1. Node.js and npm
+1. [Node.js](https://nodejs.org/en/download/package-manager/)
 
    ```bash
    brew install node
    ```
 
+1. [Rust](https://rustup.rs)
+
 ### Windows
 
 1. [Chocolatey](https://chocolatey.org/install)
 
-1. Node.js and MSYS2
+1. [Node.js](https://nodejs.org/en/download/package-manager/)
 
-   Open Windows PowerShell as an administrator, and run:
+   Open Windows PowerShell as an administrator, and run
 
    ```ps
-   choco install git msys2 nodejs
-   ```
-
-   Add the following directories to PATH:
-
-   ```
-   C:\tools\msys64\usr\bin
-   C:\tools\msys64\mingw64\bin
+   cinst nodejs
    ```
 
 1. Build tools
 
-   Open Windows PowerShell as a normal user, and run:
+   Open Windows PowerShell as an administrator, and run
+
+   ```ps
+   cinst git msys2
+   ```
+
+   Open Windows PowerShell as a normal user, and run
 
    ```ps
    pacman -S diffutils m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
@@ -70,13 +69,20 @@
    ```bash
    sudo apt update
    sudo apt upgrade -y
-   sudo apt install -y build-essential curl git libclang-dev m4 nodejs npm
+   sudo apt install -y build-essential curl git libclang-dev m4
    ```
 
    [libraries required to run Electron](https://github.com/electron/electron/issues/26673):
 
    ```bash
    sudo apt install -y libatk-bridge2.0-0 libatk1.0-0 libgbm1 libgconf-2-4 libgdk-pixbuf2.0-0 libgtk-3-0 libnss3
+   ```
+
+1. [Node.js](https://nodejs.org/en/download/package-manager/)
+
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+   sudo apt install -y nodejs
    ```
 
 1. [Rust](https://rustup.rs)
@@ -97,7 +103,7 @@
    npm start
    ```
 
-   **On Windows**, you need to add MSYS/MinGW at the beginning of PATH before executing build commands:
+   On **Windows**, you need to add MSYS/MinGW **at the beginning** of PATH before executing build commands:
 
    ```ps1
    $env:PATH = "C:\tools\msys64\usr\bin;C:\tools\msys64\mingw64\bin;" + $env:PATH
