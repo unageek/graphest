@@ -486,7 +486,9 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div id="toc" class="toc2">
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
+<li><a href="#_graphing_a_circle">Graphing a Circle</a></li>
 <li><a href="#_entering_a_relation">Entering a Relation</a></li>
+<li><a href="#_reading_a_graph">Reading a Graph</a></li>
 <li><a href="#_built_in_definitions">Built-in Definitions</a>
 <ul class="sectlevel2">
 <li><a href="#_constants">Constants</a></li>
@@ -502,6 +504,66 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div>
 </div>
 <div id="content">
+<div class="sect1">
+<h2 id="_graphing_a_circle"><a class="anchor" href="#_graphing_a_circle"></a><a class="link" href="#_graphing_a_circle">Graphing a Circle</a></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can express a unit circle centered at origin in many ways:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Implicit relation</p>
+<div class="listingblock">
+<div class="content">
+<pre>x^2 + y^2 = 1</pre>
+</div>
+</div>
+</li>
+<li>
+<p>Polar equation</p>
+<div class="listingblock">
+<div class="content">
+<pre>r = 1</pre>
+</div>
+</div>
+</li>
+<li>
+<p>Combinations of explicit relations</p>
+<div class="listingblock">
+<div class="content">
+<pre>y = sqrt(1 − x^2) ∨ y = −sqrt(1 − x^2)</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>x = sqrt(1 − y^2) ∨ x = −sqrt(1 − y^2)</pre>
+</div>
+</div>
+</li>
+<li>
+<p>Parametric equation</p>
+<div class="listingblock">
+<div class="content">
+<pre>x = cos(t) ∧ y = sin(t)</pre>
+</div>
+</div>
+</li>
+<li>
+<p>Complex function</p>
+<div class="listingblock">
+<div class="content">
+<pre>x + i y = exp(i t)</pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>In Graphest, each of the above formulae is called a <em>relation</em>.</p>
+</div>
+</div>
+</div>
 <div class="sect1">
 <h2 id="_entering_a_relation"><a class="anchor" href="#_entering_a_relation"></a><a class="link" href="#_entering_a_relation">Entering a Relation</a></h2>
 <div class="sectionbody">
@@ -531,14 +593,21 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <p>Enter the sine of \(x\) as <code>sin(x)</code>, instead of <code class="red">sinx</code> or <code class="red">sin x</code>.</p>
 </li>
 <li>
-<p>Use parentheses to group a part of a relation, as in <code>1 / (x + 3)</code>.</p>
-</li>
-<li>
-<p>You can use the variables <code>x</code>, <code>y</code>, <code>r</code> and <code>θ</code> as coordinates.</p>
+<p>Use parentheses <code>(</code> <code>)</code> to group a part of a relation, as in <code>1 / (x + 3)</code>.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, \((x, y) = (1, 0)\) is identical to \((r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …\)</p>
+<p>Other kinds of brackets such as <code>[</code> <code>]</code> or <code>{</code> <code>}</code> cannot be used for this purpose.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>You can use <code>x</code>, <code>y</code>, <code>r</code> and <code>θ</code> as coordinate variables.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Each point in Cartesian coordinates has infinitely many counterparts in polar coordinates. For example, \((x, y) = (1, 0)\) is identical to \((r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …\)</p>
 </li>
 <li>
 <p>You can restrict the range of <code>r</code> or <code>θ</code>, as in <code>r = θ ∧ 0 ≤ θ &lt; 2π</code>.</p>
@@ -547,26 +616,57 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 </div>
 </li>
 <li>
-<p>You can use the real parameter <code>t</code> to make parametric relations. Examples:</p>
-<div class="ulist">
-<ul>
-<li>
-<p><code>x = cos(t) ∧ y = sin(t)</code></p>
-</li>
-<li>
-<p><code>x + i y = exp(i t)</code></p>
-</li>
-<li>
-<p><code>x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π</code></p>
-</li>
-</ul>
+<p>You can use <code>t</code> as a real parameter. Example:</p>
+<div class="listingblock">
+<div class="content">
+<pre>x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t &lt; 2π</pre>
+</div>
 </div>
 </li>
 <li>
-<p>You can also use the two independent integer parameters <code>m</code> and <code>n</code>.</p>
+<p>You can use <code>m</code> and <code>n</code> as independent integer parameters. Example:</p>
+<div class="listingblock">
+<div class="content">
+<pre>(x − 0.3m)^2 + (y − 0.3n)^2 &lt; 0.1^2 ∧ |n| ≤ 5 ∧ mod(m + n, 3) = 0</pre>
+</div>
+</div>
 </li>
 </ul>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_reading_a_graph"><a class="anchor" href="#_reading_a_graph"></a><a class="link" href="#_reading_a_graph">Reading a Graph</a></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Each pixel of a graph is painted based on whether it contains a solution of the relation or not.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Pixel Color</th>
+<th class="tableblock halign-left valign-top">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Opaque</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The pixel contains a solution.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Translucent</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The pixel may or may not contain a solution.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Transparent</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The pixel does not contain a solution.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="sect1">
@@ -2019,7 +2119,7 @@ Branch cuts for a fixed \(z\): \((−∞, 0)\), continuous from above.</p></td>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-05-08 23:25:40 +0900
+Last updated 2022-05-28 20:57:33 +0900
 </div>
 </div>
 

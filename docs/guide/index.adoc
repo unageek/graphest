@@ -6,22 +6,96 @@
 :stem: latexmath
 :toc: left
 
+
+== Graphing a Circle
+
+You can express a unit circle centered at origin in many ways:
+
+* Implicit relation
++
+----
+x^2 + y^2 = 1
+----
+
+* Polar equation
++
+----
+r = 1
+----
+
+* Combinations of explicit relations
++
+----
+y = sqrt(1 − x^2) ∨ y = −sqrt(1 − x^2)
+----
++
+----
+x = sqrt(1 − y^2) ∨ x = −sqrt(1 − y^2)
+----
+
+* Parametric equation
++
+----
+x = cos(t) ∧ y = sin(t)
+----
+
+* Complex function
++
+----
+x + i y = exp(i t)
+----
+
+In Graphest, each of the above formulae is called a _relation_.
+
+
 == Entering a Relation
 
 * A relation must contain at least one of `=`, `<`, `≤`, `>`, or `≥`, as in `y = sin(x)` or `sin(x) < cos(y)`.
 ** It can also be a <<logical-connectives,compound formula>>, such as `y = sin(x) ∨ y = cos(x)`.
+
 * Enter the product of `x` and `y` as `x y`, instead of [red]`xy`.
 ** You don't need a space around parentheses or in a expression like `2x`.
+
 * Enter the sine of stem:[x] as `sin(x)`, instead of [red]`sinx` or [red]`sin x`.
-* Use parentheses to group a part of a relation, as in `1 / (x + 3)`.
-* You can use the variables `x`, `y`, `r` and `θ` as coordinates.
-** Each point in Cartesian coordinates has infinitely many identities in polar coordinates. For example, stem:[(x, y) = (1, 0)] is identical to stem:[(r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …]
+
+* Use parentheses `(` `)` to group a part of a relation, as in `1 / (x + 3)`.
+** Other kinds of brackets such as `[` `]` or `{` `}` cannot be used for this purpose.
+
+* You can use `x`, `y`, `r` and `θ` as coordinate variables.
+** Each point in Cartesian coordinates has infinitely many counterparts in polar coordinates. For example, stem:[(x, y) = (1, 0)] is identical to stem:[(r, θ) = (1, 0), (1, ±2π), (1, ±4π), …; (−1, ±π), (−1, ±3π), …]
 ** You can restrict the range of `r` or `θ`, as in `r = θ ∧ 0 ≤ θ < 2π`.
-* You can use the real parameter `t` to make parametric relations. Examples:
-** `x = cos(t) ∧ y = sin(t)`
-** `x + i y = exp(i t)`
-** `x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t ≤ 2π`
-* You can also use the two independent integer parameters `m` and `n`.
+
+* You can use `t` as a real parameter. Example:
++
+----
+x = t cos(t) ∧ y = t sin(t) ∧ 0 ≤ t < 2π
+----
+
+* You can use `m` and `n` as independent integer parameters. Example:
++
+----
+(x − 0.3m)^2 + (y − 0.3n)^2 < 0.1^2 ∧ |n| ≤ 5 ∧ mod(m + n, 3) = 0
+----
+
+
+== Reading a Graph
+
+Each pixel of a graph is painted based on whether it contains a solution of the relation or not.
+
+[cols="1,2"]
+|===
+|Pixel Color |Meaning
+
+|Opaque
+|The pixel contains a solution.
+
+|Translucent
+|The pixel may or may not contain a solution.
+
+|Transparent
+|The pixel does not contain a solution.
+|===
+
 
 == Built-in Definitions
 
