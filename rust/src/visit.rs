@@ -136,17 +136,17 @@ impl<T: Eq + Hash> Hash for UnsafeRef<T> {
 /// Replaces the name of each [`ExprKind::Var`] that matches `params[i]` with `"#i"`.
 ///
 /// [`ExprKind::Var`]: crate::ast::ExprKind::Var
-pub struct Parametrize {
-    params: Vec<String>,
+pub struct Parametrize<'a> {
+    params: &'a [&'a str],
 }
 
-impl Parametrize {
-    pub fn new(params: Vec<String>) -> Self {
+impl<'a> Parametrize<'a> {
+    pub fn new(params: &'a [&'a str]) -> Self {
         Self { params }
     }
 }
 
-impl VisitMut for Parametrize {
+impl<'a> VisitMut for Parametrize<'a> {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
         traverse_expr_mut(self, e);
 
@@ -373,16 +373,16 @@ impl ExpandComplexFunctions {
     }
 
     fn def_binary(&mut self, op: BinaryOp, body: &str) {
-        let e = self.make_def(vec!["a".into(), "b".into(), "x".into(), "y".into()], body);
+        let e = self.make_def(&["a", "b", "x", "y"], body);
         self.binary_ops.insert(op, e);
     }
 
     fn def_unary(&mut self, op: UnaryOp, body: &str) {
-        let e = self.make_def(vec!["x".into(), "y".into()], body);
+        let e = self.make_def(&["x", "y"], body);
         self.unary_ops.insert(op, e);
     }
 
-    fn make_def(&mut self, params: Vec<String>, body: &str) -> Expr {
+    fn make_def(&mut self, params: &[&str], body: &str) -> Expr {
         let mut e = parse_expr(body, &[Context::builtin(), &self.ctx]).unwrap();
         PreTransform.visit_expr_mut(&mut e);
         NormalizeRelationalExprs.visit_expr_mut(&mut e);
