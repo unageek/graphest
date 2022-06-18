@@ -1,10 +1,10 @@
 {
   "appId": "io.github.unageek.graphest",
   "directories": {
-    "output": "./release"
+    "output": "release"
   },
-  "files": ["./dist/**/*", "!**/*.js.map"],
-  "afterSign": "./scripts/afterSign.js",
+  "files": ["dist/**/*", "!**/*.js.map"],
+  "afterSign": "scripts/afterSign.js",
   "protocols": [{ "name": "Graphest", "schemes": ["graphest"] }],
   "mac": {
     "category": "public.app-category.utilities",

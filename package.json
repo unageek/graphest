@@ -2,7 +2,7 @@
   "name": "graphest",
   "version": "1.2.1",
   "description": "A faithful graphing calculator",
-  "main": "./dist/main.js",
+  "main": "dist/main.js",
   "scripts": {
     "build": "npm-run-all build:*",
     "build:app": "webpack",
