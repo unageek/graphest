@@ -1,3 +1,4 @@
+const CopyWebpackPlugin = require("copy-webpack-plugin");
 const ESLintPlugin = require("eslint-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const path = require("path");
@@ -97,6 +98,14 @@ function rendererConfig() {
     },
     plugins: [
       ...plugins,
+      new CopyWebpackPlugin({
+        patterns: [
+          {
+            from: "node_modules/@fluentui/font-icons-mdl2/fonts",
+            to: "",
+          },
+        ],
+      }),
       new HtmlWebpackPlugin({
         template: "src/renderer/index.html",
       }),
