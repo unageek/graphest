@@ -179,8 +179,7 @@ const App = () => {
   );
 };
 
-// The empty string is required for loading fonts from the dist directory.
-initializeIcons("");
+initializeIcons();
 
 ReactDOM.render(
   <React.StrictMode>
