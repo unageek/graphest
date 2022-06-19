@@ -185,3 +185,11 @@ a:not([draggable]) {
 .relation-input-error-message {
   color: #a4262c; /* theme.palette.redDark */
 }
+
+/*
+ * HACK: Properly align Fluent UI's SVG icons.
+ * Not sure why or how this works, but it does.
+ */
+i > span > svg {
+  margin-top: -0.15em;
+}

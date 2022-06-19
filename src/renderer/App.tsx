@@ -1,5 +1,16 @@
-import { initializeIcons } from "@fluentui/font-icons-mdl2";
-import { Stack, ThemeProvider, useTheme } from "@fluentui/react";
+import { registerIcons, Stack, ThemeProvider, useTheme } from "@fluentui/react";
+import {
+  AddIcon,
+  CancelIcon,
+  CheckMarkIcon,
+  ChevronDownIcon,
+  DeleteIcon,
+  ForwardIcon,
+  GripperDotsVerticalIcon,
+  HomeSolidIcon,
+  MoreIcon,
+  VariableIcon,
+} from "@fluentui/react-icons-mdl2";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
 import "@fortawesome/fontawesome-free/js/fontawesome";
@@ -179,7 +190,20 @@ const App = () => {
   );
 };
 
-initializeIcons();
+registerIcons({
+  icons: {
+    Add: <AddIcon />,
+    Cancel: <CancelIcon />,
+    CheckMark: <CheckMarkIcon />,
+    ChevronDown: <ChevronDownIcon />,
+    Delete: <DeleteIcon />,
+    Forward: <ForwardIcon />,
+    GripperDotsVertical: <GripperDotsVerticalIcon />,
+    HomeSolid: <HomeSolidIcon />,
+    More: <MoreIcon />,
+    Variable: <VariableIcon />,
+  },
+});
 
 ReactDOM.render(
   <React.StrictMode>
