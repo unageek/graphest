@@ -210,10 +210,14 @@ if (process.defaultApp) {
 }
 
 app.whenReady().then(async () => {
-  // https://github.com/MarshallOfSound/electron-devtools-installer/issues/195#issuecomment-932634933
-  await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS], {
-    loadExtensionOptions: { allowFileAccess: true },
-  });
+  try {
+    // https://github.com/MarshallOfSound/electron-devtools-installer/issues/195#issuecomment-932634933
+    await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS], {
+      loadExtensionOptions: { allowFileAccess: true },
+    });
+  } catch {
+    // Maybe no internet connection.
+  }
 
   resetBrowserZoom();
   mainMenu = createMainMenu({
@@ -272,7 +276,12 @@ app.whenReady().then(async () => {
   });
   Menu.setApplicationMenu(mainMenu);
   createMainWindow();
-  autoUpdater.checkForUpdatesAndNotify();
+
+  try {
+    await autoUpdater.checkForUpdatesAndNotify();
+  } catch {
+    // Maybe no internet connection.
+  }
 });
 
 app.on("open-file", (_, path) => {
