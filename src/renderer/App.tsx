@@ -190,18 +190,22 @@ const App = () => {
   );
 };
 
+const ICON_CLASS_NAME = "fluent-ui-icon";
+
 registerIcons({
   icons: {
-    Add: <AddIcon />,
-    Cancel: <CancelIcon />,
-    CheckMark: <CheckMarkIcon />,
-    ChevronDown: <ChevronDownIcon />,
-    Delete: <DeleteIcon />,
-    Forward: <ForwardIcon />,
-    GripperDotsVertical: <GripperDotsVerticalIcon />,
-    HomeSolid: <HomeSolidIcon />,
-    More: <MoreIcon />,
-    Variable: <VariableIcon />,
+    Add: <AddIcon className={ICON_CLASS_NAME} />,
+    Cancel: <CancelIcon className={ICON_CLASS_NAME} />,
+    CheckMark: <CheckMarkIcon className={ICON_CLASS_NAME} />,
+    ChevronDown: <ChevronDownIcon className={ICON_CLASS_NAME} />,
+    Delete: <DeleteIcon className={ICON_CLASS_NAME} />,
+    Forward: <ForwardIcon className={ICON_CLASS_NAME} />,
+    GripperDotsVertical: (
+      <GripperDotsVerticalIcon className={ICON_CLASS_NAME} />
+    ),
+    HomeSolid: <HomeSolidIcon className={ICON_CLASS_NAME} />,
+    More: <MoreIcon className={ICON_CLASS_NAME} />,
+    Variable: <VariableIcon className={ICON_CLASS_NAME} />,
   },
 });
 

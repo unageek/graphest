@@ -188,8 +188,7 @@ a:not([draggable]) {
 
 /*
  * HACK: Properly align Fluent UI's SVG icons.
- * Not sure why or how this works, but it does.
  */
-i > span > svg {
-  margin-top: -0.15em;
+.fluent-ui-icon {
+  margin-top: -0.3125em; /* -5px / 16px */
 }
