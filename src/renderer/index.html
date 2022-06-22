@@ -6,6 +6,13 @@
       http-equiv="Content-Security-Policy"
       content="script-src 'self' 'unsafe-inline';"
     />
+    <script>
+      // https://github.com/microsoft/fluentui/issues/3024
+      window.FabricConfig = {
+        fontBaseUrl: "",
+        iconBaseUrl: "",
+      };
+    </script>
   </head>
   <body>
     <div id="app"></div>
