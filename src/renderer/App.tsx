@@ -1,4 +1,11 @@
-import { registerIcons, Stack, ThemeProvider, useTheme } from "@fluentui/react";
+import {
+  createTheme,
+  Customizations,
+  registerIcons,
+  Stack,
+  ThemeProvider,
+  useTheme,
+} from "@fluentui/react";
 import {
   AddIcon,
   CancelIcon,
@@ -13,6 +20,7 @@ import {
 } from "@fluentui/react-icons-mdl2";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
+import "@fontsource/noto-sans/600.css";
 import "@fortawesome/fontawesome-free/js/fontawesome";
 import "@fortawesome/fontawesome-free/js/solid";
 import * as Color from "color";
@@ -190,8 +198,12 @@ const App = () => {
   );
 };
 
-const ICON_CLASS_NAME = "fluent-ui-icon";
+const theme = createTheme({
+  defaultFontStyle: { fontFamily: "Noto Sans" },
+});
+Customizations.applySettings({ theme });
 
+const ICON_CLASS_NAME = "fluent-ui-icon";
 registerIcons({
   icons: {
     Add: <AddIcon className={ICON_CLASS_NAME} />,
