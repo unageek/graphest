@@ -278,12 +278,7 @@ app.whenReady().then(async () => {
   }
 
   createMainWindow();
-
-  try {
-    await autoUpdater.checkForUpdatesAndNotify();
-  } catch {
-    // Maybe no internet connection.
-  }
+  autoUpdater.checkForUpdatesAndNotify();
 });
 
 app.on("open-file", (_, path) => {
