@@ -199,7 +199,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       );
 
       L.easyButton(
-        "<div id='reset-view-button' style='font-size: 16px'></div>",
+        "<div id='reset-view-button' style='font-size: 16px; height: 100%'></div>",
         () => {
           const zoom = INITIAL_ZOOM_LEVEL;
           // Use `{ reset: true }` to set the view exactly.
