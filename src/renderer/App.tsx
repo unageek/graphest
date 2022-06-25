@@ -4,6 +4,8 @@ import {
   CancelIcon,
   CheckMarkIcon,
   ChevronDownIcon,
+  ChevronDownSmallIcon,
+  ChevronUpSmallIcon,
   DeleteIcon,
   ForwardIcon,
   GripperDotsVerticalIcon,
@@ -197,6 +199,8 @@ registerIcons({
     Cancel: <CancelIcon className={ICON_CLASS_NAME} />,
     CheckMark: <CheckMarkIcon className={ICON_CLASS_NAME} />,
     ChevronDown: <ChevronDownIcon className={ICON_CLASS_NAME} />,
+    ChevronDownSmall: <ChevronDownSmallIcon className={ICON_CLASS_NAME} />,
+    ChevronUpSmall: <ChevronUpSmallIcon className={ICON_CLASS_NAME} />,
     Delete: <DeleteIcon className={ICON_CLASS_NAME} />,
     Forward: <ForwardIcon className={ICON_CLASS_NAME} />,
     GripperDotsVertical: (
