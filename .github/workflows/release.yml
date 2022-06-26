@@ -28,7 +28,7 @@ jobs:
 
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-x86_64-pc-windows-gnu
+          toolchain: nightly-2022-06-18-x86_64-pc-windows-gnu
           override: true
           profile: minimal
 
