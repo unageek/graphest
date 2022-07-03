@@ -18,7 +18,7 @@ itertools = "0.10"
 nom = "7.1"
 
 [dependencies.clap]
-version = "3.2.5"
+version = "3.2.8"
 default-features = false
 features = ["std"]
 
