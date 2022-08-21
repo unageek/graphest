@@ -31,7 +31,7 @@
     "@types/react-beautiful-dnd": "^13.1.2",
     "@types/react-dom": "^17.0.16",
     "@types/resize-observer-browser": "^0.1.7",
-    "@types/yup": "^0.29.14",
+    "@types/yup": "^0.32.0",
     "@typescript-eslint/eslint-plugin": "^5.33.1",
     "@typescript-eslint/parser": "^5.33.1",
     "cross-env": "^7.0.3",
