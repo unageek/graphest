@@ -268,7 +268,7 @@ dependencies = [
 
 [[package]]
 name = "graphest"
-version = "1.2.2"
+version = "1.2.3"
 dependencies = [
  "bitflags",
  "clap",
