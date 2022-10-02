@@ -1,6 +1,6 @@
 [package]
 name = "graphest-arb-sys"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Masashi Mizuno"]
 edition = "2021"
 repository = "https://github.com/unageek/graphest"
