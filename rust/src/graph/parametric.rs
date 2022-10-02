@@ -305,6 +305,8 @@ impl Parametric {
                             r1.x(),
                             interval!(y1.sup(), y2.inf()).unwrap(),
                         ));
+                        // `r12.x()` could be wider than a pixel.
+                        r12 = Region::new(r.x(), r12.y());
                     }
                 } else {
                     // `r` is a single row.
@@ -318,6 +320,8 @@ impl Parametric {
                             interval!(x1.sup(), x2.inf()).unwrap(),
                             r1.y(),
                         ));
+                        // `r12.y()` could be wider than a pixel.
+                        r12 = Region::new(r12.x(), r.y());
                     }
                 }
 
