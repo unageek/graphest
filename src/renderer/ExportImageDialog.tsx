@@ -183,7 +183,7 @@ export const ExportImageDialog = (
     () =>
       debounce((value: string) => {
         const result = tryParseBignum(value);
-        if (result.ok) {
+        if (result.ok !== undefined) {
           const rangeError = validateRange(bignum(xMin), result.ok);
           if (!rangeError) {
             setOpts({ ...opts, xMax: value, xMin });
@@ -203,7 +203,7 @@ export const ExportImageDialog = (
     () =>
       debounce((value: string) => {
         const result = tryParseBignum(value);
-        if (result.ok) {
+        if (result.ok !== undefined) {
           const rangeError = validateRange(result.ok, bignum(xMax));
           if (!rangeError) {
             setOpts({ ...opts, xMax, xMin: value });
@@ -223,7 +223,7 @@ export const ExportImageDialog = (
     () =>
       debounce((value: string) => {
         const result = tryParseBignum(value);
-        if (result.ok) {
+        if (result.ok !== undefined) {
           const rangeError = validateRange(bignum(yMin), result.ok);
           if (!rangeError) {
             setOpts({ ...opts, yMax: value, yMin });
@@ -243,7 +243,7 @@ export const ExportImageDialog = (
     () =>
       debounce((value: string) => {
         const result = tryParseBignum(value);
-        if (result.ok) {
+        if (result.ok !== undefined) {
           const rangeError = validateRange(result.ok, bignum(yMax));
           if (!rangeError) {
             setOpts({ ...opts, yMax, yMin: value });

@@ -57,7 +57,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     const updateMaxBounds = useCallback(() => {
       if (map === undefined) return;
       // To get map coordinates from pixel coordinates, multiply them by `2 ** -zoom`.
-      // If the view goes outside this range, the Leaflet map can get stuck.
+      // If the view goes outside this range, Leaflet maps can get stuck.
       const max = Number.MAX_SAFE_INTEGER * 2 ** -map.getZoom();
       const min = -max;
       map.setMaxBounds([
@@ -76,7 +76,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       // 52 = ⌊lg(Number.MAX_SAFE_INTEGER)⌋.
       const maxZoom =
         map.getZoom() + Math.max(0, 52 - Math.ceil(Math.log2(maxPixelCoord)));
-      // The Leaflet map cannot be zoomed in further than 1023.
+      // Leaflet maps cannot be zoomed in to a level greater than 1023.
       map.setMaxZoom(Math.min(maxZoom, 1023));
     }, [map]);
 

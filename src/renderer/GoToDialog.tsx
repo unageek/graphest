@@ -91,7 +91,8 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
         const result = tryParseIntegerInRange(
           value,
           -BASE_ZOOM_LEVEL,
-          BASE_ZOOM_LEVEL
+          // Leaflet maps cannot be zoomed in to a level greater than 1023.
+          1023 - BASE_ZOOM_LEVEL
         );
         setZoomLevelErrorMessage(addOrRemoveErrors(["zoom-level"], result.err));
       }, 200),
