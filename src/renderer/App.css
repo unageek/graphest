@@ -1,41 +1,41 @@
 @media (prefers-color-scheme: light) {
-:root {
-  --theme-primary: #0078d4;
-  --theme-light: #c7e0f4;
-  --neutral-lighter: #f3f2f1;
-  --neutral-light: #edebe9;
-  --neutral-quaternary: #d0d0d0;
-  --neutral-tertiary: #a19f9d;
-  --neutral-primary: #323130;
-  --white: #ffffff;
-  --red-dark: #a4262c;
+  :root {
+    --theme-primary: #0078d4;
+    --theme-light: #c7e0f4;
+    --neutral-lighter: #f3f2f1;
+    --neutral-light: #edebe9;
+    --neutral-quaternary: #d0d0d0;
+    --neutral-tertiary: #a19f9d;
+    --neutral-primary: #323130;
+    --white: #ffffff;
+    --red-dark: #a4262c;
 
-  /* https://tailwindcolor.com/ */
-  --error-background: #FEE2E2; /* red-100 */
-  --syntax-error: #A21CAF; /* fuchsia-700 */
-  --implicit-multiplication: silver;
-  --highlight: greenyellow;
-}
+    /* https://tailwindcolor.com/ */
+    --error-background: #fee2e2; /* red-100 */
+    --syntax-error: #a21caf; /* fuchsia-700 */
+    --implicit-multiplication: silver;
+    --highlight: greenyellow;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
-:root {
-  --theme-primary: #2899f5;
-  --theme-light: #0c2e49;
-  --neutral-lighter: #2f2d2c;
-  --neutral-light: #3d3b39;
-  --neutral-quaternary: #4d4b49;
-  --neutral-tertiary: #c8c8c8;
-  --neutral-primary: #ffffff;
-  --white: #1b1a19;
-  --red-dark: #f1707b;
+  :root {
+    --theme-primary: #2899f5;
+    --theme-light: #0c2e49;
+    --neutral-lighter: #2f2d2c;
+    --neutral-light: #3d3b39;
+    --neutral-quaternary: #4d4b49;
+    --neutral-tertiary: #c8c8c8;
+    --neutral-primary: #ffffff;
+    --white: #1b1a19;
+    --red-dark: #f1707b;
 
-  /* https://tailwindcolor.com/ */
-  --error-background: #7F1D1D; /* red-900 */
-  --syntax-error: #F0ABFC; /* fuchsia-300 */
-  --implicit-multiplication: gray;
-  --highlight: rgb(100, 167, 0);
-}
+    /* https://tailwindcolor.com/ */
+    --error-background: #7f1d1d; /* red-900 */
+    --syntax-error: #f0abfc; /* fuchsia-300 */
+    --implicit-multiplication: gray;
+    --highlight: rgb(100, 167, 0);
+  }
 }
 
 html,
