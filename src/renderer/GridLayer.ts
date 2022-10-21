@@ -1,6 +1,7 @@
 import * as L from "leaflet";
 import { bignum, BigNumber } from "../common/bignumberForGrid";
 import { BASE_ZOOM_LEVEL, GRAPH_TILE_SIZE } from "../common/constants";
+import { GraphTheme, StubGraphTheme } from "../common/graphTheme";
 import {
   AxesRenderer,
   Bounds,
@@ -51,8 +52,15 @@ function sourcePoints(coords: L.Coords, widthPerTile: number): [Point, Point] {
 }
 
 export class AxesLayer extends L.GridLayer {
+  #theme: GraphTheme = StubGraphTheme;
+
   constructor(options?: L.GridLayerOptions) {
     super(options);
+  }
+
+  set theme(theme: GraphTheme) {
+    this.#theme = theme;
+    this.redraw();
   }
 
   onAdd(map: L.Map): this {
@@ -110,7 +118,8 @@ export class AxesLayer extends L.GridLayer {
       tx,
       ty,
       mapViewport,
-      tileViewport
+      tileViewport,
+      this.#theme
     );
 
     renderer.clearBackground();
@@ -211,6 +220,7 @@ export class AxesLayer extends L.GridLayer {
 export class GridLayer extends L.GridLayer {
   #showMajor = true;
   #showMinor = true;
+  #theme: GraphTheme = StubGraphTheme;
 
   constructor(options?: L.GridLayerOptions) {
     super(options);
@@ -223,6 +233,11 @@ export class GridLayer extends L.GridLayer {
 
   set showMinorGrid(show: boolean) {
     this.#showMinor = show;
+    this.redraw();
+  }
+
+  set theme(theme: GraphTheme) {
+    this.#theme = theme;
     this.redraw();
   }
 
@@ -256,7 +271,8 @@ export class GridLayer extends L.GridLayer {
         EXTENDED_TILE_SIZE,
         EXTENDED_TILE_SIZE,
         tx,
-        ty
+        ty,
+        this.#theme
       );
 
       renderer.fillBackground();

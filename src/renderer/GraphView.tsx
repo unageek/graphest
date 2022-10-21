@@ -1,4 +1,5 @@
 import { Icon } from "@fluentui/react";
+import * as Color from "color";
 import * as L from "leaflet";
 import { ZoomPanOptions } from "leaflet";
 import "leaflet-easybutton/src/easy-button";
@@ -9,6 +10,7 @@ import { forwardRef, useCallback, useEffect, useState } from "react";
 import * as ReactDOM from "react-dom";
 import { useStore } from "react-redux";
 import { BASE_ZOOM_LEVEL, INITIAL_ZOOM_LEVEL } from "../common/constants";
+import { GraphTheme } from "../common/graphTheme";
 import { GraphLayer } from "./GraphLayer";
 import { AxesLayer, GridLayer } from "./GridLayer";
 import {
@@ -43,6 +45,8 @@ L.Map.include({
 
 export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
   (props, ref) => {
+    const graphBackground = useSelector((s) => s.graphBackground);
+    const graphForeground = useSelector((s) => s.graphForeground);
     const graphs = useSelector((s) => s.graphs);
     const resetView = useSelector((s) => s.resetView);
     const showAxes = useSelector((s) => s.showAxes);
@@ -127,14 +131,23 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     }, [axesLayer, map, showAxes]);
 
     useEffect(() => {
-      if (map === undefined) return;
       gridLayer.showMajorGrid = showMajorGrid;
-    }, [gridLayer, map, showMajorGrid]);
+    }, [gridLayer, showMajorGrid]);
 
     useEffect(() => {
-      if (map === undefined) return;
       gridLayer.showMinorGrid = showMinorGrid;
-    }, [gridLayer, map, showMinorGrid]);
+    }, [gridLayer, showMinorGrid]);
+
+    useEffect(() => {
+      const graphTheme: GraphTheme = {
+        background: graphBackground,
+        foreground: graphForeground,
+        secondary: new Color(graphForeground).fade(0.5).toString(),
+        tertiary: new Color(graphForeground).fade(0.75).toString(),
+      };
+      axesLayer.theme = graphTheme;
+      gridLayer.theme = graphTheme;
+    }, [axesLayer, graphBackground, graphForeground, gridLayer]);
 
     useEffect(() => {
       if (resetView) {
@@ -250,7 +263,10 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       <div
         id="map"
         ref={ref}
-        style={{ background: "white", flexGrow: props.grow ? 1 : undefined }}
+        style={{
+          background: graphBackground,
+          flexGrow: props.grow ? 1 : undefined,
+        }}
       />
     );
   }

@@ -1,21 +1,14 @@
 import { bignum, BigNumber } from "./bignumberForGrid";
+import { GraphTheme } from "./graphTheme";
 import { Rect } from "./rect";
 
 const ZERO: BigNumber = bignum(0);
 const ONE: BigNumber = bignum(1);
 
 const LABEL_FONT = "14px 'Noto Sans'";
-const BACKGROUND_COLOR = "white";
-const TICK_LENGTH_PER_SIDE = 3.5;
-
-const AXES_COLOR = "black";
-const AXES_COLOR_SECONDARY = "gray";
-
-const MAJOR_GRID_COLOR = "silver";
 const MAJOR_GRID_LINE_DASH: number[] = [];
-
-const MINOR_GRID_COLOR = "silver";
 const MINOR_GRID_LINE_DASH = [1, 1];
+const TICK_LENGTH_PER_SIDE = 3.5;
 
 /**
  * Returns true if the numbers are ordered as _a_ ≤ _b_ ≤ _c_.
@@ -129,7 +122,8 @@ export class AxesRenderer {
     readonly tx: Transform,
     readonly ty: Transform,
     readonly mapViewport: Rect,
-    readonly tileViewport: Rect
+    readonly tileViewport: Rect,
+    readonly theme: GraphTheme
   ) {}
 
   #dilate(r: Rect, radius: number): Rect {
@@ -147,12 +141,12 @@ export class AxesRenderer {
   }
 
   beginDrawText() {
-    const { ctx } = this;
+    const { ctx, theme } = this;
     ctx.save();
     ctx.font = LABEL_FONT;
     ctx.lineJoin = "round";
     ctx.lineWidth = 2;
-    ctx.strokeStyle = BACKGROUND_COLOR;
+    ctx.strokeStyle = theme.background;
   }
 
   clearBackground() {
@@ -162,11 +156,11 @@ export class AxesRenderer {
   }
 
   drawAxes() {
-    const { ctx, height, tx, ty, width } = this;
+    const { ctx, height, theme, tx, ty, width } = this;
 
     const cx = tx(ZERO);
     const cy = ty(ZERO);
-    ctx.strokeStyle = AXES_COLOR;
+    ctx.strokeStyle = theme.foreground;
     // Do not merge these paths; otherwise, they may not be rendered
     // when the view is too far from the origin.
     ctx.beginPath();
@@ -180,7 +174,7 @@ export class AxesRenderer {
   }
 
   drawOriginLabel() {
-    const { ctx, tx, ty } = this;
+    const { ctx, theme, tx, ty } = this;
 
     const cx = tx(ZERO);
     const cy = ty(ZERO);
@@ -191,19 +185,19 @@ export class AxesRenderer {
       cx - m.actualBoundingBoxRight - this.labelOffset,
       cy + m.actualBoundingBoxAscent + this.labelOffset,
     ];
-    ctx.fillStyle = AXES_COLOR;
+    ctx.fillStyle = theme.foreground;
     ctx.strokeText(...args);
     ctx.fillText(...args);
   }
 
   drawXTicks(interval: GridInterval) {
-    const { ctx, mapViewport, tileViewport, tx, ty } = this;
+    const { ctx, mapViewport, tileViewport, theme, tx, ty } = this;
     const { xMax, xMin } = this.bounds;
 
     const cy = ty(ZERO);
     const wy = tileViewport.top + cy;
     const sticky = stickyOffset(mapViewport.top, wy, wy, mapViewport.bottom);
-    ctx.strokeStyle = sticky === 0 ? AXES_COLOR : AXES_COLOR_SECONDARY;
+    ctx.strokeStyle = sticky === 0 ? theme.foreground : theme.secondary;
 
     ctx.beginPath();
     const min = xMin.times(interval.getInv()).ceil().minus(ONE);
@@ -224,14 +218,14 @@ export class AxesRenderer {
   }
 
   drawXTickLabels(interval: GridInterval) {
-    const { ctx, mapViewport, tileViewport, tx, ty } = this;
+    const { ctx, mapViewport, tileViewport, theme, tx, ty } = this;
     const { xMax, xMin } = this.bounds;
 
     const cy = ty(ZERO);
     const wy = tileViewport.top + cy;
     ctx.fillStyle = ordered(mapViewport.top, wy, mapViewport.bottom)
-      ? AXES_COLOR
-      : AXES_COLOR_SECONDARY;
+      ? theme.foreground
+      : theme.secondary;
 
     const min = xMin.times(interval.getInv()).ceil().minus(ONE);
     const max = xMax.times(interval.getInv()).floor().plus(ONE);
@@ -278,13 +272,13 @@ export class AxesRenderer {
   }
 
   drawYTicks(interval: GridInterval) {
-    const { ctx, mapViewport, tileViewport, tx, ty } = this;
+    const { ctx, mapViewport, tileViewport, theme, tx, ty } = this;
     const { yMax, yMin } = this.bounds;
 
     const cx = tx(ZERO);
     const wx = tileViewport.left + cx;
     const sticky = stickyOffset(mapViewport.left, wx, wx, mapViewport.right);
-    ctx.strokeStyle = sticky === 0 ? AXES_COLOR : AXES_COLOR_SECONDARY;
+    ctx.strokeStyle = sticky === 0 ? theme.foreground : theme.secondary;
 
     ctx.beginPath();
     const min = yMin.times(interval.getInv()).ceil().minus(ONE);
@@ -305,14 +299,14 @@ export class AxesRenderer {
   }
 
   drawYTickLabels(interval: GridInterval) {
-    const { ctx, mapViewport, tileViewport, tx, ty } = this;
+    const { ctx, mapViewport, tileViewport, theme, tx, ty } = this;
     const { yMax, yMin } = this.bounds;
 
     const cx = tx(ZERO);
     const wx = tileViewport.left + cx;
     ctx.fillStyle = ordered(mapViewport.left, wx, mapViewport.right)
-      ? AXES_COLOR
-      : AXES_COLOR_SECONDARY;
+      ? theme.foreground
+      : theme.secondary;
 
     const min = yMin.times(interval.getInv()).ceil().minus(ONE);
     const max = yMax.times(interval.getInv()).floor().plus(ONE);
@@ -388,21 +382,22 @@ export class GridRenderer {
     readonly width: number,
     readonly height: number,
     readonly tx: Transform,
-    readonly ty: Transform
+    readonly ty: Transform,
+    readonly theme: GraphTheme
   ) {}
 
   beginDrawMajorGrid() {
-    const { ctx } = this;
+    const { ctx, theme } = this;
     ctx.save();
     ctx.setLineDash(MAJOR_GRID_LINE_DASH);
-    ctx.strokeStyle = MAJOR_GRID_COLOR;
+    ctx.strokeStyle = theme.tertiary;
   }
 
   beginDrawMinorGrid() {
-    const { ctx } = this;
+    const { ctx, theme } = this;
     ctx.save();
     ctx.setLineDash(MINOR_GRID_LINE_DASH);
-    ctx.strokeStyle = MINOR_GRID_COLOR;
+    ctx.strokeStyle = theme.tertiary;
   }
 
   drawXGrid(interval: GridInterval, skipEveryNthLine: BigNumber = ZERO) {
@@ -445,9 +440,9 @@ export class GridRenderer {
   }
 
   fillBackground() {
-    const { ctx, height, width } = this;
+    const { ctx, height, theme, width } = this;
 
-    ctx.fillStyle = BACKGROUND_COLOR;
+    ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, width, height);
   }
 }
