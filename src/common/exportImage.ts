@@ -45,7 +45,7 @@ export interface ExportImageOptions {
   path: string;
   /** The per-tile timeout in seconds. */
   timeout: number;
-  /** Make the image background transparent regardless of the value of {@link background}. */
+  /** Make the image background transparent. */
   transparent: boolean;
   /** The width of the image in pixels. */
   width: number;
