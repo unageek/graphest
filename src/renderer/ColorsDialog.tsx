@@ -32,12 +32,12 @@ export const ColorsDialog = (props: ColorsDialogProps): JSX.Element => {
             gridTemplateColumns: "auto auto",
           }}
         >
-          <Label style={{ textAlign: "right" }}>Paper:</Label>
+          <Label style={{ textAlign: "right" }}>Background:</Label>
           <ColorButton
             color={background}
             onColorChanged={(c) => dispatch(setGraphBackground(c))}
           />
-          <Label style={{ textAlign: "right" }}>Axes & Grids:</Label>
+          <Label style={{ textAlign: "right" }}>Axes and grids:</Label>
           <ColorButton
             color={foreground}
             onColorChanged={(c) => dispatch(setGraphForeground(c))}
