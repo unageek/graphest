@@ -47,8 +47,8 @@ const initialState: AppState = {
     messages: [],
     progress: 0,
   },
-  graphBackground: "white",
-  graphForeground: "black",
+  graphBackground: "#ffffff",
+  graphForeground: "#000000",
   graphs: { byId: {}, allIds: [] },
   highRes: false,
   lastExportImageOpts: {

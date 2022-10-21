@@ -14,10 +14,10 @@ export const documentSchema = object({
         new Color(s);
         return s;
       } catch {
-        return "white";
+        return "#ffffff";
       }
     })
-    .default("white"),
+    .default("#ffffff"),
   center: array(number()).length(2).default([0, 0]),
   foreground: string()
     .transform((s) => {
@@ -25,10 +25,10 @@ export const documentSchema = object({
         new Color(s);
         return s;
       } catch {
-        return "black";
+        return "#000000";
       }
     })
-    .default("black"),
+    .default("#000000"),
   graphs: array(
     object({
       color: string()
