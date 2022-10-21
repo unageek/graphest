@@ -27,7 +27,7 @@ impl FftImage {
         //   https://www.fftw.org/fftw3_doc/Real_002ddata-DFT-Array-Format.html
         let stride = 2 * (width as usize / 2 + 1);
         let len = height as usize * stride;
-        let ptr = unsafe { fftwf_alloc_real(len as u64) };
+        let ptr = unsafe { fftwf_alloc_real(len) };
         // Unless `FFTW_ESTIMATE` is set, which we currently do, the arrays are destroyed during planning.
         //   https://www.fftw.org/fftw3_doc/Planner-Flags.html
         let plan_r2c = unsafe {
