@@ -77,7 +77,7 @@ fn main() {
         .arg(
             Arg::new("background")
                 .long("background")
-                .default_value("#FFFFFFFF")
+                .default_value("#ffffffff")
                 .forbid_empty_values(true),
         )
         .arg(Arg::new("correct-alpha").long("correct-alpha"))
