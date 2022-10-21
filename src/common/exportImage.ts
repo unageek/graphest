@@ -18,8 +18,15 @@ export const MAX_EXPORT_IMAGE_SIZE = 16384;
  */
 export const MAX_EXPORT_TIMEOUT = 300;
 
-export interface ExportImageEntry {
-  /** The color of the graph as a case-insensitive hex code (`#RRGGBB`). */
+export interface ExportImageData {
+  /** The background color of the image as a case-insensitive hex code (`#RRGGBBAA`). */
+  background: string;
+  /** The graphs in back-to-front order. */
+  graphs: ExportImageGraph[];
+}
+
+export interface ExportImageGraph {
+  /** The color of the graph as a case-insensitive hex code (`#RRGGBBAA`). */
   color: string;
   /** The pen size of the graph in pixels. */
   penSize: number;

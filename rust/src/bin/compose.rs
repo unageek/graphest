@@ -74,6 +74,12 @@ fn main() {
                 .forbid_empty_values(true)
                 .value_names(&["file", "color"]),
         )
+        .arg(
+            Arg::new("background")
+                .long("background")
+                .default_value("#ffffffff")
+                .forbid_empty_values(true),
+        )
         .arg(Arg::new("correct-alpha").long("correct-alpha"))
         .arg(
             Arg::new("output")
@@ -82,10 +88,10 @@ fn main() {
                 .forbid_empty_values(true)
                 .value_name("file"),
         )
-        .arg(Arg::new("transparent").long("transparent"))
         .get_matches();
 
     let correct_alpha = matches.is_present("correct-alpha");
+    let background = parse_color(matches.value_of("background").unwrap(), correct_alpha);
     let entries = matches
         .values_of("add")
         .unwrap()
@@ -97,7 +103,6 @@ fn main() {
         })
         .collect::<Vec<_>>();
     let output = matches.value_of_os("output").unwrap().to_owned();
-    let transparent = matches.is_present("transparent");
 
     let mut composed = None;
     for entry in entries {
@@ -108,7 +113,8 @@ fn main() {
             .into_rgba32f();
         let composed = composed.get_or_insert_with(|| {
             let mut composed = Rgba32FImage::new(im.width(), im.height());
-            composed.fill(if transparent { 0.0 } else { 1.0 });
+            composed.fill(1.0);
+            colorize(&mut composed, background);
             composed
         });
 

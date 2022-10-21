@@ -287,7 +287,7 @@ export const ExportImageDialog = (
           props.dismiss();
         }
       }}
-      styles={{ main: { minHeight: "0" } }}
+      styles={{ main: { minHeight: 0 } }}
     >
       {(() => {
         switch (state) {
@@ -302,12 +302,8 @@ export const ExportImageDialog = (
                     gridTemplateColumns: "auto auto auto",
                   }}
                 >
-                  <Label style={{ gridColumn: "2", padding: "0" }}>
-                    Minimum
-                  </Label>
-                  <Label style={{ gridColumn: "3", padding: "0" }}>
-                    Maximum
-                  </Label>
+                  <Label style={{ gridColumn: "2", padding: 0 }}>Minimum</Label>
+                  <Label style={{ gridColumn: "3", padding: 0 }}>Maximum</Label>
 
                   <Label style={{ textAlign: "right" }}>x:</Label>
                   <SendableTextField

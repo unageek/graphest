@@ -6,6 +6,7 @@ import {
   ChevronDownIcon,
   ChevronDownSmallIcon,
   ChevronUpSmallIcon,
+  ColorIcon,
   DeleteIcon,
   ForwardIcon,
   GripperDotsVerticalIcon,
@@ -25,10 +26,11 @@ import * as ReactDOM from "react-dom";
 import { Provider, useDispatch } from "react-redux";
 import { Command } from "../common/command";
 import { Document } from "../common/document";
-import { ExportImageEntry, ExportImageOptions } from "../common/exportImage";
+import { ExportImageGraph, ExportImageOptions } from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { RequestRelationResult } from "../common/ipc";
 import "./App.css";
+import { ColorsDialog } from "./ColorsDialog";
 import { ExportImageDialog } from "./ExportImageDialog";
 import { GoToDialog } from "./GoToDialog";
 import { GraphBars } from "./GraphBars";
@@ -39,10 +41,13 @@ import {
   removeAllGraphs,
   setCenter,
   setExportImageProgress,
+  setGraphBackground,
+  setGraphForeground,
   setHighRes,
   setLastExportImageOpts,
   setResetView,
   setShowAxes,
+  setShowColorsDialog,
   setShowExportImageDialog,
   setShowGoToDialog,
   setShowMajorGrid,
@@ -59,12 +64,12 @@ const abortExportImage = async () => {
 
 const exportImage = async (opts: ExportImageOptions) => {
   const state = store.getState();
-  const entries: ExportImageEntry[] = [];
+  const graphs: ExportImageGraph[] = [];
 
   for (const graphId of state.graphs.allIds) {
     const graph = state.graphs.byId[graphId];
     const { color, penSize, relId } = graph;
-    entries.push({ color: new Color(color).hexa(), penSize, relId });
+    graphs.push({ color: new Color(color).hexa(), penSize, relId });
   }
 
   store.dispatch(
@@ -76,7 +81,7 @@ const exportImage = async (opts: ExportImageOptions) => {
 
   await window.ipcRenderer.invoke<ipc.ExportImage>(
     ipc.exportImage,
-    entries,
+    { background: new Color(state.graphBackground).hexa(), graphs },
     opts
   );
 };
@@ -84,7 +89,9 @@ const exportImage = async (opts: ExportImageOptions) => {
 const getDocument = (): Document => {
   const s = store.getState();
   return {
+    background: s.graphBackground,
     center: s.center,
+    foreground: s.graphForeground,
     graphs: s.graphs.allIds.map((id) => {
       const g = s.graphs.byId[id];
       return {
@@ -123,6 +130,7 @@ const App = () => {
   const center = useSelector((s) => s.center);
   const exportImageOpts = useSelector((s) => s.lastExportImageOpts);
   const graphViewRef = useRef<HTMLDivElement>(null);
+  const showColorsDialog = useSelector((s) => s.showColorsDialog);
   const showExportImageDialog = useSelector((s) => s.showExportImageDialog);
   const showGoToDialog = useSelector((s) => s.showGoToDialog);
   const appTheme = useSelector((s) => s.theme);
@@ -170,6 +178,9 @@ const App = () => {
         </Stack>
         <GraphView grow ref={graphViewRef} />
       </Stack>
+      {showColorsDialog && (
+        <ColorsDialog dismiss={() => dispatch(setShowColorsDialog(false))} />
+      )}
       {showExportImageDialog && (
         <ExportImageDialog
           abort={abortExportImage}
@@ -207,6 +218,7 @@ registerIcons({
     ChevronDown: <ChevronDownIcon className={ICON_CLASS_NAME} />,
     ChevronDownSmall: <ChevronDownSmallIcon className={ICON_CLASS_NAME} />,
     ChevronUpSmall: <ChevronUpSmallIcon className={ICON_CLASS_NAME} />,
+    Color: <ColorIcon className={ICON_CLASS_NAME} />,
     Delete: <DeleteIcon className={ICON_CLASS_NAME} />,
     Forward: <ForwardIcon className={ICON_CLASS_NAME} />,
     GripperDotsVertical: (
@@ -275,6 +287,8 @@ window.ipcRenderer.on<ipc.Load>(ipc.load, (_, state) => {
   store.dispatch(setCenter(state.center as [number, number]));
   store.dispatch(setZoomLevel(state.zoomLevel));
   store.dispatch(setResetView(true));
+  store.dispatch(setGraphBackground(state.background));
+  store.dispatch(setGraphForeground(state.foreground));
   for (const g of state.graphs) {
     store.dispatch(addGraph(g));
   }

@@ -1,39 +1,36 @@
 import {
   ColorPicker,
+  DefaultButton,
   IColorCellProps,
-  Label,
   Pivot,
   PivotItem,
-  Separator,
-  SpinButton,
   Stack,
   SwatchColorPicker,
-  Text,
 } from "@fluentui/react";
 import { SharedColors } from "@fluentui/theme";
 import * as Color from "color";
 import * as React from "react";
-import { MAX_PEN_SIZE } from "../common/constants";
-import { BarIconButton } from "./BarIconButton";
 
-export interface GraphStyleButtonProps {
+export interface ColorButtonProps {
   color: string;
   onColorChanged: (color: string) => void;
-  onPenSizeChanged: (penSize: number) => void;
-  penSize: number;
 }
 
-export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
+export const ColorButton = (props: ColorButtonProps): JSX.Element => {
   return (
-    <BarIconButton
+    <DefaultButton
       menuProps={{
         items: [{ key: "colors" }],
         onRenderMenuList: renderMenuList,
       }}
       styles={{
-        menuIcon: { display: "none" },
+        root: {
+          minWidth: 0,
+          padding: 0,
+          width: "52px",
+        },
       }}
-      title="Graph style"
+      title="Color"
     >
       <div
         style={{
@@ -41,8 +38,10 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           height: "16px",
           width: "16px",
         }}
-      />
-    </BarIconButton>
+      >
+        &nbsp; {/* For vertical alignment. */}
+      </div>
+    </DefaultButton>
   );
 
   function renderMenuList(): JSX.Element {
@@ -75,6 +74,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           </PivotItem>
           <PivotItem headerText="Custom">
             <ColorPicker
+              alphaType="none"
               color={props.color}
               onChange={(_, c) => props.onColorChanged(c.str)}
               showPreview={true}
@@ -85,35 +85,6 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             />
           </PivotItem>
         </Pivot>
-        <Separator styles={{ root: { height: "1px", padding: 0 } }} />
-        <Stack style={{ margin: "8px" }}>
-          <Stack horizontal verticalAlign="baseline">
-            <Label style={{ marginRight: "8px" }}>Pen size:</Label>
-            <SpinButton
-              defaultValue={props.penSize.toString()}
-              max={MAX_PEN_SIZE}
-              min={0}
-              step={0.1}
-              styles={{ root: { marginRight: "4px", width: "50px" } }}
-              onChange={(_, value) => {
-                if (value === undefined) return;
-                const penSize = Number(value);
-                props.onPenSizeChanged(penSize);
-              }}
-            />
-            <Text>pixels</Text>
-          </Stack>
-          {props.penSize < 1.0 && (
-            <Text style={{ marginTop: "8px" }} variant="small">
-              A pen size less than 1px is only applied to exported images.
-            </Text>
-          )}
-          {props.penSize > 3.0 && (
-            <Text style={{ marginTop: "8px" }} variant="small">
-              A pen size greater then 3px is only applied to exported images.
-            </Text>
-          )}
-        </Stack>
       </Stack>
     );
   }

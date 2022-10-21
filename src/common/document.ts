@@ -8,7 +8,27 @@ import {
 } from "./constants";
 
 export const documentSchema = object({
+  background: string()
+    .transform((s) => {
+      try {
+        new Color(s);
+        return s;
+      } catch {
+        return "#ffffff";
+      }
+    })
+    .default("#ffffff"),
   center: array(number()).length(2).default([0, 0]),
+  foreground: string()
+    .transform((s) => {
+      try {
+        new Color(s);
+        return s;
+      } catch {
+        return "#000000";
+      }
+    })
+    .default("#000000"),
   graphs: array(
     object({
       color: string()

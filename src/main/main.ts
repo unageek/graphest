@@ -142,7 +142,9 @@ let currentPath: string | undefined;
 let exportImageAbortController: AbortController | undefined;
 const graphExec: string = getBundledExecutable("graph");
 let lastSavedDoc: Document = {
+  background: "white",
   center: [0, 0],
+  foreground: "black",
   graphs: [],
   version: 1,
   zoomLevel: 6,
@@ -311,7 +313,7 @@ ipcMain.handle<ipc.AbortGraphing>(
   }
 );
 
-ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
+ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
   const outDir = path.join(baseOutDir, "export");
   if (!fs.existsSync(outDir)) {
     await fsPromises.mkdir(outDir);
@@ -345,19 +347,19 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
     return;
   }
 
-  const newEntries = [];
-  for (const entry of entries) {
-    const rel = relationById.get(entry.relId);
+  const entries = [];
+  for (const graph of data.graphs) {
+    const rel = relationById.get(graph.relId);
     if (rel === undefined) {
       return;
     }
 
-    newEntries.push({
+    entries.push({
       path: path.join(outDir, nextExportImageId.toString() + ".png"),
       rel,
       tilePathPrefix: path.join(outDir, nextExportImageId.toString() + "-"),
       tilePathSuffix: ".png",
-      ...entry,
+      ...graph,
     });
     nextExportImageId++;
   }
@@ -430,8 +432,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   const y1 = bounds[3].minus(pixelHeight.times(PERTURBATION_Y));
 
   let graphTasks: GraphTask[] = [];
-  for (let k = 0; k < newEntries.length; k++) {
-    const entry = newEntries[k];
+  for (let k = 0; k < entries.length; k++) {
+    const entry = entries[k];
 
     for (let iTile = 0; iTile < yTiles; iTile++) {
       const i0 = Math.round(iTile * tileHeight);
@@ -482,8 +484,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
     return;
   }
 
-  for (let k = 0; k < newEntries.length; k++) {
-    const entry = newEntries[k];
+  for (let k = 0; k < entries.length; k++) {
+    const entry = entries[k];
 
     const args = [
       "--output",
@@ -517,11 +519,12 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, entries, opts) => {
   }
 
   const args = [
-    ...newEntries.flatMap((entry) => ["--add", entry.path, entry.color]),
+    ...entries.flatMap((entry) => ["--add", entry.path, entry.color]),
+    "--background",
+    opts.transparent ? "#00000000" : data.background,
     ...(opts.correctAlpha ? ["--correct-alpha"] : []),
     "--output",
     opts.path,
-    ...(opts.transparent ? ["--transparent"] : []),
   ];
   try {
     const { stderr } = await util.promisify(execFile)(composeExec, args, {

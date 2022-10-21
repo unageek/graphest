@@ -24,12 +24,15 @@ export type ThemeName = "dark" | "light";
 export interface AppState {
   center: [number, number];
   exportImageProgress: ExportImageProgress;
+  graphBackground: string;
+  graphForeground: string;
   graphs: { byId: { [id: string]: Graph }; allIds: string[] };
   highRes: boolean;
   lastExportImageOpts: ExportImageOptions;
   nextGraphId: number;
   resetView: boolean;
   showAxes: boolean;
+  showColorsDialog: boolean;
   showExportImageDialog: boolean;
   showGoToDialog: boolean;
   showMajorGrid: boolean;
@@ -44,6 +47,8 @@ const initialState: AppState = {
     messages: [],
     progress: 0,
   },
+  graphBackground: "#ffffff",
+  graphForeground: "#000000",
   graphs: { byId: {}, allIds: [] },
   highRes: false,
   lastExportImageOpts: {
@@ -62,6 +67,7 @@ const initialState: AppState = {
   nextGraphId: 0,
   resetView: false,
   showAxes: true,
+  showColorsDialog: false,
   showExportImageDialog: false,
   showGoToDialog: false,
   showMajorGrid: true,
@@ -179,6 +185,24 @@ const slice = createSlice({
         exportImageProgress: a.payload.progress,
       }),
     },
+    setGraphBackground: {
+      prepare: (color: string) => ({
+        payload: { color },
+      }),
+      reducer: (s, a: PayloadAction<{ color: string }>) => ({
+        ...s,
+        graphBackground: a.payload.color,
+      }),
+    },
+    setGraphForeground: {
+      prepare: (color: string) => ({
+        payload: { color },
+      }),
+      reducer: (s, a: PayloadAction<{ color: string }>) => ({
+        ...s,
+        graphForeground: a.payload.color,
+      }),
+    },
     setHighRes: {
       prepare: (highRes: boolean) => ({ payload: { highRes } }),
       reducer: (s, a: PayloadAction<{ highRes: boolean }>) => ({
@@ -205,6 +229,13 @@ const slice = createSlice({
       reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
         ...s,
         showAxes: a.payload.show,
+      }),
+    },
+    setShowColorsDialog: {
+      prepare: (show: boolean) => ({ payload: { show } }),
+      reducer: (s, a: PayloadAction<{ show: boolean }>) => ({
+        ...s,
+        showColorsDialog: a.payload.show,
       }),
     },
     setShowExportImageDialog: {
@@ -293,10 +324,13 @@ export const {
   reorderGraph,
   setCenter,
   setExportImageProgress,
+  setGraphBackground,
+  setGraphForeground,
   setHighRes,
   setLastExportImageOpts,
   setResetView,
   setShowAxes,
+  setShowColorsDialog,
   setShowExportImageDialog,
   setShowGoToDialog,
   setShowMajorGrid,
