@@ -19,6 +19,8 @@ import {
   setGraphRelation,
 } from "./graph";
 
+export type ThemeName = "dark" | "light";
+
 export interface AppState {
   center: [number, number];
   exportImageProgress: ExportImageProgress;
@@ -32,6 +34,7 @@ export interface AppState {
   showGoToDialog: boolean;
   showMajorGrid: boolean;
   showMinorGrid: boolean;
+  theme: ThemeName;
   zoomLevel: number;
 }
 
@@ -63,6 +66,7 @@ const initialState: AppState = {
   showGoToDialog: false,
   showMajorGrid: true,
   showMinorGrid: true,
+  theme: "light",
   zoomLevel: INITIAL_ZOOM_LEVEL - BASE_ZOOM_LEVEL,
 };
 
@@ -231,6 +235,13 @@ const slice = createSlice({
         showMinorGrid: a.payload.show,
       }),
     },
+    setTheme: {
+      prepare: (theme: ThemeName) => ({ payload: { theme } }),
+      reducer: (s, a: PayloadAction<{ theme: ThemeName }>) => ({
+        ...s,
+        theme: a.payload.theme,
+      }),
+    },
     setZoomLevel: {
       prepare: (zoom: number) => ({ payload: { zoom } }),
       reducer: (s, a: PayloadAction<{ zoom: number }>) => {
@@ -290,6 +301,7 @@ export const {
   setShowGoToDialog,
   setShowMajorGrid,
   setShowMinorGrid,
+  setTheme,
   setZoomLevel,
 } = slice.actions;
 

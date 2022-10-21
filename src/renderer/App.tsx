@@ -13,6 +13,7 @@ import {
   MoreIcon,
   VariableIcon,
 } from "@fluentui/react-icons-mdl2";
+import { DarkTheme, DefaultTheme } from "@fluentui/theme-samples";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
 import "@fortawesome/fontawesome-free/js/fontawesome";
@@ -46,6 +47,7 @@ import {
   setShowGoToDialog,
   setShowMajorGrid,
   setShowMinorGrid,
+  setTheme,
   setZoomLevel,
   useSelector,
 } from "./models/app";
@@ -123,6 +125,7 @@ const App = () => {
   const graphViewRef = useRef<HTMLDivElement>(null);
   const showExportImageDialog = useSelector((s) => s.showExportImageDialog);
   const showGoToDialog = useSelector((s) => s.showGoToDialog);
+  const appTheme = useSelector((s) => s.theme);
   const theme = useTheme();
   const zoomLevel = useSelector((s) => s.zoomLevel);
 
@@ -146,7 +149,10 @@ const App = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <>
+    <ThemeProvider
+      style={{ height: "100%" }}
+      theme={appTheme === "light" ? DefaultTheme : DarkTheme}
+    >
       <Stack verticalFill>
         <Stack
           styles={{
@@ -188,7 +194,7 @@ const App = () => {
           zoomLevel={zoomLevel}
         />
       )}
-    </>
+    </ThemeProvider>
   );
 };
 
@@ -215,9 +221,7 @@ registerIcons({
 ReactDOM.render(
   <React.StrictMode>
     <Provider store={store}>
-      <ThemeProvider style={{ height: "100%" }}>
-        <App />
-      </ThemeProvider>
+      <App />
     </Provider>
   </React.StrictMode>,
   document.getElementById("app")
@@ -277,3 +281,11 @@ window.ipcRenderer.on<ipc.Load>(ipc.load, (_, state) => {
 });
 
 window.ipcRenderer.invoke<ipc.Ready>(ipc.ready);
+
+const colorThemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+store.dispatch(setTheme(colorThemeQuery.matches ? "dark" : "light"));
+
+colorThemeQuery.addEventListener("change", (e) => {
+  store.dispatch(setTheme(e.matches ? "dark" : "light"));
+});
