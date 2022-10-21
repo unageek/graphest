@@ -1,3 +1,43 @@
+@media (prefers-color-scheme: light) {
+:root {
+  --theme-primary: #0078d4;
+  --theme-light: #c7e0f4;
+  --neutral-lighter: #f3f2f1;
+  --neutral-light: #edebe9;
+  --neutral-quaternary: #d0d0d0;
+  --neutral-tertiary: #a19f9d;
+  --neutral-primary: #323130;
+  --white: #ffffff;
+  --red-dark: #a4262c;
+
+  /* https://tailwindcolor.com/ */
+  --error-background: #FEE2E2; /* red-100 */
+  --syntax-error: #A21CAF; /* fuchsia-700 */
+  --implicit-multiplication: silver;
+  --highlight: greenyellow;
+}
+}
+
+@media (prefers-color-scheme: dark) {
+:root {
+  --theme-primary: #2899f5;
+  --theme-light: #0c2e49;
+  --neutral-lighter: #2f2d2c;
+  --neutral-light: #3d3b39;
+  --neutral-quaternary: #4d4b49;
+  --neutral-tertiary: #c8c8c8;
+  --neutral-primary: #ffffff;
+  --white: #1b1a19;
+  --red-dark: #f1707b;
+
+  /* https://tailwindcolor.com/ */
+  --error-background: #7F1D1D; /* red-900 */
+  --syntax-error: #F0ABFC; /* fuchsia-300 */
+  --implicit-multiplication: gray;
+  --highlight: rgb(100, 167, 0);
+}
+}
+
 html,
 body,
 #app {
@@ -17,7 +57,7 @@ a:not([draggable]) {
 }
 
 .leaflet-bar {
-  border: 1px solid #d2d0ce !important; /* neutralQuaternary */
+  border: 1px solid var(--neutral-quaternary) !important;
   border-radius: 3px !important;
   box-shadow: 0 1.6px 3.6px 0 rgba(0, 0, 0, 0.132),
     0 0.3px 0.9px 0 rgba(0, 0, 0, 0.108) !important; /* depth8 */
@@ -30,23 +70,28 @@ a:not([draggable]) {
 }
 
 .leaflet-control-zoom-in {
-  border-bottom: 1px solid #d2d0ce !important; /* neutralQuaternary */
+  border-bottom: 1px solid var(--neutral-quaternary) !important;
 }
 
 .leaflet-bar a /* Zoom buttons */,
 .leaflet-bar button /* Reset view button */ {
-  background: white !important;
-  color: #323130 !important; /* neutralPrimary */
+  background: var(--white) !important;
+  color: var(--neutral-primary) !important;
 }
 
 .leaflet-bar a.leaflet-disabled /* Zoom buttons */ {
-  background: #f3f2f1 !important; /* neutralLighter */
-  color: #a19f9d !important; /* neutralTertiary */
+  background: var(--neutral-lighter) !important;
+  color: var(--neutral-tertiary) !important;
 }
 
 .leaflet-bar a:hover:not(.leaflet-disabled),
 .leaflet-bar button:hover {
-  background: #f3f2f1 !important; /* neutralLighter */
+  background: var(--neutral-lighter) !important;
+}
+
+.leaflet-bar a:active:not(.leaflet-disabled),
+.leaflet-bar button:active {
+  background: var(--neutral-light) !important;
 }
 
 .leaflet-bar a:first-child /* Zoom in button*/,
@@ -93,15 +138,15 @@ a:not([draggable]) {
 }
 
 .relation-input-outer.has-error::before {
-  background-color: #a4262c; /* theme.palette.redDark */
+  background-color: var(--red-dark);
 }
 
 @keyframes processing {
   from {
-    background-color: #c7e0f4; /* themeLight */
+    background-color: var(--theme-light);
   }
   to {
-    background-color: #0078d4; /* theme.palette.blue */
+    background-color: var(--theme-primary);
   }
 }
 
@@ -121,10 +166,9 @@ a:not([draggable]) {
 
 .relation-input:focus span.highlighted-left-bracket::before,
 .relation-input:focus span.highlighted-right-bracket::before {
-  background-color: greenyellow;
+  background-color: var(--highlight);
   color: transparent;
   margin-right: -1ch;
-  mix-blend-mode: multiply;
 }
 
 .relation-input:focus span.highlighted-left-bracket::before {
@@ -149,7 +193,7 @@ a:not([draggable]) {
 }
 
 .relation-input span.multiplication::before {
-  color: silver;
+  color: var(--implicit-multiplication);
   content: "×";
   margin-left: 0.25ch;
   position: absolute;
@@ -157,11 +201,11 @@ a:not([draggable]) {
 }
 
 .relation-input span.syntax-error {
-  color: #b4009e; /* theme.palette.magenta */
+  color: var(--syntax-error); /* theme.palette.magenta */
 }
 
 .relation-input span.validation-error {
-  background-color: mistyrose;
+  background-color: var(--error-background);
 }
 
 .relation-input
@@ -176,13 +220,13 @@ a:not([draggable]) {
 }
 
 .relation-input span.validation-error-after::after {
-  background-color: mistyrose;
+  background-color: var(--error-background);
   content: " ";
   word-spacing: normal;
 }
 
 .relation-input-error-message {
-  color: #a4262c; /* theme.palette.redDark */
+  color: var(--red-dark);
 }
 
 /* HACK: Properly align Fluent UI's SVG icons. */
