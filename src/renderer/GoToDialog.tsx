@@ -4,13 +4,13 @@ import {
   DialogFooter,
   Label,
   PrimaryButton,
+  TextField,
 } from "@fluentui/react";
 import { debounce } from "lodash";
 import * as React from "react";
 import { useCallback, useMemo, useState } from "react";
 import { BASE_ZOOM_LEVEL } from "../common/constants";
 import { tryParseIntegerInRange, tryParseNumber } from "../common/parse";
-import { SendableTextField } from "./SendableTextField";
 
 export interface GoToDialogProps {
   dismiss: () => void;
@@ -58,7 +58,7 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
     [errors]
   );
 
-  const send = useCallback(() => {
+  const submit = useCallback(() => {
     if (errors.size > 0) return;
     props.goTo(
       [Number.parseFloat(x), Number.parseFloat(y)],
@@ -105,7 +105,7 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
       hidden={false}
       onDismiss={props.dismiss}
     >
-      <>
+      <form onSubmit={submit}>
         <div
           style={{
             alignItems: "baseline",
@@ -115,38 +115,35 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
           }}
         >
           <Label style={{ textAlign: "right" }}>x:</Label>
-          <SendableTextField
+          <TextField
             errorMessage={xErrorMessage}
             onChange={(_, value) => {
               if (value === undefined) return;
               setX(value);
               validateX(value);
             }}
-            onSend={send}
             styles={decimalInputStyles}
             value={x.toString()}
           />
           <Label style={{ textAlign: "right" }}>y:</Label>
-          <SendableTextField
+          <TextField
             errorMessage={yErrorMessage}
             onChange={(_, value) => {
               if (value === undefined) return;
               setY(value);
               validateY(value);
             }}
-            onSend={send}
             styles={decimalInputStyles}
             value={y.toString()}
           />
           <Label style={{ textAlign: "right" }}>Zoom level:</Label>
-          <SendableTextField
+          <TextField
             errorMessage={zoomLevelErrorMessage}
             onChange={(_, value) => {
               if (value === undefined) return;
               setZoomLevel(value);
               validateZoomLevel(value);
             }}
-            onSend={send}
             styles={integerInputStyles}
             value={zoomLevel.toString()}
           />
@@ -154,9 +151,9 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
 
         <DialogFooter>
           <DefaultButton onClick={props.dismiss} text="Cancel" />
-          <PrimaryButton disabled={errors.size > 0} onClick={send} text="Go" />
+          <PrimaryButton disabled={errors.size > 0} text="Go" type="submit" />
         </DialogFooter>
-      </>
+      </form>
     </Dialog>
   );
 };
