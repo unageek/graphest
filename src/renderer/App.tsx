@@ -14,7 +14,6 @@ import {
   MoreIcon,
   VariableIcon,
 } from "@fluentui/react-icons-mdl2";
-import { DarkTheme, DefaultTheme } from "@fluentui/theme-samples";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
 import "@fortawesome/fontawesome-free/js/fontawesome";
@@ -57,6 +56,7 @@ import {
   useSelector,
 } from "./models/app";
 import { store } from "./models/store";
+import { DarkTheme, LightTheme } from "./themes";
 
 const abortExportImage = async () => {
   await window.ipcRenderer.invoke<ipc.AbortExportImage>(ipc.abortExportImage);
@@ -159,7 +159,7 @@ const App = () => {
   return (
     <ThemeProvider
       style={{ height: "100%" }}
-      theme={appTheme === "light" ? DefaultTheme : DarkTheme}
+      theme={appTheme === "light" ? LightTheme : DarkTheme}
     >
       <Stack verticalFill>
         <Stack

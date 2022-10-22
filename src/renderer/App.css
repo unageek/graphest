@@ -1,10 +1,11 @@
 @media (prefers-color-scheme: light) {
   :root {
+    /* https://github.com/microsoft/fluentui/blob/master/packages/theme/src/colors/DefaultPalette.ts */
     --theme-primary: #0078d4;
     --theme-light: #c7e0f4;
     --neutral-lighter: #f3f2f1;
     --neutral-light: #edebe9;
-    --neutral-quaternary: #d0d0d0;
+    --neutral-quaternary: #d2d0ce;
     --neutral-tertiary: #a19f9d;
     --neutral-primary: #323130;
     --white: #ffffff;
