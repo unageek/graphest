@@ -40,7 +40,7 @@ default-features = false
 features = ["png"]
 
 [dependencies.rug]
-version = "1.17"
+version = "1.18"
 default-features = false
 features = ["float", "integer", "rational"]
 
