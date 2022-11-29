@@ -209,6 +209,15 @@ impl Acb {
         }
     }
 
+    /// Creates an `Acb` interval from the real and imaginary parts.
+    pub fn from_parts(mut re: Arb, mut im: Arb) -> Self {
+        let mut z = Acb::new();
+        unsafe {
+            acb_set_arb_arb(z.as_mut_ptr(), re.as_mut_ptr(), im.as_mut_ptr());
+        }
+        z
+    }
+
     /// Returns an unsafe mutable pointer to the underlying `acb_t`.
     pub fn as_mut_ptr(&mut self) -> acb_ptr {
         &mut self.0
@@ -224,6 +233,15 @@ impl Acb {
         let mut x = Arb::new();
         unsafe {
             acb_get_real(x.as_mut_ptr(), self.as_ptr() as acb_ptr);
+        }
+        x
+    }
+
+    /// Returns the imaginary part of `self`.
+    pub fn imag(&self) -> Arb {
+        let mut x = Arb::new();
+        unsafe {
+            acb_get_imag(x.as_mut_ptr(), self.as_ptr() as acb_ptr);
         }
         x
     }

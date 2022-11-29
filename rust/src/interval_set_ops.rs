@@ -1221,6 +1221,30 @@ impl TupperIntervalSet {
             x
         }
     });
+
+    impl_op!(re_undef_at_0(re_x, im_x), {
+        if re_x.contains(0.0) && im_x.contains(0.0) {
+            if re_x.is_singleton() && im_x.is_singleton() {
+                DecInterval::EMPTY
+            } else {
+                DecInterval::set_dec(re_x.interval().unwrap(), Decoration::Trv)
+            }
+        } else {
+            re_x
+        }
+    });
+
+    impl_op!(im_undef_at_0(re_x, im_x), {
+        if re_x.contains(0.0) && im_x.contains(0.0) {
+            if re_x.is_singleton() && im_x.is_singleton() {
+                DecInterval::EMPTY
+            } else {
+                DecInterval::set_dec(im_x.interval().unwrap(), Decoration::Trv)
+            }
+        } else {
+            im_x
+        }
+    });
 }
 
 macro_rules! impl_integer_op {
@@ -1280,11 +1304,13 @@ impl TupperIntervalSet {
     requires_arb!(fresnel_c(x));
     requires_arb!(fresnel_s(x));
     requires_arb!(gamma_inc(a, x));
+    requires_arb!(im_sinc(re_x, im_x));
     requires_arb!(inverse_erf(x));
     requires_arb!(inverse_erfc(x));
     requires_arb!(lambert_w(k, x));
     requires_arb!(li(x));
     requires_arb!(ln_gamma(x));
+    requires_arb!(re_sinc(re_x, im_x));
     requires_arb!(shi(x));
     requires_arb!(si(x));
     requires_arb!(zeta(x));
@@ -2625,8 +2651,10 @@ mod tests {
             |x: &_, y: &_| x + y,
             |x: &_, y: &_| x - y,
             |x: &_, y: &_| x * y,
+            TupperIntervalSet::im_undef_at_0,
             TupperIntervalSet::max,
             TupperIntervalSet::min,
+            TupperIntervalSet::re_undef_at_0,
         ];
         for f in &fs {
             for x in &xs {

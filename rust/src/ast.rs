@@ -93,6 +93,8 @@ pub enum BinaryOp {
     Gcd,
     Ge,
     Gt,
+    ImSinc,
+    ImUndefAt0,
     LambertW,
     Lcm,
     Le,
@@ -108,6 +110,8 @@ pub enum BinaryOp {
     RankedMax,
     RankedMin,
     ReSignNonnegative,
+    ReSinc,
+    ReUndefAt0,
     Sub,
 }
 
@@ -479,6 +483,8 @@ impl Expr {
             binary!(BesselY, n, x) => Some(n.eval()?.bessel_y(x.eval()?)),
             binary!(GammaInc, a, x) => Some(a.eval()?.gamma_inc(x.eval()?)),
             binary!(Gcd, x, y) => Some(x.eval()?.gcd(y.eval()?)),
+            binary!(ImSinc, re_x, im_x) => Some(re_x.eval()?.im_sinc(im_x.eval()?)),
+            binary!(ImUndefAt0, re_x, im_x) => Some(re_x.eval()?.re_undef_at_0(im_x.eval()?)),
             binary!(LambertW, k, x) => Some(k.eval()?.lambert_w(x.eval()?)),
             binary!(Lcm, x, y) => Some(x.eval()?.lcm(y.eval()?)),
             // Beware the order of arguments.
@@ -498,6 +504,8 @@ impl Expr {
                 Some(Real::ranked_min(xs, n.eval()?))
             }
             binary!(ReSignNonnegative, x, y) => Some(x.eval()?.re_sign_nonnegative(y.eval()?)),
+            binary!(ReSinc, re_x, im_x) => Some(re_x.eval()?.re_sinc(im_x.eval()?)),
+            binary!(ReUndefAt0, re_x, im_x) => Some(re_x.eval()?.re_undef_at_0(im_x.eval()?)),
             binary!(
                 And | Complex
                     | Div
@@ -596,9 +604,11 @@ impl Expr {
                     | Tanh,
                 x
             ) => x.totally_defined,
-            binary!(Add | Max | Min | Mul | ReSignNonnegative | Sub, x, y) => {
-                x.totally_defined && y.totally_defined
-            }
+            binary!(
+                Add | ImSinc | Max | Min | Mul | ReSignNonnegative | ReSinc | Sub,
+                x,
+                y
+            ) => x.totally_defined && y.totally_defined,
             binary!(Pow, x, constant!(y)) => {
                 x.totally_defined
                     && matches!(y.rational(), Some(q) if *q >= 0 && q.denom().is_odd())
@@ -670,6 +680,7 @@ impl Expr {
                     | Recip
                     | Sign
                     | Sin
+                    | Sinc
                     | Sinh
                     | Sqr
                     | Sqrt
@@ -763,6 +774,8 @@ impl Expr {
                     | Div
                     | GammaInc
                     | Gcd
+                    | ImSinc
+                    | ImUndefAt0
                     | LambertW
                     | Lcm
                     | Log
@@ -773,6 +786,8 @@ impl Expr {
                     | Pow
                     | PowRational
                     | ReSignNonnegative
+                    | ReSinc
+                    | ReUndefAt0
                     | Sub,
                 x,
                 y

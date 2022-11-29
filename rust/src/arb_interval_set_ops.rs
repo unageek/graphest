@@ -1047,6 +1047,36 @@ impl TupperIntervalSet {
         }
     );
 
+    pub fn re_sinc(&self, im_xs: &Self) -> Self {
+        let mut rs = Self::new();
+        for re_x in self {
+            for im_x in im_xs {
+                if let Some(g) = re_x.g.union(im_x.g) {
+                    let dec = Decoration::Com.min(re_x.d).min(im_x.d);
+                    let re_y = re_acb_sinc(re_x.x, im_x.x);
+                    rs.insert(TupperInterval::new(DecInterval::set_dec(re_y, dec), g));
+                }
+            }
+        }
+        rs.normalize(false);
+        rs
+    }
+
+    pub fn im_sinc(&self, im_xs: &Self) -> Self {
+        let mut rs = Self::new();
+        for re_x in self {
+            for im_x in im_xs {
+                if let Some(g) = re_x.g.union(im_x.g) {
+                    let dec = Decoration::Com.min(re_x.d).min(im_x.d);
+                    let im_y = im_acb_sinc(re_x.x, im_x.x);
+                    rs.insert(TupperInterval::new(DecInterval::set_dec(im_y, dec), g));
+                }
+            }
+        }
+        rs.normalize(false);
+        rs
+    }
+
     impl_arb_op!(
         sinh(x),
         if x.is_common_interval() {
@@ -1475,6 +1505,30 @@ arb_fn!(
     arb_zeta_ru
 );
 
+fn re_acb_sinc(re_x: Interval, im_x: Interval) -> Interval {
+    use crate::arb::{Acb, Arb};
+    let re_x = Arb::from_interval(re_x);
+    let im_x = Arb::from_interval(im_x);
+    let mut x = Acb::from_parts(re_x, im_x);
+    let mut y = Acb::new();
+    unsafe {
+        graphest_arb_sys::acb_sinc(y.as_mut_ptr(), x.as_mut_ptr(), f64::MANTISSA_DIGITS.into());
+    }
+    y.real().to_interval()
+}
+
+fn im_acb_sinc(re_x: Interval, im_x: Interval) -> Interval {
+    use crate::arb::{Acb, Arb};
+    let re_x = Arb::from_interval(re_x);
+    let im_x = Arb::from_interval(im_x);
+    let mut x = Acb::from_parts(re_x, im_x);
+    let mut y = Acb::new();
+    unsafe {
+        graphest_arb_sys::acb_sinc(y.as_mut_ptr(), x.as_mut_ptr(), f64::MANTISSA_DIGITS.into());
+    }
+    y.imag().to_interval()
+}
+
 // Envelope functions
 
 fn hypot(x: Interval, y: Interval) -> Interval {
@@ -1566,6 +1620,15 @@ mod tests {
         for f in &fs {
             for x in &xs {
                 f(x);
+            }
+        }
+
+        let fs = [TupperIntervalSet::im_sinc, TupperIntervalSet::re_sinc];
+        for f in &fs {
+            for x in &xs {
+                for y in &xs {
+                    f(x, y);
+                }
             }
         }
 
