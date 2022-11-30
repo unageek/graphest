@@ -1230,7 +1230,8 @@ impl TupperIntervalSet {
                 DecInterval::set_dec(re_x.interval().unwrap(), Decoration::Trv)
             }
         } else {
-            re_x
+            let dec = re_x.decoration().min(im_x.decoration());
+            DecInterval::set_dec(re_x.interval().unwrap(), dec)
         }
     });
 
@@ -1242,7 +1243,8 @@ impl TupperIntervalSet {
                 DecInterval::set_dec(im_x.interval().unwrap(), Decoration::Trv)
             }
         } else {
-            im_x
+            let dec = re_x.decoration().min(im_x.decoration());
+            DecInterval::set_dec(im_x.interval().unwrap(), dec)
         }
     });
 }
@@ -2584,6 +2586,68 @@ mod tests {
         test!(f, @odd i!(1.0), (vec![i!(1.0)], Com));
         test!(f, @odd i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
         test!(f, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Trv));
+    }
+
+    #[test]
+    fn re_undef_at_0() {
+        fn f(re_x: &TupperIntervalSet, im_x: &TupperIntervalSet) -> TupperIntervalSet {
+            re_x.re_undef_at_0(im_x)
+        }
+
+        let im_x = i!(0.0);
+        test!(f, i!(0.0), im_x, (vec![], Trv));
+        test!(f, @odd i!(1.0), im_x, (vec![i!(1.0)], Com));
+        test!(f, @odd i!(0.0, 1.0), im_x, (vec![i!(0.0, 1.0)], Trv));
+        test!(f, i!(-1.0, 1.0), im_x, (vec![i!(-1.0, 1.0)], Trv));
+
+        let im_x = i!(1.0);
+        test!(f, i!(0.0), @even im_x, (vec![i!(0.0)], Com));
+        test!(f, @odd i!(1.0), @even im_x, (vec![i!(1.0)], Com));
+        test!(f, @odd i!(0.0, 1.0), @even im_x, (vec![i!(0.0, 1.0)], Com));
+        test!(f, i!(-1.0, 1.0), @even im_x, (vec![i!(-1.0, 1.0)], Com));
+
+        let im_x = i!(0.0, 1.0);
+        test!(f, i!(0.0), @even im_x, (vec![i!(0.0)], Trv));
+        test!(f, @odd i!(1.0), @even im_x, (vec![i!(1.0)], Com));
+        test!(f, @odd i!(0.0, 1.0), @even im_x, (vec![i!(0.0, 1.0)], Trv));
+        test!(f, i!(-1.0, 1.0), @even im_x, (vec![i!(-1.0, 1.0)], Trv));
+
+        let im_x = i!(-1.0, 1.0);
+        test!(f, i!(0.0), im_x, (vec![i!(0.0)], Trv));
+        test!(f, @odd i!(1.0), im_x, (vec![i!(1.0)], Com));
+        test!(f, @odd i!(0.0, 1.0), im_x, (vec![i!(0.0, 1.0)], Trv));
+        test!(f, i!(-1.0, 1.0), im_x, (vec![i!(-1.0, 1.0)], Trv));
+    }
+
+    #[test]
+    fn im_undef_at_0() {
+        fn f(re_x: &TupperIntervalSet, im_x: &TupperIntervalSet) -> TupperIntervalSet {
+            re_x.im_undef_at_0(im_x)
+        }
+
+        let re_x = i!(0.0);
+        test!(f, re_x, i!(0.0), (vec![], Trv));
+        test!(f, re_x, @odd i!(1.0), (vec![i!(1.0)], Com));
+        test!(f, re_x, @odd i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
+        test!(f, re_x, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Trv));
+
+        let re_x = i!(1.0);
+        test!(f, @even re_x, i!(0.0), (vec![i!(0.0)], Com));
+        test!(f, @even re_x, @odd i!(1.0), (vec![i!(1.0)], Com));
+        test!(f, @even re_x, @odd i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Com));
+        test!(f, @even re_x, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Com));
+
+        let re_x = i!(0.0, 1.0);
+        test!(f, @even re_x, i!(0.0), (vec![i!(0.0)], Trv));
+        test!(f, @even re_x, @odd i!(1.0), (vec![i!(1.0)], Com));
+        test!(f, @even re_x, @odd i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
+        test!(f, @even re_x, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Trv));
+
+        let re_x = i!(-1.0, 1.0);
+        test!(f, re_x, i!(0.0), (vec![i!(0.0)], Trv));
+        test!(f, re_x, @odd i!(1.0), (vec![i!(1.0)], Com));
+        test!(f, re_x, @odd i!(0.0, 1.0), (vec![i!(0.0, 1.0)], Trv));
+        test!(f, re_x, i!(-1.0, 1.0), (vec![i!(-1.0, 1.0)], Trv));
     }
 
     #[test]
