@@ -556,6 +556,20 @@ impl VisitMut for ExpandComplexFunctions {
                     ],
                 );
             }
+            unary!(Sinc, binary!(Complex, x, y)) => {
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::binary(ReSinc, box x.clone(), box y.clone()),
+                    box Expr::binary(ImSinc, box take(x), box take(y)),
+                );
+            }
+            unary!(UndefAt0, binary!(Complex, x, y)) => {
+                *e = Expr::binary(
+                    Complex,
+                    box Expr::binary(ReUndefAt0, box x.clone(), box y.clone()),
+                    box Expr::binary(ImUndefAt0, box take(x), box take(y)),
+                );
+            }
             unary!(op, binary!(Complex, x, y)) => {
                 if let Some(template) = self.unary_ops.get(op) {
                     let mut new_e = template.clone();
@@ -1827,6 +1841,8 @@ impl<'a> CollectStatic<'a> {
                         Div => ScalarBinaryOp::Div,
                         GammaInc => ScalarBinaryOp::GammaInc,
                         Gcd => ScalarBinaryOp::Gcd,
+                        ImSinc => ScalarBinaryOp::ImSinc,
+                        ImUndefAt0 => ScalarBinaryOp::ImUndefAt0,
                         LambertW => ScalarBinaryOp::LambertW,
                         Lcm => ScalarBinaryOp::Lcm,
                         Log => ScalarBinaryOp::Log,
@@ -1837,6 +1853,8 @@ impl<'a> CollectStatic<'a> {
                         Pow => ScalarBinaryOp::Pow,
                         PowRational => ScalarBinaryOp::PowRational,
                         ReSignNonnegative => ScalarBinaryOp::ReSignNonnegative,
+                        ReSinc => ScalarBinaryOp::ReSinc,
+                        ReUndefAt0 => ScalarBinaryOp::ReUndefAt0,
                         Sub => ScalarBinaryOp::Sub,
                         And | Complex | Eq | ExplicitRel(_) | Ge | Gt | Le | Lt | Or
                         | RankedMax | RankedMin => return None,

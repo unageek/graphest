@@ -103,6 +103,8 @@ pub enum ScalarBinaryOp {
     Div,
     GammaInc,
     Gcd,
+    ImSinc,
+    ImUndefAt0,
     LambertW,
     Lcm,
     Log,
@@ -113,6 +115,8 @@ pub enum ScalarBinaryOp {
     Pow,
     PowRational,
     ReSignNonnegative,
+    ReSinc,
+    ReUndefAt0,
     Sub,
 }
 
@@ -235,6 +239,8 @@ impl StaticTerm {
             Binary(Div, x, y) => self.put(ts, ts[*x].div(&ts[*y], self.site)),
             Binary(GammaInc, a, x) => self.put(ts, ts[*a].gamma_inc(&ts[*x])),
             Binary(Gcd, x, y) => self.put(ts, ts[*x].gcd(&ts[*y], self.site)),
+            Binary(ImSinc, re_x, im_x) => self.put(ts, ts[*re_x].im_sinc(&ts[*im_x])),
+            Binary(ImUndefAt0, re_x, im_x) => self.put(ts, ts[*re_x].im_undef_at_0(&ts[*im_x])),
             Binary(LambertW, k, x) => self.put(ts, ts[*k].lambert_w(&ts[*x])),
             Binary(Lcm, x, y) => self.put(ts, ts[*x].lcm(&ts[*y], self.site)),
             // Beware the order of arguments.
@@ -248,6 +254,8 @@ impl StaticTerm {
             Binary(ReSignNonnegative, x, y) => {
                 self.put(ts, ts[*x].re_sign_nonnegative(&ts[*y], self.site))
             }
+            Binary(ReSinc, re_x, im_x) => self.put(ts, ts[*re_x].re_sinc(&ts[*im_x])),
+            Binary(ReUndefAt0, re_x, im_x) => self.put(ts, ts[*re_x].re_undef_at_0(&ts[*im_x])),
             Binary(Sub, x, y) => self.put(ts, &ts[*x] - &ts[*y]),
             Ternary(MulAdd, x, y, z) => self.put(ts, ts[*x].mul_add(&ts[*y], &ts[*z])),
             Pown(x, n) => self.put(ts, ts[*x].pown(*n, self.site)),

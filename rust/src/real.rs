@@ -160,6 +160,8 @@ impl Real {
     impl_op!(gamma_inc(a, x));
     impl_op!(gcd(x, y), x.gcd(&y, None), rational_ops::gcd(x, y));
     impl_op!(if_then_else(cond, t, f));
+    impl_op!(im_sinc(re_x, im_x));
+    impl_op!(im_undef_at_0(re_x, im_x));
     impl_op!(inverse_erf(x));
     impl_op!(inverse_erfc(x));
     impl_op!(lambert_w(k, x));
@@ -189,6 +191,8 @@ impl Real {
     }
 
     impl_op!(re_sign_nonnegative(x, y), x.re_sign_nonnegative(&y, None));
+    impl_op!(re_sinc(re_x, im_x));
+    impl_op!(re_undef_at_0(re_x, im_x));
     impl_op!(shi(x));
     impl_op!(si(x));
     impl_op!(sin(x));
