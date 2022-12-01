@@ -484,7 +484,7 @@ impl Expr {
             binary!(GammaInc, a, x) => Some(a.eval()?.gamma_inc(x.eval()?)),
             binary!(Gcd, x, y) => Some(x.eval()?.gcd(y.eval()?)),
             binary!(ImSinc, re_x, im_x) => Some(re_x.eval()?.im_sinc(im_x.eval()?)),
-            binary!(ImUndefAt0, re_x, im_x) => Some(re_x.eval()?.re_undef_at_0(im_x.eval()?)),
+            binary!(ImUndefAt0, re_x, im_x) => Some(re_x.eval()?.im_undef_at_0(im_x.eval()?)),
             binary!(LambertW, k, x) => Some(k.eval()?.lambert_w(x.eval()?)),
             binary!(Lcm, x, y) => Some(x.eval()?.lcm(y.eval()?)),
             // Beware the order of arguments.
