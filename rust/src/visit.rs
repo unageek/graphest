@@ -556,18 +556,21 @@ impl VisitMut for ExpandComplexFunctions {
                     ],
                 );
             }
-            unary!(Sinc, binary!(Complex, x, y)) => {
+            unary!(op @ (Sinc | UndefAt0), binary!(Complex, x, y)) => {
+                let re_op = match op {
+                    Sinc => ReSinc,
+                    UndefAt0 => ReUndefAt0,
+                    _ => unreachable!(),
+                };
+                let im_op = match op {
+                    Sinc => ImSinc,
+                    UndefAt0 => ImUndefAt0,
+                    _ => unreachable!(),
+                };
                 *e = Expr::binary(
                     Complex,
-                    box Expr::binary(ReSinc, box x.clone(), box y.clone()),
-                    box Expr::binary(ImSinc, box take(x), box take(y)),
-                );
-            }
-            unary!(UndefAt0, binary!(Complex, x, y)) => {
-                *e = Expr::binary(
-                    Complex,
-                    box Expr::binary(ReUndefAt0, box x.clone(), box y.clone()),
-                    box Expr::binary(ImUndefAt0, box take(x), box take(y)),
+                    box Expr::binary(re_op, box x.clone(), box y.clone()),
+                    box Expr::binary(im_op, box take(x), box take(y)),
                 );
             }
             unary!(op, binary!(Complex, x, y)) => {

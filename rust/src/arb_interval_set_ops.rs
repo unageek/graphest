@@ -1153,6 +1153,8 @@ impl TupperIntervalSet {
     );
 }
 
+// Real functions
+
 macro_rules! arb_fn {
     (@body($x:ident $(,$y:ident)*), $arb_f:ident($($args:expr),*), $range:expr) => {{
         use crate::arb::Arb;
@@ -1505,31 +1507,7 @@ arb_fn!(
     arb_zeta_ru
 );
 
-fn re_acb_sinc(re_x: Interval, im_x: Interval) -> Interval {
-    use crate::arb::{Acb, Arb};
-    let re_x = Arb::from_interval(re_x);
-    let im_x = Arb::from_interval(im_x);
-    let mut x = Acb::from_parts(re_x, im_x);
-    let mut y = Acb::new();
-    unsafe {
-        graphest_arb_sys::acb_sinc(y.as_mut_ptr(), x.as_mut_ptr(), f64::MANTISSA_DIGITS.into());
-    }
-    y.real().to_interval()
-}
-
-fn im_acb_sinc(re_x: Interval, im_x: Interval) -> Interval {
-    use crate::arb::{Acb, Arb};
-    let re_x = Arb::from_interval(re_x);
-    let im_x = Arb::from_interval(im_x);
-    let mut x = Acb::from_parts(re_x, im_x);
-    let mut y = Acb::new();
-    unsafe {
-        graphest_arb_sys::acb_sinc(y.as_mut_ptr(), x.as_mut_ptr(), f64::MANTISSA_DIGITS.into());
-    }
-    y.imag().to_interval()
-}
-
-// Envelope functions
+// Envelope functions for real functions
 
 fn hypot(x: Interval, y: Interval) -> Interval {
     (x.sqr() + y.sqr()).sqrt()
@@ -1576,6 +1554,46 @@ fn fresnel_envelope_centered(x: Interval) -> Interval {
     let env = hypot(arb_fresnel_c(a) - ONE_HALF, arb_fresnel_s(a) - ONE_HALF).sup();
     interval!(-env, env).unwrap()
 }
+
+// Complex functions
+
+macro_rules! re_im_acb_fn {
+    ($re_f:ident, $im_f:ident, $f_acb:ident) => {
+        fn $re_f(re_x: Interval, im_x: Interval) -> Interval {
+            use crate::arb::{Acb, Arb};
+            let re_x = Arb::from_interval(re_x);
+            let im_x = Arb::from_interval(im_x);
+            let mut x = Acb::from_parts(re_x, im_x);
+            let mut y = Acb::new();
+            unsafe {
+                graphest_arb_sys::$f_acb(
+                    y.as_mut_ptr(),
+                    x.as_mut_ptr(),
+                    f64::MANTISSA_DIGITS.into(),
+                );
+            }
+            y.real().to_interval()
+        }
+
+        fn $im_f(re_x: Interval, im_x: Interval) -> Interval {
+            use crate::arb::{Acb, Arb};
+            let re_x = Arb::from_interval(re_x);
+            let im_x = Arb::from_interval(im_x);
+            let mut x = Acb::from_parts(re_x, im_x);
+            let mut y = Acb::new();
+            unsafe {
+                graphest_arb_sys::$f_acb(
+                    y.as_mut_ptr(),
+                    x.as_mut_ptr(),
+                    f64::MANTISSA_DIGITS.into(),
+                );
+            }
+            y.imag().to_interval()
+        }
+    };
+}
+
+re_im_acb_fn!(re_acb_sinc, im_acb_sinc, acb_sinc);
 
 #[cfg(test)]
 mod tests {
