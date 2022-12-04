@@ -95,6 +95,7 @@ pub enum BinaryOp {
     Gt,
     ImSinc,
     ImUndefAt0,
+    ImZeta,
     LambertW,
     Lcm,
     Le,
@@ -112,6 +113,7 @@ pub enum BinaryOp {
     ReSignNonnegative,
     ReSinc,
     ReUndefAt0,
+    ReZeta,
     Sub,
 }
 
@@ -485,6 +487,7 @@ impl Expr {
             binary!(Gcd, x, y) => Some(x.eval()?.gcd(y.eval()?)),
             binary!(ImSinc, re_x, im_x) => Some(re_x.eval()?.im_sinc(im_x.eval()?)),
             binary!(ImUndefAt0, re_x, im_x) => Some(re_x.eval()?.im_undef_at_0(im_x.eval()?)),
+            binary!(ImZeta, re_x, im_x) => Some(re_x.eval()?.im_zeta(im_x.eval()?)),
             binary!(LambertW, k, x) => Some(k.eval()?.lambert_w(x.eval()?)),
             binary!(Lcm, x, y) => Some(x.eval()?.lcm(y.eval()?)),
             // Beware the order of arguments.
@@ -506,6 +509,7 @@ impl Expr {
             binary!(ReSignNonnegative, x, y) => Some(x.eval()?.re_sign_nonnegative(y.eval()?)),
             binary!(ReSinc, re_x, im_x) => Some(re_x.eval()?.re_sinc(im_x.eval()?)),
             binary!(ReUndefAt0, re_x, im_x) => Some(re_x.eval()?.re_undef_at_0(im_x.eval()?)),
+            binary!(ReZeta, re_x, im_x) => Some(re_x.eval()?.re_zeta(im_x.eval()?)),
             binary!(
                 And | Complex
                     | Div
@@ -685,7 +689,8 @@ impl Expr {
                     | Sqr
                     | Sqrt
                     | Tan
-                    | Tanh,
+                    | Tanh
+                    | Zeta,
                 x
             ) if complex(x) => ComplexT,
             binary!(Complex, x, y) if real(x) && real(y) => ComplexT,
@@ -776,6 +781,7 @@ impl Expr {
                     | Gcd
                     | ImSinc
                     | ImUndefAt0
+                    | ImZeta
                     | LambertW
                     | Lcm
                     | Log
@@ -788,6 +794,7 @@ impl Expr {
                     | ReSignNonnegative
                     | ReSinc
                     | ReUndefAt0
+                    | ReZeta
                     | Sub,
                 x,
                 y

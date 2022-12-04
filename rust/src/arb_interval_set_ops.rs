@@ -1151,6 +1151,44 @@ impl TupperIntervalSet {
         },
         lt!(x, 1.0) | gt!(x, 1.0)
     );
+
+    pub fn re_zeta(&self, im_xs: &Self) -> Self {
+        let mut rs = Self::new();
+        for re_x in self {
+            for im_x in im_xs {
+                if let Some(g) = re_x.g.union(im_x.g) {
+                    let dec = if re_x.x.contains(1.0) && im_x.x.contains(0.0) {
+                        Decoration::Trv
+                    } else {
+                        Decoration::Com.min(re_x.d).min(im_x.d)
+                    };
+                    let re_y = re_acb_zeta(re_x.x, im_x.x);
+                    rs.insert(TupperInterval::new(DecInterval::set_dec(re_y, dec), g));
+                }
+            }
+        }
+        rs.normalize(false);
+        rs
+    }
+
+    pub fn im_zeta(&self, im_xs: &Self) -> Self {
+        let mut rs = Self::new();
+        for re_x in self {
+            for im_x in im_xs {
+                if let Some(g) = re_x.g.union(im_x.g) {
+                    let dec = if re_x.x.contains(1.0) && im_x.x.contains(0.0) {
+                        Decoration::Trv
+                    } else {
+                        Decoration::Com.min(re_x.d).min(im_x.d)
+                    };
+                    let im_y = im_acb_zeta(re_x.x, im_x.x);
+                    rs.insert(TupperInterval::new(DecInterval::set_dec(im_y, dec), g));
+                }
+            }
+        }
+        rs.normalize(false);
+        rs
+    }
 }
 
 // Real functions
@@ -1594,6 +1632,7 @@ macro_rules! re_im_acb_fn {
 }
 
 re_im_acb_fn!(re_acb_sinc, im_acb_sinc, acb_sinc);
+re_im_acb_fn!(re_acb_zeta, im_acb_zeta, acb_zeta);
 
 #[cfg(test)]
 mod tests {
@@ -1641,7 +1680,12 @@ mod tests {
             }
         }
 
-        let fs = [TupperIntervalSet::im_sinc, TupperIntervalSet::re_sinc];
+        let fs = [
+            TupperIntervalSet::im_sinc,
+            TupperIntervalSet::im_zeta,
+            TupperIntervalSet::re_sinc,
+            TupperIntervalSet::re_zeta,
+        ];
         for f in &fs {
             for x in &xs {
                 for y in &xs {

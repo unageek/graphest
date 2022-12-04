@@ -556,15 +556,17 @@ impl VisitMut for ExpandComplexFunctions {
                     ],
                 );
             }
-            unary!(op @ (Sinc | UndefAt0), binary!(Complex, x, y)) => {
+            unary!(op @ (Sinc | UndefAt0 | Zeta), binary!(Complex, x, y)) => {
                 let re_op = match op {
                     Sinc => ReSinc,
                     UndefAt0 => ReUndefAt0,
+                    Zeta => ReZeta,
                     _ => unreachable!(),
                 };
                 let im_op = match op {
                     Sinc => ImSinc,
                     UndefAt0 => ImUndefAt0,
+                    Zeta => ImZeta,
                     _ => unreachable!(),
                 };
                 *e = Expr::binary(
@@ -1846,6 +1848,7 @@ impl<'a> CollectStatic<'a> {
                         Gcd => ScalarBinaryOp::Gcd,
                         ImSinc => ScalarBinaryOp::ImSinc,
                         ImUndefAt0 => ScalarBinaryOp::ImUndefAt0,
+                        ImZeta => ScalarBinaryOp::ImZeta,
                         LambertW => ScalarBinaryOp::LambertW,
                         Lcm => ScalarBinaryOp::Lcm,
                         Log => ScalarBinaryOp::Log,
@@ -1858,6 +1861,7 @@ impl<'a> CollectStatic<'a> {
                         ReSignNonnegative => ScalarBinaryOp::ReSignNonnegative,
                         ReSinc => ScalarBinaryOp::ReSinc,
                         ReUndefAt0 => ScalarBinaryOp::ReUndefAt0,
+                        ReZeta => ScalarBinaryOp::ReZeta,
                         Sub => ScalarBinaryOp::Sub,
                         And | Complex | Eq | ExplicitRel(_) | Ge | Gt | Le | Lt | Or
                         | RankedMax | RankedMin => return None,
