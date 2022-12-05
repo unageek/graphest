@@ -206,13 +206,13 @@ fn fail_expr(i: InputWithContext) -> ParseResult<Expr> {
     Err(Err::Error(Error::expected_expr(i)))
 }
 
-fn expr_within_bars(i: InputWithContext) -> ParseResult<Expr> {
+fn expr_within_bars_terminated_with_space0(i: InputWithContext) -> ParseResult<Expr> {
     let mut o = recognize(take_while(|c| c != '|'))(i.clone())?;
     let mut even_bars_taken = true;
     loop {
         let (rest, taken) = o;
         if even_bars_taken {
-            if let Ok((_, x)) = all_consuming(expr)(taken.clone()) {
+            if let Ok((_, x)) = all_consuming(terminated(expr, space0))(taken.clone()) {
                 return Ok((rest, x));
             }
         }
@@ -220,7 +220,11 @@ fn expr_within_bars(i: InputWithContext) -> ParseResult<Expr> {
             // Reached the end of input. All we can do is return a meaningful error.
             return expr(taken);
         }
-        o = recognize(pair(take(taken.input_len() + 1), take_while(|c| c != '|')))(i.clone())?;
+        // Do not use `taken.input_len()`, which returns the number of bytes instead of chars.
+        o = recognize(pair(
+            take(taken.source.chars().count() + 1),
+            take_while(|c| c != '|'),
+        ))(i.clone())?;
         even_bars_taken = !even_bars_taken;
     }
 }
@@ -263,8 +267,8 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                     delimited(char('|'), peek(not(char('|'))), space0),
                     // Not an OR expression (unless it's called from the case below).
                     // So we can cut when no expression is found.
-                    cut(expr_within_bars),
-                    preceded(space0, cut(char('|'))),
+                    cut(expr_within_bars_terminated_with_space0),
+                    cut(char('|')),
                 ),
                 move |x| builtin.apply("abs", vec![x]),
             ),
@@ -273,8 +277,8 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
                     terminated(char('|'), space0),
                     // Possibly an OR expression. We must not cut when no expression is found.
                     // The above case is called recursively, so we also need to cancel cut.
-                    decut(expr_within_bars),
-                    preceded(space0, cut(char('|'))),
+                    decut(expr_within_bars_terminated_with_space0),
+                    cut(char('|')),
                 ),
                 move |x| builtin.apply("abs", vec![x]),
             ),
