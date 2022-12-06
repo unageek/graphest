@@ -574,7 +574,9 @@ ipcMain.handle<ipc.RequestRelation>(
         suffixArgs = ["--", rel];
       }
       const args = ["--dump-ast", "--parse", ...suffixArgs];
-      const { stdout } = await util.promisify(execFile)(graphExec, args);
+      const { stdout } = await util.promisify(execFile)(graphExec, args, {
+        maxBuffer: 1024 * 1024 * 1024,
+      });
       const ast = stdout.split("\n")[0];
       const relKey = graphId + ":" + highRes.toString() + ":" + ast;
       let relId = relKeyToRelId.get(relKey);
