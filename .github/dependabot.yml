@@ -1,11 +1,11 @@
 version: 2
 updates:
-  - package-ecosystem: cargo
-    directory: "/"
-    schedule:
-      interval: weekly
-      time: "05:00"
-      timezone: Asia/Tokyo
+  # - package-ecosystem: cargo
+  #   directory: "/"
+  #   schedule:
+  #     interval: weekly
+  #     time: "05:00"
+  #     timezone: Asia/Tokyo
 
   - package-ecosystem: github-actions
     directory: "/"
@@ -14,9 +14,9 @@ updates:
       time: "05:00"
       timezone: Asia/Tokyo
 
-  - package-ecosystem: npm
-    directory: "/"
-    schedule:
-      interval: weekly
-      time: "05:00"
-      timezone: Asia/Tokyo
+  # - package-ecosystem: npm
+  #   directory: "/"
+  #   schedule:
+  #     interval: weekly
+  #     time: "05:00"
+  #     timezone: Asia/Tokyo
