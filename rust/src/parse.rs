@@ -207,13 +207,28 @@ fn fail_expr(i: InputWithContext) -> ParseResult<Expr> {
 }
 
 fn expr_within_bars_terminated_with_space0(i: InputWithContext) -> ParseResult<Expr> {
+    use crate::{
+        ast::{
+            BinaryOp::{And, Eq, Ge, Gt, Le, Lt, Or},
+            UnaryOp::Not,
+        },
+        binary, bool_constant, unary,
+    };
+
     let mut o = recognize(take_while(|c| c != '|'))(i.clone())?;
     let mut even_bars_taken = true;
     loop {
         let (rest, taken) = o;
         if even_bars_taken {
             if let Ok((_, x)) = all_consuming(terminated(expr, space0))(taken.clone()) {
-                return Ok((rest, x));
+                match x {
+                    bool_constant!(_)
+                    | unary!(Not, _)
+                    | binary!(And | Eq | Ge | Gt | Le | Lt | Or, _, _) => {
+                        // Not an absolute value.
+                    }
+                    _ => return Ok((rest, x)),
+                }
             }
         }
         if rest.input_len() == 0 {
@@ -593,6 +608,17 @@ mod tests {
             "y = ||x|| || |||x|| + |||y|||| = y",
             "(Or (Eq y (Abs (Abs x))) (Eq (Abs (Add (Abs (Abs x)) (Abs (Abs (Abs y))))) y))",
         );
+        test("y = x || x || x", "(Eq y (Mul (Mul x (Abs (Abs x))) x))");
+        test(
+            "y = x || x || x = y",
+            "(And (Eq y (Mul (Mul x (Abs (Abs x))) x)) (Eq (Mul (Mul x (Abs (Abs x))) x) y))",
+        );
+        test(
+            // Parsed as "y = x ||x| x| = y" instead of "y = x || x |x| = y".
+            "y = x || x | x | = y",
+            "(And (Eq y (Mul x (Abs (Mul (Abs x) x)))) (Eq (Mul x (Abs (Mul (Abs x) x))) y))",
+        );
+        test("true || true || true", "(Or (Or True True) True)");
         test("⌈x⌉", "(Ceil x)");
         test("⌊x⌋", "(Floor x)");
         test("abs(x)", "(Abs x)");
