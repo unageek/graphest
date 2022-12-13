@@ -613,6 +613,11 @@ mod tests {
             "y = x || x || x = y",
             "(And (Eq y (Mul (Mul x (Abs (Abs x))) x)) (Eq (Mul (Mul x (Abs (Abs x))) x) y))",
         );
+        test(
+            // Parsed as "y = x ||x| x| = y" instead of "y = x || x |x| = y".
+            "y = x || x | x | = y",
+            "(And (Eq y (Mul x (Abs (Mul (Abs x) x)))) (Eq (Mul x (Abs (Mul (Abs x) x))) y))",
+        );
         test("true || true || true", "(Or (Or True True) True)");
         test("⌈x⌉", "(Ceil x)");
         test("⌊x⌋", "(Floor x)");
