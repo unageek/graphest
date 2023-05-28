@@ -657,7 +657,6 @@ fn normalize_explicit_relation_impl(
                 && normalize_explicit_relation_impl(e2, parts, y_var, x_var)
         }
         binary!(op @ explicit_rel_op!(), y @ var!(_), e)
-        | binary!(op @ explicit_rel_op!(), e, y @ var!(_))
             if y.vars == y_var && x_var.contains(e.vars) =>
         {
             parts.y.is_none() && {
@@ -667,6 +666,22 @@ fn normalize_explicit_relation_impl(
                     Gt => ExplicitRelOp::Gt,
                     Le => ExplicitRelOp::Le,
                     Lt => ExplicitRelOp::Lt,
+                    _ => unreachable!(),
+                };
+                parts.y = Some(Expr::binary(ExplicitRel(parts.op), take(y), take(e)));
+                true
+            }
+        }
+        binary!(op @ explicit_rel_op!(), e, y @ var!(_))
+            if y.vars == y_var && x_var.contains(e.vars) =>
+        {
+            parts.y.is_none() && {
+                parts.op = match op {
+                    Eq => ExplicitRelOp::Eq,
+                    Ge => ExplicitRelOp::Le,
+                    Gt => ExplicitRelOp::Lt,
+                    Le => ExplicitRelOp::Ge,
+                    Lt => ExplicitRelOp::Gt,
                     _ => unreachable!(),
                 };
                 parts.y = Some(Expr::binary(ExplicitRel(parts.op), take(y), take(e)));
@@ -819,6 +834,11 @@ mod tests {
         assert_eq!(f("y > 1"), ExplicitFunctionOfX(Gt));
         assert_eq!(f("y ≤ 1"), ExplicitFunctionOfX(Le));
         assert_eq!(f("y < 1"), ExplicitFunctionOfX(Lt));
+        assert_eq!(f("1 = y"), ExplicitFunctionOfX(Eq));
+        assert_eq!(f("1 ≤ y"), ExplicitFunctionOfX(Ge));
+        assert_eq!(f("1 < y"), ExplicitFunctionOfX(Gt));
+        assert_eq!(f("1 ≥ y"), ExplicitFunctionOfX(Le));
+        assert_eq!(f("1 > y"), ExplicitFunctionOfX(Lt));
         assert_eq!(f("y = sin(x)"), ExplicitFunctionOfX(Eq));
         assert_eq!(f("y = sin(x) && 0 < x < 1 < 2"), ExplicitFunctionOfX(Eq));
         assert_eq!(f("0 < x < 1 < 2 && sin(x) = y"), ExplicitFunctionOfX(Eq));
@@ -827,6 +847,11 @@ mod tests {
         assert_eq!(f("x > 1"), ExplicitFunctionOfY(Gt));
         assert_eq!(f("x ≤ 1"), ExplicitFunctionOfY(Le));
         assert_eq!(f("x < 1"), ExplicitFunctionOfY(Lt));
+        assert_eq!(f("1 = x"), ExplicitFunctionOfY(Eq));
+        assert_eq!(f("1 ≤ x"), ExplicitFunctionOfY(Ge));
+        assert_eq!(f("1 < x"), ExplicitFunctionOfY(Gt));
+        assert_eq!(f("1 ≥ x"), ExplicitFunctionOfY(Le));
+        assert_eq!(f("1 > x"), ExplicitFunctionOfY(Lt));
         assert_eq!(f("x = sin(y)"), ExplicitFunctionOfY(Eq));
         assert_eq!(f("x = sin(y) && 0 < y < 1 < 2"), ExplicitFunctionOfY(Eq));
         assert_eq!(f("0 < y < 1 < 2 && sin(y) = x"), ExplicitFunctionOfY(Eq));
