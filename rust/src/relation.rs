@@ -425,22 +425,22 @@ fn expand_polar_coords(e: &mut Expr) {
     let mut v = ReplaceAll::new(|e| match e {
         var!(x) if x == "r" => Some(Expr::binary(
             Pow,
-            box Expr::nary(
+            Expr::nary(
                 Plus,
                 vec![
-                    Expr::binary(Pow, box ctx.get_constant("x").unwrap(), box Expr::two()),
-                    Expr::binary(Pow, box ctx.get_constant("y").unwrap(), box Expr::two()),
+                    Expr::binary(Pow, ctx.get_constant("x").unwrap(), Expr::two()),
+                    Expr::binary(Pow, ctx.get_constant("y").unwrap(), Expr::two()),
                 ],
             ),
-            box Expr::one_half(),
+            Expr::one_half(),
         )),
         var!(x) if x == "theta" => Some(Expr::nary(
             Plus,
             vec![
                 Expr::binary(
                     Atan2,
-                    box ctx.get_constant("y").unwrap(),
-                    box ctx.get_constant("x").unwrap(),
+                    ctx.get_constant("y").unwrap(),
+                    ctx.get_constant("x").unwrap(),
                 ),
                 Expr::nary(
                     Times,
@@ -468,14 +468,14 @@ fn expand_polar_coords(e: &mut Expr) {
                 Expr::minus_one(),
                 Expr::binary(
                     Pow,
-                    box Expr::nary(
+                    Expr::nary(
                         Plus,
                         vec![
-                            Expr::binary(Pow, box ctx.get_constant("x").unwrap(), box Expr::two()),
-                            Expr::binary(Pow, box ctx.get_constant("y").unwrap(), box Expr::two()),
+                            Expr::binary(Pow, ctx.get_constant("x").unwrap(), Expr::two()),
+                            Expr::binary(Pow, ctx.get_constant("y").unwrap(), Expr::two()),
                         ],
                     ),
-                    box Expr::one_half(),
+                    Expr::one_half(),
                 ),
             ],
         )),
@@ -484,8 +484,8 @@ fn expand_polar_coords(e: &mut Expr) {
             vec![
                 Expr::binary(
                     Atan2,
-                    box ctx.get_constant("y").unwrap(),
-                    box ctx.get_constant("x").unwrap(),
+                    ctx.get_constant("y").unwrap(),
+                    ctx.get_constant("x").unwrap(),
                 ),
                 Expr::nary(
                     Times,
@@ -503,7 +503,7 @@ fn expand_polar_coords(e: &mut Expr) {
     });
     v.visit_expr_mut(&mut e2);
 
-    *e = Expr::binary(BinaryOp::Or, box e1, box e2);
+    *e = Expr::binary(BinaryOp::Or, e1, e2);
 }
 
 /// Returns the period of a function of a variable t in multiples of 2π,
@@ -627,10 +627,10 @@ fn normalize_explicit_relation(
     }
 
     if let Some(y) = parts.y {
-        *e = *(once(box y)
-            .chain(parts.px.into_iter().map(Box::new))
-            .reduce(|acc, e| box Expr::binary(And, acc, e))
-            .unwrap());
+        *e = once(y)
+            .chain(parts.px)
+            .reduce(|acc, e| Expr::binary(And, acc, e))
+            .unwrap();
         Some(parts.op)
     } else {
         None
@@ -669,11 +669,7 @@ fn normalize_explicit_relation_impl(
                     Lt => ExplicitRelOp::Lt,
                     _ => unreachable!(),
                 };
-                parts.y = Some(Expr::binary(
-                    ExplicitRel(parts.op),
-                    box take(y),
-                    box take(e),
-                ));
+                parts.y = Some(Expr::binary(ExplicitRel(parts.op), take(y), take(e)));
                 true
             }
         }
@@ -706,11 +702,11 @@ fn normalize_parametric_relation(e: &mut Expr) -> bool {
     }
 
     if let (Some(xt), Some(yt)) = (parts.xt, parts.yt) {
-        *e = *([box xt, box yt]
+        *e = [xt, yt]
             .into_iter()
-            .chain(parts.pt.into_iter().map(Box::new))
-            .reduce(|acc, e| box Expr::binary(And, acc, e))
-            .unwrap());
+            .chain(parts.pt)
+            .reduce(|acc, e| Expr::binary(And, acc, e))
+            .unwrap();
         true
     } else {
         false
@@ -733,8 +729,8 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
             parts.xt.is_none() && {
                 parts.xt = Some(Expr::binary(
                     ExplicitRel(ExplicitRelOp::Eq),
-                    box take(x),
-                    box take(e),
+                    take(x),
+                    take(e),
                 ));
                 true
             }
@@ -745,8 +741,8 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
             parts.yt.is_none() && {
                 parts.yt = Some(Expr::binary(
                     ExplicitRel(ExplicitRelOp::Eq),
-                    box take(y),
-                    box take(e),
+                    take(y),
+                    take(e),
                 ));
                 true
             }

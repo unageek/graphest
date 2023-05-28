@@ -313,8 +313,8 @@ impl Expr {
     }
 
     /// Creates a new expression of kind [`ExprKind::Binary`].
-    pub fn binary(op: BinaryOp, x: Box<Expr>, y: Box<Expr>) -> Self {
-        Self::new(ExprKind::Binary(op, x, y))
+    pub fn binary(op: BinaryOp, x: Expr, y: Expr) -> Self {
+        Self::new(ExprKind::Binary(op, Box::new(x), Box::new(y)))
     }
 
     /// Creates a new expression of kind [`ExprKind::BoolConstant`].
@@ -324,7 +324,7 @@ impl Expr {
 
     /// Creates a new expression of kind [`ExprKind::Constant`].
     pub fn constant(x: Real) -> Self {
-        Self::new(ExprKind::Constant(box x))
+        Self::new(ExprKind::Constant(Box::new(x)))
     }
 
     /// Creates a new expression of kind [`ExprKind::Error`].
@@ -358,13 +358,13 @@ impl Expr {
     }
 
     /// Creates a new expression of kind [`ExprKind::Pown`].
-    pub fn pown(x: Box<Expr>, n: i32) -> Self {
-        Self::new(ExprKind::Pown(x, n))
+    pub fn pown(x: Expr, n: i32) -> Self {
+        Self::new(ExprKind::Pown(Box::new(x), n))
     }
 
     /// Creates a new expression of kind [`ExprKind::Rootn`].
-    pub fn rootn(x: Box<Expr>, n: u32) -> Self {
-        Self::new(ExprKind::Rootn(x, n))
+    pub fn rootn(x: Expr, n: u32) -> Self {
+        Self::new(ExprKind::Rootn(Box::new(x), n))
     }
 
     /// Creates a constant node with value 2π.
@@ -373,8 +373,8 @@ impl Expr {
     }
 
     /// Creates a new expression of kind [`ExprKind::Ternary`].
-    pub fn ternary(op: TernaryOp, x: Box<Expr>, y: Box<Expr>, z: Box<Expr>) -> Self {
-        Self::new(ExprKind::Ternary(op, x, y, z))
+    pub fn ternary(op: TernaryOp, x: Expr, y: Expr, z: Expr) -> Self {
+        Self::new(ExprKind::Ternary(op, Box::new(x), Box::new(y), Box::new(z)))
     }
 
     /// Creates a constant node with value 2.
@@ -383,8 +383,8 @@ impl Expr {
     }
 
     /// Creates a new expression of kind [`ExprKind::Unary`].
-    pub fn unary(op: UnaryOp, x: Box<Expr>) -> Self {
-        Self::new(ExprKind::Unary(op, x))
+    pub fn unary(op: UnaryOp, x: Expr) -> Self {
+        Self::new(ExprKind::Unary(op, Box::new(x)))
     }
 
     /// Creates a new expression of kind [`ExprKind::Var`].

@@ -238,20 +238,12 @@ impl VisitMut for NormalizeNotExprs {
                 }
                 binary!(And, x, y) => {
                     // (Not (And x y)) → (Or (Not x) (Not y))
-                    *e = Expr::binary(
-                        Or,
-                        box Expr::unary(Not, box take(x)),
-                        box Expr::unary(Not, box take(y)),
-                    );
+                    *e = Expr::binary(Or, Expr::unary(Not, take(x)), Expr::unary(Not, take(y)));
                     modified = true;
                 }
                 binary!(Or, x, y) => {
                     // (Not (Or x y)) → (And (Not x) (Not y))
-                    *e = Expr::binary(
-                        And,
-                        box Expr::unary(Not, box take(x)),
-                        box Expr::unary(Not, box take(y)),
-                    );
+                    *e = Expr::binary(And, Expr::unary(Not, take(x)), Expr::unary(Not, take(y)));
                     modified = true;
                 }
                 _ => (),
@@ -287,7 +279,7 @@ impl VisitMut for PreTransform {
             }
             unary!(Sqrt, x) => {
                 // (Sqrt x) → (Pow x 1/2)
-                *e = Expr::binary(Pow, box take(x), box Expr::one_half());
+                *e = Expr::binary(Pow, take(x), Expr::one_half());
             }
             binary!(Add, x, y) => {
                 // (Add x y) → (Plus x y)
@@ -296,25 +288,22 @@ impl VisitMut for PreTransform {
             binary!(Div, unary!(Sin, x), y) if x == y => {
                 // Ad-hoc.
                 // (Div (Sin x) x) → (Sinc (UndefAt0 x))
-                *e = Expr::unary(Sinc, box Expr::unary(UndefAt0, box take(x)));
+                *e = Expr::unary(Sinc, Expr::unary(UndefAt0, take(x)));
             }
             binary!(Div, x, unary!(Sin, y)) if y == x => {
                 // Ad-hoc.
                 // (Div x (Sin x)) → (Pow (Sinc (UndefAt0 x)) -1)
                 *e = Expr::binary(
                     Pow,
-                    box Expr::unary(Sinc, box Expr::unary(UndefAt0, box take(x))),
-                    box Expr::minus_one(),
+                    Expr::unary(Sinc, Expr::unary(UndefAt0, take(x))),
+                    Expr::minus_one(),
                 );
             }
             binary!(Div, x, y) => {
                 // (Div x y) → (Times x (Pow y -1))
                 *e = Expr::nary(
                     Times,
-                    vec![
-                        take(x),
-                        Expr::binary(Pow, box take(y), box Expr::minus_one()),
-                    ],
+                    vec![take(x), Expr::binary(Pow, take(y), Expr::minus_one())],
                 );
             }
             binary!(Mul, x, y) => {
@@ -449,17 +438,17 @@ impl VisitMut for ExpandComplexFunctions {
 
         match e {
             unary!(Arg, binary!(Complex, x, y)) => {
-                *e = Expr::binary(Atan2, box take(y), box take(x));
+                *e = Expr::binary(Atan2, take(y), take(x));
             }
             unary!(Arg, x) => {
                 assert_eq!(x.ty, Real);
-                *e = Expr::binary(Atan2, box Expr::zero(), box take(x));
+                *e = Expr::binary(Atan2, Expr::zero(), take(x));
             }
             unary!(Conj, binary!(Complex, x, y)) => {
                 *e = Expr::binary(
                     Complex,
-                    box take(x),
-                    box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
+                    take(x),
+                    Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
                 );
             }
             unary!(Conj, x) => {
@@ -499,35 +488,35 @@ impl VisitMut for ExpandComplexFunctions {
                 // sgn(x + i y) = f(x, y) - f(-x, y) + i (f(y, x) - f(-y, x)), where f is `ReSignNonnegative`.
                 *e = Expr::binary(
                     Complex,
-                    box Expr::nary(
+                    Expr::nary(
                         Plus,
                         vec![
-                            Expr::binary(ReSignNonnegative, box x.clone(), box y.clone()),
+                            Expr::binary(ReSignNonnegative, x.clone(), y.clone()),
                             Expr::nary(
                                 Times,
                                 vec![
                                     Expr::minus_one(),
                                     Expr::binary(
                                         ReSignNonnegative,
-                                        box Expr::nary(Times, vec![Expr::minus_one(), x.clone()]),
-                                        box y.clone(),
+                                        Expr::nary(Times, vec![Expr::minus_one(), x.clone()]),
+                                        y.clone(),
                                     ),
                                 ],
                             ),
                         ],
                     ),
-                    box Expr::nary(
+                    Expr::nary(
                         Plus,
                         vec![
-                            Expr::binary(ReSignNonnegative, box y.clone(), box x.clone()),
+                            Expr::binary(ReSignNonnegative, y.clone(), x.clone()),
                             Expr::nary(
                                 Times,
                                 vec![
                                     Expr::minus_one(),
                                     Expr::binary(
                                         ReSignNonnegative,
-                                        box Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
-                                        box take(x),
+                                        Expr::nary(Times, vec![Expr::minus_one(), take(y)]),
+                                        take(x),
                                     ),
                                 ],
                             ),
@@ -541,15 +530,15 @@ impl VisitMut for ExpandComplexFunctions {
                 *e = Expr::nary(
                     Plus,
                     vec![
-                        Expr::binary(ReSignNonnegative, box x.clone(), box Expr::zero()),
+                        Expr::binary(ReSignNonnegative, x.clone(), Expr::zero()),
                         Expr::nary(
                             Times,
                             vec![
                                 Expr::minus_one(),
                                 Expr::binary(
                                     ReSignNonnegative,
-                                    box Expr::nary(Times, vec![Expr::minus_one(), take(x)]),
-                                    box Expr::zero(),
+                                    Expr::nary(Times, vec![Expr::minus_one(), take(x)]),
+                                    Expr::zero(),
                                 ),
                             ],
                         ),
@@ -571,8 +560,8 @@ impl VisitMut for ExpandComplexFunctions {
                 };
                 *e = Expr::binary(
                     Complex,
-                    box Expr::binary(re_op, box x.clone(), box y.clone()),
-                    box Expr::binary(im_op, box take(x), box take(y)),
+                    Expr::binary(re_op, x.clone(), y.clone()),
+                    Expr::binary(im_op, take(x), take(y)),
                 );
             }
             unary!(op, binary!(Complex, x, y)) => {
@@ -586,18 +575,18 @@ impl VisitMut for ExpandComplexFunctions {
                 *e = match (x, y) {
                     (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
                         And,
-                        box Expr::binary(Eq, box take(a), box take(x)),
-                        box Expr::binary(Eq, box take(b), box take(y)),
+                        Expr::binary(Eq, take(a), take(x)),
+                        Expr::binary(Eq, take(b), take(y)),
                     ),
                     (binary!(Complex, a, b), x) => Expr::binary(
                         And,
-                        box Expr::binary(Eq, box take(a), box take(x)),
-                        box Expr::binary(Eq, box take(b), box Expr::zero()),
+                        Expr::binary(Eq, take(a), take(x)),
+                        Expr::binary(Eq, take(b), Expr::zero()),
                     ),
                     (a, binary!(Complex, x, y)) => Expr::binary(
                         And,
-                        box Expr::binary(Eq, box take(a), box take(x)),
-                        box Expr::binary(Eq, box Expr::zero(), box take(y)),
+                        Expr::binary(Eq, take(a), take(x)),
+                        Expr::binary(Eq, Expr::zero(), take(y)),
                     ),
                     _ => panic!(), // `x.ty` or `y.ty` is wrong.
                 };
@@ -635,28 +624,18 @@ impl VisitMut for ExpandComplexFunctions {
                 *e = match (t, f) {
                     (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
                         Complex,
-                        box Expr::ternary(IfThenElse, box cond.clone(), box take(a), box take(x)),
-                        box Expr::ternary(IfThenElse, box take(cond), box take(b), box take(y)),
+                        Expr::ternary(IfThenElse, cond.clone(), take(a), take(x)),
+                        Expr::ternary(IfThenElse, take(cond), take(b), take(y)),
                     ),
                     (binary!(Complex, a, b), x) => Expr::binary(
                         Complex,
-                        box Expr::ternary(IfThenElse, box cond.clone(), box take(a), box take(x)),
-                        box Expr::ternary(
-                            IfThenElse,
-                            box take(cond),
-                            box take(b),
-                            box Expr::zero(),
-                        ),
+                        Expr::ternary(IfThenElse, cond.clone(), take(a), take(x)),
+                        Expr::ternary(IfThenElse, take(cond), take(b), Expr::zero()),
                     ),
                     (a, binary!(Complex, x, y)) => Expr::binary(
                         Complex,
-                        box Expr::ternary(IfThenElse, box cond.clone(), box take(a), box take(x)),
-                        box Expr::ternary(
-                            IfThenElse,
-                            box take(cond),
-                            box Expr::zero(),
-                            box take(y),
-                        ),
+                        Expr::ternary(IfThenElse, cond.clone(), take(a), take(x)),
+                        Expr::ternary(IfThenElse, take(cond), Expr::zero(), take(y)),
                     ),
                     _ => panic!(), // `t.ty` or `f.ty` is wrong.
                 }
@@ -675,11 +654,7 @@ impl VisitMut for ExpandComplexFunctions {
                         }
                     }
                 }
-                *e = Expr::binary(
-                    Complex,
-                    box Expr::nary(Plus, reals),
-                    box Expr::nary(Plus, imags),
-                );
+                *e = Expr::binary(Complex, Expr::nary(Plus, reals), Expr::nary(Plus, imags));
             }
             nary!(Times, xs) if e.ty == ComplexT => {
                 let mut it = xs.drain(..);
@@ -688,7 +663,7 @@ impl VisitMut for ExpandComplexFunctions {
                     x = match (&mut x, &mut y) {
                         (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
                             Complex,
-                            box Expr::nary(
+                            Expr::nary(
                                 Plus,
                                 vec![
                                     Expr::nary(Times, vec![a.clone(), x.clone()]),
@@ -698,7 +673,7 @@ impl VisitMut for ExpandComplexFunctions {
                                     ),
                                 ],
                             ),
-                            box Expr::nary(
+                            Expr::nary(
                                 Plus,
                                 vec![
                                     Expr::nary(Times, vec![take(b), take(x)]),
@@ -708,8 +683,8 @@ impl VisitMut for ExpandComplexFunctions {
                         ),
                         (a, binary!(Complex, x, y)) | (binary!(Complex, x, y), a) => Expr::binary(
                             Complex,
-                            box Expr::nary(Times, vec![a.clone(), take(x)]),
-                            box Expr::nary(Times, vec![take(a), take(y)]),
+                            Expr::nary(Times, vec![a.clone(), take(x)]),
+                            Expr::nary(Times, vec![take(a), take(y)]),
                         ),
                         _ => panic!(), // `e.ty` is wrong.
                     };
@@ -741,11 +716,11 @@ impl VisitMut for NormalizeRelationalExprs {
                 // (op x y) → (op (Plus x (Times -1 y)) 0)
                 *e = Expr::binary(
                     *op,
-                    box Expr::nary(
+                    Expr::nary(
                         Plus,
                         vec![take(x), Expr::nary(Times, vec![Expr::minus_one(), take(y)])],
                     ),
-                    box Expr::zero(),
+                    Expr::zero(),
                 )
             }
             binary!(op @ (Ge | Gt), x, y) => {
@@ -757,11 +732,11 @@ impl VisitMut for NormalizeRelationalExprs {
                 };
                 *e = Expr::binary(
                     inv_op,
-                    box Expr::nary(
+                    Expr::nary(
                         Plus,
                         vec![take(y), Expr::nary(Times, vec![Expr::minus_one(), take(x)])],
                     ),
-                    box Expr::zero(),
+                    Expr::zero(),
                 )
             }
             _ => (),
@@ -793,10 +768,7 @@ impl VisitMut for ExpandBoole {
                         Plus,
                         vec![
                             Expr::one(),
-                            Expr::nary(
-                                Times,
-                                vec![Expr::minus_one(), Expr::unary(Boole, box take(x))],
-                            ),
+                            Expr::nary(Times, vec![Expr::minus_one(), Expr::unary(Boole, take(x))]),
                         ],
                     );
                     modified = true;
@@ -804,16 +776,16 @@ impl VisitMut for ExpandBoole {
                 binary!(And, x, y) => {
                     *e = Expr::binary(
                         Min,
-                        box Expr::unary(Boole, box take(x)),
-                        box Expr::unary(Boole, box take(y)),
+                        Expr::unary(Boole, take(x)),
+                        Expr::unary(Boole, take(y)),
                     );
                     modified = true;
                 }
                 binary!(Or, x, y) => {
                     *e = Expr::binary(
                         Max,
-                        box Expr::unary(Boole, box take(x)),
-                        box Expr::unary(Boole, box take(y)),
+                        Expr::unary(Boole, take(x)),
+                        Expr::unary(Boole, take(y)),
                     );
                     modified = true;
                 }
@@ -825,7 +797,7 @@ impl VisitMut for ExpandBoole {
                         Lt => BooleLtZero,
                         _ => unreachable!(),
                     };
-                    *e = Expr::unary(op, box take(x));
+                    *e = Expr::unary(op, take(x));
                     modified = true;
                 }
                 _ => (),
@@ -859,24 +831,24 @@ impl VisitMut for ModEqTransform {
         if let binary!(Eq, binary!(Mod, x, y), rhs) = e {
             *e = Expr::binary(
                 Eq,
-                box Expr::nary(
+                Expr::nary(
                     Plus,
                     vec![
                         Expr::binary(
                             Mod,
-                            box Expr::nary(
+                            Expr::nary(
                                 Plus,
                                 vec![
                                     take(x),
                                     Expr::nary(Times, vec![Expr::one_half(), y.clone()]),
                                 ],
                             ),
-                            box y.clone(),
+                            y.clone(),
                         ),
                         Expr::nary(Times, vec![Expr::minus_one_half(), y.clone()]),
                     ],
                 ),
-                box take(rhs),
+                take(rhs),
             );
         }
     }
@@ -1191,8 +1163,8 @@ impl VisitMut for Transform {
                             // x^a x^b /; a, b ∈ ℤ ∧ (a, b < 0 ∨ a, b ≥ 0) → x^(a + b)
                             Some(Expr::binary(
                                 Pow,
-                                box take(x1),
-                                box Expr::nary(Plus, vec![take(x2), take(y2)]),
+                                take(x1),
+                                Expr::nary(Plus, vec![take(x2), take(y2)]),
                             ))
                         }
                         (x, binary!(Pow, y1, y2 @ constant!(_)))
@@ -1201,13 +1173,13 @@ impl VisitMut for Transform {
                             // x x^a /; a ∈ ℤ ∧ a ≥ 0 → x^(1 + a)
                             Some(Expr::binary(
                                 Pow,
-                                box take(x),
-                                box Expr::nary(Plus, vec![Expr::one(), take(y2)]),
+                                take(x),
+                                Expr::nary(Plus, vec![Expr::one(), take(y2)]),
                             ))
                         }
                         (x, y) if x == y => {
                             // x x → x^2
-                            Some(Expr::binary(Pow, box take(x), box Expr::two()))
+                            Some(Expr::binary(Pow, take(x), Expr::two()))
                         }
                         (x, ternary!(IfThenElse, cond, constant!(a), f))
                         | (ternary!(IfThenElse, cond, constant!(a), f), x)
@@ -1215,9 +1187,9 @@ impl VisitMut for Transform {
                         {
                             Some(Expr::ternary(
                                 IfThenElse,
-                                box take(cond),
-                                box Expr::zero(),
-                                box Expr::nary(Times, vec![take(x), take(f)]),
+                                take(cond),
+                                Expr::zero(),
+                                Expr::nary(Times, vec![take(x), take(f)]),
                             ))
                         }
                         (x, ternary!(IfThenElse, cond, t, constant!(a)))
@@ -1226,9 +1198,9 @@ impl VisitMut for Transform {
                         {
                             Some(Expr::ternary(
                                 IfThenElse,
-                                box take(cond),
-                                box Expr::nary(Times, vec![take(x), take(t)]),
-                                box Expr::zero(),
+                                take(cond),
+                                Expr::nary(Times, vec![take(x), take(t)]),
+                                Expr::zero(),
                             ))
                         }
                         _ => None,
@@ -1293,7 +1265,7 @@ impl VisitMut for FoldConstant {
                     };
                     self.modified = transform_vec(xs, |x, y| {
                         if let (x @ constant!(_), y @ constant!(_)) = (x, y) {
-                            let e = Expr::binary(bin_op, box take(x), box take(y));
+                            let e = Expr::binary(bin_op, take(x), take(y));
                             let a = e.eval().unwrap();
                             Some(Expr::constant(a))
                         } else {
@@ -1345,11 +1317,11 @@ impl VisitMut for SubDivTransform {
                         });
 
                 *e = if lhs.is_empty() {
-                    Expr::unary(Neg, box Expr::nary(Plus, rhs))
+                    Expr::unary(Neg, Expr::nary(Plus, rhs))
                 } else if rhs.is_empty() {
                     Expr::nary(Plus, lhs)
                 } else {
-                    Expr::binary(Sub, box Expr::nary(Plus, lhs), box Expr::nary(Plus, rhs))
+                    Expr::binary(Sub, Expr::nary(Plus, lhs), Expr::nary(Plus, rhs))
                 };
             }
             nary!(Times, xs) => {
@@ -1362,7 +1334,7 @@ impl VisitMut for SubDivTransform {
                                 if test_rational(&y, |x| *x < 0.0) =>
                             {
                                 if let constant!(y) = y {
-                                    let factor = Expr::binary(Pow, box x, box Expr::constant(-y));
+                                    let factor = Expr::binary(Pow, x, Expr::constant(-y));
                                     den.push(factor)
                                 } else {
                                     panic!()
@@ -1376,11 +1348,11 @@ impl VisitMut for SubDivTransform {
                     });
 
                 *e = if num.is_empty() {
-                    Expr::unary(Recip, box Expr::nary(Times, den))
+                    Expr::unary(Recip, Expr::nary(Times, den))
                 } else if den.is_empty() {
                     Expr::nary(Times, num)
                 } else {
-                    Expr::binary(Div, box Expr::nary(Times, num), box Expr::nary(Times, den))
+                    Expr::binary(Div, Expr::nary(Times, num), Expr::nary(Times, den))
                 };
             }
             _ => (),
@@ -1401,15 +1373,15 @@ impl VisitMut for PostTransform {
             binary!(Pow, x, constant!(a)) => {
                 if let Some(a) = a.to_f64() {
                     if a == -1.0 {
-                        *e = Expr::unary(Recip, box take(x));
+                        *e = Expr::unary(Recip, take(x));
                     } else if a == 0.5 {
-                        *e = Expr::unary(Sqrt, box take(x));
+                        *e = Expr::unary(Sqrt, take(x));
                     } else if a == 1.0 {
                         *e = take(x);
                     } else if a == 2.0 {
-                        *e = Expr::unary(Sqr, box take(x));
+                        *e = Expr::unary(Sqr, take(x));
                     } else if a as i32 as f64 == a {
-                        *e = Expr::pown(box take(x), a as i32);
+                        *e = Expr::pown(take(x), a as i32);
                     }
                 }
             }
@@ -1418,14 +1390,14 @@ impl VisitMut for PostTransform {
                     if let (Some(n), Some(d)) = (a.numer().to_i32(), a.denom().to_u32()) {
                         let root = match d {
                             1 => take(x),
-                            2 => Expr::unary(Sqrt, box take(x)),
-                            _ => Expr::rootn(box take(x), d),
+                            2 => Expr::unary(Sqrt, take(x)),
+                            _ => Expr::rootn(take(x), d),
                         };
                         *e = match n {
-                            -1 => Expr::unary(Recip, box root),
+                            -1 => Expr::unary(Recip, root),
                             1 => root,
-                            2 => Expr::unary(Sqr, box root),
-                            _ => Expr::pown(box root, n),
+                            2 => Expr::unary(Sqr, root),
+                            _ => Expr::pown(root, n),
                         }
                     }
                 }
@@ -1435,8 +1407,8 @@ impl VisitMut for PostTransform {
                 // Assuming `e` is flattened.
                 let first = it.next().unwrap();
                 let second = it.next().unwrap();
-                let init = Expr::binary(BinaryOp::Add, box first, box second);
-                *e = it.fold(init, |e, x| Expr::binary(BinaryOp::Add, box e, box x))
+                let init = Expr::binary(BinaryOp::Add, first, second);
+                *e = it.fold(init, |e, x| Expr::binary(BinaryOp::Add, e, x))
             }
             nary!(Times, xs) => {
                 let mut it = xs.drain(..);
@@ -1444,10 +1416,10 @@ impl VisitMut for PostTransform {
                 let first = it.next().unwrap();
                 let second = it.next().unwrap();
                 let init = match first {
-                    constant!(a) if a.to_f64() == Some(-1.0) => Expr::unary(Neg, box second),
-                    _ => Expr::binary(BinaryOp::Mul, box first, box second),
+                    constant!(a) if a.to_f64() == Some(-1.0) => Expr::unary(Neg, second),
+                    _ => Expr::binary(BinaryOp::Mul, first, second),
                 };
-                *e = it.fold(init, |e, x| Expr::binary(BinaryOp::Mul, box e, box x))
+                *e = it.fold(init, |e, x| Expr::binary(BinaryOp::Mul, e, x))
             }
             _ => (),
         }
@@ -1464,7 +1436,7 @@ impl VisitMut for FuseMulAdd {
 
         match e {
             binary!(Add, binary!(Mul, x, y), z) | binary!(Add, z, binary!(Mul, x, y)) => {
-                *e = Expr::ternary(MulAdd, box take(x), box take(y), box take(z))
+                *e = Expr::ternary(MulAdd, take(x), take(y), take(z))
             }
             _ => (),
         }
@@ -1763,7 +1735,7 @@ impl<'a> CollectStatic<'a> {
         for (i, e) in self.real_exprs.iter().copied().enumerate() {
             let k = match &*e {
                 bool_constant!(_) => None,
-                constant!(x) => Some(StaticTermKind::Constant(box x.interval().clone())),
+                constant!(x) => Some(StaticTermKind::Constant(Box::new(x.interval().clone()))),
                 var!(_) => self
                     .var_index
                     .get(&e.vars)

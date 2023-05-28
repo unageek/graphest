@@ -1,5 +1,5 @@
 #![allow(clippy::float_cmp)]
-#![feature(box_patterns, box_syntax, default_free_fn, lazy_cell)]
+#![feature(box_patterns, default_free_fn, lazy_cell)]
 
 pub use crate::{
     fftw::FftImage,

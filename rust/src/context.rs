@@ -74,7 +74,7 @@ impl Def {
     fn unary(op: UnaryOp) -> Self {
         Self::Function {
             arity: 1,
-            body: Expr::unary(op, box Expr::var("#0")),
+            body: Expr::unary(op, Expr::var("#0")),
             left_associative: false,
         }
     }
@@ -83,7 +83,7 @@ impl Def {
     fn binary(op: BinaryOp) -> Self {
         Self::Function {
             arity: 2,
-            body: Expr::binary(op, box Expr::var("#0"), box Expr::var("#1")),
+            body: Expr::binary(op, Expr::var("#0"), Expr::var("#1")),
             left_associative: false,
         }
     }
@@ -175,7 +175,7 @@ static BUILTIN_CONTEXT: LazyLock<Context> = LazyLock::new(|| {
         .def(
             "i",
             Def::Constant {
-                body: Expr::binary(Complex, box Expr::zero(), box Expr::one()),
+                body: Expr::binary(Complex, Expr::zero(), Expr::one()),
             },
         )
         .def(
@@ -351,7 +351,7 @@ static BUILTIN_CONTEXT: LazyLock<Context> = LazyLock::new(|| {
             "W",
             Def::Function {
                 arity: 1,
-                body: { Expr::binary(LambertW, box Expr::zero(), box Expr::var("#0")) },
+                body: { Expr::binary(LambertW, Expr::zero(), Expr::var("#0")) },
                 left_associative: false,
             },
         )
@@ -377,9 +377,9 @@ static BUILTIN_CONTEXT: LazyLock<Context> = LazyLock::new(|| {
                 body: {
                     Expr::ternary(
                         IfThenElse,
-                        box Expr::unary(Boole, box Expr::var("#0")),
-                        box Expr::var("#1"),
-                        box Expr::var("#2"),
+                        Expr::unary(Boole, Expr::var("#0")),
+                        Expr::var("#1"),
+                        Expr::var("#2"),
                     )
                 },
                 left_associative: false,
