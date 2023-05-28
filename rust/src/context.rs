@@ -11,9 +11,9 @@ use nom::{
 };
 use std::{
     collections::HashMap,
-    lazy::SyncLazy,
     ops::{Range, RangeFrom, RangeFull, RangeTo},
     str::{CharIndices, Chars},
+    sync::LazyLock,
 };
 
 /// A definition of a constant or a function in terms of the AST.
@@ -160,7 +160,7 @@ impl Context {
 }
 
 /// The context that is used when parsing relations.
-static BUILTIN_CONTEXT: SyncLazy<Context> = SyncLazy::new(|| {
+static BUILTIN_CONTEXT: LazyLock<Context> = LazyLock::new(|| {
     use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
 
     const EULER_GAMMA: DecInterval = const_dec_interval!(0.5772156649015328, 0.5772156649015329);
