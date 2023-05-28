@@ -65,7 +65,7 @@ fn build_flint(env: &Environment) {
 
     let build_dir = env.build_dir.join("flint-build");
     if !build_dir.exists() {
-        execute_or_panic(Command::new("git").current_dir(&env.build_dir).args(&[
+        execute_or_panic(Command::new("git").current_dir(&env.build_dir).args([
             "clone",
             "--branch",
             FLINT_GIT_TAG,
@@ -118,7 +118,7 @@ fn build_arb(env: &Environment) {
 
     let build_dir = env.build_dir.join("arb-build");
     if !build_dir.exists() {
-        execute_or_panic(Command::new("git").current_dir(&env.build_dir).args(&[
+        execute_or_panic(Command::new("git").current_dir(&env.build_dir).args([
             "clone",
             "--branch",
             ARB_GIT_TAG,

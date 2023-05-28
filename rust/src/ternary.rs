@@ -6,9 +6,10 @@ use Ternary::*;
 /// The values are ordered as: [`False`] < [`Uncertain`] < [`True`].
 ///
 /// The default value is [`Uncertain`].
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Ternary {
     False,
+    #[default]
     Uncertain,
     True,
 }
@@ -48,12 +49,6 @@ impl BitOr for Ternary {
 
     fn bitor(self, rhs: Self) -> Self::Output {
         self.max(rhs)
-    }
-}
-
-impl Default for Ternary {
-    fn default() -> Self {
-        Uncertain
     }
 }
 

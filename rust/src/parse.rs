@@ -525,7 +525,7 @@ pub fn format_error(source: &str, range: Range<usize>, message: &str) -> String 
     let (line, source_line) = source
         .split('\n') // Do not use `.lines()` which ignores a final line ending.
         .enumerate()
-        .take_while(|(_, line)| offset(*line) <= range.start)
+        .take_while(|(_, line)| offset(line) <= range.start)
         .last()
         .unwrap();
     let start_in_line = range.start - offset(source_line);

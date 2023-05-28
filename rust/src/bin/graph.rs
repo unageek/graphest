@@ -381,7 +381,7 @@ fn main() {
                 eprintln!("{}", e);
                 process::exit(1);
             });
-            fs::read_to_string(&input).unwrap_or_else(|e| {
+            fs::read_to_string(input).unwrap_or_else(|e| {
                 eprintln!("{}: {}", e, input.to_string_lossy());
                 process::exit(1);
             })

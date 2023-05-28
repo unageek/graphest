@@ -59,14 +59,14 @@ fn build(env: &Environment) {
 
     let build_dir = env.build_dir.join("fftw-build");
     if !build_dir.exists() {
-        execute_or_panic(Command::new("wget").current_dir(&env.build_dir).args(&[
+        execute_or_panic(Command::new("wget").current_dir(&env.build_dir).args([
             "--output-document",
             "fftw.tar.gz",
             "--quiet",
             FFTW_TAR_URL,
         ]));
-        execute_or_panic(Command::new("mkdir").args(&[build_dir.to_str().unwrap()]));
-        execute_or_panic(Command::new("tar").current_dir(&env.build_dir).args(&[
+        execute_or_panic(Command::new("mkdir").args([build_dir.to_str().unwrap()]));
+        execute_or_panic(Command::new("tar").current_dir(&env.build_dir).args([
             "xf",
             "fftw.tar.gz",
             "--directory",
