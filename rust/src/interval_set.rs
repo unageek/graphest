@@ -414,6 +414,7 @@ impl TransformInPlace<Transformation1D> for TupperIntervalSet {
 
 bitflags! {
     /// A set of signs; a subset of {−, 0, +}.
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct SignSet: u8 {
         const NEG = 1;
         const ZERO = 2;

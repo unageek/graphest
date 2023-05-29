@@ -2,7 +2,7 @@ use bitflags::*;
 
 bitflags! {
     /// A set of free variables.
-    #[derive(Default)]
+    #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
     pub struct VarSet: u8 {
         const EMPTY = 0;
         const M = 1;
