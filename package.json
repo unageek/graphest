@@ -70,7 +70,7 @@
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.2.0",
-    "react-redux": "^8.0.5",
+    "react-redux": "^8.0.7",
     "slate": "^0.87.0",
     "slate-history": "^0.93.0",
     "slate-react": "^0.83.2",
