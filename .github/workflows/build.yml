@@ -15,6 +15,7 @@ env:
 
 jobs:
   rust:
+    if: "!contains(github.event.pull_request.labels.*.name, 'javascript')"
     runs-on: ubuntu-latest
 
     steps:
