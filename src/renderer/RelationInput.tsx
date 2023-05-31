@@ -20,13 +20,13 @@ import {
 import { RelationError, RequestRelationResult } from "../common/ipc";
 import { Range } from "../common/range";
 import {
+  NormalizationRules,
+  Token,
   areBracketsBalanced,
   getDecorations,
   getRightBracket,
   isLeftBracket,
   isRightBracket,
-  NormalizationRules,
-  Token,
   tokenize,
 } from "./relationUtils";
 
@@ -447,7 +447,7 @@ export const RelationInput = (props: RelationInputProps) => {
           updateTokens();
         }
       }}
-      value={value}
+      initialValue={value}
     >
       <div
         className={`relation-input-outer ${
