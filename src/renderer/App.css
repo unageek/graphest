@@ -161,6 +161,7 @@ a:not([draggable]) {
   line-height: 1.5;
   /* Use a fractional number of lines to help the user recognize the overflow. */
   max-height: calc(5.5 * (1.5 * 16px));
+  outline: none;
   overflow-y: auto;
   word-spacing: -0.25ch;
 }
