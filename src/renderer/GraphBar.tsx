@@ -7,17 +7,17 @@ import { RequestRelationResult } from "../common/ipc";
 import { Bar } from "./Bar";
 import { BarIconButton } from "./BarIconButton";
 import { GraphStyleButton } from "./GraphStyleButton";
+import { RelationInput, RelationInputActions } from "./RelationInput";
+import { SymbolsButton } from "./SymbolsButton";
 import { removeGraph, useSelector } from "./models/app";
 import {
   setGraphColor,
   setGraphPenSize,
   setGraphRelation,
 } from "./models/graph";
-import { RelationInput, RelationInputActions } from "./RelationInput";
-import { SymbolsButton } from "./SymbolsButton";
 
 export interface GraphBarProps {
-  dragHandleProps?: DraggableProvidedDragHandleProps;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
   focusGraphView: () => void;
   graphId: string;
   requestRelation: (
