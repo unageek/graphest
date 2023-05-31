@@ -74,7 +74,7 @@
     "slate": "^0.87.0",
     "slate-history": "^0.93.0",
     "slate-react": "^0.83.2",
-    "yup": "^0.32.11"
+    "yup": "^1.2.0"
   },
   "productName": "Graphest"
 }
