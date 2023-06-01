@@ -26,12 +26,6 @@ jobs:
         with:
           node-version: "16"
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly-2022-06-18-x86_64-pc-windows-gnu
-          override: true
-          profile: minimal
-
       - name: Add MSYS2 to PATH
         run: |
           echo "C:\msys64\usr\bin" >> $GITHUB_PATH
