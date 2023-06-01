@@ -26,6 +26,10 @@ jobs:
         with:
           node-version: "16"
 
+      - name: Select Rust toolchain
+        run: |
+          rustup set default-host x86_64-pc-windows-gnu
+
       - name: Add MSYS2 to PATH
         run: |
           echo "C:\msys64\usr\bin" >> $GITHUB_PATH
