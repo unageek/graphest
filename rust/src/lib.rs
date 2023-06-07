@@ -2,6 +2,7 @@
 #![feature(box_patterns, lazy_cell)]
 
 pub use crate::{
+    definitions::{parse_definitions, RawDefinition},
     fftw::FftImage,
     geom::Box2D,
     graph::{
@@ -20,6 +21,7 @@ mod arb_interval_set_ops;
 mod ast;
 mod block;
 mod context;
+mod definitions;
 mod eval_cache;
 mod eval_result;
 mod fftw;

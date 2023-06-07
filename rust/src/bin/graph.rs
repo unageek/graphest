@@ -1,7 +1,7 @@
 use clap::{value_parser, Arg, ArgAction, ArgGroup, Command};
 use graphest::{
-    Box2D, Explicit, FftImage, Graph, GraphingStatistics, Image, Implicit, Padding, Parametric,
-    PixelIndex, Relation, RelationType, Ternary,
+    parse_definitions, Box2D, Explicit, FftImage, Graph, GraphingStatistics, Image, Implicit,
+    Padding, Parametric, PixelIndex, RawDefinition, Relation, RelationType, Ternary,
 };
 use image::{imageops, ImageBuffer, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
@@ -272,6 +272,14 @@ fn main() {
                 .value_parser(value_parser!(Bound)),
         )
         .arg(
+            Arg::new("def")
+                .long("def")
+                .number_of_values(2)
+                .multiple_occurrences(true)
+                .forbid_empty_values(true)
+                .value_names(&["name", "body"]),
+        )
+        .arg(
             Arg::new("dilate")
                 .long("dilate")
                 .hide(true)
@@ -399,6 +407,19 @@ fn main() {
                 .required(true),
         )
         .get_matches();
+
+    let user_ctx = parse_definitions(
+        &matches
+            .values_of("def")
+            .unwrap()
+            .collect::<Vec<_>>()
+            .chunks_exact(2)
+            .map(|d| RawDefinition {
+                name: d[0].to_owned(),
+                body: d[1].to_owned(),
+            })
+            .collect::<Vec<_>>(),
+    );
 
     let rel = matches
         .remove_one::<String>("relation")
