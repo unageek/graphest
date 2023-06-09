@@ -276,9 +276,8 @@ fn main() {
             Arg::new("def")
                 .long("def")
                 .number_of_values(2)
-                .multiple_occurrences(true)
-                .forbid_empty_values(true)
-                .value_names(&["name", "body"]),
+                .value_names(["name", "body"])
+                .action(ArgAction::Append),
         )
         .arg(
             Arg::new("dilate")
@@ -411,8 +410,8 @@ fn main() {
 
     let user_ctx = parse_definitions(
         &matches
-            .values_of("def")
-            .unwrap()
+            .remove_many::<String>("def")
+            .unwrap_or_default()
             .collect::<Vec<_>>()
             .chunks_exact(2)
             .map(|d| RawDefinition {
