@@ -15,7 +15,7 @@ use crate::{
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use rug::Integer;
-use std::{collections::HashMap, iter::once, mem::take, ops::Range, str::FromStr};
+use std::{collections::HashMap, iter::once, mem::take, ops::Range};
 
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -263,152 +263,148 @@ impl Relation {
     }
 }
 
-impl FromStr for Relation {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, String> {
-        let mut e = parse_expr(s, &[Context::builtin()])?;
-        UpdateMetadata.visit_expr_mut(&mut e);
-        if let Some(e) = find_unknown_type_expr(&e) {
-            return Err(format_error(
-                s,
-                e.source_range.clone(),
-                "cannot interpret the expression",
-            ));
-        }
-        if e.ty != ValueType::Boolean {
-            return Err(format_error(
-                s,
-                e.source_range.clone(),
-                &format!(
-                    "relation must be of type `{}` but not `{}`",
-                    ValueType::Boolean,
-                    e.ty
-                ),
-            ));
-        }
-        NormalizeNotExprs.visit_expr_mut(&mut e);
-        PreTransform.visit_expr_mut(&mut e);
-        expand_complex_functions(&mut e);
-        simplify(&mut e);
-        let relation_type = relation_type(&mut e);
-        NormalizeRelationalExprs.visit_expr_mut(&mut e);
-        ExpandBoole.visit_expr_mut(&mut e);
-        simplify(&mut e);
-        ModEqTransform.visit_expr_mut(&mut e);
-        simplify(&mut e);
-
-        let n_theta_range = {
-            let period = function_period(&e, VarSet::N_THETA);
-            if let Some(period) = &period {
-                if *period == 0 {
-                    const_interval!(0.0, 0.0)
-                } else {
-                    interval!(&format!("[0,{}]", Integer::from(period - 1))).unwrap()
-                }
-            } else {
-                Interval::ENTIRE
-            }
-        };
-        assert_eq!(n_theta_range.trunc(), n_theta_range);
-
-        let t_range = {
-            let period = function_period(&e, VarSet::T);
-            if let Some(period) = &period {
-                Interval::TAU * interval!(&format!("[0,{}]", period)).unwrap()
-            } else {
-                Interval::ENTIRE
-            }
-        };
-
-        expand_polar_coords(&mut e);
-        simplify(&mut e);
-        SubDivTransform.visit_expr_mut(&mut e);
-        simplify(&mut e);
-        PostTransform.visit_expr_mut(&mut e);
-        FuseMulAdd.visit_expr_mut(&mut e);
-        UpdateMetadata.visit_expr_mut(&mut e);
-        assert_eq!(e.ty, ValueType::Boolean);
-
-        let vars = match relation_type {
-            RelationType::ExplicitFunctionOfX(_) => e.vars.difference(VarSet::Y),
-            RelationType::ExplicitFunctionOfY(_) => e.vars.difference(VarSet::X),
-            RelationType::Parametric => e.vars.difference(VarSet::X | VarSet::Y),
-            _ => e.vars,
-        };
-        let vars_ordered = [
-            VarSet::M,
-            VarSet::N,
-            VarSet::N_THETA,
-            VarSet::T,
-            VarSet::X,
-            VarSet::Y,
-        ]
-        .into_iter()
-        .filter(|&v| vars.contains(v))
-        .collect::<Vec<_>>();
-        let var_index = vars_ordered
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| (v, i as VarIndex))
-            .collect::<HashMap<VarSet, VarIndex>>();
-
-        let mut v = AssignSite::new();
-        v.visit_expr_mut(&mut e);
-        let mut assign_branch_id = AssignBranchId::new(vars);
-        assign_branch_id.visit_expr_mut(&mut e);
-        let mut collect_real_exprs = CollectRealExprs::new(assign_branch_id);
-        collect_real_exprs.visit_expr_mut(&mut e);
-        let collector = CollectStatic::new(v, collect_real_exprs, &var_index);
-        let terms = collector.terms.clone();
-        let forms = collector.forms.clone();
-        let n_terms = terms.len();
-        let n_atom_forms = forms
-            .iter()
-            .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _)))
-            .count();
-        let eval_terms = collector.eval_terms.clone();
-
-        let mut v = FindExplicitRelation::new(&collector, VarSet::X);
-        v.visit_expr(&e);
-        let x_explicit = v.get();
-
-        let mut v = FindExplicitRelation::new(&collector, VarSet::Y);
-        v.visit_expr(&e);
-        let y_explicit = v.get();
-
-        let mut v = FindMaximalScalarTerms::new(collector);
-        v.visit_expr(&e);
-        let cached_terms = v.get();
-
-        let mut slf = Self {
-            ast: e,
-            terms,
-            forms,
-            n_atom_forms,
-            eval_terms,
-            ts: ValueStore::new(TupperIntervalSet::new(), n_terms),
-            eval_count: 0,
-            x_explicit,
-            y_explicit,
-            cached_terms,
-            n_theta_range,
-            t_range,
-            relation_type,
-            vars,
-            vars_ordered,
-            var_indices: VarIndices {
-                m: var_index.get(&VarSet::M).copied(),
-                n: var_index.get(&VarSet::N).copied(),
-                n_theta: var_index.get(&VarSet::N_THETA).copied(),
-                t: var_index.get(&VarSet::T).copied(),
-                x: var_index.get(&VarSet::X).copied(),
-                y: var_index.get(&VarSet::Y).copied(),
-            },
-        };
-        slf.initialize();
-        Ok(slf)
+pub fn parse_relation(s: &str, context_stack: &[&Context]) -> Result<Relation, String> {
+    let mut e = parse_expr(s, context_stack)?;
+    UpdateMetadata.visit_expr_mut(&mut e);
+    if let Some(e) = find_unknown_type_expr(&e) {
+        return Err(format_error(
+            s,
+            e.source_range.clone(),
+            "cannot interpret the expression",
+        ));
     }
+    if e.ty != ValueType::Boolean {
+        return Err(format_error(
+            s,
+            e.source_range.clone(),
+            &format!(
+                "relation must be of type `{}` but not `{}`",
+                ValueType::Boolean,
+                e.ty
+            ),
+        ));
+    }
+    NormalizeNotExprs.visit_expr_mut(&mut e);
+    PreTransform.visit_expr_mut(&mut e);
+    expand_complex_functions(&mut e);
+    simplify(&mut e);
+    let relation_type = relation_type(&mut e);
+    NormalizeRelationalExprs.visit_expr_mut(&mut e);
+    ExpandBoole.visit_expr_mut(&mut e);
+    simplify(&mut e);
+    ModEqTransform.visit_expr_mut(&mut e);
+    simplify(&mut e);
+
+    let n_theta_range = {
+        let period = function_period(&e, VarSet::N_THETA);
+        if let Some(period) = &period {
+            if *period == 0 {
+                const_interval!(0.0, 0.0)
+            } else {
+                interval!(&format!("[0,{}]", Integer::from(period - 1))).unwrap()
+            }
+        } else {
+            Interval::ENTIRE
+        }
+    };
+    assert_eq!(n_theta_range.trunc(), n_theta_range);
+
+    let t_range = {
+        let period = function_period(&e, VarSet::T);
+        if let Some(period) = &period {
+            Interval::TAU * interval!(&format!("[0,{}]", period)).unwrap()
+        } else {
+            Interval::ENTIRE
+        }
+    };
+
+    expand_polar_coords(&mut e);
+    simplify(&mut e);
+    SubDivTransform.visit_expr_mut(&mut e);
+    simplify(&mut e);
+    PostTransform.visit_expr_mut(&mut e);
+    FuseMulAdd.visit_expr_mut(&mut e);
+    UpdateMetadata.visit_expr_mut(&mut e);
+    assert_eq!(e.ty, ValueType::Boolean);
+
+    let vars = match relation_type {
+        RelationType::ExplicitFunctionOfX(_) => e.vars.difference(VarSet::Y),
+        RelationType::ExplicitFunctionOfY(_) => e.vars.difference(VarSet::X),
+        RelationType::Parametric => e.vars.difference(VarSet::X | VarSet::Y),
+        _ => e.vars,
+    };
+    let vars_ordered = [
+        VarSet::M,
+        VarSet::N,
+        VarSet::N_THETA,
+        VarSet::T,
+        VarSet::X,
+        VarSet::Y,
+    ]
+    .into_iter()
+    .filter(|&v| vars.contains(v))
+    .collect::<Vec<_>>();
+    let var_index = vars_ordered
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| (v, i as VarIndex))
+        .collect::<HashMap<VarSet, VarIndex>>();
+
+    let mut v = AssignSite::new();
+    v.visit_expr_mut(&mut e);
+    let mut assign_branch_id = AssignBranchId::new(vars);
+    assign_branch_id.visit_expr_mut(&mut e);
+    let mut collect_real_exprs = CollectRealExprs::new(assign_branch_id);
+    collect_real_exprs.visit_expr_mut(&mut e);
+    let collector = CollectStatic::new(v, collect_real_exprs, &var_index);
+    let terms = collector.terms.clone();
+    let forms = collector.forms.clone();
+    let n_terms = terms.len();
+    let n_atom_forms = forms
+        .iter()
+        .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _)))
+        .count();
+    let eval_terms = collector.eval_terms.clone();
+
+    let mut v = FindExplicitRelation::new(&collector, VarSet::X);
+    v.visit_expr(&e);
+    let x_explicit = v.get();
+
+    let mut v = FindExplicitRelation::new(&collector, VarSet::Y);
+    v.visit_expr(&e);
+    let y_explicit = v.get();
+
+    let mut v = FindMaximalScalarTerms::new(collector);
+    v.visit_expr(&e);
+    let cached_terms = v.get();
+
+    let mut rel = Relation {
+        ast: e,
+        terms,
+        forms,
+        n_atom_forms,
+        eval_terms,
+        ts: ValueStore::new(TupperIntervalSet::new(), n_terms),
+        eval_count: 0,
+        x_explicit,
+        y_explicit,
+        cached_terms,
+        n_theta_range,
+        t_range,
+        relation_type,
+        vars,
+        vars_ordered,
+        var_indices: VarIndices {
+            m: var_index.get(&VarSet::M).copied(),
+            n: var_index.get(&VarSet::N).copied(),
+            n_theta: var_index.get(&VarSet::N_THETA).copied(),
+            t: var_index.get(&VarSet::T).copied(),
+            x: var_index.get(&VarSet::X).copied(),
+            y: var_index.get(&VarSet::Y).copied(),
+        },
+    };
+    rel.initialize();
+    Ok(rel)
 }
 
 /// Transforms an expression that contains r or θ into the equivalent expression
@@ -797,7 +793,9 @@ mod tests {
     #[test]
     fn n_theta_range() {
         fn f(rel: &str) -> Interval {
-            rel.parse::<Relation>().unwrap().n_theta_range()
+            parse_relation(rel, &[Context::builtin()])
+                .unwrap()
+                .n_theta_range()
         }
 
         assert_eq!(f("x y r t = 0"), const_interval!(0.0, 0.0));
@@ -826,7 +824,9 @@ mod tests {
         use {ExplicitRelOp::*, RelationType::*};
 
         fn f(rel: &str) -> RelationType {
-            rel.parse::<Relation>().unwrap().relation_type()
+            parse_relation(rel, &[Context::builtin()])
+                .unwrap()
+                .relation_type()
         }
 
         assert_eq!(f("y = 1"), ExplicitFunctionOfX(Eq));
@@ -884,7 +884,9 @@ mod tests {
     #[test]
     fn t_range() {
         fn f(rel: &str) -> Interval {
-            rel.parse::<Relation>().unwrap().t_range()
+            parse_relation(rel, &[Context::builtin()])
+                .unwrap()
+                .t_range()
         }
 
         assert_eq!(f("x y r θ = 0"), const_interval!(0.0, 0.0));
@@ -902,7 +904,7 @@ mod tests {
     #[test]
     fn vars() {
         fn f(rel: &str) -> VarSet {
-            rel.parse::<Relation>().unwrap().vars()
+            parse_relation(rel, &[Context::builtin()]).unwrap().vars()
         }
 
         assert_eq!(f("x = 0"), VarSet::EMPTY);

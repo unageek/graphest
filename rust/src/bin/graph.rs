@@ -1,7 +1,8 @@
 use clap::{value_parser, Arg, ArgAction, ArgGroup, Command};
 use graphest::{
-    parse_definitions, Box2D, Explicit, FftImage, Graph, GraphingStatistics, Image, Implicit,
-    Padding, Parametric, PixelIndex, RawDefinition, Relation, RelationType, Ternary,
+    parse_definitions, parse_relation, Box2D, Context, Explicit, FftImage, Graph,
+    GraphingStatistics, Image, Implicit, Padding, Parametric, PixelIndex, RawDefinition,
+    RelationType, Ternary,
 };
 use image::{imageops, ImageBuffer, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
@@ -421,20 +422,17 @@ fn main() {
             .collect::<Vec<_>>(),
     );
 
-    let rel = matches
-        .remove_one::<String>("relation")
-        .unwrap_or_else(|| {
-            let input = matches.remove_one::<OsString>("input").unwrap();
-            fs::read_to_string(&input).unwrap_or_else(|e| {
-                eprintln!("{}: {}", e, input.to_string_lossy());
-                process::exit(1);
-            })
-        })
-        .parse::<Relation>()
-        .unwrap_or_else(|e| {
-            eprintln!("{}", e);
+    let raw_rel = matches.remove_one::<String>("relation").unwrap_or_else(|| {
+        let input = matches.remove_one::<OsString>("input").unwrap();
+        fs::read_to_string(&input).unwrap_or_else(|e| {
+            eprintln!("{}: {}", e, input.to_string_lossy());
             process::exit(1);
-        });
+        })
+    });
+    let rel = parse_relation(&raw_rel, &[Context::builtin(), &user_ctx]).unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        process::exit(1);
+    });
     if matches.get_flag("dump-ast") {
         println!("{}", rel.ast().dump_full());
     }

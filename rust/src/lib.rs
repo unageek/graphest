@@ -2,6 +2,7 @@
 #![feature(box_patterns, lazy_cell)]
 
 pub use crate::{
+    context::Context,
     definitions::{parse_definitions, RawDefinition},
     fftw::FftImage,
     geom::Box2D,
@@ -10,7 +11,7 @@ pub use crate::{
         Padding,
     },
     image::{Image, PixelIndex},
-    relation::{Relation, RelationType},
+    relation::{parse_relation, Relation, RelationType},
     ternary::Ternary,
 };
 
