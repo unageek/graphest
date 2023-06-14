@@ -1,5 +1,6 @@
-use clap::{Arg, Command};
+use clap::{value_parser, Arg, ArgAction, Command};
 use image::{imageops, io::Reader as ImageReader, DynamicImage, Rgba, Rgba32FImage};
+use std::ffi::OsString;
 
 #[derive(Clone, Debug)]
 struct Entry {
@@ -64,45 +65,49 @@ fn parse_color(color: &str, correct_alpha: bool) -> Rgba<f32> {
 }
 
 fn main() {
-    let matches = Command::new("compose")
+    let mut matches = Command::new("compose")
         .about("Colorizes and alpha-composes gray-alpha images.")
         .arg(
             Arg::new("add")
                 .long("add")
                 .number_of_values(2)
-                .multiple_occurrences(true)
-                .forbid_empty_values(true)
-                .value_names(&["file", "color"]),
+                .value_names(["file", "color"])
+                .action(ArgAction::Append),
         )
         .arg(
             Arg::new("background")
                 .long("background")
-                .default_value("#ffffffff")
-                .forbid_empty_values(true),
+                .default_value("#ffffffff"),
         )
-        .arg(Arg::new("correct-alpha").long("correct-alpha"))
+        .arg(
+            Arg::new("correct-alpha")
+                .long("correct-alpha")
+                .action(ArgAction::SetTrue),
+        )
         .arg(
             Arg::new("output")
                 .long("output")
-                .allow_invalid_utf8(true)
-                .forbid_empty_values(true)
-                .value_name("file"),
+                .value_name("file")
+                .value_parser(value_parser!(OsString)),
         )
         .get_matches();
 
-    let correct_alpha = matches.is_present("correct-alpha");
-    let background = parse_color(matches.value_of("background").unwrap(), correct_alpha);
+    let correct_alpha = matches.get_flag("correct-alpha");
+    let background = parse_color(
+        &matches.remove_one::<String>("background").unwrap(),
+        correct_alpha,
+    );
     let entries = matches
-        .values_of("add")
-        .unwrap()
+        .remove_many::<String>("add")
+        .unwrap_or_default()
         .collect::<Vec<_>>()
         .chunks_exact(2)
         .map(|e| Entry {
-            color: parse_color(e[1], correct_alpha),
-            file: e[0].into(),
+            color: parse_color(&e[1], correct_alpha),
+            file: e[0].clone(),
         })
         .collect::<Vec<_>>();
-    let output = matches.value_of_os("output").unwrap().to_owned();
+    let output = matches.remove_one::<OsString>("output").unwrap();
 
     let mut composed = None;
     for entry in entries {

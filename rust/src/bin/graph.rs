@@ -1,4 +1,4 @@
-use clap::{Arg, Command};
+use clap::{value_parser, Arg, ArgAction, ArgGroup, Command};
 use graphest::{
     Box2D, Explicit, FftImage, Graph, GraphingStatistics, Image, Implicit, Padding, Parametric,
     PixelIndex, Relation, RelationType, Ternary,
@@ -6,7 +6,7 @@ use graphest::{
 use image::{imageops, ImageBuffer, LumaA, Rgb, RgbImage};
 use inari::{const_interval, interval, Interval};
 use itertools::Itertools;
-use std::{ffi::OsString, fs, io::stdin, process, time::Duration};
+use std::{ffi::OsString, fs, io::stdin, process, str::FromStr, time::Duration};
 
 type GrayAlpha16Image = ImageBuffer<LumaA<u16>, Vec<u16>>;
 
@@ -239,149 +239,172 @@ fn print_statistics(cur: &GraphingStatistics, prev: &GraphingStatistics) {
     );
 }
 
-fn to_interval(s: &str) -> Interval {
-    let ss = format!("[{}]", s);
-    interval!(&ss).unwrap_or_else(|_| panic!("{} is not a valid number", s))
+#[derive(Clone, Debug)]
+struct Bound {
+    x: Interval,
+}
+
+impl FromStr for Bound {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let ss = format!("[{}]", s);
+        match interval!(&ss) {
+            Ok(x) => Ok(Bound { x }),
+            Err(_) => Err(format!("{} is not a valid number", s)),
+        }
+    }
 }
 
 fn main() {
-    let matches = Command::new("graph")
+    let mut matches = Command::new("graph")
         .about("Plots the graph of a mathematical relation to an image.")
         .arg(Arg::new("relation").index(1).help("Relation to plot."))
         .arg(
             Arg::new("bounds")
                 .short('b')
                 .long("bounds")
-                .number_of_values(4)
+                .num_args(4)
                 .allow_hyphen_values(true)
-                .default_values(&["-10", "10", "-10", "10"])
-                .forbid_empty_values(true)
-                .value_names(&["xmin", "xmax", "ymin", "ymax"])
-                .help("Bounds of the region over which the relation is plotted."),
+                .default_values(["-10", "10", "-10", "10"])
+                .value_names(["xmin", "xmax", "ymin", "ymax"])
+                .help("Bounds of the region over which the relation is plotted.")
+                .value_parser(value_parser!(Bound)),
         )
         .arg(
             Arg::new("dilate")
                 .long("dilate")
                 .hide(true)
-                .default_value("1")
-                .forbid_empty_values(true),
+                .default_value("1"),
         )
-        .arg(Arg::new("dump-ast").long("dump-ast").hide(true))
-        .arg(Arg::new("gray-alpha").long("gray-alpha").hide(true))
+        .arg(
+            Arg::new("dump-ast")
+                .long("dump-ast")
+                .hide(true)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("gray-alpha")
+                .long("gray-alpha")
+                .hide(true)
+                .action(ArgAction::SetTrue),
+        )
         .arg(
             Arg::new("input")
                 .short('i')
                 .long("input")
-                .forbid_empty_values(true)
-                .allow_invalid_utf8(true)
                 .value_name("file")
-                .help("Path to the file that contains the relation to plot."),
+                .help("Path to the file that contains the relation to plot.")
+                .value_parser(value_parser!(OsString)),
         )
         .arg(
             Arg::new("mem-limit")
                 .long("mem-limit")
                 .default_value("1024")
-                .forbid_empty_values(true)
                 .value_name("mbytes")
-                .help("Approximate maximum amount of memory in MiB that the program can use."),
+                .help("Approximate maximum amount of memory in MiB that the program can use.")
+                .value_parser(value_parser!(usize)),
         )
         .arg(
             Arg::new("output")
                 .short('o')
                 .long("output")
                 .default_value("graph.png")
-                .forbid_empty_values(true)
-                .allow_invalid_utf8(true)
                 .value_name("file")
-                .help("Path to the output image. It must end with '.png'."),
+                .help("Path to the output image. It must end with '.png'.")
+                .value_parser(value_parser!(OsString)),
         )
         .arg(
             Arg::new("output-once")
                 .long("output-once")
-                .help("Do not output intermediate images."),
+                .help("Do not output intermediate images.")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("pad-bottom")
                 .long("pad-bottom")
                 .hide(true)
                 .default_value("0")
-                .forbid_empty_values(true),
+                .value_parser(value_parser!(u32)),
         )
         .arg(
             Arg::new("pad-left")
                 .long("pad-left")
                 .hide(true)
                 .default_value("0")
-                .forbid_empty_values(true),
+                .value_parser(value_parser!(u32)),
         )
         .arg(
             Arg::new("pad-right")
                 .long("pad-right")
                 .hide(true)
                 .default_value("0")
-                .forbid_empty_values(true),
+                .value_parser(value_parser!(u32)),
         )
         .arg(
             Arg::new("pad-top")
                 .long("pad-top")
                 .hide(true)
                 .default_value("0")
-                .forbid_empty_values(true),
+                .value_parser(value_parser!(u32)),
         )
         .arg(
             Arg::new("parse")
                 .long("parse")
-                .help("Only validate the relation and exit without plotting."),
+                .help("Only validate the relation and exit without plotting.")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("pause-per-iteration")
                 .long("pause-per-iteration")
-                .hide(true),
+                .hide(true)
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("pen-size")
                 .long("pen-size")
                 .hide(true)
                 .default_value("1")
-                .forbid_empty_values(true),
+                .value_parser(value_parser!(f64)),
         )
         .arg(
             Arg::new("size")
                 .short('s')
                 .long("size")
-                .number_of_values(2)
-                .default_values(&["1024", "1024"])
-                .forbid_empty_values(true)
-                .value_names(&["width", "height"])
-                .help("Dimensions of the output image in pixels."),
+                .num_args(2)
+                .default_values(["1024", "1024"])
+                .value_names(["width", "height"])
+                .help("Dimensions of the output image in pixels.")
+                .value_parser(value_parser!(u32)),
         )
         .arg(
             Arg::new("ssaa")
                 .long("ssaa")
                 .default_value("1")
-                .forbid_empty_values(true)
                 .value_name("scale")
                 .next_line_help(true)
-                .help("Anti-alias the graph by supersampling pixels by the given scale."),
+                .help("Anti-alias the graph by supersampling pixels by the given scale.")
+                .value_parser(value_parser!(u32)),
         )
         .arg(
             Arg::new("timeout")
                 .long("timeout")
-                .takes_value(true)
-                .forbid_empty_values(true)
                 .value_name("msecs")
-                .help("Maximum limit of evaluation time in milliseconds."),
+                .help("Maximum limit of evaluation time in milliseconds.")
+                .value_parser(value_parser!(u64)),
+        )
+        .group(
+            ArgGroup::new("relation-or-input")
+                .args(["relation", "input"])
+                .required(true),
         )
         .get_matches();
 
     let rel = matches
-        .value_of_t::<String>("relation")
-        .unwrap_or_else(|e| {
-            let input = matches.value_of_os("input").unwrap_or_else(|| {
-                eprintln!("{}", e);
-                process::exit(1);
-            });
-            fs::read_to_string(input).unwrap_or_else(|e| {
+        .remove_one::<String>("relation")
+        .unwrap_or_else(|| {
+            let input = matches.remove_one::<OsString>("input").unwrap();
+            fs::read_to_string(&input).unwrap_or_else(|e| {
                 eprintln!("{}: {}", e, input.to_string_lossy());
                 process::exit(1);
             })
@@ -391,44 +414,45 @@ fn main() {
             eprintln!("{}", e);
             process::exit(1);
         });
-    if matches.is_present("dump-ast") {
+    if matches.get_flag("dump-ast") {
         println!("{}", rel.ast().dump_full());
     }
-    if matches.is_present("parse") {
+    if matches.get_flag("parse") {
         return;
     }
 
     let bounds = matches
-        .values_of("bounds")
+        .remove_many::<Bound>("bounds")
         .unwrap()
-        .map(to_interval)
+        .map(|b| b.x)
         .collect::<Vec<_>>();
-    let dilation = matches.value_of("dilate").unwrap();
-    let gray_alpha = matches.is_present("gray-alpha");
-    let mem_limit = 1024 * 1024 * matches.value_of_t_or_exit::<usize>("mem-limit");
-    let output = matches.value_of_os("output").unwrap().to_owned();
-    let output_once = matches.is_present("output-once");
+    let dilation = matches.remove_one::<String>("dilate").unwrap();
+    let gray_alpha = matches.get_flag("gray-alpha");
+    let mem_limit = 1024 * 1024 * matches.remove_one::<usize>("mem-limit").unwrap();
+    let output = matches.remove_one::<OsString>("output").unwrap();
+    let output_once = matches.get_flag("output-once");
     let output_padding = Padding {
-        bottom: matches.value_of_t_or_exit::<u32>("pad-bottom"),
-        left: matches.value_of_t_or_exit::<u32>("pad-left"),
-        right: matches.value_of_t_or_exit::<u32>("pad-right"),
-        top: matches.value_of_t_or_exit::<u32>("pad-top"),
+        bottom: matches.remove_one::<u32>("pad-bottom").unwrap(),
+        left: matches.remove_one::<u32>("pad-left").unwrap(),
+        right: matches.remove_one::<u32>("pad-right").unwrap(),
+        top: matches.remove_one::<u32>("pad-top").unwrap(),
     };
     let output_size = {
-        let s = matches.values_of_t_or_exit::<u32>("size");
+        let s = matches
+            .remove_many::<u32>("size")
+            .unwrap()
+            .collect::<Vec<_>>();
         [
             s[0] + output_padding.left + output_padding.right,
             s[1] + output_padding.bottom + output_padding.top,
         ]
     };
-    let pause_per_iteration = matches.is_present("pause-per-iteration");
-    let pen_size = matches.value_of_t_or_exit::<f64>("pen-size");
-    let ssaa = matches.value_of_t_or_exit::<u32>("ssaa");
-    let timeout = match matches.value_of_t::<u64>("timeout") {
-        Ok(t) => Some(Duration::from_millis(t)),
-        Err(e) if e.kind() == clap::ErrorKind::ArgumentNotFound => None,
-        Err(e) => e.exit(),
-    };
+    let pause_per_iteration = matches.get_flag("pause-per-iteration");
+    let pen_size = matches.remove_one::<f64>("pen-size").unwrap();
+    let ssaa = matches.remove_one::<u32>("ssaa").unwrap();
+    let timeout = matches
+        .remove_one::<u64>("timeout")
+        .map(Duration::from_millis);
 
     if ssaa > 1 && dilation != "1" {
         println!("`--dilate` and `--ssaa` cannot be used together.");
@@ -436,7 +460,7 @@ fn main() {
 
     let dilation_kernel = disk_matrix((ssaa / 2) as f64 + ssaa as f64 * (pen_size - 1.0) / 2.0);
     let user_dilation_kernel = {
-        let k = parse_binary_matrix(dilation);
+        let k = parse_binary_matrix(&dilation);
         assert!(
             k.width() == k.height() && k.width() % 2 == 1,
             "dilation kernel must be square and have odd dimensions"

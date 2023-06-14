@@ -18,9 +18,9 @@ itertools = "0.10"
 nom = "7.1"
 
 [dependencies.clap]
-version = "3.2.22"
+version = "4.3"
 default-features = false
-features = ["std"]
+features = ["error-context", "help", "std", "usage"]
 
 [dependencies.gmp-mpfr-sys]
 version = "1.4"

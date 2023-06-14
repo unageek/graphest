@@ -1,63 +1,59 @@
-use clap::{Arg, Command};
+use clap::{value_parser, Arg, Command};
 use image::{imageops, io::Reader as ImageReader, ImageBuffer, LumaA};
 use std::ffi::OsString;
 
 type GrayAlpha16Image = ImageBuffer<LumaA<u16>, Vec<u16>>;
 
 fn main() {
-    let matches = Command::new("concatenate")
+    let mut matches = Command::new("concatenate")
         .about("Concatenates tiles of graphs.")
         .arg(
             Arg::new("output")
                 .long("output")
-                .allow_invalid_utf8(true)
-                .forbid_empty_values(true)
-                .value_name("file"),
+                .value_name("file")
+                .value_parser(value_parser!(OsString)),
         )
         .arg(
             Arg::new("prefix")
                 .long("prefix")
-                .allow_invalid_utf8(true)
-                .takes_value(true)
-                .forbid_empty_values(true),
+                .value_parser(value_parser!(OsString)),
         )
         .arg(
             Arg::new("size")
                 .long("size")
-                .number_of_values(2)
-                .forbid_empty_values(true)
-                .value_names(&["width", "height"]),
+                .num_args(2)
+                .value_names(["width", "height"])
+                .value_parser(value_parser!(u32)),
         )
         .arg(
             Arg::new("suffix")
                 .long("suffix")
-                .allow_invalid_utf8(true)
-                .takes_value(true)
-                .forbid_empty_values(true),
+                .value_parser(value_parser!(OsString)),
         )
         .arg(
             Arg::new("x-tiles")
                 .long("x-tiles")
-                .takes_value(true)
-                .forbid_empty_values(true),
+                .value_parser(value_parser!(u32)),
         )
         .arg(
             Arg::new("y-tiles")
                 .long("y-tiles")
-                .takes_value(true)
-                .forbid_empty_values(true),
+                .value_parser(value_parser!(u32)),
         )
         .get_matches();
 
-    let output = matches.value_of_os("output").unwrap().to_owned();
-    let prefix = matches.value_of_os("prefix").unwrap().to_owned();
+    let output = matches.remove_one::<OsString>("output").unwrap();
+    let prefix = matches.remove_one::<OsString>("prefix").unwrap();
     let size = {
-        let s = matches.values_of_t_or_exit::<u32>("size");
+        let s = matches
+            .remove_many::<u32>("size")
+            .unwrap()
+            .collect::<Vec<_>>();
         [s[0], s[1]]
     };
-    let suffix = matches.value_of_os("suffix").unwrap().to_owned();
-    let x_tiles = matches.value_of_t_or_exit::<u32>("x-tiles");
-    let y_tiles = matches.value_of_t_or_exit::<u32>("y-tiles");
+    let suffix = matches.remove_one::<OsString>("suffix").unwrap();
+    let x_tiles = matches.remove_one::<u32>("x-tiles").unwrap();
+    let y_tiles = matches.remove_one::<u32>("y-tiles").unwrap();
 
     let mut im = GrayAlpha16Image::new(size[0], size[1]);
     let mut i = 0;
