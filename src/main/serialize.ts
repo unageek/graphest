@@ -5,7 +5,7 @@ export function deserialize(data: string): Document {
   if (doc.version !== 1) {
     throw new Error("unsupported version");
   }
-  return documentSchema.validateSync(doc);
+  return documentSchema.parse(doc);
 }
 
 export function serialize(doc: Document) {
