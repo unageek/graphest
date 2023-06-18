@@ -181,9 +181,9 @@ pub struct Expr {
 /// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Binary`].
 #[macro_export]
 macro_rules! binary {
-    ($($op:pat_param)|*, $x:pat, $y:pat) => {
+    ($op:pat, $x:pat, $y:pat) => {
         $crate::ast::Expr {
-            kind: $crate::ast::ExprKind::Binary($($op)|*, box $x, box $y),
+            kind: $crate::ast::ExprKind::Binary($op, box $x, box $y),
             ..
         }
     };
@@ -225,9 +225,9 @@ macro_rules! error {
 /// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Nary`].
 #[macro_export]
 macro_rules! nary {
-    ($($op:pat_param)|*, $xs:pat) => {
+    ($op:pat, $xs:pat) => {
         $crate::ast::Expr {
-            kind: $crate::ast::ExprKind::Nary($($op)|*, $xs),
+            kind: $crate::ast::ExprKind::Nary($op, $xs),
             ..
         }
     };
@@ -258,9 +258,9 @@ macro_rules! rootn {
 /// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Ternary`].
 #[macro_export]
 macro_rules! ternary {
-    ($($op:pat_param)|*, $x:pat, $y:pat, $z:pat) => {
+    ($op:pat, $x:pat, $y:pat, $z:pat) => {
         $crate::ast::Expr {
-            kind: $crate::ast::ExprKind::Ternary($($op)|*, box $x, box $y, box $z),
+            kind: $crate::ast::ExprKind::Ternary($op, box $x, box $y, box $z),
             ..
         }
     };
@@ -269,9 +269,9 @@ macro_rules! ternary {
 /// Makes a pattern that matches an [`Expr`] of kind [`ExprKind::Unary`].
 #[macro_export]
 macro_rules! unary {
-    ($($op:pat_param)|*, $x:pat) => {
+    ($op:pat, $x:pat) => {
         $crate::ast::Expr {
-            kind: $crate::ast::ExprKind::Unary($($op)|*, box $x),
+            kind: $crate::ast::ExprKind::Unary($op, box $x),
             ..
         }
     };
