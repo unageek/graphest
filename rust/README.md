@@ -7,7 +7,7 @@
 
 ## `graph`
 
-`graph` is the only binary of this crate.
+`graph` is the default binary of this crate.
 
 ```bash
 cargo r --release -- "y = sin(x)"
@@ -21,7 +21,7 @@ By default:
   - ![Blue](images/blue.png) The pixel may or may not contain a solution.
   - ![White](images/white.png) The pixel does not contain a solution
 
-Use the option `-h` to show usage.
+Run `cargo r --release -- -h` to show usage.
 
 ## Conditional Features
 

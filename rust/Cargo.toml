@@ -6,6 +6,7 @@ edition = "2021"
 repository = "https://github.com/unageek/graphest"
 license = "MIT"
 publish = false
+default-run = "graph"
 
 [features]
 default = ["arb"]
