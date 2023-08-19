@@ -18,7 +18,6 @@ use rug::Rational;
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
-    default::default,
     hash::{Hash, Hasher},
     marker::Sized,
     mem::take,
@@ -341,7 +340,7 @@ impl ExpandComplexFunctions {
                         VarProps {
                             totally_defined: true,
                             ty: ValueType::Real,
-                            ..default()
+                            ..Default::default()
                         },
                     ),
                 )
@@ -352,7 +351,7 @@ impl ExpandComplexFunctions {
                         VarProps {
                             totally_defined: true,
                             ty: ValueType::Real,
-                            ..default()
+                            ..Default::default()
                         },
                     ),
                 ),
@@ -2122,7 +2121,7 @@ mod tests {
                     VarProps {
                         totally_defined: true,
                         ty: ValueType::Real,
-                        ..default()
+                        ..Default::default()
                     },
                 ),
             )
@@ -2133,7 +2132,7 @@ mod tests {
                     VarProps {
                         totally_defined: true,
                         ty: ValueType::Real,
-                        ..default()
+                        ..Default::default()
                     },
                 ),
             );
