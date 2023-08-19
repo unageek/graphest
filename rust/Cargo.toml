@@ -15,7 +15,7 @@ arb = ["graphest-arb-sys"]
 [dependencies]
 bitflags = "2.3"
 inari = "1.0"
-itertools = "0.10"
+itertools = "0.11"
 nom = "7.1"
 
 [dependencies.clap]

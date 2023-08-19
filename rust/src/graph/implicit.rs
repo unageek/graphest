@@ -20,7 +20,6 @@ use itertools::Itertools;
 use smallvec::smallvec;
 use std::{
     convert::TryFrom,
-    default::default,
     time::{Duration, Instant},
 };
 
@@ -109,7 +108,7 @@ impl Implicit {
             x: Coordinate::new(0, k),
             y: Coordinate::new(0, k),
             t: RealParameter::new(g.rel.t_range()),
-            ..default()
+            ..Default::default()
         }];
 
         if vars.contains(VarSet::N_THETA) {
@@ -123,7 +122,7 @@ impl Implicit {
                         smallvec![n]
                     }
                 })
-                .cartesian_product(bs.into_iter())
+                .cartesian_product(bs)
                 .map(|(n, b)| Block { n_theta: n, ..b })
                 .collect::<Vec<_>>();
         }

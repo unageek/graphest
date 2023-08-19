@@ -94,10 +94,10 @@ impl Def {
     fn left_associative(mut self) -> Self {
         match self {
             Def::Function {
-                arity,
+                arity: 2,
                 ref mut left_associative,
                 ..
-            } if arity == 2 => {
+            } => {
                 *left_associative = true;
             }
             _ => panic!(),

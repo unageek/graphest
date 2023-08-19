@@ -19,7 +19,6 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 use std::{
     convert::TryFrom,
-    default::default,
     mem::swap,
     time::{Duration, Instant},
 };
@@ -101,7 +100,7 @@ impl Parametric {
 
         g.bs_to_subdivide.push_back(Block {
             t: RealParameter::new(g.rel.t_range()),
-            ..default()
+            ..Default::default()
         });
 
         g

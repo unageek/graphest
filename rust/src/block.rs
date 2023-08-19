@@ -606,7 +606,6 @@ impl BytesAllocated for BlockQueue {
 mod tests {
     use super::*;
     use inari::const_interval;
-    use std::default::default;
 
     #[test]
     fn coordinate() {
@@ -789,82 +788,82 @@ mod tests {
             Block {
                 x: Coordinate::new(0, -32),
                 y: Coordinate::new(0xffffffffffffff, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x7f, 64),
                 y: Coordinate::new(0x2000000000000, 127),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x80, 0),
                 y: Coordinate::new(0x1ffffffffffff, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x3fff, 0),
                 y: Coordinate::new(0x40000000000, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x4000, 0),
                 y: Coordinate::new(0x3ffffffffff, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x1fffff, 0),
                 y: Coordinate::new(0x800000000, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x200000, 0),
                 y: Coordinate::new(0x7ffffffff, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0xfffffff, 0),
                 y: Coordinate::new(0x10000000, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x10000000, 0),
                 y: Coordinate::new(0xfffffff, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x7ffffffff, 0),
                 y: Coordinate::new(0x200000, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x800000000, 0),
                 y: Coordinate::new(0x1fffff, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x3ffffffffff, 0),
                 y: Coordinate::new(0x4000, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x40000000000, 0),
                 y: Coordinate::new(0x3fff, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x1ffffffffffff, 0),
                 y: Coordinate::new(0x80, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0x2000000000000, 0),
                 y: Coordinate::new(0x7f, 0),
-                ..default()
+                ..Default::default()
             },
             Block {
                 x: Coordinate::new(0xffffffffffffff, 0),
                 y: Coordinate::new(0, 0),
-                ..default()
+                ..Default::default()
             },
         ];
         assert_eq!(queue.begin_index(), 0);
@@ -894,7 +893,7 @@ mod tests {
             BlockQueue::new(VarSet::M),
             Block {
                 m: IntegerParameter::new(const_interval!(-2.0, 3.0)),
-                ..default()
+                ..Default::default()
             },
         );
 
@@ -902,7 +901,7 @@ mod tests {
             BlockQueue::new(VarSet::N),
             Block {
                 n: IntegerParameter::new(const_interval!(-2.0, 3.0)),
-                ..default()
+                ..Default::default()
             },
         );
 
@@ -910,7 +909,7 @@ mod tests {
             BlockQueue::new(VarSet::N_THETA),
             Block {
                 n_theta: IntegerParameter::new(const_interval!(-2.0, 3.0)),
-                ..default()
+                ..Default::default()
             },
         );
 
@@ -918,7 +917,7 @@ mod tests {
             BlockQueue::new(VarSet::T),
             Block {
                 t: RealParameter::new(const_interval!(-2.0, 3.0)),
-                ..default()
+                ..Default::default()
             },
         );
     }

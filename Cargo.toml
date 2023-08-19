@@ -1,6 +1,7 @@
 [workspace]
 members = ["rust", "rust/graphest-arb-sys", "rust/graphest-fftw-sys"]
 default-members = ["rust"]
+resolver = "2"
 
 [profile.release]
 codegen-units = 1
