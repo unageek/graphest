@@ -104,7 +104,7 @@ fn parse_decimal(mant: &str) -> Option<Rational> {
     Some(Rational::from(i) * ulp)
 }
 
-fn decimal_literal(i: InputWithContext) -> ParseResult<&str> {
+fn decimal_literal(i: InputWithContext<'_>) -> ParseResult<'_, &str> {
     map(
         alt((
             // "12", "12." or "12.3"
@@ -132,20 +132,20 @@ fn identifier_head(i: InputWithContext) -> ParseResult<char> {
     satisfy(|c| c.is_alphabetic())(i)
 }
 
-fn identifier_tail(i: InputWithContext) -> ParseResult<&str> {
+fn identifier_tail(i: InputWithContext<'_>) -> ParseResult<'_, &str> {
     map(
         recognize(many0_count(satisfy(|c| c.is_alphanumeric() || c == '\''))),
         |i: InputWithContext| i.source,
     )(i)
 }
 
-fn identifier(i: InputWithContext) -> ParseResult<&str> {
+fn identifier(i: InputWithContext<'_>) -> ParseResult<'_, &str> {
     map(recognize(pair(identifier_head, identifier_tail)), |i| {
         i.source
     })(i)
 }
 
-fn name_in_context(i: InputWithContext) -> ParseResult<(&Context, &str)> {
+fn name_in_context(i: InputWithContext<'_>) -> ParseResult<'_, (&Context, &str)> {
     let context_stack = i.context_stack;
 
     map_opt(identifier, move |name| {
@@ -160,7 +160,7 @@ fn named_constant(i: InputWithContext) -> ParseResult<Expr> {
     map_opt(name_in_context, |(ctx, name)| ctx.get_constant(name))(i)
 }
 
-fn function_name(i: InputWithContext) -> ParseResult<(&Context, &str)> {
+fn function_name(i: InputWithContext<'_>) -> ParseResult<'_, (&Context, &str)> {
     verify(name_in_context, |(ctx, name)| ctx.is_function(name))(i)
 }
 

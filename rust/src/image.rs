@@ -116,7 +116,7 @@ impl PixelRange {
     }
 
     /// Returns an iterator over the pixels in the region.
-    pub fn iter(&self) -> PixelIter {
+    pub fn iter(&self) -> PixelIter<'_> {
         self.into_iter()
     }
 }
