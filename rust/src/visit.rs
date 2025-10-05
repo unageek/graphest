@@ -987,6 +987,8 @@ where
     modified
 }
 
+/// If `x` represents a rational number, returns `f` applied to the [`Rational`] value;
+/// otherwise, returns `false`.
 fn test_rational<F>(x: &Expr, f: F) -> bool
 where
     F: Fn(&Rational) -> bool,
@@ -996,9 +998,11 @@ where
             return f(x);
         }
     }
-    panic!("`x` is not a constant node or does not contain a rational number");
+    false
 }
 
+/// If both `x` and `y` represent rational numbers, returns `f` applied to the [`Rational`] values;
+/// otherwise, returns `false`.
 fn test_rationals<F>(x: &Expr, y: &Expr, f: F) -> bool
 where
     F: Fn(&Rational, &Rational) -> bool,
@@ -1008,7 +1012,7 @@ where
             return f(x, y);
         }
     }
-    panic!("`x` or `y` is not a constant node or does not contain a rational number");
+    false
 }
 
 /// Transforms expressions into simpler/normalized forms.
@@ -1327,7 +1331,6 @@ impl VisitMut for SubDivTransform {
                 let (num, den) = xs
                     .drain(..)
                     .fold((vec![], vec![]), |(mut num, mut den), e| {
-                        #[allow(clippy::collapsible_match)] // false-positive
                         match e {
                             binary!(Pow, x, y @ constant!(_))
                                 if test_rational(&y, |x| *x < 0.0) =>
