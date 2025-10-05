@@ -154,10 +154,12 @@ let mainWindow: BrowserWindowWithTypedWebContents | undefined;
 let maybeUnsaved = false;
 let nextExportImageId = 0;
 let nextRelId = 0;
-let postStartup: (() => void | Promise<void>) | undefined = () =>
-  openUrl(
+let postStartup: (() => void | Promise<void>) | undefined = () => {
+  const args = process.argv.slice(process.defaultApp ? 2 : 1);
+  args.length > 0 ? openFileOrUrl(args[0]) : openUrl(
     "graphest://eyJjZW50ZXIiOlswLDBdLCJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicGVuU2l6ZSI6MSwicmVsYXRpb24iOiJ5ID0gc2luKHgpIn1dLCJ2ZXJzaW9uIjoxLCJ6b29tTGV2ZWwiOjZ9"
   );
+}
 let postUnload: (() => void | Promise<void>) | undefined;
 const relationById = new Map<string, Relation>();
 const relKeyToRelId = new Map<string, string>();
@@ -905,6 +907,14 @@ function openUrl(url: string) {
     } catch (e) {
       console.log("open failed", e);
     }
+  }
+}
+
+function openFileOrUrl(s: string) {
+  if (s.startsWith(URL_PREFIX)) {
+    openUrl(s);
+  } else {
+    openFile(s);
   }
 }
 
