@@ -424,7 +424,7 @@ impl Context {
     }
 
     pub fn has(&self, name: &str) -> bool {
-        self.defs.get(name).is_some()
+        self.defs.contains_key(name)
     }
 
     pub fn is_function(&self, name: &str) -> bool {

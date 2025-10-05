@@ -1141,7 +1141,7 @@ impl TupperIntervalSet {
     impl_op!(rootn(x, n: u32), {
         if n == 0 {
             DecInterval::EMPTY
-        } else if n % 2 == 0 {
+        } else if n.is_multiple_of(2) {
             const DOM: Interval = const_interval!(0.0, f64::INFINITY);
             let dec = if x.interval().unwrap().subset(DOM) {
                 x.decoration()
@@ -1476,7 +1476,7 @@ pub(crate) fn erfc(x: Interval) -> Interval {
 pub(crate) fn rootn(x: Interval, n: u32) -> Interval {
     if n == 0 {
         Interval::EMPTY
-    } else if n % 2 == 0 {
+    } else if n.is_multiple_of(2) {
         const DOM: Interval = const_interval!(0.0, f64::INFINITY);
         let x = x.intersection(DOM);
         if x.is_empty() {
@@ -1504,7 +1504,7 @@ pub(crate) fn sinc(x: Interval) -> Interval {
         let b2 = (-a).max(b);
         if b2 <= ARGMIN_RD {
             let x2 = interval!(b2, b2).unwrap();
-            interval!((x2.sin() / x2).inf().max(MIN_RD).min(1.0), 1.0).unwrap()
+            interval!((x2.sin() / x2).inf().clamp(MIN_RD, 1.0), 1.0).unwrap()
         } else {
             interval!(MIN_RD, 1.0).unwrap()
         }

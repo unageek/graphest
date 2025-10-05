@@ -129,7 +129,7 @@ impl TupperInterval {
     /// Panics if the interval is NaI.
     pub fn new(x: DecInterval, g: BranchMap) -> Self {
         assert!(!x.is_nai());
-        let x = unsafe { transmute::<_, _DecInterval>(x) };
+        let x = unsafe { transmute::<inari::DecInterval, _DecInterval>(x) };
         Self { x: x.x, d: x.d, g }
     }
 
