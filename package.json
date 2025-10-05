@@ -17,6 +17,7 @@
     "start": "cross-env-shell NODE_ENV=development npm run build && electron .",
     "test": "jest"
   },
+  "files": ["dist/**/*"],
   "author": "Masashi Mizuno",
   "license": "MIT",
   "repository": "github:unageek/graphest",
