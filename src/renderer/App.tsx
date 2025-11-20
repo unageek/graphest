@@ -1,4 +1,5 @@
 import { registerIcons, Stack, ThemeProvider, useTheme } from "@fluentui/react";
+import { FluentProvider, webLightTheme } from "@fluentui/react-components";
 import {
   AddIcon,
   CancelIcon,
@@ -233,7 +234,9 @@ registerIcons({
 ReactDOM.render(
   <React.StrictMode>
     <Provider store={store}>
-      <App />
+      <FluentProvider theme={webLightTheme} style={{ height: "100%" }}>
+        <App />
+      </FluentProvider>
     </Provider>
   </React.StrictMode>,
   document.getElementById("app")
