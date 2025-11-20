@@ -1,20 +1,29 @@
 import {
-  ColorPicker,
   IColorCellProps,
   Label,
-  Pivot,
-  PivotItem,
   Separator,
   SpinButton,
   Stack,
   SwatchColorPicker,
   Text,
 } from "@fluentui/react";
+import {
+  AlphaSlider,
+  ColorArea,
+  ColorPicker,
+  ColorSlider,
+  Popover,
+  PopoverSurface,
+  PopoverTrigger,
+  Tab,
+  TabList,
+  TabValue,
+  ToolbarButton,
+} from "@fluentui/react-components";
 import { SharedColors } from "@fluentui/theme";
 import * as Color from "color";
 import * as React from "react";
 import { MAX_PEN_SIZE } from "../common/constants";
-import { BarIconButton } from "./BarIconButton";
 
 export interface GraphStyleButtonProps {
   color: string;
@@ -24,25 +33,26 @@ export interface GraphStyleButtonProps {
 }
 
 export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
+  const [selectedTab, setSelectedTab] = React.useState<TabValue>("swatch");
+
   return (
-    <BarIconButton
-      menuProps={{
-        items: [{ key: "colors" }],
-        onRenderMenuList: renderMenuList,
-      }}
-      styles={{
-        menuIcon: { display: "none" },
-      }}
-      title="Graph style"
-    >
-      <div
-        style={{
-          backgroundColor: props.color,
-          height: "16px",
-          width: "16px",
-        }}
-      />
-    </BarIconButton>
+    <Popover positioning="below-end">
+      <PopoverTrigger>
+        <ToolbarButton
+          title="Graph style"
+          icon={
+            <span
+              style={{
+                backgroundColor: props.color,
+                height: "16px",
+                width: "16px",
+              }}
+            />
+          }
+        ></ToolbarButton>
+      </PopoverTrigger>
+      <PopoverSurface>{renderMenuList()}</PopoverSurface>
+    </Popover>
   );
 
   function renderMenuList(): JSX.Element {
@@ -56,8 +66,15 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           width: "288px",
         }}
       >
-        <Pivot>
-          <PivotItem headerText="Swatch">
+        <TabList
+          selectedValue={selectedTab}
+          onTabSelect={(_, { value }) => setSelectedTab(value)}
+        >
+          <Tab value="swatch">Swatch</Tab>
+          <Tab value="custom">Custom</Tab>
+        </TabList>
+        <>
+          {selectedTab === "swatch" && (
             <SwatchColorPicker
               cellMargin={8}
               cellShape={"square"}
@@ -72,19 +89,32 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
               selectedId={id}
               styles={{ root: { margin: "4px", padding: 0 } }}
             />
-          </PivotItem>
-          <PivotItem headerText="Custom">
+          )}
+          {selectedTab === "custom" && (
             <ColorPicker
-              color={props.color}
-              onChange={(_, c) => props.onColorChanged(c.str)}
-              showPreview={true}
-              styles={{
-                panel: { padding: 0 },
-                root: { margin: "8px" },
+              color={{
+                h: color.hue(),
+                s: 0.01 * color.saturationv(),
+                v: 0.01 * color.value(),
+                a: color.alpha(),
               }}
-            />
-          </PivotItem>
-        </Pivot>
+              onColorChange={(_, { color }) =>
+                props.onColorChanged(
+                  Color.hsv({
+                    h: color.h,
+                    s: 100 * color.s,
+                    v: 100 * color.v,
+                    alpha: color.a,
+                  }).hexa()
+                )
+              }
+            >
+              <ColorArea />
+              <ColorSlider />
+              <AlphaSlider />
+            </ColorPicker>
+          )}
+        </>
         <Separator styles={{ root: { height: "1px", padding: 0 } }} />
         <Stack style={{ margin: "8px" }}>
           <Stack horizontal verticalAlign="baseline">

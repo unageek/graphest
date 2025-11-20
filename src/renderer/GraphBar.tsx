@@ -1,11 +1,23 @@
-import { Icon, useTheme } from "@fluentui/react";
+import { useTheme } from "@fluentui/react";
+import {
+  Menu,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
+  Toolbar,
+  ToolbarButton,
+} from "@fluentui/react-components";
+import {
+  DeleteIcon,
+  GripperDotsVerticalIcon,
+  MoreIcon,
+} from "@fluentui/react-icons-mdl2";
 import * as React from "react";
 import { useRef } from "react";
 import { DraggableProvidedDragHandleProps } from "react-beautiful-dnd";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
-import { Bar } from "./Bar";
-import { BarIconButton } from "./BarIconButton";
 import { GraphStyleButton } from "./GraphStyleButton";
 import { RelationInput, RelationInputActions } from "./RelationInput";
 import { SymbolsButton } from "./SymbolsButton";
@@ -35,7 +47,7 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
   const relationInputActionsRef = useRef<RelationInputActions>(null);
 
   return (
-    <Bar>
+    <Toolbar>
       <div
         style={{
           alignItems: "center",
@@ -47,7 +59,7 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
         {...props.dragHandleProps}
         title="Drag to move"
       >
-        <Icon iconName="GripperDotsVertical" />
+        <GripperDotsVerticalIcon />
       </div>
       <GraphStyleButton
         color={graph.color}
@@ -79,28 +91,23 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
           relationInputActionsRef.current?.insertSymbolPair(left, right)
         }
       />
-      <BarIconButton
-        iconProps={{ iconName: "More" }}
-        menuProps={{
-          items: [
-            {
-              key: "remove",
-              text: "Remove",
-              iconProps: { iconName: "Delete" },
-              onClick: () => {
+      <Menu>
+        <MenuTrigger>
+          <ToolbarButton icon={<MoreIcon />} />
+        </MenuTrigger>
+        <MenuPopover>
+          <MenuList>
+            <MenuItem
+              onClick={() => {
                 dispatch(removeGraph(props.graphId));
-              },
-            },
-          ],
-        }}
-        styles={{
-          menuIcon: { display: "none" },
-          root: {
-            marginRight: "8px",
-          },
-        }}
-        title="Actions"
-      />
-    </Bar>
+              }}
+              icon={<DeleteIcon />}
+            >
+              Remove
+            </MenuItem>
+          </MenuList>
+        </MenuPopover>
+      </Menu>
+    </Toolbar>
   );
 };

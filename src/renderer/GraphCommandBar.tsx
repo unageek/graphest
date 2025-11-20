@@ -1,31 +1,35 @@
-import { CommandBarButton, Separator } from "@fluentui/react";
+import {
+  Toolbar,
+  ToolbarButton,
+  ToolbarDivider,
+} from "@fluentui/react-components";
+import { AddIcon, ColorIcon, ForwardIcon } from "@fluentui/react-icons-mdl2";
 import * as React from "react";
 import { useDispatch } from "react-redux";
-import { Bar } from "./Bar";
 import { newGraph, setShowColorsDialog, setShowGoToDialog } from "./models/app";
 
 export const GraphCommandBar = (): JSX.Element => {
   const dispatch = useDispatch();
 
   return (
-    <Bar>
-      <CommandBarButton
-        iconProps={{ iconName: "Add" }}
-        onClick={() => dispatch(newGraph())}
-        text="Add Relation"
-      />
-      <Separator vertical />
-      <CommandBarButton
-        iconProps={{ iconName: "Color" }}
+    <Toolbar>
+      <ToolbarButton icon={<AddIcon />} onClick={() => dispatch(newGraph())}>
+        Add Relation
+      </ToolbarButton>
+      <ToolbarDivider />
+      <ToolbarButton
+        icon={<ColorIcon />}
         onClick={() => dispatch(setShowColorsDialog(true))}
-        text="Colors…"
-      />
-      <Separator vertical />
-      <CommandBarButton
-        iconProps={{ iconName: "Forward" }}
+      >
+        Colors…
+      </ToolbarButton>
+      <ToolbarDivider />
+      <ToolbarButton
+        icon={<ForwardIcon />}
         onClick={() => dispatch(setShowGoToDialog(true))}
-        text="Go To…"
-      />
-    </Bar>
+      >
+        Go To…
+      </ToolbarButton>
+    </Toolbar>
   );
 };
