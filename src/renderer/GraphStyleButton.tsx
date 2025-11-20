@@ -36,7 +36,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
   const [selectedTab, setSelectedTab] = React.useState<TabValue>("swatch");
 
   return (
-    <Popover positioning="below-end">
+    <Popover positioning="below-start">
       <PopoverTrigger>
         <ToolbarButton
           title="Graph style"
