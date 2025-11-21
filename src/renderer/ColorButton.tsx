@@ -1,12 +1,17 @@
 import {
   ColorPicker,
-  DefaultButton,
   IColorCellProps,
   Pivot,
   PivotItem,
   Stack,
   SwatchColorPicker,
 } from "@fluentui/react";
+import {
+  MenuButton,
+  Popover,
+  PopoverSurface,
+  PopoverTrigger,
+} from "@fluentui/react-components";
 import { SharedColors } from "@fluentui/theme";
 import * as Color from "color";
 import * as React from "react";
@@ -18,30 +23,28 @@ export interface ColorButtonProps {
 
 export const ColorButton = (props: ColorButtonProps): JSX.Element => {
   return (
-    <DefaultButton
-      menuProps={{
-        items: [{ key: "colors" }],
-        onRenderMenuList: renderMenuList,
-      }}
-      styles={{
-        root: {
-          minWidth: 0,
-          padding: 0,
-          width: "52px",
-        },
-      }}
-      title="Color"
-    >
-      <div
-        style={{
-          backgroundColor: props.color,
-          height: "16px",
-          width: "16px",
-        }}
-      >
-        &nbsp; {/* For vertical alignment. */}
-      </div>
-    </DefaultButton>
+    <Popover positioning="below-start">
+      <PopoverTrigger>
+        <MenuButton
+          style={{
+            minWidth: "unset",
+            width: "60px",
+          }}
+          title="Color"
+        >
+          <div
+            style={{
+              backgroundColor: props.color,
+              height: "16px",
+              width: "16px",
+            }}
+          >
+            &nbsp; {/* For vertical alignment. */}
+          </div>
+        </MenuButton>
+      </PopoverTrigger>
+      <PopoverSurface>{renderMenuList()}</PopoverSurface>
+    </Popover>
   );
 
   function renderMenuList(): JSX.Element {
