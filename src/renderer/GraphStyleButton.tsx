@@ -5,6 +5,7 @@ import {
   ColorPicker,
   ColorSlider,
   Divider,
+  Input,
   Label,
   Popover,
   PopoverSurface,
@@ -96,82 +97,101 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           </SwatchPicker>
         )}
         {selectedTab === "custom" && (
-          <ColorPicker
-            color={{
-              h: color.hue(),
-              s: 0.01 * color.saturationv(),
-              v: 0.01 * color.value(),
-              a: color.alpha(),
-            }}
-            onColorChange={(_, { color }) =>
-              props.onColorChanged(
-                Color.hsv({
-                  h: color.h,
-                  s: 100 * color.s,
-                  v: 100 * color.v,
-                  alpha: color.a,
-                }).hexa()
-              )
-            }
-          >
-            <ColorArea
-              style={{
-                height: "142px",
-                minHeight: "unset",
-                minWidth: "unset",
-                width: "284px",
+          <>
+            <ColorPicker
+              color={{
+                h: color.hue(),
+                s: 0.01 * color.saturationv(),
+                v: 0.01 * color.value(),
+                a: color.alpha(),
               }}
-            />
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                gap: "10px",
-              }}
+              onColorChange={(_, { color }) =>
+                props.onColorChanged(
+                  Color.hsv({
+                    h: color.h,
+                    s: 100 * color.s,
+                    v: 100 * color.v,
+                    alpha: color.a,
+                  }).hexa()
+                )
+              }
             >
+              <ColorArea
+                style={{
+                  height: "142px",
+                  minHeight: "unset",
+                  minWidth: "unset",
+                  width: "284px",
+                }}
+              />
               <div
                 style={{
                   display: "flex",
-                  flexDirection: "column",
-                  flexGrow: 1,
+                  flexDirection: "row",
                   gap: "10px",
                 }}
               >
-                <ColorSlider
+                <div
                   style={{
-                    minHeight: "unset",
+                    display: "flex",
+                    flexDirection: "column",
+                    flexGrow: 1,
+                    gap: "10px",
                   }}
-                  rail={{
-                    style: {
-                      boxSizing: "border-box",
-                      border: `1px solid ${tokens.colorNeutralStroke1}`,
-                    },
-                  }}
-                />
-                <AlphaSlider
+                >
+                  <ColorSlider
+                    style={{
+                      minHeight: "unset",
+                    }}
+                    rail={{
+                      style: {
+                        boxSizing: "border-box",
+                        border: `1px solid ${tokens.colorNeutralStroke1}`,
+                      },
+                    }}
+                  />
+                  <AlphaSlider
+                    style={{
+                      minHeight: "unset",
+                    }}
+                    rail={{
+                      style: {
+                        boxSizing: "border-box",
+                        border: `1px solid ${tokens.colorNeutralStroke1}`,
+                      },
+                    }}
+                  />
+                </div>
+                <div
                   style={{
-                    minHeight: "unset",
-                  }}
-                  rail={{
-                    style: {
-                      boxSizing: "border-box",
-                      border: `1px solid ${tokens.colorNeutralStroke1}`,
-                    },
+                    background: color.hex(),
+                    border: `1px solid ${tokens.colorNeutralStroke1}`,
+                    borderRadius: tokens.borderRadiusMedium,
+                    boxSizing: "border-box",
+                    height: "50px",
+                    width: "50px",
                   }}
                 />
               </div>
-              <div
-                style={{
-                  background: props.color,
-                  border: `1px solid ${tokens.colorNeutralStroke1}`,
-                  borderRadius: tokens.borderRadiusMedium,
-                  boxSizing: "border-box",
-                  height: "50px",
-                  width: "50px",
+            </ColorPicker>
+            <div
+              style={{
+                alignItems: "baseline",
+                display: "flex",
+                flexDirection: "row",
+                gap: "8px",
+              }}
+            >
+              <Label>Hex:</Label>
+              <Input
+                onChange={(_, { value }) => {
+                  const color = new Color(value);
+                  props.onColorChanged(color.hex());
                 }}
+                value={color.hex()}
               />
             </div>
-          </ColorPicker>
+          </>
         )}
         <Divider />
         <div
@@ -179,15 +199,16 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             alignItems: "baseline",
             display: "flex",
             flexDirection: "row",
+            gap: "8px",
           }}
         >
-          <Label style={{ marginRight: "8px" }}>Pen size:</Label>
+          <Label>Pen size:</Label>
           <SpinButton
             defaultValue={props.penSize}
             max={MAX_PEN_SIZE}
             min={0}
             step={0.1}
-            style={{ marginRight: "4px", width: "80px" }}
+            style={{ width: "80px" }}
             onChange={(_, { value }) => {
               if (value === undefined) return;
               const penSize = Number(value);

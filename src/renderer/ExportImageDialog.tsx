@@ -291,74 +291,84 @@ export const ExportImageDialog = (
                         alignItems: "baseline",
                         display: "grid",
                         gap: "8px",
-                        gridTemplateColumns: "auto auto auto",
+                        gridTemplateColumns: "auto auto",
                         margin: "8px auto",
                         maxWidth: "fit-content",
                       }}
                     >
-                      <Label style={{ gridColumn: "2", padding: 0 }}>
-                        Minimum
-                      </Label>
-                      <Label style={{ gridColumn: "3", padding: 0 }}>
-                        Maximum
-                      </Label>
-
                       <Label style={{ textAlign: "right" }}>x:</Label>
-                      <Field validationMessage={xMinErrorMessage}>
-                        <Input
-                          className={styles.decimalInput}
-                          onChange={(_, { value }) => {
-                            setXMin(value);
-                            validateXMin(value);
-                          }}
-                          value={xMin}
-                        />
-                      </Field>
-                      <Field validationMessage={xMaxErrorMessage}>
-                        <Input
-                          className={styles.decimalInput}
-                          onChange={(_, { value }) => {
-                            setXMax(value);
-                            validateXMax(value);
-                          }}
-                          value={xMax}
-                        />
-                      </Field>
-
-                      <Label style={{ textAlign: "right" }}>y:</Label>
-                      <Field validationMessage={yMinErrorMessage}>
-                        <Input
-                          className={styles.decimalInput}
-                          onChange={(_, { value }) => {
-                            setYMin(value);
-                            validateYMin(value);
-                          }}
-                          value={yMin}
-                        />
-                      </Field>
-                      <Field validationMessage={yMaxErrorMessage}>
-                        <Input
-                          className={styles.decimalInput}
-                          onChange={(_, { value }) => {
-                            setYMax(value);
-                            validateYMax(value);
-                          }}
-                          value={yMax}
-                        />
-                      </Field>
-
-                      <div style={{ gridColumn: "1 / span 3" }} />
-
-                      <Label style={{ gridColumn: "1", textAlign: "right" }}>
-                        Width:
-                      </Label>
                       <div
                         style={{
                           alignItems: "baseline",
                           display: "flex",
                           flexDirection: "row",
-                          gap: "4px",
-                          gridColumn: "span 2",
+                          gap: "8px",
+                        }}
+                      >
+                        <Field validationMessage={xMinErrorMessage}>
+                          <Input
+                            className={styles.decimalInput}
+                            onChange={(_, { value }) => {
+                              setXMin(value);
+                              validateXMin(value);
+                            }}
+                            value={xMin}
+                          />
+                        </Field>
+                        <Text>…</Text>
+                        <Field validationMessage={xMaxErrorMessage}>
+                          <Input
+                            className={styles.decimalInput}
+                            onChange={(_, { value }) => {
+                              setXMax(value);
+                              validateXMax(value);
+                            }}
+                            value={xMax}
+                          />
+                        </Field>
+                      </div>
+
+                      <Label style={{ textAlign: "right" }}>y:</Label>
+                      <div
+                        style={{
+                          alignItems: "baseline",
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: "8px",
+                        }}
+                      >
+                        <Field validationMessage={yMinErrorMessage}>
+                          <Input
+                            className={styles.decimalInput}
+                            onChange={(_, { value }) => {
+                              setYMin(value);
+                              validateYMin(value);
+                            }}
+                            value={yMin}
+                          />
+                        </Field>
+                        <Text>…</Text>
+                        <Field validationMessage={yMaxErrorMessage}>
+                          <Input
+                            className={styles.decimalInput}
+                            onChange={(_, { value }) => {
+                              setYMax(value);
+                              validateYMax(value);
+                            }}
+                            value={yMax}
+                          />
+                        </Field>
+                      </div>
+
+                      <div style={{ gridColumn: "1 / span 2" }} />
+
+                      <Label style={{ textAlign: "right" }}>Width:</Label>
+                      <div
+                        style={{
+                          alignItems: "baseline",
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: "8px",
                         }}
                       >
                         <Field validationMessage={widthErrorMessage}>
@@ -374,16 +384,13 @@ export const ExportImageDialog = (
                         <Text>pixels</Text>
                       </div>
 
-                      <Label style={{ gridColumn: "1", textAlign: "right" }}>
-                        Height:
-                      </Label>
+                      <Label style={{ textAlign: "right" }}>Height:</Label>
                       <div
                         style={{
                           alignItems: "baseline",
                           display: "flex",
                           flexDirection: "row",
-                          gap: "4px",
-                          gridColumn: "span 2",
+                          gap: "8px",
                         }}
                       >
                         <Field validationMessage={heightErrorMessage}>
@@ -399,11 +406,10 @@ export const ExportImageDialog = (
                         <Text>pixels</Text>
                       </div>
 
-                      <div style={{ gridColumn: "1 / span 3" }} />
+                      <div style={{ gridColumn: "1 / span 2" }} />
 
                       <Label
                         style={{
-                          gridColumn: "1",
                           textAlign: "right",
                         }}
                       >
@@ -429,7 +435,7 @@ export const ExportImageDialog = (
                         size="large"
                         style={{
                           display: "inline-block",
-                          gridColumn: "2 / span 2",
+                          gridColumn: "2",
                           padding: "0 0 2px 0",
                         }}
                         title="Make the image background transparent."
@@ -454,15 +460,15 @@ export const ExportImageDialog = (
                         size="large"
                         style={{
                           display: "inline-block",
-                          gridColumn: "2 / span 2",
+                          gridColumn: "2",
                           padding: "0 0 2px 0",
                         }}
                         title="Perform alpha composition in linear color space."
                       />
 
-                      <div style={{ gridColumn: "1 / span 3" }} />
+                      <div style={{ gridColumn: "1 / span 2" }} />
 
-                      <Label style={{ gridColumn: "1", textAlign: "right" }}>
+                      <Label style={{ textAlign: "right" }}>
                         Anti-aliasing:
                       </Label>
                       <Dropdown
@@ -476,14 +482,13 @@ export const ExportImageDialog = (
                             antiAliasing: Number(optionValue),
                           });
                         }}
-                        style={{ gridColumn: "2 / span 2" }}
                       >
                         {antiAliasingOptions.map((option) => (
                           <Option value={option.key}>{option.text}</Option>
                         ))}
                       </Dropdown>
 
-                      <Text style={{ gridColumn: "2 / span 2" }}>
+                      <Text style={{ gridColumn: "2" }}>
                         Minimum pen size: {approxMinPenSize.toString()} pixel
                         <br />
                         {tilesPerRelation}{" "}
@@ -491,9 +496,9 @@ export const ExportImageDialog = (
                         will be processed.
                       </Text>
 
-                      <div style={{ gridColumn: "1 / span 3" }} />
+                      <div style={{ gridColumn: "1 / span 2" }} />
 
-                      <Label style={{ gridColumn: "1", textAlign: "right" }}>
+                      <Label style={{ textAlign: "right" }}>
                         Per-tile timeout:
                       </Label>
                       <div
@@ -501,8 +506,7 @@ export const ExportImageDialog = (
                           alignItems: "baseline",
                           display: "flex",
                           flexDirection: "row",
-                          gap: "4px",
-                          gridColumn: "span 2",
+                          gap: "8px",
                         }}
                       >
                         <Field validationMessage={timeoutErrorMessage}>
@@ -518,18 +522,15 @@ export const ExportImageDialog = (
                         <Text>seconds</Text>
                       </div>
 
-                      <div style={{ gridColumn: "1 / span 3" }} />
+                      <div style={{ gridColumn: "1 / span 2" }} />
 
-                      <Label style={{ gridColumn: "1", textAlign: "right" }}>
-                        Save as:
-                      </Label>
+                      <Label style={{ textAlign: "right" }}>Save as:</Label>
                       <div
                         style={{
                           alignItems: "baseline",
                           display: "flex",
                           flexDirection: "row",
                           gap: "8px",
-                          gridColumn: "span 2",
                         }}
                       >
                         <Text
@@ -583,7 +584,7 @@ export const ExportImageDialog = (
                         alignItems: "center",
                         display: "flex",
                         flexDirection: "row",
-                        gap: "4px",
+                        gap: "8px",
                         height: "30px",
                       }}
                     >
