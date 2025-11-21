@@ -1,10 +1,10 @@
-import { useTheme } from "@fluentui/react";
 import {
   Menu,
   MenuItem,
   MenuList,
   MenuPopover,
   MenuTrigger,
+  tokens,
   Toolbar,
   ToolbarButton,
 } from "@fluentui/react-components";
@@ -43,15 +43,14 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
   const highRes = useSelector((s) => s.highRes);
-  const theme = useTheme();
   const relationInputActionsRef = useRef<RelationInputActions>(null);
 
   return (
-    <Toolbar>
+    <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
       <div
         style={{
           alignItems: "center",
-          color: theme.semanticColors.disabledBodyText,
+          color: tokens.colorNeutralForeground4,
           display: "flex",
           fontSize: "20px",
           justifyContent: "center",

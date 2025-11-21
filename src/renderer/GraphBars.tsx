@@ -1,4 +1,4 @@
-import { useTheme } from "@fluentui/react";
+import { tokens } from "@fluentui/react-components";
 import * as React from "react";
 import {
   DragDropContext,
@@ -23,7 +23,6 @@ export interface GraphBarsProps {
 export const GraphBars = (props: GraphBarsProps): JSX.Element => {
   const dispatch = useDispatch();
   const graphs = useSelector((s) => s.graphs);
-  const theme = useTheme();
 
   function onDragEnd(result: DropResult) {
     if (
@@ -47,7 +46,7 @@ export const GraphBars = (props: GraphBarsProps): JSX.Element => {
                     {...provided.draggableProps}
                     style={{
                       boxShadow: snapshot.isDragging
-                        ? theme.effects.elevation8
+                        ? tokens.shadow8
                         : undefined,
                       ...provided.draggableProps.style,
                     }}

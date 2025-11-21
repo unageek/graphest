@@ -1,4 +1,5 @@
 import {
+  tokens,
   Toolbar,
   ToolbarButton,
   ToolbarDivider,
@@ -16,7 +17,7 @@ export const GraphCommandBar = (): JSX.Element => {
   const dispatch = useDispatch();
 
   return (
-    <Toolbar>
+    <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
       <ToolbarButton icon={<AddRegular />} onClick={() => dispatch(newGraph())}>
         Add Relation
       </ToolbarButton>
