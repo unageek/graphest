@@ -230,19 +230,3 @@ a:not([draggable]) {
 .relation-input-error-message {
   color: var(--red-dark);
 }
-
-/* HACK: Properly align Fluent UI's SVG icons. */
-
-.ms-Dropdown-caretDownWrapper {
-  height: 100% !important;
-  padding-top: unset !important;
-}
-
-i {
-  height: 100%;
-}
-
-.fluent-ui-icon {
-  display: flex !important;
-  height: 100%;
-}
