@@ -1,4 +1,3 @@
-import { Stack } from "@fluentui/react";
 import {
   Button,
   Checkbox,
@@ -576,17 +575,22 @@ export const ExportImageDialog = (
               return (
                 <DialogBody>
                   <DialogContent style={{ minWidth: "300px" }}>
-                    <Label style={{ padding: "0" }}>
-                      {state === State.Exporting ? "Exporting…" : "Exported"}
-                    </Label>
-                    <Stack
-                      horizontal
-                      tokens={{ childrenGap: "4px" }}
-                      verticalAlign="center"
+                    <Text>
+                      {state === State.Exporting ? "Rendering…" : "Complete"}
+                    </Text>
+                    <div
+                      style={{
+                        alignItems: "center",
+                        display: "flex",
+                        flexDirection: "row",
+                        gap: "4px",
+                        height: "30px",
+                      }}
                     >
-                      <Stack.Item grow>
-                        <ProgressBar value={progress.progress} />
-                      </Stack.Item>
+                      <ProgressBar
+                        style={{ flexGrow: 1 }}
+                        value={progress.progress}
+                      />
                       {state === State.Exporting && (
                         <Button
                           appearance="subtle"
@@ -598,7 +602,7 @@ export const ExportImageDialog = (
                           title="Cancel"
                         />
                       )}
-                    </Stack>
+                    </div>
                     {progress.messages.map((message, index) => (
                       <Text block key={index}>
                         {message}
