@@ -1,23 +1,21 @@
 import {
-  IColorCellProps,
-  Label,
-  Separator,
-  SpinButton,
-  Stack,
-  SwatchColorPicker,
-  Text,
-} from "@fluentui/react";
-import {
   AlphaSlider,
+  Caption1,
   ColorArea,
   ColorPicker,
   ColorSlider,
+  Divider,
+  Label,
   Popover,
   PopoverSurface,
   PopoverTrigger,
+  renderSwatchPickerGrid,
+  SpinButton,
+  SwatchPicker,
   Tab,
   TabList,
   TabValue,
+  Text,
   ToolbarButton,
 } from "@fluentui/react-components";
 import { SharedColors } from "@fluentui/theme";
@@ -51,7 +49,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           }
         ></ToolbarButton>
       </PopoverTrigger>
-      <PopoverSurface>{renderMenuList()}</PopoverSurface>
+      <PopoverSurface style={{ padding: 0 }}>{renderMenuList()}</PopoverSurface>
     </Popover>
   );
 
@@ -60,96 +58,108 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
     const id = colorToId.get(color.hex());
 
     return (
-      <Stack
+      <div
         style={{
           // Adjusted to the width of the `SwatchColorPicker`.
-          width: "288px",
+          alignItems: "flex-start",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-start",
+          padding: "10px",
+          rowGap: "10px",
+          width: "300px",
         }}
       >
         <TabList
           selectedValue={selectedTab}
           onTabSelect={(_, { value }) => setSelectedTab(value)}
+          style={{ margin: "-10px -10px 0 -10px" }}
         >
           <Tab value="swatch">Swatch</Tab>
           <Tab value="custom">Custom</Tab>
         </TabList>
-        <>
-          {selectedTab === "swatch" && (
-            <SwatchColorPicker
-              cellMargin={8}
-              cellShape={"square"}
-              colorCells={colorCells}
-              columnCount={10}
-              onChange={(_, __, c) => {
-                if (c !== undefined) {
-                  const newColor = new Color(c).alpha(color.alpha());
-                  props.onColorChanged(newColor.toString());
-                }
-              }}
-              selectedId={id}
-              styles={{ root: { margin: "4px", padding: 0 } }}
-            />
-          )}
-          {selectedTab === "custom" && (
-            <ColorPicker
-              color={{
-                h: color.hue(),
-                s: 0.01 * color.saturationv(),
-                v: 0.01 * color.value(),
-                a: color.alpha(),
-              }}
-              onColorChange={(_, { color }) =>
-                props.onColorChanged(
-                  Color.hsv({
-                    h: color.h,
-                    s: 100 * color.s,
-                    v: 100 * color.v,
-                    alpha: color.a,
-                  }).hexa()
-                )
+        {selectedTab === "swatch" && (
+          <SwatchPicker
+            layout="grid"
+            onSelectionChange={(_, { selectedSwatch }) => {
+              if (selectedSwatch !== undefined) {
+                const newColor = new Color(selectedSwatch).alpha(color.alpha());
+                props.onColorChanged(newColor.toString());
               }
-            >
-              <ColorArea />
-              <ColorSlider />
-              <AlphaSlider />
-            </ColorPicker>
-          )}
-        </>
-        <Separator styles={{ root: { height: "1px", padding: 0 } }} />
-        <Stack style={{ margin: "8px" }}>
-          <Stack horizontal verticalAlign="baseline">
-            <Label style={{ marginRight: "8px" }}>Pen size:</Label>
-            <SpinButton
-              defaultValue={props.penSize.toString()}
-              max={MAX_PEN_SIZE}
-              min={0}
-              step={0.1}
-              styles={{ root: { marginRight: "4px", width: "50px" } }}
-              onChange={(_, value) => {
-                if (value === undefined) return;
-                const penSize = Number(value);
-                props.onPenSizeChanged(penSize);
-              }}
-            />
-            <Text>pixels</Text>
-          </Stack>
-          {props.penSize < 1.0 && (
-            <Text style={{ marginTop: "8px" }} variant="small">
-              A pen size less than 1px is only applied to exported images.
-            </Text>
-          )}
-          {props.penSize > 3.0 && (
-            <Text style={{ marginTop: "8px" }} variant="small">
-              A pen size greater then 3px is only applied to exported images.
-            </Text>
-          )}
-        </Stack>
-      </Stack>
+            }}
+            selectedValue={id}
+            size="small"
+          >
+            {renderSwatchPickerGrid({
+              items: colorCells,
+              columnCount: 10,
+            })}
+          </SwatchPicker>
+        )}
+        {selectedTab === "custom" && (
+          <ColorPicker
+            color={{
+              h: color.hue(),
+              s: 0.01 * color.saturationv(),
+              v: 0.01 * color.value(),
+              a: color.alpha(),
+            }}
+            onColorChange={(_, { color }) =>
+              props.onColorChanged(
+                Color.hsv({
+                  h: color.h,
+                  s: 100 * color.s,
+                  v: 100 * color.v,
+                  alpha: color.a,
+                }).hexa()
+              )
+            }
+          >
+            <ColorArea />
+            <ColorSlider />
+            <AlphaSlider />
+          </ColorPicker>
+        )}
+        <Divider />
+        <div
+          style={{
+            alignItems: "baseline",
+            display: "flex",
+            flexDirection: "row",
+          }}
+        >
+          <Label style={{ marginRight: "8px" }}>Pen size:</Label>
+          <SpinButton
+            defaultValue={props.penSize}
+            max={MAX_PEN_SIZE}
+            min={0}
+            step={0.1}
+            style={{ marginRight: "4px", width: "80px" }}
+            onChange={(_, { value }) => {
+              if (value === undefined) return;
+              const penSize = Number(value);
+              console.log(penSize);
+              props.onPenSizeChanged(penSize);
+            }}
+          />
+          <Text>pixels</Text>
+        </div>
+        {props.penSize < 1.0 && (
+          <Caption1>
+            A pen size less than 1px is only applied to exported images.
+          </Caption1>
+        )}
+        {props.penSize > 3.0 && (
+          <Caption1>
+            A pen size greater then 3px is only applied to exported images.
+          </Caption1>
+        )}
+      </div>
     );
   }
 };
 
-const colorCells: IColorCellProps[] = [
+const colorCells = [
   SharedColors.pinkRed10,
   SharedColors.red20,
   SharedColors.red10,
@@ -185,10 +195,10 @@ const colorCells: IColorCellProps[] = [
   SharedColors.gray20,
   SharedColors.gray10,
 ].map((c, i) => ({
-  id: i.toString(),
   color: new Color(c).hex(),
+  value: i.toString(),
 }));
 
 const colorToId: Map<string, string> = new Map(
-  colorCells.map((c) => [c.color, c.id])
+  colorCells.map((c) => [c.color, c.value])
 );

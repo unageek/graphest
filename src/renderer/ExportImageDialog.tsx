@@ -1,8 +1,4 @@
-import {
-  ScreenWidthMaxSmall,
-  ScreenWidthMinSmall,
-  Stack,
-} from "@fluentui/react";
+import { Stack } from "@fluentui/react";
 import {
   Button,
   Checkbox,
@@ -65,15 +61,6 @@ const useStyles = makeStyles({
     width: "100px",
   },
 });
-
-const headerlessDialogStyles = {
-  header: { display: "none" },
-  inner: {
-    padding: "24px",
-    [`@media (min-width: ${ScreenWidthMinSmall}px) and (max-width: ${ScreenWidthMaxSmall}px)`]:
-      { padding: "16px" },
-  },
-};
 
 const validateRange = (min: BigNumber, max: BigNumber): string | undefined => {
   if (!min.lt(max)) {
