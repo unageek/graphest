@@ -6,7 +6,7 @@ import {
   PopoverTrigger,
   ToolbarButton,
 } from "@fluentui/react-components";
-import { VariableIcon } from "@fluentui/react-icons-mdl2";
+import { MathFormulaRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
 import * as React from "react";
 import { useMemo, useState } from "react";
@@ -58,7 +58,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
     <Popover open={showCallout} positioning={"below-end"}>
       <PopoverTrigger>
         <ToolbarButton
-          icon={<VariableIcon />}
+          icon={<MathFormulaRegular />}
           onClick={open}
           onMouseEnter={openDebounced}
           onMouseLeave={dismissDebounced}

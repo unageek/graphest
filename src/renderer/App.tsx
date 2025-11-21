@@ -1,24 +1,7 @@
-import { registerIcons, Stack, ThemeProvider, useTheme } from "@fluentui/react";
+import { Stack, ThemeProvider, useTheme } from "@fluentui/react";
 import { FluentProvider, webLightTheme } from "@fluentui/react-components";
-import {
-  AddIcon,
-  CancelIcon,
-  CheckMarkIcon,
-  ChevronDownIcon,
-  ChevronDownSmallIcon,
-  ChevronUpSmallIcon,
-  ColorIcon,
-  DeleteIcon,
-  ForwardIcon,
-  GripperDotsVerticalIcon,
-  HomeSolidIcon,
-  MoreIcon,
-  VariableIcon,
-} from "@fluentui/react-icons-mdl2";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
-import "@fortawesome/fontawesome-free/js/fontawesome";
-import "@fortawesome/fontawesome-free/js/solid";
 import * as Color from "color";
 import * as React from "react";
 import { useEffect, useRef } from "react";
@@ -209,27 +192,6 @@ const App = () => {
     </ThemeProvider>
   );
 };
-
-const ICON_CLASS_NAME = "fluent-ui-icon";
-registerIcons({
-  icons: {
-    Add: <AddIcon className={ICON_CLASS_NAME} />,
-    Cancel: <CancelIcon className={ICON_CLASS_NAME} />,
-    CheckMark: <CheckMarkIcon className={ICON_CLASS_NAME} />,
-    ChevronDown: <ChevronDownIcon className={ICON_CLASS_NAME} />,
-    ChevronDownSmall: <ChevronDownSmallIcon className={ICON_CLASS_NAME} />,
-    ChevronUpSmall: <ChevronUpSmallIcon className={ICON_CLASS_NAME} />,
-    Color: <ColorIcon className={ICON_CLASS_NAME} />,
-    Delete: <DeleteIcon className={ICON_CLASS_NAME} />,
-    Forward: <ForwardIcon className={ICON_CLASS_NAME} />,
-    GripperDotsVertical: (
-      <GripperDotsVerticalIcon className={ICON_CLASS_NAME} />
-    ),
-    HomeSolid: <HomeSolidIcon className={ICON_CLASS_NAME} />,
-    More: <MoreIcon className={ICON_CLASS_NAME} />,
-    Variable: <VariableIcon className={ICON_CLASS_NAME} />,
-  },
-});
 
 ReactDOM.render(
   <React.StrictMode>

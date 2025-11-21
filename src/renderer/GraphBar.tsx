@@ -9,10 +9,10 @@ import {
   ToolbarButton,
 } from "@fluentui/react-components";
 import {
-  DeleteIcon,
-  GripperDotsVerticalIcon,
-  MoreIcon,
-} from "@fluentui/react-icons-mdl2";
+  DeleteRegular,
+  MoreHorizontalRegular,
+  ReOrderDotsVerticalRegular,
+} from "@fluentui/react-icons";
 import * as React from "react";
 import { useRef } from "react";
 import { DraggableProvidedDragHandleProps } from "react-beautiful-dnd";
@@ -53,13 +53,14 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
           alignItems: "center",
           color: theme.semanticColors.disabledBodyText,
           display: "flex",
+          fontSize: "20px",
           justifyContent: "center",
           minWidth: "32px",
         }}
         {...props.dragHandleProps}
         title="Drag to move"
       >
-        <GripperDotsVerticalIcon />
+        <ReOrderDotsVerticalRegular />
       </div>
       <GraphStyleButton
         color={graph.color}
@@ -93,7 +94,7 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
       />
       <Menu>
         <MenuTrigger>
-          <ToolbarButton icon={<MoreIcon />} />
+          <ToolbarButton icon={<MoreHorizontalRegular />} />
         </MenuTrigger>
         <MenuPopover>
           <MenuList>
@@ -101,7 +102,7 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
               onClick={() => {
                 dispatch(removeGraph(props.graphId));
               }}
-              icon={<DeleteIcon />}
+              icon={<DeleteRegular />}
             >
               Remove
             </MenuItem>

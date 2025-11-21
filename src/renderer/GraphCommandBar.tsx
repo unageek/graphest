@@ -3,7 +3,11 @@ import {
   ToolbarButton,
   ToolbarDivider,
 } from "@fluentui/react-components";
-import { AddIcon, ColorIcon, ForwardIcon } from "@fluentui/react-icons-mdl2";
+import {
+  AddRegular,
+  ArrowForwardRegular,
+  ColorRegular,
+} from "@fluentui/react-icons";
 import * as React from "react";
 import { useDispatch } from "react-redux";
 import { newGraph, setShowColorsDialog, setShowGoToDialog } from "./models/app";
@@ -13,19 +17,19 @@ export const GraphCommandBar = (): JSX.Element => {
 
   return (
     <Toolbar>
-      <ToolbarButton icon={<AddIcon />} onClick={() => dispatch(newGraph())}>
+      <ToolbarButton icon={<AddRegular />} onClick={() => dispatch(newGraph())}>
         Add Relation
       </ToolbarButton>
       <ToolbarDivider />
       <ToolbarButton
-        icon={<ColorIcon />}
+        icon={<ColorRegular />}
         onClick={() => dispatch(setShowColorsDialog(true))}
       >
         Colors…
       </ToolbarButton>
       <ToolbarDivider />
       <ToolbarButton
-        icon={<ForwardIcon />}
+        icon={<ArrowForwardRegular />}
         onClick={() => dispatch(setShowGoToDialog(true))}
       >
         Go To…

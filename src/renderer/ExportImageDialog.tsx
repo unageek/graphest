@@ -17,7 +17,7 @@ import {
   ProgressBar,
   Text,
 } from "@fluentui/react-components";
-import { CancelIcon } from "@fluentui/react-icons-mdl2";
+import { DismissRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -590,7 +590,7 @@ export const ExportImageDialog = (
                       {state === State.Exporting && (
                         <Button
                           appearance="subtle"
-                          icon={<CancelIcon />}
+                          icon={<DismissRegular />}
                           onClick={() => {
                             props.abort();
                             props.dismiss();
