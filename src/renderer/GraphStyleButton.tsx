@@ -16,6 +16,7 @@ import {
   TabList,
   TabValue,
   Text,
+  tokens,
   ToolbarButton,
 } from "@fluentui/react-components";
 import { SharedColors } from "@fluentui/theme";
@@ -116,8 +117,55 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             }
           >
             <ColorArea />
-            <ColorSlider />
-            <AlphaSlider />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                gap: "10px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  flexGrow: 1,
+                  gap: "10px",
+                }}
+              >
+                <ColorSlider
+                  style={{
+                    minHeight: "unset",
+                  }}
+                  rail={{
+                    style: {
+                      boxSizing: "border-box",
+                      border: `1px solid ${tokens.colorNeutralStroke1}`,
+                    },
+                  }}
+                />
+                <AlphaSlider
+                  style={{
+                    minHeight: "unset",
+                  }}
+                  rail={{
+                    style: {
+                      boxSizing: "border-box",
+                      border: `1px solid ${tokens.colorNeutralStroke1}`,
+                    },
+                  }}
+                />
+              </div>
+              <div
+                style={{
+                  background: props.color,
+                  border: `1px solid ${tokens.colorNeutralStroke1}`,
+                  borderRadius: tokens.borderRadiusMedium,
+                  boxSizing: "border-box",
+                  height: "50px",
+                  width: "50px",
+                }}
+              />
+            </div>
           </ColorPicker>
         )}
         <Divider />
