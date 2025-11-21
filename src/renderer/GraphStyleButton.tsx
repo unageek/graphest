@@ -62,13 +62,11 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
       <div
         style={{
           // Adjusted to the width of the `SwatchColorPicker`.
-          alignItems: "flex-start",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "flex-start",
+          gap: "10px",
           padding: "10px",
-          rowGap: "10px",
-          width: "300px",
+          width: "284px",
         }}
       >
         <TabList
@@ -116,7 +114,14 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
               )
             }
           >
-            <ColorArea />
+            <ColorArea
+              style={{
+                height: "142px",
+                minHeight: "unset",
+                minWidth: "unset",
+                width: "284px",
+              }}
+            />
             <div
               style={{
                 display: "flex",
