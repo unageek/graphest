@@ -1,5 +1,9 @@
-import { Stack, ThemeProvider, useTheme } from "@fluentui/react";
-import { FluentProvider, webLightTheme } from "@fluentui/react-components";
+import {
+  FluentProvider,
+  tokens,
+  webDarkTheme,
+  webLightTheme,
+} from "@fluentui/react-components";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
 import * as Color from "color";
@@ -40,7 +44,6 @@ import {
   useSelector,
 } from "./models/app";
 import { store } from "./models/store";
-import { DarkTheme, LightTheme } from "./themes";
 
 const abortExportImage = async () => {
   await window.ipcRenderer.invoke<ipc.AbortExportImage>(ipc.abortExportImage);
@@ -118,7 +121,6 @@ const App = () => {
   const showExportImageDialog = useSelector((s) => s.showExportImageDialog);
   const showGoToDialog = useSelector((s) => s.showGoToDialog);
   const appTheme = useSelector((s) => s.theme);
-  const theme = useTheme();
   const zoomLevel = useSelector((s) => s.zoomLevel);
 
   function focusGraphView() {
@@ -141,17 +143,15 @@ const App = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <ThemeProvider
+    <FluentProvider
       style={{ height: "100%" }}
-      theme={appTheme === "light" ? LightTheme : DarkTheme}
+      theme={appTheme === "light" ? webLightTheme : webDarkTheme}
     >
-      <Stack verticalFill>
-        <Stack
-          styles={{
-            root: {
-              boxShadow: theme.effects.elevation4,
-              zIndex: 2000, // To show on top of the <GraphView>.
-            },
+      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            boxShadow: tokens.shadow4,
+            zIndex: 2000, // To show on top of the <GraphView>.
           }}
         >
           <GraphBars
@@ -159,9 +159,9 @@ const App = () => {
             requestRelation={requestRelation}
           />
           <GraphCommandBar />
-        </Stack>
+        </div>
         <GraphView grow ref={graphViewRef} />
-      </Stack>
+      </div>
       {showColorsDialog && (
         <ColorsDialog dismiss={() => dispatch(setShowColorsDialog(false))} />
       )}
@@ -189,16 +189,14 @@ const App = () => {
           zoomLevel={zoomLevel}
         />
       )}
-    </ThemeProvider>
+    </FluentProvider>
   );
 };
 
 ReactDOM.render(
   <React.StrictMode>
     <Provider store={store}>
-      <FluentProvider theme={webLightTheme} style={{ height: "100%" }}>
-        <App />
-      </FluentProvider>
+      <App />
     </Provider>
   </React.StrictMode>,
   document.getElementById("app")
