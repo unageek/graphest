@@ -42,8 +42,8 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             <span
               style={{
                 backgroundColor: props.color,
-                height: "16px",
-                width: "16px",
+                height: "20px",
+                width: "20px",
               }}
             />
           }
@@ -88,11 +88,11 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
               }
             }}
             selectedValue={id}
-            size="small"
+            size="extra-small"
           >
             {renderSwatchPickerGrid({
               items: colorCells,
-              columnCount: 10,
+              columnCount: 12,
             })}
           </SwatchPicker>
         )}

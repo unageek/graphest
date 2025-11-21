@@ -35,8 +35,8 @@ export const ColorButton = (props: ColorButtonProps): JSX.Element => {
           <div
             style={{
               backgroundColor: props.color,
-              height: "16px",
-              width: "16px",
+              height: "20px",
+              width: "20px",
             }}
           >
             &nbsp; {/* For vertical alignment. */}
