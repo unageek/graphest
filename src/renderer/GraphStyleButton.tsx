@@ -138,11 +138,10 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             onChange={(_, { value }) => {
               if (value === undefined) return;
               const penSize = Number(value);
-              console.log(penSize);
               props.onPenSizeChanged(penSize);
             }}
           />
-          <Text>pixels</Text>
+          <Text>{props.penSize > 1 ? "pixels" : "pixel"}</Text>
         </div>
         {props.penSize < 1.0 && (
           <Caption1>

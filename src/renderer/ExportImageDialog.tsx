@@ -353,11 +353,14 @@ export const ExportImageDialog = (
                       <Label style={{ gridColumn: "1", textAlign: "right" }}>
                         Width:
                       </Label>
-                      <Stack
-                        horizontal
-                        style={{ gridColumn: "span 2" }}
-                        tokens={{ childrenGap: "4px" }}
-                        verticalAlign="baseline"
+                      <div
+                        style={{
+                          alignItems: "baseline",
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: "4px",
+                          gridColumn: "span 2",
+                        }}
                       >
                         <Field validationMessage={widthErrorMessage}>
                           <Input
@@ -370,16 +373,19 @@ export const ExportImageDialog = (
                           />
                         </Field>
                         <Text>pixels</Text>
-                      </Stack>
+                      </div>
 
                       <Label style={{ gridColumn: "1", textAlign: "right" }}>
                         Height:
                       </Label>
-                      <Stack
-                        horizontal
-                        style={{ gridColumn: "span 2" }}
-                        tokens={{ childrenGap: "4px" }}
-                        verticalAlign="baseline"
+                      <div
+                        style={{
+                          alignItems: "baseline",
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: "4px",
+                          gridColumn: "span 2",
+                        }}
                       >
                         <Field validationMessage={heightErrorMessage}>
                           <Input
@@ -392,7 +398,7 @@ export const ExportImageDialog = (
                           />
                         </Field>
                         <Text>pixels</Text>
-                      </Stack>
+                      </div>
 
                       <div style={{ gridColumn: "1 / span 3" }} />
 
@@ -478,27 +484,27 @@ export const ExportImageDialog = (
                         ))}
                       </Dropdown>
 
-                      <Stack style={{ gridColumn: "2 / span 2" }}>
-                        <Text>
-                          Minimum pen size: {approxMinPenSize.toString()} pixel
-                        </Text>
-                        <Text>
-                          {tilesPerRelation}{" "}
-                          {tilesPerRelation > 1 ? "tiles" : "tile"} per relation
-                          will be processed.
-                        </Text>
-                      </Stack>
+                      <Text style={{ gridColumn: "2 / span 2" }}>
+                        Minimum pen size: {approxMinPenSize.toString()} pixel
+                        <br />
+                        {tilesPerRelation}{" "}
+                        {tilesPerRelation > 1 ? "tiles" : "tile"} per relation
+                        will be processed.
+                      </Text>
 
                       <div style={{ gridColumn: "1 / span 3" }} />
 
                       <Label style={{ gridColumn: "1", textAlign: "right" }}>
                         Per-tile timeout:
                       </Label>
-                      <Stack
-                        horizontal
-                        style={{ gridColumn: "span 2" }}
-                        tokens={{ childrenGap: "4px" }}
-                        verticalAlign="baseline"
+                      <div
+                        style={{
+                          alignItems: "baseline",
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: "4px",
+                          gridColumn: "span 2",
+                        }}
                       >
                         <Field validationMessage={timeoutErrorMessage}>
                           <Input
@@ -511,18 +517,21 @@ export const ExportImageDialog = (
                           />
                         </Field>
                         <Text>seconds</Text>
-                      </Stack>
+                      </div>
 
                       <div style={{ gridColumn: "1 / span 3" }} />
 
                       <Label style={{ gridColumn: "1", textAlign: "right" }}>
                         Save as:
                       </Label>
-                      <Stack
-                        horizontal
-                        style={{ gridColumn: "span 2" }}
-                        tokens={{ childrenGap: "8px" }}
-                        verticalAlign="baseline"
+                      <div
+                        style={{
+                          alignItems: "baseline",
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: "8px",
+                          gridColumn: "span 2",
+                        }}
                       >
                         <Text
                           style={{
@@ -545,7 +554,7 @@ export const ExportImageDialog = (
                         >
                           Change…
                         </Button>
-                      </Stack>
+                      </div>
                     </DialogContent>
 
                     <DialogActions>
