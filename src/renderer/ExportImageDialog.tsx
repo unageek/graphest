@@ -286,6 +286,7 @@ export const ExportImageDialog = (
                 <form onSubmit={submit}>
                   <DialogBody>
                     <DialogTitle>Export as Image</DialogTitle>
+
                     <DialogContent
                       style={{
                         alignItems: "baseline",
@@ -308,7 +309,6 @@ export const ExportImageDialog = (
                         <Input
                           className={styles.decimalInput}
                           onChange={(_, { value }) => {
-                            if (value === undefined) return;
                             setXMin(value);
                             validateXMin(value);
                           }}
@@ -319,7 +319,6 @@ export const ExportImageDialog = (
                         <Input
                           className={styles.decimalInput}
                           onChange={(_, { value }) => {
-                            if (value === undefined) return;
                             setXMax(value);
                             validateXMax(value);
                           }}
@@ -332,7 +331,6 @@ export const ExportImageDialog = (
                         <Input
                           className={styles.decimalInput}
                           onChange={(_, { value }) => {
-                            if (value === undefined) return;
                             setYMin(value);
                             validateYMin(value);
                           }}
@@ -343,7 +341,6 @@ export const ExportImageDialog = (
                         <Input
                           className={styles.decimalInput}
                           onChange={(_, { value }) => {
-                            if (value === undefined) return;
                             setYMax(value);
                             validateYMax(value);
                           }}
@@ -366,7 +363,6 @@ export const ExportImageDialog = (
                           <Input
                             className={styles.integerInput}
                             onChange={(_, { value }) => {
-                              if (value === undefined) return;
                               setWidth(value);
                               validateWidth(value);
                             }}
@@ -389,7 +385,6 @@ export const ExportImageDialog = (
                           <Input
                             className={styles.integerInput}
                             onChange={(_, { value }) => {
-                              if (value === undefined) return;
                               setHeight(value);
                               validateHeight(value);
                             }}
@@ -448,8 +443,7 @@ export const ExportImageDialog = (
                           style: { padding: 0 },
                         }}
                         onChange={(_, { checked }) => {
-                          if (checked === undefined || checked === "mixed")
-                            return;
+                          if (checked === "mixed") return;
                           setOpts({ ...opts, correctAlpha: checked });
                         }}
                         size="large"
@@ -510,7 +504,6 @@ export const ExportImageDialog = (
                           <Input
                             className={styles.integerInput}
                             onChange={(_, { value }) => {
-                              if (value === undefined) return;
                               setTimeout(value);
                               validateTimeout(value);
                             }}
