@@ -51,13 +51,14 @@ const antiAliasingOptions = [
 
 const useStyles = makeStyles({
   antialiasingDropdown: {
-    width: "250px",
+    minWidth: "unset",
+    width: "150px",
   },
   decimalInput: {
     width: "150px",
   },
   integerInput: {
-    width: "100px",
+    width: "150px",
   },
 });
 
@@ -363,48 +364,30 @@ export const ExportImageDialog = (
                       <div style={{ gridColumn: "1 / span 2" }} />
 
                       <Label style={{ textAlign: "right" }}>Width:</Label>
-                      <div
-                        style={{
-                          alignItems: "baseline",
-                          display: "flex",
-                          flexDirection: "row",
-                          gap: "8px",
-                        }}
-                      >
-                        <Field validationMessage={widthErrorMessage}>
-                          <Input
-                            className={styles.integerInput}
-                            onChange={(_, { value }) => {
-                              setWidth(value);
-                              validateWidth(value);
-                            }}
-                            value={width}
-                          />
-                        </Field>
-                        <Text>pixels</Text>
-                      </div>
+                      <Field validationMessage={widthErrorMessage}>
+                        <Input
+                          className={styles.integerInput}
+                          contentAfter={<Text>pixels</Text>}
+                          onChange={(_, { value }) => {
+                            setWidth(value);
+                            validateWidth(value);
+                          }}
+                          value={width}
+                        />
+                      </Field>
 
                       <Label style={{ textAlign: "right" }}>Height:</Label>
-                      <div
-                        style={{
-                          alignItems: "baseline",
-                          display: "flex",
-                          flexDirection: "row",
-                          gap: "8px",
-                        }}
-                      >
-                        <Field validationMessage={heightErrorMessage}>
-                          <Input
-                            className={styles.integerInput}
-                            onChange={(_, { value }) => {
-                              setHeight(value);
-                              validateHeight(value);
-                            }}
-                            value={height}
-                          />
-                        </Field>
-                        <Text>pixels</Text>
-                      </div>
+                      <Field validationMessage={heightErrorMessage}>
+                        <Input
+                          className={styles.integerInput}
+                          contentAfter={<Text>pixels</Text>}
+                          onChange={(_, { value }) => {
+                            setHeight(value);
+                            validateHeight(value);
+                          }}
+                          value={height}
+                        />
+                      </Field>
 
                       <div style={{ gridColumn: "1 / span 2" }} />
 
@@ -475,6 +458,9 @@ export const ExportImageDialog = (
                         className={styles.antialiasingDropdown}
                         defaultSelectedOptions={[opts.antiAliasing.toString()]}
                         defaultValue={opts.antiAliasing.toString()}
+                        listbox={{
+                          className: styles.antialiasingDropdown,
+                        }}
                         onOptionSelect={(_, { optionValue }) => {
                           if (optionValue === undefined) return;
                           setOpts({
@@ -512,6 +498,7 @@ export const ExportImageDialog = (
                         <Field validationMessage={timeoutErrorMessage}>
                           <Input
                             className={styles.integerInput}
+                            contentAfter={<Text>seconds</Text>}
                             onChange={(_, { value }) => {
                               setTimeout(value);
                               validateTimeout(value);
@@ -519,7 +506,6 @@ export const ExportImageDialog = (
                             value={timeout}
                           />
                         </Field>
-                        <Text>seconds</Text>
                       </div>
 
                       <div style={{ gridColumn: "1 / span 2" }} />
