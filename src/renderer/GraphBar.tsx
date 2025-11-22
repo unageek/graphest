@@ -1,11 +1,23 @@
-import { Icon, useTheme } from "@fluentui/react";
+import {
+  Menu,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
+  tokens,
+  Toolbar,
+  ToolbarButton,
+} from "@fluentui/react-components";
+import {
+  DeleteRegular,
+  MoreHorizontalRegular,
+  ReOrderDotsVerticalRegular,
+} from "@fluentui/react-icons";
 import * as React from "react";
 import { useRef } from "react";
 import { DraggableProvidedDragHandleProps } from "react-beautiful-dnd";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
-import { Bar } from "./Bar";
-import { BarIconButton } from "./BarIconButton";
 import { GraphStyleButton } from "./GraphStyleButton";
 import { RelationInput, RelationInputActions } from "./RelationInput";
 import { SymbolsButton } from "./SymbolsButton";
@@ -31,23 +43,23 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
   const highRes = useSelector((s) => s.highRes);
-  const theme = useTheme();
   const relationInputActionsRef = useRef<RelationInputActions>(null);
 
   return (
-    <Bar>
+    <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
       <div
         style={{
           alignItems: "center",
-          color: theme.semanticColors.disabledBodyText,
+          color: tokens.colorNeutralForeground4,
           display: "flex",
+          fontSize: "20px",
           justifyContent: "center",
           minWidth: "32px",
         }}
         {...props.dragHandleProps}
         title="Drag to move"
       >
-        <Icon iconName="GripperDotsVertical" />
+        <ReOrderDotsVerticalRegular />
       </div>
       <GraphStyleButton
         color={graph.color}
@@ -79,28 +91,23 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
           relationInputActionsRef.current?.insertSymbolPair(left, right)
         }
       />
-      <BarIconButton
-        iconProps={{ iconName: "More" }}
-        menuProps={{
-          items: [
-            {
-              key: "remove",
-              text: "Remove",
-              iconProps: { iconName: "Delete" },
-              onClick: () => {
+      <Menu>
+        <MenuTrigger>
+          <ToolbarButton icon={<MoreHorizontalRegular />} />
+        </MenuTrigger>
+        <MenuPopover>
+          <MenuList>
+            <MenuItem
+              icon={<DeleteRegular />}
+              onClick={() => {
                 dispatch(removeGraph(props.graphId));
-              },
-            },
-          ],
-        }}
-        styles={{
-          menuIcon: { display: "none" },
-          root: {
-            marginRight: "8px",
-          },
-        }}
-        title="Actions"
-      />
-    </Bar>
+              }}
+            >
+              Remove
+            </MenuItem>
+          </MenuList>
+        </MenuPopover>
+      </Menu>
+    </Toolbar>
   );
 };

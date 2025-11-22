@@ -1,4 +1,4 @@
-import { Icon } from "@fluentui/react";
+import { AddFilled, HomeFilled, SubtractFilled } from "@fluentui/react-icons";
 import * as Color from "color";
 import * as L from "leaflet";
 import { ZoomPanOptions } from "leaflet";
@@ -195,24 +195,22 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
       L.control
         .zoom({
           position: "topleft",
-          zoomInText: "<div id='zoom-in-button' style='font-size: 16px'></div>",
+          zoomInText:
+            "<div id='zoom-in-button' style='align-items: center; display: flex; font-size: 20px; height: 100%; justify-content: center;'></div>",
           zoomInTitle: "Zoom in",
           zoomOutText:
-            "<div id='zoom-out-button' style='font-size: 16px'></div>",
+            "<div id='zoom-out-button' style='align-items: center; display: flex; font-size: 20px; height: 100%; justify-content: center;'></div>",
           zoomOutTitle: "Zoom out",
         })
         .addTo(map);
+      ReactDOM.render(<AddFilled />, document.getElementById("zoom-in-button"));
       ReactDOM.render(
-        <i className="fa-solid fa-plus"></i>,
-        document.getElementById("zoom-in-button")
-      );
-      ReactDOM.render(
-        <i className="fa-solid fa-minus"></i>,
+        <SubtractFilled />,
         document.getElementById("zoom-out-button")
       );
 
       L.easyButton(
-        "<div id='reset-view-button' style='font-size: 16px; height: 100%'></div>",
+        "<div id='reset-view-button' style='align-items: center; display: flex; font-size: 20px; height: 100%; justify-content: center;'></div>",
         () => {
           const zoom = INITIAL_ZOOM_LEVEL;
           // Use `{ reset: true }` to set the view exactly.
@@ -223,7 +221,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         "Reset view"
       ).addTo(map);
       ReactDOM.render(
-        <Icon iconName="HomeSolid" />,
+        <HomeFilled />,
         document.getElementById("reset-view-button")
       );
 

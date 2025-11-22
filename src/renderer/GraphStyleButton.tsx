@@ -1,20 +1,20 @@
 import {
-  ColorPicker,
-  IColorCellProps,
+  Caption1,
+  Divider,
+  Field,
+  Input,
   Label,
-  Pivot,
-  PivotItem,
-  Separator,
-  SpinButton,
-  Stack,
-  SwatchColorPicker,
-  Text,
-} from "@fluentui/react";
-import { SharedColors } from "@fluentui/theme";
-import * as Color from "color";
+  Popover,
+  PopoverSurface,
+  PopoverTrigger,
+  ToolbarButton,
+} from "@fluentui/react-components";
+import { debounce } from "lodash";
 import * as React from "react";
+import { useMemo, useState } from "react";
 import { MAX_PEN_SIZE } from "../common/constants";
-import { BarIconButton } from "./BarIconButton";
+import { tryParseNumberInRange } from "../common/parse";
+import { ColorPicker } from "./ColorPicker";
 
 export interface GraphStyleButtonProps {
   color: string;
@@ -24,141 +24,90 @@ export interface GraphStyleButtonProps {
 }
 
 export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
-  return (
-    <BarIconButton
-      menuProps={{
-        items: [{ key: "colors" }],
-        onRenderMenuList: renderMenuList,
-      }}
-      styles={{
-        menuIcon: { display: "none" },
-      }}
-      title="Graph style"
-    >
-      <div
-        style={{
-          backgroundColor: props.color,
-          height: "16px",
-          width: "16px",
-        }}
-      />
-    </BarIconButton>
+  const [penSize, setPenSize] = useState<string>(props.penSize.toString());
+
+  const [penSizeErrorMessage, setPenSizeErrorMessage] = useState<string>();
+
+  const validatePenSize = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseNumberInRange(value, 0, MAX_PEN_SIZE);
+        setPenSizeErrorMessage(result.err);
+        if (result.ok !== undefined) {
+          props.onPenSizeChanged(result.ok);
+        }
+      }, 200),
+    [props]
   );
 
-  function renderMenuList(): JSX.Element {
-    const color = new Color(props.color);
-    const id = colorToId.get(color.hex());
+  return (
+    <Popover positioning="below-start">
+      <PopoverTrigger>
+        <ToolbarButton
+          icon={
+            <span
+              style={{
+                backgroundColor: props.color,
+                height: "20px",
+                width: "20px",
+              }}
+            />
+          }
+          title="Graph style"
+        />
+      </PopoverTrigger>
+      <PopoverSurface>{renderPopover()}</PopoverSurface>
+    </Popover>
+  );
 
+  function renderPopover(): JSX.Element {
     return (
-      <Stack
+      <div
         style={{
-          // Adjusted to the width of the `SwatchColorPicker`.
-          width: "288px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          // Adjusted to the width of the `ColorPicker`.
+          width: "284px",
         }}
       >
-        <Pivot>
-          <PivotItem headerText="Swatch">
-            <SwatchColorPicker
-              cellMargin={8}
-              cellShape={"square"}
-              colorCells={colorCells}
-              columnCount={10}
-              onChange={(_, __, c) => {
-                if (c !== undefined) {
-                  const newColor = new Color(c).alpha(color.alpha());
-                  props.onColorChanged(newColor.toString());
-                }
+        <ColorPicker
+          color={props.color}
+          onColorChanged={props.onColorChanged}
+        />
+        <Divider />
+        <div
+          style={{
+            alignItems: "baseline",
+            display: "flex",
+            flexDirection: "row",
+            gap: "8px",
+          }}
+        >
+          <Label style={{ textWrap: "nowrap" }}>Pen size:</Label>
+          <Field validationMessage={penSizeErrorMessage}>
+            <Input
+              contentAfter={props.penSize > 1 ? "pixels" : "pixel"}
+              onChange={(_, { value }) => {
+                setPenSize(value);
+                validatePenSize(value);
               }}
-              selectedId={id}
-              styles={{ root: { margin: "4px", padding: 0 } }}
+              style={{ width: "150px" }}
+              value={penSize}
             />
-          </PivotItem>
-          <PivotItem headerText="Custom">
-            <ColorPicker
-              color={props.color}
-              onChange={(_, c) => props.onColorChanged(c.str)}
-              showPreview={true}
-              styles={{
-                panel: { padding: 0 },
-                root: { margin: "8px" },
-              }}
-            />
-          </PivotItem>
-        </Pivot>
-        <Separator styles={{ root: { height: "1px", padding: 0 } }} />
-        <Stack style={{ margin: "8px" }}>
-          <Stack horizontal verticalAlign="baseline">
-            <Label style={{ marginRight: "8px" }}>Pen size:</Label>
-            <SpinButton
-              defaultValue={props.penSize.toString()}
-              max={MAX_PEN_SIZE}
-              min={0}
-              step={0.1}
-              styles={{ root: { marginRight: "4px", width: "50px" } }}
-              onChange={(_, value) => {
-                if (value === undefined) return;
-                const penSize = Number(value);
-                props.onPenSizeChanged(penSize);
-              }}
-            />
-            <Text>pixels</Text>
-          </Stack>
-          {props.penSize < 1.0 && (
-            <Text style={{ marginTop: "8px" }} variant="small">
-              A pen size less than 1px is only applied to exported images.
-            </Text>
-          )}
-          {props.penSize > 3.0 && (
-            <Text style={{ marginTop: "8px" }} variant="small">
-              A pen size greater then 3px is only applied to exported images.
-            </Text>
-          )}
-        </Stack>
-      </Stack>
+          </Field>
+        </div>
+        {props.penSize < 1.0 && (
+          <Caption1>
+            A pen size less than 1px is only applied to rendered graphs.
+          </Caption1>
+        )}
+        {props.penSize > 3.0 && (
+          <Caption1>
+            A pen size greater then 3px is only applied to rendered graphs.
+          </Caption1>
+        )}
+      </div>
     );
   }
 };
-
-const colorCells: IColorCellProps[] = [
-  SharedColors.pinkRed10,
-  SharedColors.red20,
-  SharedColors.red10,
-  SharedColors.redOrange20,
-  SharedColors.redOrange10,
-  SharedColors.orange30,
-  SharedColors.orange20,
-  SharedColors.orange10,
-  SharedColors.yellow10,
-  SharedColors.orangeYellow20,
-  SharedColors.orangeYellow10,
-  SharedColors.yellowGreen10,
-  SharedColors.green20,
-  SharedColors.green10,
-  SharedColors.greenCyan10,
-  SharedColors.cyan40,
-  SharedColors.cyan30,
-  SharedColors.cyan20,
-  SharedColors.cyan10,
-  SharedColors.cyanBlue20,
-  SharedColors.cyanBlue10,
-  SharedColors.blue10,
-  SharedColors.blueMagenta40,
-  SharedColors.blueMagenta30,
-  SharedColors.blueMagenta20,
-  SharedColors.blueMagenta10,
-  SharedColors.magenta20,
-  SharedColors.magenta10,
-  SharedColors.magentaPink20,
-  SharedColors.magentaPink10,
-  SharedColors.gray40,
-  SharedColors.gray30,
-  SharedColors.gray20,
-  SharedColors.gray10,
-].map((c, i) => ({
-  id: i.toString(),
-  color: new Color(c).hex(),
-}));
-
-const colorToId: Map<string, string> = new Map(
-  colorCells.map((c) => [c.color, c.id])
-);

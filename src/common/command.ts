@@ -1,6 +1,5 @@
 export enum Command {
   AbortGraphing = "abort-graphing",
-  ExportImage = "export-image",
   HighResolution = "high-resolution",
   NewDocument = "new-document",
   Open = "open",

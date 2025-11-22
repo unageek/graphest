@@ -1,4 +1,13 @@
-import { Dialog, DialogFooter, Label, PrimaryButton } from "@fluentui/react";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  Label,
+} from "@fluentui/react-components";
 import * as React from "react";
 import { useDispatch } from "react-redux";
 import { ColorButton } from "./ColorButton";
@@ -19,35 +28,44 @@ export const ColorsDialog = (props: ColorsDialogProps): JSX.Element => {
 
   return (
     <Dialog
-      dialogContentProps={{ title: "Colors" }}
-      hidden={false}
-      onDismiss={props.dismiss}
+      onOpenChange={(_, { open }) => {
+        if (!open) {
+          props.dismiss();
+        }
+      }}
+      open={true}
     >
-      <>
-        <div
-          style={{
-            alignItems: "baseline",
-            display: "grid",
-            gap: "8px",
-            gridTemplateColumns: "auto auto",
-          }}
-        >
-          <Label style={{ textAlign: "right" }}>Background:</Label>
-          <ColorButton
-            color={background}
-            onColorChanged={(c) => dispatch(setGraphBackground(c))}
-          />
-          <Label style={{ textAlign: "right" }}>Axes and grids:</Label>
-          <ColorButton
-            color={foreground}
-            onColorChanged={(c) => dispatch(setGraphForeground(c))}
-          />
-        </div>
+      <DialogSurface style={{ width: "fit-content" }}>
+        <DialogBody>
+          <DialogTitle>Colors</DialogTitle>
 
-        <DialogFooter>
-          <PrimaryButton onClick={props.dismiss} text="OK" />
-        </DialogFooter>
-      </>
+          <DialogContent
+            style={{
+              alignItems: "baseline",
+              display: "grid",
+              gap: "8px",
+              gridTemplateColumns: "auto auto",
+            }}
+          >
+            <Label style={{ textAlign: "right" }}>Background:</Label>
+            <ColorButton
+              color={background}
+              onColorChanged={(c) => dispatch(setGraphBackground(c))}
+            />
+            <Label style={{ textAlign: "right" }}>Axes and grids:</Label>
+            <ColorButton
+              color={foreground}
+              onColorChanged={(c) => dispatch(setGraphForeground(c))}
+            />
+          </DialogContent>
+
+          <DialogActions>
+            <Button appearance="primary" onClick={props.dismiss}>
+              OK
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
     </Dialog>
   );
 };

@@ -1,11 +1,15 @@
 import {
-  DefaultButton,
+  Button,
   Dialog,
-  DialogFooter,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  Field,
+  Input,
   Label,
-  PrimaryButton,
-  TextField,
-} from "@fluentui/react";
+} from "@fluentui/react-components";
 import { debounce } from "lodash";
 import * as React from "react";
 import { useCallback, useMemo, useState } from "react";
@@ -19,17 +23,9 @@ export interface GoToDialogProps {
   zoomLevel: number;
 }
 
-const decimalInputStyles = {
-  root: {
-    width: "150px",
-  },
-};
-
-const integerInputStyles = {
-  root: {
-    width: "100px",
-  },
-};
+const MIN_ZOOM_LEVEL: number = -BASE_ZOOM_LEVEL;
+// Leaflet maps cannot be zoomed in to a level greater than 1023.
+const MAX_ZOOM_LEVEL: number = 1023 - BASE_ZOOM_LEVEL;
 
 export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
   const [errors, setErrors] = useState<Set<string>>(new Set());
@@ -90,9 +86,8 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
       debounce((value: string) => {
         const result = tryParseIntegerInRange(
           value,
-          -BASE_ZOOM_LEVEL,
-          // Leaflet maps cannot be zoomed in to a level greater than 1023.
-          1023 - BASE_ZOOM_LEVEL
+          MIN_ZOOM_LEVEL,
+          MAX_ZOOM_LEVEL
         );
         setZoomLevelErrorMessage(addOrRemoveErrors(["zoom-level"], result.err));
       }, 200),
@@ -101,59 +96,74 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
 
   return (
     <Dialog
-      dialogContentProps={{ title: "Go To" }}
-      hidden={false}
-      onDismiss={props.dismiss}
+      onOpenChange={(_, { open }) => {
+        if (!open) {
+          props.dismiss();
+        }
+      }}
+      open={true}
     >
-      <form onSubmit={submit}>
-        <div
-          style={{
-            alignItems: "baseline",
-            display: "grid",
-            gap: "8px",
-            gridTemplateColumns: "auto auto",
-          }}
-        >
-          <Label style={{ textAlign: "right" }}>x:</Label>
-          <TextField
-            errorMessage={xErrorMessage}
-            onChange={(_, value) => {
-              if (value === undefined) return;
-              setX(value);
-              validateX(value);
-            }}
-            styles={decimalInputStyles}
-            value={x.toString()}
-          />
-          <Label style={{ textAlign: "right" }}>y:</Label>
-          <TextField
-            errorMessage={yErrorMessage}
-            onChange={(_, value) => {
-              if (value === undefined) return;
-              setY(value);
-              validateY(value);
-            }}
-            styles={decimalInputStyles}
-            value={y.toString()}
-          />
-          <Label style={{ textAlign: "right" }}>Zoom level:</Label>
-          <TextField
-            errorMessage={zoomLevelErrorMessage}
-            onChange={(_, value) => {
-              if (value === undefined) return;
-              setZoomLevel(value);
-              validateZoomLevel(value);
-            }}
-            styles={integerInputStyles}
-            value={zoomLevel.toString()}
-          />
-        </div>
+      <DialogSurface style={{ width: "fit-content" }}>
+        <form onSubmit={submit}>
+          <DialogBody>
+            <DialogTitle>Go To</DialogTitle>
 
-        <DialogFooter>
-          <DefaultButton onClick={props.dismiss} text="Cancel" />
-          <PrimaryButton disabled={errors.size > 0} text="Go" type="submit" />
-        </DialogFooter>
-      </form>
+            <DialogContent
+              style={{
+                alignItems: "baseline",
+                display: "grid",
+                gap: "8px",
+                gridTemplateColumns: "auto auto",
+              }}
+            >
+              <Label style={{ textAlign: "right" }}>x:</Label>
+              <Field validationMessage={xErrorMessage}>
+                <Input
+                  onChange={(_, { value }) => {
+                    setX(value);
+                    validateX(value);
+                  }}
+                  style={{ width: "150px" }}
+                  value={x.toString()}
+                />
+              </Field>
+              <Label style={{ textAlign: "right" }}>y:</Label>
+              <Field validationMessage={yErrorMessage}>
+                <Input
+                  onChange={(_, { value }) => {
+                    setY(value);
+                    validateY(value);
+                  }}
+                  style={{ width: "150px" }}
+                  value={y.toString()}
+                />
+              </Field>
+              <Label style={{ textAlign: "right" }}>Zoom level:</Label>
+              <Field validationMessage={zoomLevelErrorMessage}>
+                <Input
+                  onChange={(_, { value }) => {
+                    setZoomLevel(value);
+                    validateZoomLevel(value);
+                  }}
+                  style={{ width: "80px" }}
+                  value={zoomLevel.toString()}
+                />
+              </Field>
+            </DialogContent>
+
+            <DialogActions>
+              <Button onClick={props.dismiss}>Cancel</Button>
+              <Button
+                appearance="primary"
+                disabled={errors.size > 0}
+                type="submit"
+              >
+                Go
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </form>
+      </DialogSurface>
     </Dialog>
   );
 };

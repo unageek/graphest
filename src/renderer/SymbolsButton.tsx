@@ -1,25 +1,32 @@
-import { FocusTrapCallout, IButtonStyles, useTheme } from "@fluentui/react";
+import {
+  Button,
+  makeStyles,
+  Popover,
+  PopoverSurface,
+  PopoverTrigger,
+  ToolbarButton,
+} from "@fluentui/react-components";
+import { MathFormulaRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
 import * as React from "react";
-import { useMemo, useRef, useState } from "react";
-import { BarIconButton } from "./BarIconButton";
+import { useMemo, useState } from "react";
 
 export interface SymbolsButtonProps {
   onSymbolChosen: (symbol: string) => void;
   onSymbolPairChosen: (first: string, second: string) => void;
 }
 
-const SymbolButtonStyles: IButtonStyles = {
-  label: {
+const useStyles = makeStyles({
+  symbolButton: {
     fontFamily: "DejaVu Mono",
+    minWidth: "unset",
     wordSpacing: "-0.5ch",
   },
-};
+});
 
 export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
-  const buttonRef = useRef<HTMLElement>(null);
   const [showCallout, setShowCallout] = useState(false);
-  const theme = useTheme();
+  const styles = useStyles();
 
   const setShowCalloutDebounced = useMemo(
     () =>
@@ -48,146 +55,152 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
   }
 
   return (
-    <BarIconButton
-      elementRef={buttonRef}
-      iconProps={{ iconName: "Variable" }}
-      onClick={open}
-      onMouseEnter={openDebounced}
-      onMouseLeave={dismissDebounced}
-      title="Symbols"
-    >
-      {showCallout && (
-        <FocusTrapCallout
-          gapSpace={0}
-          isBeakVisible={false}
-          onDismiss={dismiss}
-          styles={{
-            root: {
-              boxShadow: theme.effects.elevation8,
-            },
+    <Popover open={showCallout} positioning={"below-end"}>
+      <PopoverTrigger>
+        <ToolbarButton
+          icon={<MathFormulaRegular />}
+          onClick={open}
+          onMouseEnter={openDebounced}
+          onMouseLeave={dismissDebounced}
+          title="Symbols"
+        />
+      </PopoverTrigger>
+      <PopoverSurface
+        onMouseEnter={openDebounced}
+        onMouseLeave={dismissDebounced}
+        style={{
+          padding: "4px",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridAutoRows: "32px",
+            gridTemplateColumns: "repeat(6, 1fr)",
           }}
-          target={buttonRef}
         >
-          <div
-            style={{
-              display: "grid",
-              gridAutoRows: "32px",
-              gridTemplateColumns: "repeat(6, 1fr)",
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolChosen("π");
+              dismiss();
             }}
+            style={{ gridColumn: "span 3" }}
+            title="pi"
           >
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolChosen("π");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 3" }}
-              styles={SymbolButtonStyles}
-              title="pi"
-            >
-              π
-            </BarIconButton>
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolChosen("θ");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 3" }}
-              styles={SymbolButtonStyles}
-              title="theta"
-            >
-              θ
-            </BarIconButton>
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolPairChosen("(", ")");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 3" }}
-              styles={SymbolButtonStyles}
-              title="Parentheses"
-            >
-              ( )
-            </BarIconButton>
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolPairChosen("[", "]");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 3" }}
-              styles={SymbolButtonStyles}
-              title="Square brackets"
-            >
-              [ ]
-            </BarIconButton>
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolPairChosen("|", "|");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 2" }}
-              styles={SymbolButtonStyles}
-              title="Absolute value"
-            >
-              | |
-            </BarIconButton>
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolPairChosen("⌊", "⌋");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 2" }}
-              styles={SymbolButtonStyles}
-              title="Floor function"
-            >
-              ⌊ ⌋
-            </BarIconButton>
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolPairChosen("⌈", "⌉");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 2" }}
-              styles={SymbolButtonStyles}
-              title="Ceiling function"
-            >
-              ⌈ ⌉
-            </BarIconButton>
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolChosen("∧");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 2" }}
-              styles={SymbolButtonStyles}
-              title="Logical AND"
-            >
-              ∧
-            </BarIconButton>
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolChosen("∨");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 2" }}
-              styles={SymbolButtonStyles}
-              title="Logical OR"
-            >
-              ∨
-            </BarIconButton>
-            <BarIconButton
-              onClick={() => {
-                props.onSymbolChosen("¬");
-                dismiss();
-              }}
-              style={{ gridColumn: "span 2" }}
-              styles={SymbolButtonStyles}
-              title="Logical NOT"
-            >
-              ¬
-            </BarIconButton>
-          </div>
-        </FocusTrapCallout>
-      )}
-    </BarIconButton>
+            π
+          </Button>
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolChosen("θ");
+              dismiss();
+            }}
+            style={{ gridColumn: "span 3" }}
+            title="theta"
+          >
+            θ
+          </Button>
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolPairChosen("(", ")");
+              dismiss();
+            }}
+            style={{ gridColumn: "span 3" }}
+            title="Parentheses"
+          >
+            ( )
+          </Button>
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolPairChosen("[", "]");
+              dismiss();
+            }}
+            style={{ gridColumn: "span 3" }}
+            title="Square brackets"
+          >
+            [ ]
+          </Button>
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolPairChosen("|", "|");
+              dismiss();
+            }}
+            style={{ gridColumn: "span 2" }}
+            title="Absolute value"
+          >
+            | |
+          </Button>
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolPairChosen("⌊", "⌋");
+              dismiss();
+            }}
+            style={{ gridColumn: "span 2" }}
+            title="Floor function"
+          >
+            ⌊ ⌋
+          </Button>
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolPairChosen("⌈", "⌉");
+              dismiss();
+            }}
+            style={{ gridColumn: "span 2" }}
+            title="Ceiling function"
+          >
+            ⌈ ⌉
+          </Button>
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolChosen("∧");
+              dismiss();
+            }}
+            style={{ gridColumn: "span 2" }}
+            title="Logical AND"
+          >
+            ∧
+          </Button>
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolChosen("∨");
+              dismiss();
+            }}
+            style={{ gridColumn: "span 2" }}
+            title="Logical OR"
+          >
+            ∨
+          </Button>
+          <Button
+            appearance="subtle"
+            className={styles.symbolButton}
+            onClick={() => {
+              props.onSymbolChosen("¬");
+              dismiss();
+            }}
+            style={{ gridColumn: "span 2" }}
+            title="Logical NOT"
+          >
+            ¬
+          </Button>
+        </div>
+      </PopoverSurface>
+    </Popover>
   );
 };

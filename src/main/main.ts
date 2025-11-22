@@ -5,9 +5,9 @@ import {
   BrowserWindow,
   clipboard,
   dialog,
-  ipcMain as untypedIpcMain,
   Menu,
   shell,
+  ipcMain as untypedIpcMain,
 } from "electron";
 import installExtension, {
   REACT_DEVELOPER_TOOLS,
@@ -32,8 +32,8 @@ import {
 import { Document } from "../common/document";
 import {
   ANTI_ALIASING_OPTIONS,
-  ExportImageProgress,
   EXPORT_GRAPH_TILE_SIZE,
+  ExportImageProgress,
   MAX_EXPORT_IMAGE_SIZE,
   MAX_EXPORT_TIMEOUT,
 } from "../common/exportImage";
@@ -216,12 +216,6 @@ app.whenReady().then(async () => {
 
   mainMenu = createMainMenu({
     [Command.AbortGraphing]: () => abortJobs(),
-    [Command.ExportImage]: () => {
-      mainWindow?.webContents.send<ipc.CommandInvoked>(
-        ipc.commandInvoked,
-        Command.ExportImage
-      );
-    },
     [Command.HighResolution]: () => {
       mainWindow?.webContents.send<ipc.CommandInvoked>(
         ipc.commandInvoked,

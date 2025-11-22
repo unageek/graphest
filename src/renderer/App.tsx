@@ -1,23 +1,11 @@
-import { registerIcons, Stack, ThemeProvider, useTheme } from "@fluentui/react";
 import {
-  AddIcon,
-  CancelIcon,
-  CheckMarkIcon,
-  ChevronDownIcon,
-  ChevronDownSmallIcon,
-  ChevronUpSmallIcon,
-  ColorIcon,
-  DeleteIcon,
-  ForwardIcon,
-  GripperDotsVerticalIcon,
-  HomeSolidIcon,
-  MoreIcon,
-  VariableIcon,
-} from "@fluentui/react-icons-mdl2";
+  FluentProvider,
+  tokens,
+  webDarkTheme,
+  webLightTheme,
+} from "@fluentui/react-components";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
-import "@fortawesome/fontawesome-free/js/fontawesome";
-import "@fortawesome/fontawesome-free/js/solid";
 import * as Color from "color";
 import * as React from "react";
 import { useEffect, useRef } from "react";
@@ -30,10 +18,9 @@ import * as ipc from "../common/ipc";
 import { RequestRelationResult } from "../common/ipc";
 import "./App.css";
 import { ColorsDialog } from "./ColorsDialog";
-import { ExportImageDialog } from "./ExportImageDialog";
+import { CommandBar } from "./CommandBar";
 import { GoToDialog } from "./GoToDialog";
 import { GraphBars } from "./GraphBars";
-import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
 import {
   addGraph,
@@ -56,7 +43,7 @@ import {
   useSelector,
 } from "./models/app";
 import { store } from "./models/store";
-import { DarkTheme, LightTheme } from "./themes";
+import { RenderDialog } from "./RenderDialog";
 
 const abortExportImage = async () => {
   await window.ipcRenderer.invoke<ipc.AbortExportImage>(ipc.abortExportImage);
@@ -134,7 +121,6 @@ const App = () => {
   const showExportImageDialog = useSelector((s) => s.showExportImageDialog);
   const showGoToDialog = useSelector((s) => s.showGoToDialog);
   const appTheme = useSelector((s) => s.theme);
-  const theme = useTheme();
   const zoomLevel = useSelector((s) => s.zoomLevel);
 
   function focusGraphView() {
@@ -157,32 +143,30 @@ const App = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <ThemeProvider
+    <FluentProvider
       style={{ height: "100%" }}
-      theme={appTheme === "light" ? LightTheme : DarkTheme}
+      theme={appTheme === "light" ? webLightTheme : webDarkTheme}
     >
-      <Stack verticalFill>
-        <Stack
-          styles={{
-            root: {
-              boxShadow: theme.effects.elevation4,
-              zIndex: 2000, // To show on top of the <GraphView>.
-            },
+      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            boxShadow: tokens.shadow4,
+            zIndex: 2000, // To show on top of the <GraphView>.
           }}
         >
           <GraphBars
             focusGraphView={focusGraphView}
             requestRelation={requestRelation}
           />
-          <GraphCommandBar />
-        </Stack>
+          <CommandBar />
+        </div>
         <GraphView grow ref={graphViewRef} />
-      </Stack>
+      </div>
       {showColorsDialog && (
         <ColorsDialog dismiss={() => dispatch(setShowColorsDialog(false))} />
       )}
       {showExportImageDialog && (
-        <ExportImageDialog
+        <RenderDialog
           abort={abortExportImage}
           dismiss={() => dispatch(setShowExportImageDialog(false))}
           exportImage={exportImage}
@@ -205,30 +189,9 @@ const App = () => {
           zoomLevel={zoomLevel}
         />
       )}
-    </ThemeProvider>
+    </FluentProvider>
   );
 };
-
-const ICON_CLASS_NAME = "fluent-ui-icon";
-registerIcons({
-  icons: {
-    Add: <AddIcon className={ICON_CLASS_NAME} />,
-    Cancel: <CancelIcon className={ICON_CLASS_NAME} />,
-    CheckMark: <CheckMarkIcon className={ICON_CLASS_NAME} />,
-    ChevronDown: <ChevronDownIcon className={ICON_CLASS_NAME} />,
-    ChevronDownSmall: <ChevronDownSmallIcon className={ICON_CLASS_NAME} />,
-    ChevronUpSmall: <ChevronUpSmallIcon className={ICON_CLASS_NAME} />,
-    Color: <ColorIcon className={ICON_CLASS_NAME} />,
-    Delete: <DeleteIcon className={ICON_CLASS_NAME} />,
-    Forward: <ForwardIcon className={ICON_CLASS_NAME} />,
-    GripperDotsVertical: (
-      <GripperDotsVerticalIcon className={ICON_CLASS_NAME} />
-    ),
-    HomeSolid: <HomeSolidIcon className={ICON_CLASS_NAME} />,
-    More: <MoreIcon className={ICON_CLASS_NAME} />,
-    Variable: <VariableIcon className={ICON_CLASS_NAME} />,
-  },
-});
 
 ReactDOM.render(
   <React.StrictMode>
@@ -242,9 +205,6 @@ ReactDOM.render(
 window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
   const state = store.getState();
   switch (item) {
-    case Command.ExportImage:
-      store.dispatch(setShowExportImageDialog(true));
-      break;
     case Command.HighResolution:
       store.dispatch(setHighRes(!state.highRes));
       break;
