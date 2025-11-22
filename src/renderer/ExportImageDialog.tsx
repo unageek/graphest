@@ -54,10 +54,20 @@ const useStyles = makeStyles({
     minWidth: "unset",
     width: "150px",
   },
-  decimalInput: {
-    width: "150px",
+  checkbox: {
+    display: "inline-block",
   },
-  integerInput: {
+  checkboxIndicator: {
+    display: "inline-flex",
+    margin: "0 8px -3px 0",
+    "& > svg": {
+      position: "absolute",
+    },
+  },
+  checkboxLabel: {
+    padding: 0,
+  },
+  input: {
     width: "150px",
   },
 });
@@ -308,7 +318,7 @@ export const ExportImageDialog = (
                       >
                         <Field validationMessage={xMinErrorMessage}>
                           <Input
-                            className={styles.decimalInput}
+                            className={styles.input}
                             onChange={(_, { value }) => {
                               setXMin(value);
                               validateXMin(value);
@@ -319,7 +329,7 @@ export const ExportImageDialog = (
                         <Text>…</Text>
                         <Field validationMessage={xMaxErrorMessage}>
                           <Input
-                            className={styles.decimalInput}
+                            className={styles.input}
                             onChange={(_, { value }) => {
                               setXMax(value);
                               validateXMax(value);
@@ -340,7 +350,7 @@ export const ExportImageDialog = (
                       >
                         <Field validationMessage={yMinErrorMessage}>
                           <Input
-                            className={styles.decimalInput}
+                            className={styles.input}
                             onChange={(_, { value }) => {
                               setYMin(value);
                               validateYMin(value);
@@ -351,7 +361,7 @@ export const ExportImageDialog = (
                         <Text>…</Text>
                         <Field validationMessage={yMaxErrorMessage}>
                           <Input
-                            className={styles.decimalInput}
+                            className={styles.input}
                             onChange={(_, { value }) => {
                               setYMax(value);
                               validateYMax(value);
@@ -366,7 +376,7 @@ export const ExportImageDialog = (
                       <Label style={{ textAlign: "right" }}>Width:</Label>
                       <Field validationMessage={widthErrorMessage}>
                         <Input
-                          className={styles.integerInput}
+                          className={styles.input}
                           contentAfter={<Text>pixels</Text>}
                           onChange={(_, { value }) => {
                             setWidth(value);
@@ -379,7 +389,7 @@ export const ExportImageDialog = (
                       <Label style={{ textAlign: "right" }}>Height:</Label>
                       <Field validationMessage={heightErrorMessage}>
                         <Input
-                          className={styles.integerInput}
+                          className={styles.input}
                           contentAfter={<Text>pixels</Text>}
                           onChange={(_, { value }) => {
                             setHeight(value);
@@ -399,53 +409,39 @@ export const ExportImageDialog = (
                         Color options:
                       </Label>
                       <Checkbox
+                        className={styles.checkbox}
                         defaultChecked={opts.transparent}
                         indicator={{
-                          style: {
-                            display: "inline-block",
-                            margin: "2px 8px -5px 0",
-                          },
+                          className: styles.checkboxIndicator,
                         }}
                         label={{
                           children: "Transparent background",
-                          style: { padding: 0 },
+                          className: styles.checkboxLabel,
                         }}
                         onChange={(_, { checked }) => {
                           if (checked === undefined || checked === "mixed")
                             return;
                           setOpts({ ...opts, transparent: checked });
                         }}
-                        size="large"
-                        style={{
-                          display: "inline-block",
-                          gridColumn: "2",
-                          padding: "0 0 2px 0",
-                        }}
+                        style={{ gridColumn: "2" }}
                         title="Make the image background transparent."
                       />
 
                       <Checkbox
+                        className={styles.checkbox}
                         defaultChecked={opts.correctAlpha}
                         indicator={{
-                          style: {
-                            display: "inline-block",
-                            margin: "2px 8px -5px 0",
-                          },
+                          className: styles.checkboxIndicator,
                         }}
                         label={{
                           children: "Correct alpha composition",
-                          style: { padding: 0 },
+                          className: styles.checkboxLabel,
                         }}
                         onChange={(_, { checked }) => {
                           if (checked === "mixed") return;
                           setOpts({ ...opts, correctAlpha: checked });
                         }}
-                        size="large"
-                        style={{
-                          display: "inline-block",
-                          gridColumn: "2",
-                          padding: "0 0 2px 0",
-                        }}
+                        style={{ gridColumn: "2" }}
                         title="Perform alpha composition in linear color space."
                       />
 
@@ -497,7 +493,7 @@ export const ExportImageDialog = (
                       >
                         <Field validationMessage={timeoutErrorMessage}>
                           <Input
-                            className={styles.integerInput}
+                            className={styles.input}
                             contentAfter={<Text>seconds</Text>}
                             onChange={(_, { value }) => {
                               setTimeout(value);

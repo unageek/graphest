@@ -184,11 +184,13 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             >
               <Label>Hex:</Label>
               <Input
+                contentBefore="#"
                 onChange={(_, { value }) => {
                   const color = new Color(value);
                   props.onColorChanged(color.hex());
                 }}
-                value={color.hex()}
+                style={{ width: "100px" }}
+                value={color.hex().substring(1)}
               />
             </div>
           </>
