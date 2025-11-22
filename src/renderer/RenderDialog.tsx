@@ -295,7 +295,7 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
         }
       }}
     >
-      <DialogSurface>
+      <DialogSurface style={{ width: "fit-content" }}>
         {(() => {
           switch (state) {
             case State.Initial:

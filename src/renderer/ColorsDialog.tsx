@@ -35,7 +35,7 @@ export const ColorsDialog = (props: ColorsDialogProps): JSX.Element => {
         }
       }}
     >
-      <DialogSurface>
+      <DialogSurface style={{ width: "fit-content" }}>
         <DialogBody>
           <DialogTitle>Colors</DialogTitle>
 

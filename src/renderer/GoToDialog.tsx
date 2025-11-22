@@ -103,7 +103,7 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
         }
       }}
     >
-      <DialogSurface>
+      <DialogSurface style={{ width: "fit-content" }}>
         <form onSubmit={submit}>
           <DialogBody>
             <DialogTitle>Go To</DialogTitle>
