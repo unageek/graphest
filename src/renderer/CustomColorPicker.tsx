@@ -4,7 +4,6 @@ import {
   ColorPicker,
   ColorSlider,
   Input,
-  Label,
   tokens,
 } from "@fluentui/react-components";
 import * as Color from "color";
@@ -121,12 +120,11 @@ export const CustomColorPicker = (
       <div
         style={{
           alignItems: "baseline",
-          display: "flex",
-          flexDirection: "row",
+          display: "grid",
           gap: "8px",
+          gridTemplateColumns: "auto auto",
         }}
       >
-        <Label>Hex:</Label>
         <Input
           contentBefore="#"
           onChange={(_, { value }) => {
@@ -141,8 +139,22 @@ export const CustomColorPicker = (
               // ignore invalid color
             }
           }}
-          style={{ width: "100px" }}
+          style={{ minWidth: 0 }}
           value={hex}
+        />
+        <Input
+          contentAfter="%"
+          onChange={(_, { value }) => {
+            const a = Math.max(0, Math.min(1, Number(value) / 100));
+            if (Number.isNaN(a) || a === alpha) {
+              return;
+            }
+            const c = color.alpha(a);
+            setAlpha(a);
+            props.onColorChanged(c.hexa());
+          }}
+          style={{ minWidth: 0 }}
+          value={Math.round(100 * alpha).toString()}
         />
       </div>
     </div>
