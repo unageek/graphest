@@ -49,7 +49,6 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           display: "flex",
           flexDirection: "column",
           gap: "10px",
-          width: "284px",
         }}
       >
         <ColorPicker

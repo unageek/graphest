@@ -3,7 +3,6 @@ import {
   Popover,
   PopoverSurface,
   PopoverTrigger,
-  TabValue,
 } from "@fluentui/react-components";
 import * as React from "react";
 import { ColorPicker } from "./ColorPicker";
@@ -14,8 +13,6 @@ export interface ColorButtonProps {
 }
 
 export const ColorButton = (props: ColorButtonProps): JSX.Element => {
-  const [selectedTab, setSelectedTab] = React.useState<TabValue>("swatch");
-
   return (
     <Popover positioning="below-start">
       <PopoverTrigger>
