@@ -10,7 +10,7 @@ export interface MySwatchPickerProps {
   onColorChanged: (color: string) => void;
 }
 
-export const MySwatchPicker = (props: MySwatchPickerProps): JSX.Element => {
+export const SwatchColorPicker = (props: MySwatchPickerProps): JSX.Element => {
   const color = new Color(props.color);
 
   return (

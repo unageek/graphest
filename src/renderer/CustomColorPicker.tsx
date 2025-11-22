@@ -15,7 +15,7 @@ export interface MyColorPickerProps {
   onColorChanged: (color: string) => void;
 }
 
-export const MyColorPicker = (props: MyColorPickerProps): JSX.Element => {
+export const CustomColorPicker = (props: MyColorPickerProps): JSX.Element => {
   const color = new Color(props.color);
 
   return (

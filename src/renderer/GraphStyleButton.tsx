@@ -6,16 +6,12 @@ import {
   PopoverSurface,
   PopoverTrigger,
   SpinButton,
-  Tab,
-  TabList,
-  TabValue,
   Text,
   ToolbarButton,
 } from "@fluentui/react-components";
 import * as React from "react";
 import { MAX_PEN_SIZE } from "../common/constants";
-import { MyColorPicker } from "./MyColorPicker";
-import { MySwatchPicker } from "./MySwatchPicker";
+import { ColorPicker } from "./ColorPicker";
 
 export interface GraphStyleButtonProps {
   color: string;
@@ -25,8 +21,6 @@ export interface GraphStyleButtonProps {
 }
 
 export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
-  const [selectedTab, setSelectedTab] = React.useState<TabValue>("swatch");
-
   return (
     <Popover positioning="below-start">
       <PopoverTrigger>
@@ -43,7 +37,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           }
         ></ToolbarButton>
       </PopoverTrigger>
-      <PopoverSurface style={{ padding: 0 }}>{renderPopover()}</PopoverSurface>
+      <PopoverSurface>{renderPopover()}</PopoverSurface>
     </Popover>
   );
 
@@ -55,30 +49,13 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           display: "flex",
           flexDirection: "column",
           gap: "10px",
-          padding: "10px",
           width: "284px",
         }}
       >
-        <TabList
-          selectedValue={selectedTab}
-          onTabSelect={(_, { value }) => setSelectedTab(value)}
-          style={{ margin: "-10px -10px 0 -10px" }}
-        >
-          <Tab value="swatch">Swatch</Tab>
-          <Tab value="custom">Custom</Tab>
-        </TabList>
-        {selectedTab === "swatch" && (
-          <MySwatchPicker
-            color={props.color}
-            onColorChanged={props.onColorChanged}
-          />
-        )}
-        {selectedTab === "custom" && (
-          <MyColorPicker
-            color={props.color}
-            onColorChanged={props.onColorChanged}
-          />
-        )}
+        <ColorPicker
+          color={props.color}
+          onColorChanged={props.onColorChanged}
+        />
         <Divider />
         <div
           style={{
