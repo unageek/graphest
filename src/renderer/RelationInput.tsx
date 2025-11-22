@@ -468,7 +468,6 @@ export const RelationInput = (props: RelationInputProps) => {
           // https://github.com/ianstormtaylor/slate/issues/4721
           onKeyDown={(e: KeyboardEvent) => {
             if (e.key === "Enter") {
-              e.preventDefault();
               updateRelation();
               updateRelation.flush()?.then((result) => {
                 if (result.ok !== undefined) {
@@ -477,6 +476,18 @@ export const RelationInput = (props: RelationInputProps) => {
                   setShowValidationError(true);
                 }
               });
+              e.preventDefault();
+              return;
+            }
+            if (e.altKey && !e.ctrlKey && !e.metaKey) {
+              const symbol = (
+                e.shiftKey ? shiftAltKeySymbols : altKeySymbols
+              ).get(e.code);
+              if (symbol) {
+                S.Transforms.insertText(editor, symbol);
+                e.preventDefault();
+              }
+              return;
             }
           }}
           renderLeaf={renderLeaf}
@@ -490,3 +501,62 @@ export const RelationInput = (props: RelationInputProps) => {
     </Slate>
   );
 };
+
+const altKeySymbols: Map<string, string> = new Map([
+  ["KeyA", "α"],
+  ["KeyB", "β"],
+  ["KeyC", "χ"],
+  ["KeyD", "δ"],
+  ["KeyE", "ε"],
+  ["KeyF", "φ"],
+  ["KeyG", "γ"],
+  ["KeyH", "η"],
+  ["KeyI", "ι"],
+  ["KeyK", "κ"],
+  ["KeyL", "λ"],
+  ["KeyM", "μ"],
+  ["KeyN", "ν"],
+  ["KeyO", "ο"],
+  ["KeyP", "π"],
+  ["KeyQ", "θ"],
+  ["KeyR", "ρ"],
+  ["KeyS", "σ"],
+  ["KeyT", "τ"],
+  ["KeyU", "υ"],
+  ["KeyW", "ω"],
+  ["KeyX", "ξ"],
+  ["KeyY", "ψ"],
+  ["KeyZ", "ζ"],
+  ["Comma", "≤"],
+  ["Period", "≥"],
+]);
+
+const shiftAltKeySymbols: Map<string, string> = new Map([
+  ["KeyA", "Α"],
+  ["KeyB", "Β"],
+  ["KeyC", "Χ"],
+  ["KeyD", "Δ"],
+  ["KeyE", "Ε"],
+  ["KeyF", "Φ"],
+  ["KeyG", "Γ"],
+  ["KeyH", "Η"],
+  ["KeyI", "Ι"],
+  ["KeyK", "Κ"],
+  ["KeyL", "Λ"],
+  ["KeyM", "Μ"],
+  ["KeyN", "Ν"],
+  ["KeyO", "Ο"],
+  ["KeyP", "Π"],
+  ["KeyQ", "Θ"],
+  ["KeyR", "Ρ"],
+  ["KeyS", "Σ"],
+  ["KeyT", "Τ"],
+  ["KeyU", "Υ"],
+  ["KeyW", "Ω"],
+  ["KeyX", "Ξ"],
+  ["KeyY", "Ψ"],
+  ["KeyZ", "Ζ"],
+  ["Digit1", "¬"],
+  ["Digit7", "∧"],
+  ["Backslash", "∨"],
+]);
