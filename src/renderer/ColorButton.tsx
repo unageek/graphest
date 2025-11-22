@@ -16,14 +16,8 @@ export const ColorButton = (props: ColorButtonProps): JSX.Element => {
   return (
     <Popover positioning="below-start">
       <PopoverTrigger>
-        <MenuButton
-          style={{
-            minWidth: "unset",
-            width: "60px",
-          }}
-          title="Color"
-        >
-          <div
+        <MenuButton title="Color">
+          <span
             style={{
               backgroundColor: props.color,
               height: "20px",
@@ -31,7 +25,7 @@ export const ColorButton = (props: ColorButtonProps): JSX.Element => {
             }}
           >
             &nbsp; {/* For vertical alignment. */}
-          </div>
+          </span>
         </MenuButton>
       </PopoverTrigger>
       <PopoverSurface>

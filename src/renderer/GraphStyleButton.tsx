@@ -1,16 +1,19 @@
 import {
   Caption1,
   Divider,
+  Field,
+  Input,
   Label,
   Popover,
   PopoverSurface,
   PopoverTrigger,
-  SpinButton,
-  Text,
   ToolbarButton,
 } from "@fluentui/react-components";
+import { debounce } from "lodash";
 import * as React from "react";
+import { useMemo, useState } from "react";
 import { MAX_PEN_SIZE } from "../common/constants";
+import { tryParseNumberInRange } from "../common/parse";
 import { ColorPicker } from "./ColorPicker";
 
 export interface GraphStyleButtonProps {
@@ -21,11 +24,26 @@ export interface GraphStyleButtonProps {
 }
 
 export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
+  const [penSize, setPenSize] = useState<string>(props.penSize.toString());
+
+  const [penSizeErrorMessage, setPenSizeErrorMessage] = useState<string>();
+
+  const validatePenSize = useMemo(
+    () =>
+      debounce((value: string) => {
+        const result = tryParseNumberInRange(value, 0, MAX_PEN_SIZE);
+        setPenSizeErrorMessage(result.err);
+        if (result.ok !== undefined) {
+          props.onPenSizeChanged(result.ok);
+        }
+      }, 200),
+    [props]
+  );
+
   return (
     <Popover positioning="below-start">
       <PopoverTrigger>
         <ToolbarButton
-          title="Graph style"
           icon={
             <span
               style={{
@@ -35,7 +53,8 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
               }}
             />
           }
-        ></ToolbarButton>
+          title="Graph style"
+        />
       </PopoverTrigger>
       <PopoverSurface>{renderPopover()}</PopoverSurface>
     </Popover>
@@ -45,10 +64,11 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
     return (
       <div
         style={{
-          // Adjusted to the width of the `SwatchColorPicker`.
           display: "flex",
           flexDirection: "column",
           gap: "10px",
+          // Adjusted to the width of the `ColorPicker`.
+          width: "284px",
         }}
       >
         <ColorPicker
@@ -64,20 +84,18 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
             gap: "8px",
           }}
         >
-          <Label>Pen size:</Label>
-          <SpinButton
-            defaultValue={props.penSize}
-            max={MAX_PEN_SIZE}
-            min={0}
-            step={0.1}
-            style={{ width: "80px" }}
-            onChange={(_, { value }) => {
-              if (value === undefined) return;
-              const penSize = Number(value);
-              props.onPenSizeChanged(penSize);
-            }}
-          />
-          <Text>{props.penSize > 1 ? "pixels" : "pixel"}</Text>
+          <Label style={{ textWrap: "nowrap" }}>Pen size:</Label>
+          <Field validationMessage={penSizeErrorMessage}>
+            <Input
+              contentAfter={props.penSize > 1 ? "pixels" : "pixel"}
+              onChange={(_, { value }) => {
+                setPenSize(value);
+                validatePenSize(value);
+              }}
+              style={{ width: "150px" }}
+              value={penSize}
+            />
+          </Field>
         </div>
         {props.penSize < 1.0 && (
           <Caption1>

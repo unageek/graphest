@@ -98,10 +98,10 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
         <MenuPopover>
           <MenuList>
             <MenuItem
+              icon={<DeleteRegular />}
               onClick={() => {
                 dispatch(removeGraph(props.graphId));
               }}
-              icon={<DeleteRegular />}
             >
               Remove
             </MenuItem>

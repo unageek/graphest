@@ -288,12 +288,12 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
 
   return (
     <Dialog
-      open={true}
       onOpenChange={(_, { open }) => {
         if (!open && state !== State.Processing) {
           props.dismiss();
         }
       }}
+      open={true}
     >
       <DialogSurface style={{ width: "fit-content" }}>
         {(() => {
@@ -384,7 +384,7 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
                       <Field validationMessage={widthErrorMessage}>
                         <Input
                           className={styles.input}
-                          contentAfter={<Text>pixels</Text>}
+                          contentAfter="pixels"
                           onChange={(_, { value }) => {
                             setWidth(value);
                             validateWidth(value);
@@ -397,7 +397,7 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
                       <Field validationMessage={heightErrorMessage}>
                         <Input
                           className={styles.input}
-                          contentAfter={<Text>pixels</Text>}
+                          contentAfter="pixels"
                           onChange={(_, { value }) => {
                             setHeight(value);
                             validateHeight(value);
@@ -503,7 +503,7 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
                         <Field validationMessage={timeoutErrorMessage}>
                           <Input
                             className={styles.input}
-                            contentAfter={<Text>seconds</Text>}
+                            contentAfter="seconds"
                             onChange={(_, { value }) => {
                               setTimeout(value);
                               validateTimeout(value);

@@ -96,12 +96,12 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
 
   return (
     <Dialog
-      open={true}
       onOpenChange={(_, { open }) => {
         if (!open) {
           props.dismiss();
         }
       }}
+      open={true}
     >
       <DialogSurface style={{ width: "fit-content" }}>
         <form onSubmit={submit}>

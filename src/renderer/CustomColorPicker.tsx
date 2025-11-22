@@ -8,6 +8,7 @@ import {
 } from "@fluentui/react-components";
 import * as Color from "color";
 import * as React from "react";
+import { useState } from "react";
 
 export interface CustomColorPickerProps {
   color: string;
@@ -18,13 +19,11 @@ export const CustomColorPicker = (
   props: CustomColorPickerProps
 ): JSX.Element => {
   const color = new Color(props.color);
-  const [hex, setHex] = React.useState(color.hex().substring(1));
-  const [hue, setHue] = React.useState(color.hue());
-  const [saturation, setSaturation] = React.useState(
-    0.01 * color.saturationv()
-  );
-  const [value, setValue] = React.useState(0.01 * color.value());
-  const [alpha, setAlpha] = React.useState(color.alpha());
+  const [hex, setHex] = useState(color.hex().substring(1));
+  const [hue, setHue] = useState(color.hue());
+  const [saturation, setSaturation] = useState(0.01 * color.saturationv());
+  const [value, setValue] = useState(0.01 * color.value());
+  const [alpha, setAlpha] = useState(color.alpha());
 
   return (
     <div

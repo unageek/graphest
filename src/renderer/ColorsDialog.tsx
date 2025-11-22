@@ -28,12 +28,12 @@ export const ColorsDialog = (props: ColorsDialogProps): JSX.Element => {
 
   return (
     <Dialog
-      open={true}
       onOpenChange={(_, { open }) => {
         if (!open) {
           props.dismiss();
         }
       }}
+      open={true}
     >
       <DialogSurface style={{ width: "fit-content" }}>
         <DialogBody>
