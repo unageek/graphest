@@ -1,20 +1,15 @@
 import {
-  ColorPicker,
-  IColorCellProps,
-  Pivot,
-  PivotItem,
-  Stack,
-  SwatchColorPicker,
-} from "@fluentui/react";
-import {
   MenuButton,
   Popover,
   PopoverSurface,
   PopoverTrigger,
+  Tab,
+  TabList,
+  TabValue,
 } from "@fluentui/react-components";
-import { SharedColors } from "@fluentui/theme";
-import * as Color from "color";
 import * as React from "react";
+import { MyColorPicker } from "./MyColorPicker";
+import { MySwatchPicker } from "./MySwatchPicker";
 
 export interface ColorButtonProps {
   color: string;
@@ -22,6 +17,8 @@ export interface ColorButtonProps {
 }
 
 export const ColorButton = (props: ColorButtonProps): JSX.Element => {
+  const [selectedTab, setSelectedTab] = React.useState<TabValue>("swatch");
+
   return (
     <Popover positioning="below-start">
       <PopoverTrigger>
@@ -43,96 +40,43 @@ export const ColorButton = (props: ColorButtonProps): JSX.Element => {
           </div>
         </MenuButton>
       </PopoverTrigger>
-      <PopoverSurface>{renderMenuList()}</PopoverSurface>
+      <PopoverSurface style={{ padding: 0 }}>{renderPopover()}</PopoverSurface>
     </Popover>
   );
 
-  function renderMenuList(): JSX.Element {
-    const color = new Color(props.color);
-    const id = colorToId.get(color.hex());
-
+  function renderPopover(): JSX.Element {
     return (
-      <Stack
+      <div
         style={{
           // Adjusted to the width of the `SwatchColorPicker`.
-          width: "288px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          padding: "10px",
+          width: "284px",
         }}
       >
-        <Pivot>
-          <PivotItem headerText="Swatch">
-            <SwatchColorPicker
-              cellMargin={8}
-              cellShape={"square"}
-              colorCells={colorCells}
-              columnCount={10}
-              onChange={(_, __, c) => {
-                if (c !== undefined) {
-                  const newColor = new Color(c).alpha(color.alpha());
-                  props.onColorChanged(newColor.toString());
-                }
-              }}
-              selectedId={id}
-              styles={{ root: { margin: "4px", padding: 0 } }}
-            />
-          </PivotItem>
-          <PivotItem headerText="Custom">
-            <ColorPicker
-              alphaType="none"
-              color={props.color}
-              onChange={(_, c) => props.onColorChanged(c.str)}
-              showPreview={true}
-              styles={{
-                panel: { padding: 0 },
-                root: { margin: "8px" },
-              }}
-            />
-          </PivotItem>
-        </Pivot>
-      </Stack>
+        <TabList
+          selectedValue={selectedTab}
+          onTabSelect={(_, { value }) => setSelectedTab(value)}
+          style={{ margin: "-10px -10px 0 -10px" }}
+        >
+          <Tab value="swatch">Swatch</Tab>
+          <Tab value="custom">Custom</Tab>
+        </TabList>
+        {selectedTab === "swatch" && (
+          <MySwatchPicker
+            color={props.color}
+            onColorChanged={props.onColorChanged}
+          />
+        )}
+        {selectedTab === "custom" && (
+          <MyColorPicker
+            color={props.color}
+            onColorChanged={props.onColorChanged}
+          />
+        )}
+      </div>
     );
   }
 };
-
-const colorCells: IColorCellProps[] = [
-  SharedColors.pinkRed10,
-  SharedColors.red20,
-  SharedColors.red10,
-  SharedColors.redOrange20,
-  SharedColors.redOrange10,
-  SharedColors.orange30,
-  SharedColors.orange20,
-  SharedColors.orange10,
-  SharedColors.yellow10,
-  SharedColors.orangeYellow20,
-  SharedColors.orangeYellow10,
-  SharedColors.yellowGreen10,
-  SharedColors.green20,
-  SharedColors.green10,
-  SharedColors.greenCyan10,
-  SharedColors.cyan40,
-  SharedColors.cyan30,
-  SharedColors.cyan20,
-  SharedColors.cyan10,
-  SharedColors.cyanBlue20,
-  SharedColors.cyanBlue10,
-  SharedColors.blue10,
-  SharedColors.blueMagenta40,
-  SharedColors.blueMagenta30,
-  SharedColors.blueMagenta20,
-  SharedColors.blueMagenta10,
-  SharedColors.magenta20,
-  SharedColors.magenta10,
-  SharedColors.magentaPink20,
-  SharedColors.magentaPink10,
-  SharedColors.gray40,
-  SharedColors.gray30,
-  SharedColors.gray20,
-  SharedColors.gray10,
-].map((c, i) => ({
-  id: i.toString(),
-  color: new Color(c).hex(),
-}));
-
-const colorToId: Map<string, string> = new Map(
-  colorCells.map((c) => [c.color, c.id])
-);

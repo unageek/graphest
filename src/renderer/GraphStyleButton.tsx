@@ -1,29 +1,21 @@
 import {
-  AlphaSlider,
   Caption1,
-  ColorArea,
-  ColorPicker,
-  ColorSlider,
   Divider,
-  Input,
   Label,
   Popover,
   PopoverSurface,
   PopoverTrigger,
-  renderSwatchPickerGrid,
   SpinButton,
-  SwatchPicker,
   Tab,
   TabList,
   TabValue,
   Text,
-  tokens,
   ToolbarButton,
 } from "@fluentui/react-components";
-import { SharedColors } from "@fluentui/theme";
-import * as Color from "color";
 import * as React from "react";
 import { MAX_PEN_SIZE } from "../common/constants";
+import { MyColorPicker } from "./MyColorPicker";
+import { MySwatchPicker } from "./MySwatchPicker";
 
 export interface GraphStyleButtonProps {
   color: string;
@@ -51,14 +43,11 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           }
         ></ToolbarButton>
       </PopoverTrigger>
-      <PopoverSurface style={{ padding: 0 }}>{renderMenuList()}</PopoverSurface>
+      <PopoverSurface style={{ padding: 0 }}>{renderPopover()}</PopoverSurface>
     </Popover>
   );
 
-  function renderMenuList(): JSX.Element {
-    const color = new Color(props.color);
-    const id = colorToId.get(color.hex());
-
+  function renderPopover(): JSX.Element {
     return (
       <div
         style={{
@@ -79,121 +68,16 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
           <Tab value="custom">Custom</Tab>
         </TabList>
         {selectedTab === "swatch" && (
-          <SwatchPicker
-            layout="grid"
-            onSelectionChange={(_, { selectedSwatch }) => {
-              if (selectedSwatch !== undefined) {
-                const newColor = new Color(selectedSwatch).alpha(color.alpha());
-                props.onColorChanged(newColor.toString());
-              }
-            }}
-            selectedValue={id}
-            size="extra-small"
-          >
-            {renderSwatchPickerGrid({
-              items: colorCells,
-              columnCount: 12,
-            })}
-          </SwatchPicker>
+          <MySwatchPicker
+            color={props.color}
+            onColorChanged={props.onColorChanged}
+          />
         )}
         {selectedTab === "custom" && (
-          <>
-            <ColorPicker
-              color={{
-                h: color.hue(),
-                s: 0.01 * color.saturationv(),
-                v: 0.01 * color.value(),
-                a: color.alpha(),
-              }}
-              onColorChange={(_, { color }) =>
-                props.onColorChanged(
-                  Color.hsv({
-                    h: color.h,
-                    s: 100 * color.s,
-                    v: 100 * color.v,
-                    alpha: color.a,
-                  }).hexa()
-                )
-              }
-            >
-              <ColorArea
-                style={{
-                  height: "142px",
-                  minHeight: "unset",
-                  minWidth: "unset",
-                  width: "284px",
-                }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  gap: "10px",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    flexGrow: 1,
-                    gap: "10px",
-                  }}
-                >
-                  <ColorSlider
-                    style={{
-                      minHeight: "unset",
-                    }}
-                    rail={{
-                      style: {
-                        boxSizing: "border-box",
-                        border: `1px solid ${tokens.colorNeutralStroke1}`,
-                      },
-                    }}
-                  />
-                  <AlphaSlider
-                    style={{
-                      minHeight: "unset",
-                    }}
-                    rail={{
-                      style: {
-                        boxSizing: "border-box",
-                        border: `1px solid ${tokens.colorNeutralStroke1}`,
-                      },
-                    }}
-                  />
-                </div>
-                <div
-                  style={{
-                    background: color.hex(),
-                    border: `1px solid ${tokens.colorNeutralStroke1}`,
-                    borderRadius: tokens.borderRadiusMedium,
-                    boxSizing: "border-box",
-                    height: "50px",
-                    width: "50px",
-                  }}
-                />
-              </div>
-            </ColorPicker>
-            <div
-              style={{
-                alignItems: "baseline",
-                display: "flex",
-                flexDirection: "row",
-                gap: "8px",
-              }}
-            >
-              <Label>Hex:</Label>
-              <Input
-                contentBefore="#"
-                onChange={(_, { value }) => {
-                  const color = new Color(value);
-                  props.onColorChanged(color.hex());
-                }}
-                style={{ width: "100px" }}
-                value={color.hex().substring(1)}
-              />
-            </div>
-          </>
+          <MyColorPicker
+            color={props.color}
+            onColorChanged={props.onColorChanged}
+          />
         )}
         <Divider />
         <div
@@ -233,47 +117,3 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
     );
   }
 };
-
-const colorCells = [
-  SharedColors.pinkRed10,
-  SharedColors.red20,
-  SharedColors.red10,
-  SharedColors.redOrange20,
-  SharedColors.redOrange10,
-  SharedColors.orange30,
-  SharedColors.orange20,
-  SharedColors.orange10,
-  SharedColors.yellow10,
-  SharedColors.orangeYellow20,
-  SharedColors.orangeYellow10,
-  SharedColors.yellowGreen10,
-  SharedColors.green20,
-  SharedColors.green10,
-  SharedColors.greenCyan10,
-  SharedColors.cyan40,
-  SharedColors.cyan30,
-  SharedColors.cyan20,
-  SharedColors.cyan10,
-  SharedColors.cyanBlue20,
-  SharedColors.cyanBlue10,
-  SharedColors.blue10,
-  SharedColors.blueMagenta40,
-  SharedColors.blueMagenta30,
-  SharedColors.blueMagenta20,
-  SharedColors.blueMagenta10,
-  SharedColors.magenta20,
-  SharedColors.magenta10,
-  SharedColors.magentaPink20,
-  SharedColors.magentaPink10,
-  SharedColors.gray40,
-  SharedColors.gray30,
-  SharedColors.gray20,
-  SharedColors.gray10,
-].map((c, i) => ({
-  color: new Color(c).hex(),
-  value: i.toString(),
-}));
-
-const colorToId: Map<string, string> = new Map(
-  colorCells.map((c) => [c.color, c.value])
-);

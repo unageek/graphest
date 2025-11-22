@@ -39,15 +39,24 @@ export interface ExportImageDialogProps {
   showSaveDialog: (path: string) => Promise<string | undefined>;
 }
 
-const antiAliasingOptions = [
-  { key: "1", text: "None" },
-  { key: "5", text: "5 × 5" },
-  { key: "9", text: "9 × 9" },
-  { key: "13", text: "13 × 13" },
-  { key: "17", text: "17 × 17" },
-  { key: "21", text: "21 × 21" },
-  { key: "25", text: "25 × 25" },
+interface AntiAliasingOption {
+  value: string;
+  text: string;
+}
+
+const antiAliasingOptions: AntiAliasingOption[] = [
+  { value: "1", text: "None" },
+  { value: "5", text: "5 × 5" },
+  { value: "9", text: "9 × 9" },
+  { value: "13", text: "13 × 13" },
+  { value: "17", text: "17 × 17" },
+  { value: "21", text: "21 × 21" },
+  { value: "25", text: "25 × 25" },
 ];
+
+const antiAliasingOptionText: Map<string, string> = new Map(
+  antiAliasingOptions.map((o) => [o.value, o.text])
+);
 
 const useStyles = makeStyles({
   antialiasingDropdown: {
@@ -453,7 +462,9 @@ export const ExportImageDialog = (
                       <Dropdown
                         className={styles.antialiasingDropdown}
                         defaultSelectedOptions={[opts.antiAliasing.toString()]}
-                        defaultValue={opts.antiAliasing.toString()}
+                        defaultValue={antiAliasingOptionText.get(
+                          opts.antiAliasing.toString()
+                        )}
                         listbox={{
                           className: styles.antialiasingDropdown,
                         }}
@@ -465,8 +476,8 @@ export const ExportImageDialog = (
                           });
                         }}
                       >
-                        {antiAliasingOptions.map((option) => (
-                          <Option value={option.key}>{option.text}</Option>
+                        {antiAliasingOptions.map((o) => (
+                          <Option value={o.value}>{o.text}</Option>
                         ))}
                       </Dropdown>
 
