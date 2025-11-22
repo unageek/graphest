@@ -19,7 +19,6 @@ import { RequestRelationResult } from "../common/ipc";
 import "./App.css";
 import { ColorsDialog } from "./ColorsDialog";
 import { CommandBar } from "./CommandBar";
-import { ExportImageDialog } from "./ExportImageDialog";
 import { GoToDialog } from "./GoToDialog";
 import { GraphBars } from "./GraphBars";
 import { GraphView } from "./GraphView";
@@ -44,6 +43,7 @@ import {
   useSelector,
 } from "./models/app";
 import { store } from "./models/store";
+import { RenderDialog } from "./RenderDialog";
 
 const abortExportImage = async () => {
   await window.ipcRenderer.invoke<ipc.AbortExportImage>(ipc.abortExportImage);
@@ -166,7 +166,7 @@ const App = () => {
         <ColorsDialog dismiss={() => dispatch(setShowColorsDialog(false))} />
       )}
       {showExportImageDialog && (
-        <ExportImageDialog
+        <RenderDialog
           abort={abortExportImage}
           dismiss={() => dispatch(setShowExportImageDialog(false))}
           exportImage={exportImage}
@@ -205,9 +205,6 @@ ReactDOM.render(
 window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
   const state = store.getState();
   switch (item) {
-    case Command.ExportImage:
-      store.dispatch(setShowExportImageDialog(true));
-      break;
     case Command.HighResolution:
       store.dispatch(setHighRes(!state.highRes));
       break;

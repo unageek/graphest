@@ -1,17 +1,18 @@
-import {
-  tokens,
-  Toolbar,
-  ToolbarButton,
-  ToolbarDivider,
-} from "@fluentui/react-components";
+import { tokens, Toolbar, ToolbarButton } from "@fluentui/react-components";
 import {
   AddRegular,
   ArrowForwardRegular,
   ColorRegular,
+  ImageRegular,
 } from "@fluentui/react-icons";
 import * as React from "react";
 import { useDispatch } from "react-redux";
-import { newGraph, setShowColorsDialog, setShowGoToDialog } from "./models/app";
+import {
+  newGraph,
+  setShowColorsDialog,
+  setShowExportImageDialog,
+  setShowGoToDialog,
+} from "./models/app";
 
 export const CommandBar = (): JSX.Element => {
   const dispatch = useDispatch();
@@ -21,19 +22,23 @@ export const CommandBar = (): JSX.Element => {
       <ToolbarButton icon={<AddRegular />} onClick={() => dispatch(newGraph())}>
         Add Relation
       </ToolbarButton>
-      <ToolbarDivider />
       <ToolbarButton
         icon={<ColorRegular />}
         onClick={() => dispatch(setShowColorsDialog(true))}
       >
         Colors…
       </ToolbarButton>
-      <ToolbarDivider />
       <ToolbarButton
         icon={<ArrowForwardRegular />}
         onClick={() => dispatch(setShowGoToDialog(true))}
       >
         Go To…
+      </ToolbarButton>
+      <ToolbarButton
+        icon={<ImageRegular />}
+        onClick={() => dispatch(setShowExportImageDialog(true))}
+      >
+        Render…
       </ToolbarButton>
     </Toolbar>
   );

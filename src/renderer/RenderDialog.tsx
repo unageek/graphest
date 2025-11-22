@@ -30,7 +30,7 @@ import {
 import { tryParseBignum, tryParseIntegerInRange } from "../common/parse";
 import { useSelector } from "./models/app";
 
-export interface ExportImageDialogProps {
+export interface RenderDialogProps {
   abort: () => void;
   dismiss: () => void;
   exportImage: (opts: ExportImageOptions) => Promise<void>;
@@ -89,13 +89,11 @@ const validateRange = (min: BigNumber, max: BigNumber): string | undefined => {
 
 enum State {
   Initial = "initial",
-  Exporting = "exporting",
-  Exported = "exported",
+  Processing = "processing",
+  Complete = "complete",
 }
 
-export const ExportImageDialog = (
-  props: ExportImageDialogProps
-): JSX.Element => {
+export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
   const [errors, setErrors] = useState<Set<string>>(new Set());
   const [opts, setOpts] = useState(props.opts);
   const progress = useSelector((s) => s.exportImageProgress);
@@ -151,10 +149,10 @@ export const ExportImageDialog = (
 
   const submit = useCallback(async () => {
     if (errors.size > 0) return;
-    setState(State.Exporting);
+    setState(State.Processing);
     props.saveOpts(opts);
     await props.exportImage(opts);
-    setState(State.Exported);
+    setState(State.Complete);
   }, [errors, opts, props]);
 
   const validateHeight = useMemo(
@@ -274,7 +272,7 @@ export const ExportImageDialog = (
   );
 
   useEffect(() => {
-    if (state === State.Exported && progress.messages.length === 0) {
+    if (state === State.Complete && progress.messages.length === 0) {
       props.dismiss();
     }
   }, [progress.messages.length, props, state]);
@@ -292,7 +290,7 @@ export const ExportImageDialog = (
     <Dialog
       open={true}
       onOpenChange={(_, { open }) => {
-        if (!open && state !== State.Exporting) {
+        if (!open && state !== State.Processing) {
           props.dismiss();
         }
       }}
@@ -304,7 +302,7 @@ export const ExportImageDialog = (
               return (
                 <form onSubmit={submit}>
                   <DialogBody>
-                    <DialogTitle>Export as Image</DialogTitle>
+                    <DialogTitle>Render</DialogTitle>
 
                     <DialogContent
                       style={{
@@ -564,13 +562,13 @@ export const ExportImageDialog = (
                 </form>
               );
 
-            case State.Exporting:
-            case State.Exported:
+            case State.Processing:
+            case State.Complete:
               return (
                 <DialogBody>
                   <DialogContent style={{ minWidth: "300px" }}>
                     <Text>
-                      {state === State.Exporting ? "Rendering…" : "Complete"}
+                      {state === State.Processing ? "Processing…" : "Complete"}
                     </Text>
                     <div
                       style={{
@@ -585,7 +583,7 @@ export const ExportImageDialog = (
                         style={{ flexGrow: 1 }}
                         value={progress.progress}
                       />
-                      {state === State.Exporting && (
+                      {state === State.Processing && (
                         <Button
                           appearance="subtle"
                           icon={<DismissRegular />}
@@ -604,7 +602,7 @@ export const ExportImageDialog = (
                     ))}
                   </DialogContent>
 
-                  {state === State.Exported && (
+                  {state === State.Complete && (
                     <DialogActions>
                       <Button onClick={props.dismiss}>Done</Button>
                     </DialogActions>

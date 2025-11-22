@@ -54,13 +54,6 @@ export function createMainMenu(actions: MenuActions): Menu {
         //   click: actions[Command.SaveToClipboard],
         // },
         { type: "separator" },
-        {
-          id: Command.ExportImage,
-          label: "Export as Image…",
-          accelerator: "CmdOrCtrl+Shift+E",
-          click: actions[Command.ExportImage],
-        },
-        { type: "separator" },
         ...(isMac ? [] : [{ role: "quit" }]),
       ],
     },
