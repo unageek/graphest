@@ -10,13 +10,22 @@ import {
 import * as Color from "color";
 import * as React from "react";
 
-export interface MyColorPickerProps {
+export interface CustomColorPickerProps {
   color: string;
   onColorChanged: (color: string) => void;
 }
 
-export const CustomColorPicker = (props: MyColorPickerProps): JSX.Element => {
+export const CustomColorPicker = (
+  props: CustomColorPickerProps
+): JSX.Element => {
   const color = new Color(props.color);
+  const [hex, setHex] = React.useState(color.hex().substring(1));
+  const [hue, setHue] = React.useState(color.hue());
+  const [saturation, setSaturation] = React.useState(
+    0.01 * color.saturationv()
+  );
+  const [value, setValue] = React.useState(0.01 * color.value());
+  const [alpha, setAlpha] = React.useState(color.alpha());
 
   return (
     <div
@@ -30,21 +39,26 @@ export const CustomColorPicker = (props: MyColorPickerProps): JSX.Element => {
     >
       <ColorPicker
         color={{
-          h: color.hue(),
-          s: 0.01 * color.saturationv(),
-          v: 0.01 * color.value(),
-          a: color.alpha(),
+          h: hue,
+          s: saturation,
+          v: value,
+          a: alpha,
         }}
-        onColorChange={(_, { color }) =>
-          props.onColorChanged(
-            Color.hsv({
-              h: color.h,
-              s: 100 * color.s,
-              v: 100 * color.v,
-              alpha: color.a,
-            }).hexa()
-          )
-        }
+        onColorChange={(_, { color }) => {
+          setHue(color.h);
+          setSaturation(color.s);
+          setValue(color.v);
+          setAlpha(Number(color.a));
+
+          const c = Color.hsv({
+            h: color.h,
+            s: 100 * color.s,
+            v: 100 * color.v,
+            alpha: color.a,
+          });
+          setHex(c.hex().substring(1));
+          props.onColorChanged(c.hexa());
+        }}
       >
         <ColorArea
           style={{
@@ -94,7 +108,7 @@ export const CustomColorPicker = (props: MyColorPickerProps): JSX.Element => {
           </div>
           <div
             style={{
-              background: color.hex(),
+              background: color.hexa(),
               border: `1px solid ${tokens.colorNeutralStroke1}`,
               borderRadius: tokens.borderRadiusMedium,
               boxSizing: "border-box",
@@ -116,11 +130,19 @@ export const CustomColorPicker = (props: MyColorPickerProps): JSX.Element => {
         <Input
           contentBefore="#"
           onChange={(_, { value }) => {
-            const color = new Color(value);
-            props.onColorChanged(color.hex());
+            setHex(value);
+            try {
+              const c = new Color(`#${value}`);
+              setHue(c.hue());
+              setSaturation(0.01 * c.saturationv());
+              setValue(0.01 * c.value());
+              props.onColorChanged(c.hex());
+            } catch (e) {
+              // ignore invalid color
+            }
           }}
           style={{ width: "100px" }}
-          value={color.hex().substring(1)}
+          value={hex}
         />
       </div>
     </div>

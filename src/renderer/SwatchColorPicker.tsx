@@ -5,12 +5,14 @@ import {
 import * as Color from "color";
 import * as React from "react";
 
-export interface MySwatchPickerProps {
+export interface SwatchColorPickerProps {
   color: string;
   onColorChanged: (color: string) => void;
 }
 
-export const SwatchColorPicker = (props: MySwatchPickerProps): JSX.Element => {
+export const SwatchColorPicker = (
+  props: SwatchColorPickerProps
+): JSX.Element => {
   const color = new Color(props.color);
 
   return (
