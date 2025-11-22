@@ -18,10 +18,10 @@ import * as ipc from "../common/ipc";
 import { RequestRelationResult } from "../common/ipc";
 import "./App.css";
 import { ColorsDialog } from "./ColorsDialog";
+import { CommandBar } from "./CommandBar";
 import { ExportImageDialog } from "./ExportImageDialog";
 import { GoToDialog } from "./GoToDialog";
 import { GraphBars } from "./GraphBars";
-import { GraphCommandBar } from "./GraphCommandBar";
 import { GraphView } from "./GraphView";
 import {
   addGraph,
@@ -158,7 +158,7 @@ const App = () => {
             focusGraphView={focusGraphView}
             requestRelation={requestRelation}
           />
-          <GraphCommandBar />
+          <CommandBar />
         </div>
         <GraphView grow ref={graphViewRef} />
       </div>

@@ -81,12 +81,12 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
         </div>
         {props.penSize < 1.0 && (
           <Caption1>
-            A pen size less than 1px is only applied to exported images.
+            A pen size less than 1px is only applied to rendered graphs.
           </Caption1>
         )}
         {props.penSize > 3.0 && (
           <Caption1>
-            A pen size greater then 3px is only applied to exported images.
+            A pen size greater then 3px is only applied to rendered graphs.
           </Caption1>
         )}
       </div>

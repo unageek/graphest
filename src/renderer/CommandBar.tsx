@@ -13,7 +13,7 @@ import * as React from "react";
 import { useDispatch } from "react-redux";
 import { newGraph, setShowColorsDialog, setShowGoToDialog } from "./models/app";
 
-export const GraphCommandBar = (): JSX.Element => {
+export const CommandBar = (): JSX.Element => {
   const dispatch = useDispatch();
 
   return (
