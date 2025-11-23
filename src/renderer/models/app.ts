@@ -1,5 +1,5 @@
 import { createSlice, isAnyOf, PayloadAction } from "@reduxjs/toolkit";
-import { TypedUseSelectorHook, useSelector as _useSelector } from "react-redux";
+import { useSelector as _useSelector, TypedUseSelectorHook } from "react-redux";
 import {
   BASE_ZOOM_LEVEL,
   DEFAULT_COLOR,
@@ -45,7 +45,8 @@ const initialState: AppState = {
   center: [0, 0],
   exportImageProgress: {
     messages: [],
-    progress: 0,
+    numTiles: 0,
+    numTilesRendered: 0,
   },
   graphBackground: "#ffffff",
   graphForeground: "#000000",

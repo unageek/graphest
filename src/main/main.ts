@@ -387,7 +387,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
           }
           notifyExportImageStatusChanged({
             messages: [...messages],
-            progress: completedTasks / totalTasks,
+            numTiles: totalTasks,
+            numTilesRendered: completedTasks,
           });
 
           if (completedTasks === totalTasks) {

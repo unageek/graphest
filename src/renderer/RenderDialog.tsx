@@ -90,7 +90,7 @@ const validateRange = (min: BigNumber, max: BigNumber): string | undefined => {
 enum State {
   Initial = "initial",
   Processing = "processing",
-  Complete = "complete",
+  Completed = "completed",
 }
 
 export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
@@ -152,7 +152,7 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
     setState(State.Processing);
     props.saveOpts(opts);
     await props.exportImage(opts);
-    setState(State.Complete);
+    setState(State.Completed);
   }, [errors, opts, props]);
 
   const validateHeight = useMemo(
@@ -272,7 +272,7 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
   );
 
   useEffect(() => {
-    if (state === State.Complete && progress.messages.length === 0) {
+    if (state === State.Completed && progress.messages.length === 0) {
       props.dismiss();
     }
   }, [progress.messages.length, props, state]);
@@ -562,12 +562,14 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
               );
 
             case State.Processing:
-            case State.Complete:
+            case State.Completed:
               return (
                 <DialogBody>
-                  <DialogContent style={{ minWidth: "300px" }}>
+                  <DialogContent style={{ width: "400px" }}>
                     <Text>
-                      {state === State.Processing ? "Processing…" : "Complete"}
+                      {state === State.Processing
+                        ? `${progress.numTilesRendered} of ${progress.numTiles} tiles rendered…`
+                        : "Completed"}
                     </Text>
                     <div
                       style={{
@@ -580,7 +582,7 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
                     >
                       <ProgressBar
                         style={{ flexGrow: 1 }}
-                        value={progress.progress}
+                        value={progress.numTilesRendered / progress.numTiles}
                       />
                       {state === State.Processing && (
                         <Button
@@ -601,7 +603,7 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
                     ))}
                   </DialogContent>
 
-                  {state === State.Complete && (
+                  {state === State.Completed && (
                     <DialogActions>
                       <Button onClick={props.dismiss}>Done</Button>
                     </DialogActions>

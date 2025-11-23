@@ -62,6 +62,8 @@ export interface ExportImageOptions {
 export interface ExportImageProgress {
   /** The standard error outputs generated during export. */
   messages: string[];
-  /** The ratio of completed tiles (0 to 1). */
-  progress: number;
+  /** The number of tiles to be rendered. */
+  numTiles: number;
+  /** The number of tiles rendered so far. */
+  numTilesRendered: number;
 }

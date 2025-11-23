@@ -62,7 +62,8 @@ const exportImage = async (opts: ExportImageOptions) => {
   store.dispatch(
     setExportImageProgress({
       messages: [],
-      progress: 0,
+      numTiles: 0,
+      numTilesRendered: 0,
     })
   );
 
