@@ -368,6 +368,12 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
       const totalTasks = tasks.length;
       let completedTasks = 0;
 
+      notifyExportImageStatusChanged({
+        messages: [...messages],
+        numTiles: totalTasks,
+        numTilesRendered: completedTasks,
+      });
+
       async function run() {
         const task = tasks.shift();
         if (task === undefined) {
