@@ -24,7 +24,7 @@ default-features = false
 features = ["error-context", "help", "std", "usage"]
 
 [dependencies.gmp-mpfr-sys]
-version = "1.4"
+version = "1.6"
 default-features = false
 features = ["mpfr"]
 
@@ -41,7 +41,7 @@ default-features = false
 features = ["png"]
 
 [dependencies.rug]
-version = "1.18"
+version = "1.28"
 default-features = false
 features = ["float", "integer", "rational"]
 
