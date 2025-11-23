@@ -167,6 +167,25 @@ fn run_bindgen(env: &Environment) {
         return;
     }
 
+    let include_dir = env.gmp_dir.join("include").to_str().unwrap().to_owned();
+    let mut clang_args = vec![
+        "-DACB_INLINES_C",
+        "-DARB_INLINES_C",
+        "-DARF_INLINES_C",
+        "-DMAG_INLINES_C",
+        "-I",
+        &include_dir,
+    ];
+
+    // https://github.com/rust-lang/rust-bindgen/issues/1760
+    if cfg!(all(
+        target_arch = "x86_64",
+        target_os = "windows",
+        target_env = "gnu"
+    )) {
+        clang_args.push("--target=x86_64-pc-windows-gnu");
+    }
+
     bindgen::Builder::default()
         .header(env.include_dir.join("acb.h").to_str().unwrap())
         .header(env.include_dir.join("acb_elliptic.h").to_str().unwrap())
@@ -175,14 +194,7 @@ fn run_bindgen(env: &Environment) {
         .header(env.include_dir.join("arf.h").to_str().unwrap())
         .header(env.include_dir.join("mag.h").to_str().unwrap())
         .allowlist_function("(acb|arb|arf|mag)_.*")
-        .clang_args(&[
-            "-DACB_INLINES_C",
-            "-DARB_INLINES_C",
-            "-DARF_INLINES_C",
-            "-DMAG_INLINES_C",
-            "-I",
-            env.gmp_dir.join("include").to_str().unwrap(),
-        ])
+        .clang_args(&clang_args)
         .generate()
         .expect("failed to generate bindings")
         .write_to_file(binding_file.clone())
