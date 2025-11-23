@@ -57,7 +57,7 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
           minWidth: "32px",
         }}
         {...props.dragHandleProps}
-        title="Drag to move"
+        title="Drag to reorder"
       >
         <ReOrderDotsVerticalRegular />
       </div>
