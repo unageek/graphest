@@ -311,7 +311,6 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
                         gap: "8px",
                         gridTemplateColumns: "auto auto",
                         margin: "8px auto",
-                        maxWidth: "fit-content",
                       }}
                     >
                       <Label style={{ textAlign: "right" }}>x:</Label>

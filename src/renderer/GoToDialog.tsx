@@ -114,6 +114,7 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
                 display: "grid",
                 gap: "8px",
                 gridTemplateColumns: "auto auto",
+                margin: "8px auto",
               }}
             >
               <Label style={{ textAlign: "right" }}>x:</Label>
