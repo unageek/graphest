@@ -3,13 +3,13 @@
     "forceConsistentCasingInFileNames": true,
     "jsx": "react",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "module": "ES2020",
+    "module": "es2022",
     "moduleResolution": "node",
     "sourceMap": true,
     "strict": true,
     // https://compat-table.github.io/compat-table/es2016plus/
     // Run `console.log(process.versions)` in the main process to check the versions of Node.js and Chromium.
-    "target": "ES2020"
+    "target": "es2024"
   },
   "include": ["src/**/*"]
 }

@@ -16,6 +16,7 @@ export default [
       },
       globals: {
         ...globals.browser,
+        ...globals.es2024,
         ...globals.jest,
         ...globals.node,
         Electron: "readonly",
