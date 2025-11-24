@@ -9,7 +9,7 @@ import {
 import { MathFormulaRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
 import * as React from "react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export interface SymbolsButtonProps {
   onSymbolChosen: (symbol: string) => void;
@@ -36,23 +36,23 @@ export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
     []
   );
 
-  function dismiss() {
+  const dismiss = useCallback(() => {
     setShowCalloutDebounced.cancel();
     setShowCallout(false);
-  }
+  }, [setShowCalloutDebounced]);
 
-  function dismissDebounced() {
+  const dismissDebounced = useCallback(() => {
     setShowCalloutDebounced(false);
-  }
+  }, [setShowCalloutDebounced]);
 
-  function open() {
+  const open = useCallback(() => {
     setShowCalloutDebounced.cancel();
     setShowCallout(true);
-  }
+  }, [setShowCalloutDebounced]);
 
-  function openDebounced() {
+  const openDebounced = useCallback(() => {
     setShowCalloutDebounced(true);
-  }
+  }, [setShowCalloutDebounced]);
 
   return (
     <Popover open={showCallout} positioning={"below-end"}>
