@@ -1,5 +1,3 @@
-import * as assert from "assert";
-import { ChildProcess, execFile, spawn } from "child_process";
 import {
   app,
   BrowserWindow,
@@ -14,12 +12,19 @@ import installExtension, {
   REDUX_DEVTOOLS,
 } from "electron-devtools-installer";
 import { autoUpdater } from "electron-updater";
-import * as fs from "fs";
 import * as _ from "lodash";
-import * as os from "os";
-import * as path from "path";
-import * as url from "url";
-import * as util from "util";
+import * as assert from "node:assert";
+import {
+  ChildProcess,
+  execFile,
+  ExecFileException,
+  spawn,
+} from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as url from "node:url";
+import * as util from "node:util";
 import { bignum } from "../common/bignumber";
 import { Command } from "../common/command";
 import {
@@ -402,7 +407,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
           } else {
             run();
           }
-        } catch ({ stderr }) {
+        } catch (e) {
+          const { stderr } = e as ExecFileException;
           if (typeof stderr === "string" && stderr) {
             console.warn(stderr.trimEnd());
           }
@@ -510,7 +516,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
       if (stderr) {
         console.warn(stderr.trimEnd());
       }
-    } catch ({ stderr }) {
+    } catch (e) {
+      const { stderr } = e as ExecFileException;
       if (typeof stderr === "string" && stderr) {
         console.warn(stderr.trimEnd());
       }
@@ -534,7 +541,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
     if (stderr) {
       console.warn(stderr.trimEnd());
     }
-  } catch ({ stderr }) {
+  } catch (e) {
+    const { stderr } = e as ExecFileException;
     if (typeof stderr === "string" && stderr) {
       console.warn(stderr.trimEnd());
     }
@@ -597,7 +605,8 @@ ipcMain.handle<ipc.RequestRelation>(
         relKeyToRelId.set(relKey, relId);
       }
       return result.ok(relId);
-    } catch ({ stderr }) {
+    } catch (e) {
+      const { stderr } = e as ExecFileException;
       if (typeof stderr === "string") {
         const lines = stderr.split("\n");
         const start =

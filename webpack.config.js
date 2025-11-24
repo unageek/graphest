@@ -1,7 +1,7 @@
-const ESLintPlugin = require("eslint-webpack-plugin");
-const HtmlWebpackPlugin = require("html-webpack-plugin");
-const path = require("path");
-const process = require("process");
+import ESLintPlugin from "eslint-webpack-plugin";
+import HtmlWebpackPlugin from "html-webpack-plugin";
+import * as path from "path";
+import * as process from "process";
 
 function baseConfig() {
   return {
@@ -25,14 +25,14 @@ function baseConfig() {
       }
     })(),
     output: {
-      path: path.resolve(__dirname, "dist"),
+      path: path.resolve("dist"),
       filename: "[name].js",
     },
   };
 }
 
 const tsLoaderRule = {
-  include: path.resolve(__dirname, "src"),
+  include: path.resolve("src"),
   test: /\.ts$/,
   resolve: {
     extensions: [".ts", ".js"],
@@ -104,4 +104,4 @@ function rendererConfig() {
   };
 }
 
-module.exports = [mainConfig(), preloadConfig(), rendererConfig()];
+export default [mainConfig(), preloadConfig(), rendererConfig()];

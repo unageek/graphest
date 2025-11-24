@@ -7,7 +7,7 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "strict": true,
-    // https://kangax.github.io/compat-table/es2016plus/
+    // https://compat-table.github.io/compat-table/es2016plus/
     // Run `console.log(process.versions)` in the main process to check the versions of Node.js and Chromium.
     "target": "ES2020"
   },

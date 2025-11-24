@@ -1,4 +1,4 @@
-import { Buffer } from "buffer";
+import { Buffer } from "node:buffer";
 
 export function fromBase64Url(base64Url: string): string {
   const buf = Buffer.from(base64Url, "base64url");

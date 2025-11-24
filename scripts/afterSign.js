@@ -1,24 +1,22 @@
-require("dotenv").config();
+import { notarize } from "@electron/notarize";
+import "dotenv/config";
+import * as path from "node:path";
+import * as process from "node:process";
 
-const { notarize } = require("electron-notarize");
-const path = require("path");
-const build = require("../electron-builder.json");
+export default async function (ctx) {
+  if (ctx.electronPlatformName !== "darwin") return;
 
-module.exports = async function (params) {
-  if (params.electronPlatformName !== "darwin") return;
-
-  const appBundleId = build.appId;
   const appPath = path.join(
-    params.appOutDir,
-    `${params.packager.appInfo.productFilename}.app`
+    ctx.appOutDir,
+    `${ctx.packager.appInfo.productFilename}.app`
   );
 
-  console.log(`Notarizing ${appBundleId} found at ${appPath}`);
+  console.log(`Notarizing ${appPath}...`);
 
   await notarize({
-    appBundleId,
     appPath,
     appleId: process.env.notarizeAppleId,
     appleIdPassword: process.env.notarizeAppleIdPassword,
+    teamId: process.env.notarizeTeamId,
   });
-};
+}

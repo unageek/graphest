@@ -134,7 +134,7 @@ export const CustomColorPicker = (
               setSaturation(0.01 * c.saturationv());
               setValue(0.01 * c.value());
               props.onColorChanged(c.hex());
-            } catch (e) {
+            } catch (_e) {
               // ignore invalid color
             }
           }}

@@ -23,7 +23,6 @@ export const SwatchColorPicker = (
           const c = new Color(selectedSwatch).alpha(color.alpha());
           props.onColorChanged(c.hexa());
         }
-        [];
       }}
       selectedValue={color.hex()}
       size="extra-small"

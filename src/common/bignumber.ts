@@ -1,6 +1,6 @@
 import { BigNumber } from "bignumber.js";
 
-declare module "bignumber.js" {
+declare global {
   interface BigNumber {
     ceil(): BigNumber;
     floor(): BigNumber;
