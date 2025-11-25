@@ -100,7 +100,6 @@ export class GraphLayer extends L.GridLayer {
   }
 
   // https://github.com/Leaflet/Leaflet/blob/0f904a515879fcd08f69b7f51799ee7f18f23fd8/src/layer/tile/GridLayer.js#L816-L817
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected createTile(coords: L.Coords, _: L.DoneCallback): HTMLElement {
     const outer = L.DomUtil.create("div", "leaflet-tile") as HTMLDivElement;
     if (!this.#graph) {

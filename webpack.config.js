@@ -1,5 +1,4 @@
 import ESLintPlugin from "eslint-webpack-plugin";
-import HtmlWebpackPlugin from "html-webpack-plugin";
 import * as path from "path";
 import * as process from "process";
 
@@ -27,6 +26,9 @@ function baseConfig() {
           );
       }
     })(),
+    experiments: {
+      outputModule: true,
+    },
     output: {
       path: path.resolve("dist"),
       filename: "[name].js",
@@ -74,6 +76,10 @@ function preloadConfig() {
     module: {
       rules: [tsLoaderRule],
     },
+    // https://www.electronjs.org/docs/latest/tutorial/esm
+    experiments: {
+      outputModule: false,
+    },
     plugins,
   };
 }
@@ -103,12 +109,7 @@ function rendererConfig() {
         },
       ],
     },
-    plugins: [
-      ...plugins,
-      new HtmlWebpackPlugin({
-        template: "src/renderer/index.html",
-      }),
-    ],
+    plugins,
   };
 }
 

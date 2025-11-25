@@ -1,4 +1,4 @@
-import { bignum } from "./bignumberForGrid";
+import { bignum, BigNumber } from "./bignumberForGrid";
 import { GraphTheme } from "./graphTheme";
 import { Rect } from "./rect";
 

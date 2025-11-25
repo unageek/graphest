@@ -20,7 +20,7 @@ import { DismissRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { bignum } from "../common/bignumber";
+import { bignum, BigNumber } from "../common/bignumber";
 import {
   EXPORT_GRAPH_TILE_SIZE,
   ExportImageOptions,
