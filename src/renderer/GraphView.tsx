@@ -6,8 +6,8 @@ import "leaflet-easybutton/src/easy-button";
 import "leaflet-easybutton/src/easy-button.css";
 import "leaflet/dist/leaflet.css";
 import * as React from "react";
-import { forwardRef, useCallback, useEffect, useState } from "react";
-import * as ReactDOM from "react-dom";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
 import { useStore } from "react-redux";
 import { BASE_ZOOM_LEVEL, INITIAL_ZOOM_LEVEL } from "../common/constants";
 import { GraphTheme } from "../common/graphTheme";
@@ -57,6 +57,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     const [gridLayer] = useState(new GridLayer().setZIndex(0));
     const [map, setMap] = useState<L.Map | undefined>();
     const store = useStore<AppState>();
+    const secondMount = useRef(false);
 
     const updateMaxBounds = useCallback(() => {
       if (map === undefined) return;
@@ -157,17 +158,21 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
     }, [loadViewFromStore, map, resetView, store]);
 
     useEffect(() => {
-      setMap(
-        L.map("map", {
-          attributionControl: false,
-          crs: L.CRS.Simple,
-          fadeAnimation: false,
-          inertia: false,
-          maxBoundsViscosity: 1,
-          wheelDebounceTime: 100,
-          zoomControl: false,
-        })
-      );
+      // https://stackoverflow.com/a/74609594
+      if (process.env.NODE_ENV === "production" || secondMount.current) {
+        setMap(
+          L.map("map", {
+            attributionControl: false,
+            crs: L.CRS.Simple,
+            fadeAnimation: false,
+            inertia: false,
+            maxBoundsViscosity: 1,
+            wheelDebounceTime: 100,
+            zoomControl: false,
+          })
+        );
+      }
+      secondMount.current = true;
     }, []);
 
     useEffect(() => {
@@ -203,11 +208,12 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
           zoomOutTitle: "Zoom out",
         })
         .addTo(map);
-      ReactDOM.render(<AddFilled />, document.getElementById("zoom-in-button"));
-      ReactDOM.render(
-        <SubtractFilled />,
-        document.getElementById("zoom-out-button")
-      );
+      createRoot(
+        document.getElementById("zoom-in-button") as HTMLElement
+      ).render(<AddFilled />);
+      createRoot(
+        document.getElementById("zoom-out-button") as HTMLElement
+      ).render(<SubtractFilled />);
 
       L.easyButton(
         "<div id='reset-view-button' style='align-items: center; display: flex; font-size: 20px; height: 100%; justify-content: center;'></div>",
@@ -220,10 +226,9 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         },
         "Reset view"
       ).addTo(map);
-      ReactDOM.render(
-        <HomeFilled />,
-        document.getElementById("reset-view-button")
-      );
+      createRoot(
+        document.getElementById("reset-view-button") as HTMLElement
+      ).render(<HomeFilled />);
 
       function onZoomStart() {
         if (map === undefined) return;
