@@ -279,12 +279,11 @@ const renderLeaf = (props: RenderLeafProps) => {
 };
 
 export const RelationInput = (props: RelationInputProps) => {
-  const [editor] = useState(
+  const { onEnterKeyPressed } = props;
+  const [editor] = useState<S.Editor>(
     withRelationEditingExtensions(withHistory(withReact(S.createEditor())))
   );
-  const [validationError, setValidationError] = useState<RelationError>();
-  const [showValidationError, setShowValidationError] = useState(false);
-  const [value, setValue] = useState<S.Descendant[]>([
+  const [initialValue] = useState<S.Descendant[]>([
     {
       children: [
         {
@@ -299,6 +298,8 @@ export const RelationInput = (props: RelationInputProps) => {
       ],
     },
   ]);
+  const [validationError, setValidationError] = useState<RelationError>();
+  const [showValidationError, setShowValidationError] = useState(false);
 
   const decorate = useCallback(
     (entry: S.NodeEntry): S.Range[] => {
@@ -435,32 +436,19 @@ export const RelationInput = (props: RelationInputProps) => {
     },
   }));
 
-  return (
-    <Slate
-      editor={editor}
-      onChange={(value) => {
-        // https://github.com/ianstormtaylor/slate/issues/4687#issuecomment-977911063
-        if (editor.operations.some((op) => op.type !== "set_selection")) {
-          setShowValidationError(false);
-          setValue(value);
-          updateRelation();
-          updateTokens();
-        }
-      }}
-      initialValue={value}
-    >
-      <div
-        className={`relation-input-outer ${
-          validationError ? "has-error" : ""
-        } ${!validationError && props.processing ? "processing" : ""}`}
-        style={{
-          flexGrow: props.grow ? 1 : undefined,
+  const slate = useMemo(() => {
+    return (
+      <Slate
+        editor={editor}
+        onChange={() => {
+          // https://github.com/ianstormtaylor/slate/issues/4687#issuecomment-977911063
+          if (editor.operations.some((op) => op.type !== "set_selection")) {
+            setShowValidationError(false);
+            updateRelation();
+            updateTokens();
+          }
         }}
-        title={
-          validationError && !showValidationError
-            ? "Press the Enter key to see the details of the error."
-            : undefined
-        }
+        initialValue={initialValue}
       >
         <Editable
           className="relation-input"
@@ -471,7 +459,7 @@ export const RelationInput = (props: RelationInputProps) => {
               updateRelation();
               updateRelation.flush()?.then((result) => {
                 if (result.ok !== undefined) {
-                  props.onEnterKeyPressed();
+                  onEnterKeyPressed();
                 } else {
                   setShowValidationError(true);
                 }
@@ -492,13 +480,38 @@ export const RelationInput = (props: RelationInputProps) => {
           }}
           renderLeaf={renderLeaf}
         />
-        {validationError && showValidationError && (
-          <div className="relation-input-error-message">
-            Error: {validationError.message}
-          </div>
-        )}
-      </div>
-    </Slate>
+      </Slate>
+    );
+  }, [
+    decorate,
+    editor,
+    initialValue,
+    onEnterKeyPressed,
+    updateRelation,
+    updateTokens,
+  ]);
+
+  return (
+    <div
+      className={`relation-input-outer ${validationError ? "has-error" : ""} ${
+        !validationError && props.processing ? "processing" : ""
+      }`}
+      style={{
+        flexGrow: props.grow ? 1 : undefined,
+      }}
+      title={
+        validationError && !showValidationError
+          ? "Press the Enter key to see the details of the error."
+          : undefined
+      }
+    >
+      {slate}
+      {validationError && showValidationError && (
+        <div className="relation-input-error-message">
+          Error: {validationError.message}
+        </div>
+      )}
+    </div>
   );
 };
 
