@@ -466,7 +466,7 @@ export const RelationInput = (props: RelationInputProps) => {
           className="relation-input"
           decorate={decorate}
           // https://github.com/ianstormtaylor/slate/issues/4721
-          onKeyDown={(e: KeyboardEvent) => {
+          onKeyDown={(e) => {
             if (e.key === "Enter") {
               updateRelation();
               updateRelation.flush()?.then((result) => {

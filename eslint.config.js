@@ -4,10 +4,11 @@ import tsParser from "@typescript-eslint/parser";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 
+/** @type { import("eslint").Linter.Config[] } */
 export default [
   js.configs.recommended,
   {
-    files: ["**/*.ts", "**/*.tsx"],
+    files: ["*.js", "scripts/**/*.js", "src/**/*.ts", "src/**/*.tsx"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -25,8 +26,8 @@ export default [
       },
     },
     plugins: {
-      "@typescript-eslint": ts,
-      "react-hooks": reactHooks,
+      "@typescript-eslint": /** @type { any } */ (ts),
+      "react-hooks": /** @type { any } */ (reactHooks),
     },
     rules: {
       ...ts.configs.recommended.rules,

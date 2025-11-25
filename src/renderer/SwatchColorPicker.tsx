@@ -2,7 +2,7 @@ import {
   renderSwatchPickerGrid,
   SwatchPicker,
 } from "@fluentui/react-components";
-import * as Color from "color";
+import Color from "color";
 import * as React from "react";
 
 export interface SwatchColorPickerProps {

@@ -3,6 +3,9 @@ import HtmlWebpackPlugin from "html-webpack-plugin";
 import * as path from "path";
 import * as process from "process";
 
+/** @typedef { import('webpack').Configuration } WebpackConfig */
+
+/** @type { () => WebpackConfig } */
 function baseConfig() {
   return {
     ...(() => {
@@ -31,6 +34,7 @@ function baseConfig() {
   };
 }
 
+/** @type { import('webpack').RuleSetRule } */
 const tsLoaderRule = {
   include: path.resolve("src"),
   test: /\.ts$/,
@@ -40,6 +44,7 @@ const tsLoaderRule = {
   use: "ts-loader",
 };
 
+/** @type { import('webpack').WebpackPluginInstance[] } */
 const plugins = [
   new ESLintPlugin({
     extensions: ["js", "ts", "tsx"],
@@ -47,6 +52,7 @@ const plugins = [
   }),
 ];
 
+/** @type { () => WebpackConfig } */
 function mainConfig() {
   return {
     ...baseConfig(),
@@ -59,6 +65,7 @@ function mainConfig() {
   };
 }
 
+/** @type { () => WebpackConfig } */
 function preloadConfig() {
   return {
     ...baseConfig(),
@@ -71,6 +78,7 @@ function preloadConfig() {
   };
 }
 
+/** @type { () => WebpackConfig } */
 function rendererConfig() {
   return {
     ...baseConfig(),
@@ -104,4 +112,5 @@ function rendererConfig() {
   };
 }
 
+/** @type { WebpackConfig[] } */
 export default [mainConfig(), preloadConfig(), rendererConfig()];

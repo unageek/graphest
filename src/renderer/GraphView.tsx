@@ -1,5 +1,5 @@
 import { AddFilled, HomeFilled, SubtractFilled } from "@fluentui/react-icons";
-import * as Color from "color";
+import Color from "color";
 import * as L from "leaflet";
 import { ZoomPanOptions } from "leaflet";
 import "leaflet-easybutton/src/easy-button";

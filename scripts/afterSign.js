@@ -3,6 +3,7 @@ import "dotenv/config";
 import * as path from "node:path";
 import * as process from "node:process";
 
+/** @type { (ctx: import("app-builder-lib").PackContext) => Promise<void> } */
 export default async function (ctx) {
   if (ctx.electronPlatformName !== "darwin") return;
 
@@ -15,8 +16,10 @@ export default async function (ctx) {
 
   await notarize({
     appPath,
-    appleId: process.env.notarizeAppleId,
-    appleIdPassword: process.env.notarizeAppleIdPassword,
-    teamId: process.env.notarizeTeamId,
+    appleId: /** @type { string } */ (process.env.notarizeAppleId),
+    appleIdPassword: /** @type { string } */ (
+      process.env.notarizeAppleIdPassword
+    ),
+    teamId: /** @type { string } */ (process.env.notarizeTeamId),
   });
 }

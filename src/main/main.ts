@@ -13,7 +13,7 @@ import installExtension, {
 } from "electron-devtools-installer";
 import { autoUpdater } from "electron-updater";
 import * as _ from "lodash";
-import * as assert from "node:assert";
+import assert from "node:assert";
 import {
   ChildProcess,
   execFile,

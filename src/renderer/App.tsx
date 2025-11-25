@@ -6,7 +6,7 @@ import {
 } from "@fluentui/react-components";
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
-import * as Color from "color";
+import Color from "color";
 import * as React from "react";
 import { useEffect, useRef } from "react";
 import * as ReactDOM from "react-dom";

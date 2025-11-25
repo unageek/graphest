@@ -1,15 +1,17 @@
 {
   "compilerOptions": {
+    "checkJs": true,
+    "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "module": "es2022",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "sourceMap": true,
     "strict": true,
     // https://compat-table.github.io/compat-table/es2016plus/
     // Run `console.log(process.versions)` in the main process to check the versions of Node.js and Chromium.
     "target": "es2024"
   },
-  "include": ["src/**/*"]
+  "include": ["*.js", "scripts/**/*.js", "src/**/*.ts", "src/**/*.tsx"]
 }
