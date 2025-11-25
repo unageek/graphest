@@ -1,5 +1,5 @@
 import * as L from "leaflet";
-import { bignum, BigNumber } from "../common/bignumberForGrid";
+import { bignum } from "../common/bignumberForGrid";
 import { BASE_ZOOM_LEVEL, GRAPH_TILE_SIZE } from "../common/constants";
 import { GraphTheme, StubGraphTheme } from "../common/graphTheme";
 import {

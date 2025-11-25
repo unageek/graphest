@@ -20,7 +20,7 @@ import { DismissRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { bignum, BigNumber } from "../common/bignumber";
+import { bignum } from "../common/bignumber";
 import {
   EXPORT_GRAPH_TILE_SIZE,
   ExportImageOptions,
@@ -94,6 +94,8 @@ enum State {
 }
 
 export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
+  const { dismiss, exportImage, saveOpts } = props;
+
   const [errors, setErrors] = useState<Set<string>>(new Set());
   const [opts, setOpts] = useState(props.opts);
   const progress = useSelector((s) => s.exportImageProgress);
@@ -150,10 +152,10 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
   const submit = useCallback(async () => {
     if (errors.size > 0) return;
     setState(State.Processing);
-    props.saveOpts(opts);
-    await props.exportImage(opts);
+    saveOpts(opts);
+    await exportImage(opts);
     setState(State.Completed);
-  }, [errors, opts, props]);
+  }, [errors, exportImage, opts, saveOpts]);
 
   const validateHeight = useMemo(
     () =>
@@ -273,9 +275,9 @@ export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
 
   useEffect(() => {
     if (state === State.Completed && progress.messages.length === 0) {
-      props.dismiss();
+      dismiss();
     }
-  }, [progress.messages.length, props, state]);
+  }, [dismiss, progress.messages.length, state]);
 
   const tilesPerRelation =
     Math.ceil((opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE) *

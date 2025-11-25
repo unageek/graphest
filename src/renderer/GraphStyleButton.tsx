@@ -24,8 +24,8 @@ export interface GraphStyleButtonProps {
 }
 
 export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
+  const { onPenSizeChanged } = props;
   const [penSize, setPenSize] = useState<string>(props.penSize.toString());
-
   const [penSizeErrorMessage, setPenSizeErrorMessage] = useState<string>();
 
   const validatePenSize = useMemo(
@@ -34,10 +34,10 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
         const result = tryParseNumberInRange(value, 0, MAX_PEN_SIZE);
         setPenSizeErrorMessage(result.err);
         if (result.ok !== undefined) {
-          props.onPenSizeChanged(result.ok);
+          onPenSizeChanged(result.ok);
         }
       }, 200),
-    [props]
+    [onPenSizeChanged]
   );
 
   return (

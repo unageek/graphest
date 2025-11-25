@@ -28,6 +28,8 @@ const MIN_ZOOM_LEVEL: number = -BASE_ZOOM_LEVEL;
 const MAX_ZOOM_LEVEL: number = 1023 - BASE_ZOOM_LEVEL;
 
 export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
+  const { dismiss, goTo } = props;
+
   const [errors, setErrors] = useState<Set<string>>(new Set());
 
   const [x, setX] = useState(props.center[0].toString());
@@ -56,12 +58,12 @@ export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
 
   const submit = useCallback(() => {
     if (errors.size > 0) return;
-    props.goTo(
+    goTo(
       [Number.parseFloat(x), Number.parseFloat(y)],
       Number.parseInt(zoomLevel)
     );
-    props.dismiss();
-  }, [errors, props, x, y, zoomLevel]);
+    dismiss();
+  }, [dismiss, errors, goTo, x, y, zoomLevel]);
 
   const validateX = useMemo(
     () =>
