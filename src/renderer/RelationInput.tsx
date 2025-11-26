@@ -112,7 +112,7 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
     let handled = false;
 
     const sel = editor.selection;
-    if (!sel) throw new Error();
+    if (!sel) return;
 
     if (unit === "character" && S.Range.isCollapsed(sel)) {
       S.Editor.withoutNormalizing(editor, () => {
@@ -155,7 +155,7 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
     let handled = false;
 
     const sel = editor.selection;
-    if (!sel) throw new Error();
+    if (!sel) return;
 
     if (S.Range.isCollapsed(sel)) {
       if (isLeftBracket(text)) {
@@ -440,13 +440,26 @@ export const RelationInput = (props: RelationInputProps) => {
     return (
       <Slate
         editor={editor}
-        onChange={() => {
-          // https://github.com/ianstormtaylor/slate/issues/4687#issuecomment-977911063
-          if (editor.operations.some((op) => op.type !== "set_selection")) {
-            setShowValidationError(false);
-            updateRelation();
-            updateTokens();
-          }
+        onSelectionChange={() => {
+          const sel = editor.selection;
+          if (!sel) return;
+
+          // Do some harmless operations to force Slate to re-render decorations.
+          // https://github.com/ianstormtaylor/slate/issues/4483
+          editor.withoutNormalizing(() => {
+            if (S.Range.isCollapsed(sel)) {
+              S.Editor.insertText(editor, " ");
+              S.Editor.deleteBackward(editor);
+            } else {
+              S.Editor.addMark(editor, "foo", "");
+              S.Editor.removeMark(editor, "foo");
+            }
+          });
+        }}
+        onValueChange={() => {
+          setShowValidationError(false);
+          updateRelation();
+          updateTokens();
         }}
         initialValue={initialValue}
       >
