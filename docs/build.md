@@ -12,51 +12,33 @@
 
 1. [Homebrew](https://brew.sh)
 
-1. [Node.js](https://nodejs.org/en/download/package-manager/)
+1. [Node.js](https://nodejs.org)
 
    ```bash
-   brew install node
+   brew install node@24
    ```
 
 1. [Rust](https://rustup.rs)
 
 ### Windows
 
-1. [Chocolatey](https://chocolatey.org/install)
+1. [MSYS2](https://www.msys2.org)
 
-1. [Node.js](https://nodejs.org/en/download/package-manager/)
+1. Install build tools
 
-   Open Windows PowerShell as an administrator, and run
+   Open Start > MSYS2 > MSYS2 MINGW64 and run the following command:
 
-   ```ps
-   cinst nodejs
+   ```bash
+   pacman -S diffutils git m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc mingw-w64-x86_64-nodejs mingw-w64-x86_64-rustup
    ```
 
-1. Build tools
+   All commands below must be run in the MSYS2 MINGW64 terminal.
 
-   Open Windows PowerShell as an administrator, and run
+1. Select Rust toolchain
 
-   ```ps
-   cinst git msys2
-   ```
+   Set `x86_64-pc-windows-gnu` as the default host:
 
-   Open Windows PowerShell as a normal user, and run
-
-   ```ps
-   pacman -S diffutils m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc
-   ```
-
-1. [Rust](https://rustup.rs)
-
-   Set `x86_64-pc-windows-gnu` as the default host either on installation:
-
-   ```ps
-   .\rustup-init --default-host x86_64-pc-windows-gnu
-   ```
-
-   or after installation:
-
-   ```ps
+   ```bash
    rustup set default-host x86_64-pc-windows-gnu
    ```
 
@@ -101,10 +83,4 @@
 
    ```bash
    npm start
-   ```
-
-   On **Windows**, you need to add MSYS/MinGW **at the beginning** of PATH before executing build commands:
-
-   ```ps1
-   $env:PATH = "C:\tools\msys64\usr\bin;C:\tools\msys64\mingw64\bin;" + $env:PATH
    ```
