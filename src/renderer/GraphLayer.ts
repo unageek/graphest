@@ -24,7 +24,7 @@ export class GraphLayer extends L.GridLayer {
   constructor(
     readonly store: Store,
     readonly graphId: string,
-    options?: L.GridLayerOptions
+    options?: L.GridLayerOptions,
   ) {
     super({
       className: `graph-layer-${graphId}`,
@@ -62,11 +62,11 @@ export class GraphLayer extends L.GridLayer {
     document.body.appendChild(this.#svgElement);
     window.ipcRenderer.on<ipc.GraphingStatusChanged>(
       ipc.graphingStatusChanged,
-      this.#onGraphingStatusChangedBound
+      this.#onGraphingStatusChangedBound,
     );
     window.ipcRenderer.on<ipc.TileReady>(ipc.tileReady, this.#onTileReadyBound);
     this.#unsubscribeFromStore = this.store.subscribe(
-      this.#onAppStateChanged.bind(this)
+      this.#onAppStateChanged.bind(this),
     );
     this.#onAppStateChanged();
     return this;
@@ -81,11 +81,11 @@ export class GraphLayer extends L.GridLayer {
     document.body.removeChild(this.#svgElement);
     window.ipcRenderer.off<ipc.GraphingStatusChanged>(
       ipc.graphingStatusChanged,
-      this.#onGraphingStatusChangedBound
+      this.#onGraphingStatusChangedBound,
     );
     window.ipcRenderer.off<ipc.TileReady>(
       ipc.tileReady,
-      this.#onTileReadyBound
+      this.#onTileReadyBound,
     );
     this.#unsubscribeFromStore?.();
     return this;
@@ -128,7 +128,7 @@ export class GraphLayer extends L.GridLayer {
       ipc.requestTile,
       this.#graph.relId,
       tileId,
-      coords
+      coords,
     );
 
     return outer;
@@ -138,7 +138,7 @@ export class GraphLayer extends L.GridLayer {
     window.ipcRenderer.invoke<ipc.AbortGraphing>(
       ipc.abortGraphing,
       relId,
-      tileId
+      tileId,
     );
   }
 
@@ -165,7 +165,7 @@ export class GraphLayer extends L.GridLayer {
   #onGraphingStatusChanged: ipc.RendererListener<ipc.GraphingStatusChanged> = (
     _,
     relId,
-    processing
+    processing,
   ) => {
     if (relId === this.#graph?.relId) {
       this.store.dispatch(setGraphIsProcessing(this.graphId, processing));
@@ -176,7 +176,7 @@ export class GraphLayer extends L.GridLayer {
     _,
     relId,
     tileId,
-    url
+    url,
   ) => {
     if (relId === this.#graph?.relId) {
       this.#updateTile(tileId, url);
@@ -244,7 +244,7 @@ export class GraphLayer extends L.GridLayer {
           }
         }
       },
-      { once: true }
+      { once: true },
     );
   }
 }

@@ -50,7 +50,7 @@ export const documentSchema = z.object({
           .transform((x) => Math.min(Math.max(x, 0), MAX_PEN_SIZE))
           .default(1),
         relation: z.string().default(""),
-      })
+      }),
     )
     .default([]),
   version: z.number(),

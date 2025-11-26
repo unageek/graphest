@@ -55,7 +55,7 @@ const antiAliasingOptions: AntiAliasingOption[] = [
 ];
 
 const antiAliasingOptionText: Map<string, string> = new Map(
-  antiAliasingOptions.map((o) => [o.value, o.text])
+  antiAliasingOptions.map((o) => [o.value, o.text]),
 );
 
 const useStyles = makeStyles({
@@ -133,7 +133,7 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
       setErrors(newErrors);
       return e;
     },
-    [errors]
+    [errors],
   );
 
   const submit = useCallback(async () => {
@@ -153,7 +153,7 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
         }
         setHeightErrorMessage(addOrRemoveErrors(["height"], result.err));
       }, 200),
-    [addOrRemoveErrors, opts]
+    [addOrRemoveErrors, opts],
   );
 
   const validateTimeout = useMemo(
@@ -165,7 +165,7 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
         }
         setTimeoutErrorMessage(addOrRemoveErrors(["timeout"], result.err));
       }, 200),
-    [addOrRemoveErrors, opts]
+    [addOrRemoveErrors, opts],
   );
 
   const validateWidth = useMemo(
@@ -177,7 +177,7 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
         }
         setWidthErrorMessage(addOrRemoveErrors(["width"], result.err));
       }, 200),
-    [addOrRemoveErrors, opts]
+    [addOrRemoveErrors, opts],
   );
 
   const validateXMax = useMemo(
@@ -197,7 +197,7 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
           setXMaxErrorMessage(addOrRemoveErrors(["x-max"], parseError));
         }
       }, 200),
-    [addOrRemoveErrors, opts, xMin]
+    [addOrRemoveErrors, opts, xMin],
   );
 
   const validateXMin = useMemo(
@@ -217,7 +217,7 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
           setXMinErrorMessage(addOrRemoveErrors(["x-min"], parseError));
         }
       }, 200),
-    [addOrRemoveErrors, opts, xMax]
+    [addOrRemoveErrors, opts, xMax],
   );
 
   const validateYMax = useMemo(
@@ -237,7 +237,7 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
           setYMaxErrorMessage(addOrRemoveErrors(["y-max"], parseError));
         }
       }, 200),
-    [addOrRemoveErrors, opts, yMin]
+    [addOrRemoveErrors, opts, yMin],
   );
 
   const validateYMin = useMemo(
@@ -257,7 +257,7 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
           setYMinErrorMessage(addOrRemoveErrors(["y-min"], parseError));
         }
       }, 200),
-    [addOrRemoveErrors, opts, yMax]
+    [addOrRemoveErrors, opts, yMax],
   );
 
   useEffect(() => {
@@ -468,7 +468,7 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
                         className={styles.antialiasingDropdown}
                         defaultSelectedOptions={[opts.antiAliasing.toString()]}
                         defaultValue={antiAliasingOptionText.get(
-                          opts.antiAliasing.toString()
+                          opts.antiAliasing.toString(),
                         )}
                         listbox={{
                           className: styles.antialiasingDropdown,

@@ -22,7 +22,7 @@ function baseConfig() {
           };
         default:
           throw new Error(
-            "set either NODE_ENV=development or NODE_ENV=production"
+            "set either NODE_ENV=development or NODE_ENV=production",
           );
       }
     })(),

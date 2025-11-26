@@ -35,7 +35,6 @@
 ## Examples taken from [GrafEq](http://www.peda.com/grafeq/)
 
 - 📂 Single Relation/Abstract/Simple/
-
   - 📄 Irrationally Contin.gqs 🐌🐌🐌
 
     ```test
@@ -73,7 +72,6 @@
     ```
 
 - 📂 Single Relation/Abstract/Traditionally Difficult/
-
   - 📄 Infinite Frequency.gqs
 
     ```text
@@ -117,7 +115,6 @@
     ```
 
 - 📂 Single Relation/Enumerations/Binary/
-
   - 📄 binary naturals.gqs
 
     ```text
@@ -133,7 +130,6 @@
     ```
 
 - 📂 Single Relation/Enumerations/Decimal/
-
   - 📄 decimal squares.gqs
 
     ```text
@@ -155,7 +151,6 @@
     ```
 
 - 📂 Single Relation/Enumerations/Trees/
-
   - 📄 bi-infinite binary tree.gqs
 
     ```text
@@ -163,7 +158,6 @@
     ```
 
 - 📂 Single Relation/Enumerations/Half-Toned/
-
   - 📄 Simply Spherical.gqs
 
     ```text
@@ -181,7 +175,6 @@
     ```
 
 - 📂 Single Relation/Linelike/
-
   - 📄 Frontispiece #2.gqs
 
     ```text
@@ -231,7 +224,6 @@
     ```
 
 - 📂 Single Relation/Solid/
-
   - 📄 Sharp Threesome.gqs
 
     ```text

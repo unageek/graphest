@@ -37,7 +37,7 @@ export class Bounds {
     readonly xMin: BigNumberForGrid,
     readonly xMax: BigNumberForGrid,
     readonly yMin: BigNumberForGrid,
-    readonly yMax: BigNumberForGrid
+    readonly yMax: BigNumberForGrid,
   ) {}
 }
 
@@ -47,7 +47,7 @@ export class GridInterval {
 
   constructor(
     readonly mantissa: BigNumberForGrid,
-    readonly exponent: number
+    readonly exponent: number,
   ) {}
 
   get(): BigNumberForGrid {
@@ -56,7 +56,7 @@ export class GridInterval {
 
   getInv(): BigNumberForGrid {
     return (this.#xInv ??= ONE.div(this.mantissa).times(
-      ONE.shiftedBy(-this.exponent)
+      ONE.shiftedBy(-this.exponent),
     ));
   }
 }
@@ -67,7 +67,7 @@ const mantissas = [1, 2, 5].map(bignum);
  * @param widthPerPixel The width of pixels in real coordinates.
  */
 export function suggestGridIntervals(
-  widthPerPixel: number
+  widthPerPixel: number,
 ): [GridInterval, GridInterval] {
   function interval(level: number): GridInterval {
     const e = Math.floor(level / 3);
@@ -99,7 +99,7 @@ export interface Transform {
  */
 export function getTransform(
   fromPoints: [BigNumberForGrid, BigNumberForGrid],
-  toPoints: [BigNumberForGrid, BigNumberForGrid]
+  toPoints: [BigNumberForGrid, BigNumberForGrid],
 ): Transform {
   const [x0, x1] = fromPoints;
   const [y0, y1] = toPoints;
@@ -126,7 +126,7 @@ export class AxesRenderer {
     readonly ty: Transform,
     readonly mapViewport: Rect,
     readonly tileViewport: Rect,
-    readonly theme: GraphTheme
+    readonly theme: GraphTheme,
   ) {}
 
   #dilate(r: Rect, radius: number): Rect {
@@ -134,7 +134,7 @@ export class AxesRenderer {
       r.x - radius,
       r.y - radius,
       r.width + 2 * radius,
-      r.height + 2 * radius
+      r.height + 2 * radius,
     );
   }
 
@@ -250,7 +250,7 @@ export class AxesRenderer {
       ];
       const textBounds = this.#dilate(
         this.#getBoundingRect(...args),
-        this.padding
+        this.padding,
       );
       const args2: [string, number, number] = [
         text,
@@ -259,14 +259,14 @@ export class AxesRenderer {
             mapViewport.left,
             textBounds.left,
             textBounds.right,
-            mapViewport.right
+            mapViewport.right,
           ),
         args[2] +
           stickyOffset(
             mapViewport.top,
             textBounds.top,
             textBounds.bottom,
-            mapViewport.bottom
+            mapViewport.bottom,
           ),
       ];
       ctx.strokeText(...args2);
@@ -331,7 +331,7 @@ export class AxesRenderer {
       ];
       const textBounds = this.#dilate(
         this.#getBoundingRect(...args),
-        this.padding
+        this.padding,
       );
       const args2: [string, number, number] = [
         text,
@@ -340,14 +340,14 @@ export class AxesRenderer {
             mapViewport.left,
             textBounds.left,
             textBounds.right,
-            mapViewport.right
+            mapViewport.right,
           ),
         args[2] +
           stickyOffset(
             mapViewport.top,
             textBounds.top,
             textBounds.bottom,
-            mapViewport.bottom
+            mapViewport.bottom,
           ),
       ];
       ctx.strokeText(...args2);
@@ -373,7 +373,7 @@ export class AxesRenderer {
       wx - m.actualBoundingBoxLeft,
       wy - m.actualBoundingBoxAscent,
       m.actualBoundingBoxLeft + m.actualBoundingBoxRight,
-      m.actualBoundingBoxAscent + m.actualBoundingBoxDescent
+      m.actualBoundingBoxAscent + m.actualBoundingBoxDescent,
     );
   }
 }
@@ -386,7 +386,7 @@ export class GridRenderer {
     readonly height: number,
     readonly tx: Transform,
     readonly ty: Transform,
-    readonly theme: GraphTheme
+    readonly theme: GraphTheme,
   ) {}
 
   beginDrawMajorGrid() {

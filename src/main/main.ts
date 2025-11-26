@@ -132,7 +132,7 @@ function getBundledExecutable(name: string): string {
   // ".exe" is required for pointing to executables inside .asar archives.
   return path.join(
     __dirname,
-    process.platform === "win32" ? name + ".exe" : name
+    process.platform === "win32" ? name + ".exe" : name,
   );
 }
 
@@ -161,7 +161,7 @@ let nextExportImageId = 0;
 let nextRelId = 0;
 let postStartup: (() => void | Promise<void>) | undefined = () =>
   openUrl(
-    "graphest://eyJjZW50ZXIiOlswLDBdLCJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicGVuU2l6ZSI6MSwicmVsYXRpb24iOiJ5ID0gc2luKHgpIn1dLCJ2ZXJzaW9uIjoxLCJ6b29tTGV2ZWwiOjZ9"
+    "graphest://eyJjZW50ZXIiOlswLDBdLCJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicGVuU2l6ZSI6MSwicmVsYXRpb24iOiJ5ID0gc2luKHgpIn1dLCJ2ZXJzaW9uIjoxLCJ6b29tTGV2ZWwiOjZ9",
   );
 let postUnload: (() => void | Promise<void>) | undefined;
 const relationById = new Map<string, Relation>();
@@ -224,7 +224,7 @@ app.whenReady().then(async () => {
     [Command.HighResolution]: () => {
       mainWindow?.webContents.send<ipc.CommandInvoked>(
         ipc.commandInvoked,
-        Command.HighResolution
+        Command.HighResolution,
       );
     },
     [Command.NewDocument]: () => newDocument(),
@@ -233,37 +233,37 @@ app.whenReady().then(async () => {
     [Command.Save]: () => {
       mainWindow?.webContents.send<ipc.InitiateSave>(
         ipc.initiateSave,
-        SaveTo.CurrentFile
+        SaveTo.CurrentFile,
       );
     },
     [Command.SaveAs]: () => {
       mainWindow?.webContents.send<ipc.InitiateSave>(
         ipc.initiateSave,
-        SaveTo.NewFile
+        SaveTo.NewFile,
       );
     },
     [Command.SaveToClipboard]: () => {
       mainWindow?.webContents.send<ipc.InitiateSave>(
         ipc.initiateSave,
-        SaveTo.Clipboard
+        SaveTo.Clipboard,
       );
     },
     [Command.ShowAxes]: () => {
       mainWindow?.webContents.send<ipc.CommandInvoked>(
         ipc.commandInvoked,
-        Command.ShowAxes
+        Command.ShowAxes,
       );
     },
     [Command.ShowMajorGrid]: () => {
       mainWindow?.webContents.send<ipc.CommandInvoked>(
         ipc.commandInvoked,
-        Command.ShowMajorGrid
+        Command.ShowMajorGrid,
       );
     },
     [Command.ShowMinorGrid]: () => {
       mainWindow?.webContents.send<ipc.CommandInvoked>(
         ipc.commandInvoked,
-        Command.ShowMinorGrid
+        Command.ShowMinorGrid,
       );
     },
   });
@@ -307,9 +307,9 @@ ipcMain.handle<ipc.AbortGraphing>(
   ipc.abortGraphing,
   async (_, relId, tileId) => {
     abortJobs(
-      (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId)
+      (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId),
     );
-  }
+  },
 );
 
 ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
@@ -389,7 +389,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
           const { stderr } = await util.promisify(execFile)(
             graphExec,
             task.args,
-            { signal: abortController.signal }
+            { signal: abortController.signal },
           );
           completedTasks++;
 
@@ -425,10 +425,10 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
   }
 
   const xTiles = Math.ceil(
-    (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE
+    (opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE,
   );
   const yTiles = Math.ceil(
-    (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE
+    (opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE,
   );
   const tileWidth = opts.width / xTiles;
   const tileHeight = opts.height / yTiles;
@@ -561,7 +561,7 @@ ipcMain.handle<ipc.GetDefaultExportImagePath>(
     } catch {
       return "";
     }
-  }
+  },
 );
 
 ipcMain.handle<ipc.Ready>(ipc.ready, async () => {
@@ -625,7 +625,7 @@ ipcMain.handle<ipc.RequestRelation>(
         });
       }
     }
-  }
+  },
 );
 
 ipcMain.handle<ipc.RequestSave>(ipc.requestSave, async (_, doc, to) => {
@@ -649,13 +649,13 @@ ipcMain.handle<ipc.RequestTile>(
       // points with simple coordinates may not be located on pixel boundaries,
       // which could make lines such as `x y = 0` or `(x + y)(x − y) = 0` look thicker.
       const pixelOffsetX = bignum(
-        (0.5 + PERTURBATION_X) / (retinaScale * GRAPH_TILE_SIZE)
+        (0.5 + PERTURBATION_X) / (retinaScale * GRAPH_TILE_SIZE),
       );
       const pixelOffsetY = bignum(
-        (0.5 + PERTURBATION_Y) / (retinaScale * GRAPH_TILE_SIZE)
+        (0.5 + PERTURBATION_Y) / (retinaScale * GRAPH_TILE_SIZE),
       );
       const widthPerTile = bignum(
-        GRAPH_TILE_SIZE * 2 ** (BASE_ZOOM_LEVEL - coords.z)
+        GRAPH_TILE_SIZE * 2 ** (BASE_ZOOM_LEVEL - coords.z),
       );
       const x0 = widthPerTile.times(bignum(coords.x).minus(pixelOffsetX));
       const x1 = widthPerTile.times(bignum(coords.x + 1).minus(pixelOffsetX));
@@ -707,7 +707,7 @@ ipcMain.handle<ipc.RequestTile>(
         notifyTileReady(relId, tileId, false);
       }
     }
-  }
+  },
 );
 
 ipcMain.handle<ipc.RequestUnload>(ipc.requestUnload, async (_, doc) => {
@@ -800,14 +800,14 @@ function getFilenameForDisplay(thePath?: string): string {
 
 function newDocument() {
   openUrl(
-    "graphest://eyJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicGVuU2l6ZSI6MSwicmVsYXRpb24iOiIifV0sInZlcnNpb24iOjF9"
+    "graphest://eyJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicGVuU2l6ZSI6MSwicmVsYXRpb24iOiIifV0sInZlcnNpb24iOjF9",
   );
 }
 
 function notifyExportImageStatusChanged(progress: ExportImageProgress) {
   mainWindow?.webContents.send<ipc.ExportImageStatusChanged>(
     ipc.exportImageStatusChanged,
-    progress
+    progress,
   );
 }
 
@@ -815,14 +815,14 @@ function notifyGraphingStatusChanged(relId: string, processing: boolean) {
   mainWindow?.webContents.send<ipc.GraphingStatusChanged>(
     ipc.graphingStatusChanged,
     relId,
-    processing
+    processing,
   );
 }
 
 function notifyTileReady(
   relId: string,
   tileId: string,
-  incrementVersion: boolean
+  incrementVersion: boolean,
 ) {
   const tile = relationById.get(relId)?.tiles.get(tileId);
   if (tile === undefined) {
@@ -837,7 +837,7 @@ function notifyTileReady(
     ipc.tileReady,
     relId,
     tileId,
-    tile.url + "?v=" + tile.version
+    tile.url + "?v=" + tile.version,
   );
 }
 

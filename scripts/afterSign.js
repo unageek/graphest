@@ -9,7 +9,7 @@ export default async function (ctx) {
 
   const appPath = path.join(
     ctx.appOutDir,
-    `${ctx.packager.appInfo.productFilename}.app`
+    `${ctx.packager.appInfo.productFilename}.app`,
   );
 
   console.log(`Notarizing ${appPath}...`);

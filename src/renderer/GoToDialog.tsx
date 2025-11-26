@@ -53,14 +53,14 @@ export const GoToDialog = (props: GoToDialogProps): React.ReactNode => {
       setErrors(newErrors);
       return e;
     },
-    [errors]
+    [errors],
   );
 
   const submit = useCallback(() => {
     if (errors.size > 0) return;
     goTo(
       [Number.parseFloat(x), Number.parseFloat(y)],
-      Number.parseInt(zoomLevel)
+      Number.parseInt(zoomLevel),
     );
     dismiss();
   }, [dismiss, errors, goTo, x, y, zoomLevel]);
@@ -71,7 +71,7 @@ export const GoToDialog = (props: GoToDialogProps): React.ReactNode => {
         const result = tryParseNumber(value);
         setXErrorMessage(addOrRemoveErrors(["x"], result.err));
       }, 200),
-    [addOrRemoveErrors]
+    [addOrRemoveErrors],
   );
 
   const validateY = useMemo(
@@ -80,7 +80,7 @@ export const GoToDialog = (props: GoToDialogProps): React.ReactNode => {
         const result = tryParseNumber(value);
         setYErrorMessage(addOrRemoveErrors(["y"], result.err));
       }, 200),
-    [addOrRemoveErrors]
+    [addOrRemoveErrors],
   );
 
   const validateZoomLevel = useMemo(
@@ -89,11 +89,11 @@ export const GoToDialog = (props: GoToDialogProps): React.ReactNode => {
         const result = tryParseIntegerInRange(
           value,
           MIN_ZOOM_LEVEL,
-          MAX_ZOOM_LEVEL
+          MAX_ZOOM_LEVEL,
         );
         setZoomLevelErrorMessage(addOrRemoveErrors(["zoom-level"], result.err));
       }, 200),
-    [addOrRemoveErrors]
+    [addOrRemoveErrors],
   );
 
   return (

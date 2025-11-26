@@ -60,7 +60,8 @@ a:not([draggable]) {
 .leaflet-bar {
   border: 1px solid var(--neutral-quaternary) !important;
   border-radius: 3px !important;
-  box-shadow: 0 1.6px 3.6px 0 rgba(0, 0, 0, 0.132),
+  box-shadow:
+    0 1.6px 3.6px 0 rgba(0, 0, 0, 0.132),
     0 0.3px 0.9px 0 rgba(0, 0, 0, 0.108) !important; /* depth8 */
   opacity: 0.75;
 }

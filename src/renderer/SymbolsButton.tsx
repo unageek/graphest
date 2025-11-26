@@ -33,7 +33,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): React.ReactNode => {
       debounce((show: boolean) => {
         setShowCallout(show);
       }, 200),
-    []
+    [],
   );
 
   const dismiss = useCallback(() => {

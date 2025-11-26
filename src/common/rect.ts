@@ -3,7 +3,7 @@ export class Rect {
     readonly x: number,
     readonly y: number,
     readonly width: number,
-    readonly height: number
+    readonly height: number,
   ) {}
 
   get bottom(): number {

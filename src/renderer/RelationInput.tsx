@@ -47,7 +47,7 @@ export interface RelationInputProps {
   relationInputByUser: boolean;
   requestRelation: (
     rel: string,
-    highRes: boolean
+    highRes: boolean,
   ) => Promise<RequestRelationResult>;
 }
 
@@ -281,7 +281,7 @@ const renderLeaf = (props: RenderLeafProps) => {
 export const RelationInput = (props: RelationInputProps): React.ReactNode => {
   const { onEnterKeyPressed } = props;
   const [editor] = useState<S.Editor>(
-    withRelationEditingExtensions(withHistory(withReact(S.createEditor())))
+    withRelationEditingExtensions(withHistory(withReact(S.createEditor()))),
   );
   const [initialValue] = useState<S.Descendant[]>([
     {
@@ -312,7 +312,7 @@ export const RelationInput = (props: RelationInputProps): React.ReactNode => {
 
       const decs = getDecorations(
         editor.tokens,
-        new Range(S.Range.start(sel).offset, S.Range.end(sel).offset)
+        new Range(S.Range.start(sel).offset, S.Range.end(sel).offset),
       );
       for (const { range: r } of decs.highlightedLeftBrackets) {
         ranges.push({
@@ -368,7 +368,7 @@ export const RelationInput = (props: RelationInputProps): React.ReactNode => {
 
       return ranges;
     },
-    [editor, showValidationError, validationError]
+    [editor, showValidationError, validationError],
   );
 
   const moveCursorToTheEnd = useCallback(() => {
@@ -390,7 +390,7 @@ export const RelationInput = (props: RelationInputProps): React.ReactNode => {
       debounce(async (): Promise<RequestRelationResult> => {
         return updateRelationImmediately();
       }, 200),
-    [updateRelationImmediately]
+    [updateRelationImmediately],
   );
 
   const updateTokens = useCallback(() => {

@@ -22,7 +22,7 @@ const TRANSFORM = "translate(-0.4990234375px, -0.4990234375px)";
 class Point {
   constructor(
     readonly x: BigNumber,
-    readonly y: BigNumber
+    readonly y: BigNumber,
   ) {}
 }
 
@@ -123,7 +123,7 @@ export class AxesLayer extends L.GridLayer {
       ty,
       mapViewport,
       tileViewport,
-      this.#theme
+      this.#theme,
     );
 
     renderer.clearBackground();
@@ -195,12 +195,12 @@ export class AxesLayer extends L.GridLayer {
     return new L.Bounds(
       new L.Point(
         Math.floor(bounds.min!.x / TILE_SIZE),
-        Math.floor(bounds.min!.y / TILE_SIZE)
+        Math.floor(bounds.min!.y / TILE_SIZE),
       ),
       new L.Point(
         Math.ceil((bounds.max!.x - (TILE_SIZE - 1)) / TILE_SIZE),
-        Math.ceil((bounds.max!.y - (TILE_SIZE - 1)) / TILE_SIZE)
-      )
+        Math.ceil((bounds.max!.y - (TILE_SIZE - 1)) / TILE_SIZE),
+      ),
     );
   }
 
@@ -215,7 +215,7 @@ export class AxesLayer extends L.GridLayer {
       this.#drawTile(
         tile.el.children[0] as HTMLCanvasElement,
         tile.coords,
-        tileRange
+        tileRange,
       );
     }
   }
@@ -276,7 +276,7 @@ export class GridLayer extends L.GridLayer {
         EXTENDED_TILE_SIZE,
         tx,
         ty,
-        this.#theme
+        this.#theme,
       );
 
       renderer.fillBackground();
@@ -287,13 +287,13 @@ export class GridLayer extends L.GridLayer {
           minInterval,
           ...(this.#showMajor
             ? [majInterval.get().idiv(minInterval.get())]
-            : [])
+            : []),
         );
         renderer.drawYGrid(
           minInterval,
           ...(this.#showMajor
             ? [majInterval.get().idiv(minInterval.get())]
-            : [])
+            : []),
         );
         renderer.endDraw();
       }

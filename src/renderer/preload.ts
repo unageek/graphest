@@ -12,14 +12,14 @@ const safeIpcRenderer: ipc.IpcRenderer = {
 
   on<T extends MessageToRenderer>(
     channel: T["channel"],
-    listener: ipc.RendererListener<T>
+    listener: ipc.RendererListener<T>,
   ) {
     ipcRenderer.on(channel, listener);
   },
 
   off<T extends MessageToRenderer>(
     channel: T["channel"],
-    listener: ipc.RendererListener<T>
+    listener: ipc.RendererListener<T>,
   ) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ipcRenderer.off(channel, listener as (...args: any[]) => void);

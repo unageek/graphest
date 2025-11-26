@@ -130,7 +130,7 @@ export function createMainMenu(actions: MenuActions): Menu {
           accelerator: isMac ? "" : "F1",
           click: async () => {
             await shell.openExternal(
-              "https://unageek.github.io/graphest/guide/"
+              "https://unageek.github.io/graphest/guide/",
             );
           },
         },
@@ -139,7 +139,7 @@ export function createMainMenu(actions: MenuActions): Menu {
           label: "What's New",
           click: async () => {
             await shell.openExternal(
-              "https://github.com/unageek/graphest/releases"
+              "https://github.com/unageek/graphest/releases",
             );
           },
         },
@@ -147,7 +147,7 @@ export function createMainMenu(actions: MenuActions): Menu {
           label: "Example Relations",
           click: async () => {
             await shell.openExternal(
-              "https://github.com/unageek/graphest/blob/main/Examples.md"
+              "https://github.com/unageek/graphest/blob/main/Examples.md",
             );
           },
         },

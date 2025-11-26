@@ -143,7 +143,7 @@ const slice = createSlice({
         ...s,
         graphs: {
           byId: Object.fromEntries(
-            Object.entries(s.graphs.byId).filter(([id]) => id !== a.payload.id)
+            Object.entries(s.graphs.byId).filter(([id]) => id !== a.payload.id),
           ),
           allIds: s.graphs.allIds.filter((id) => id !== a.payload.id),
         },
@@ -155,7 +155,7 @@ const slice = createSlice({
       }),
       reducer: (
         s,
-        a: PayloadAction<{ fromIndex: number; toIndex: number }>
+        a: PayloadAction<{ fromIndex: number; toIndex: number }>,
       ) => ({
         ...s,
         graphs: {
@@ -163,7 +163,7 @@ const slice = createSlice({
           allIds: moveElement(
             s.graphs.allIds,
             a.payload.fromIndex,
-            a.payload.toIndex
+            a.payload.toIndex,
           ),
         },
       }),
@@ -291,7 +291,7 @@ const slice = createSlice({
           setGraphColor,
           setGraphIsProcessing,
           setGraphPenSize,
-          setGraphRelation
+          setGraphRelation,
         ),
         (s, a) => ({
           ...s,
@@ -302,7 +302,7 @@ const slice = createSlice({
               [a.payload.id]: graphReducer(s.graphs.byId[a.payload.id], a),
             },
           },
-        })
+        }),
       )
       .addDefaultCase(() => {
         return;

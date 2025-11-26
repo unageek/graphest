@@ -160,7 +160,7 @@ export type MainListener<T extends MessageToMain> = (
 export interface IpcMain {
   handle<T extends MessageToMain>(
     channel: T["channel"],
-    listener: MainListener<T>
+    listener: MainListener<T>,
   ): void;
 }
 
@@ -177,11 +177,11 @@ export interface IpcRenderer {
 
   on<T extends MessageToRenderer>(
     channel: T["channel"],
-    listener: RendererListener<T>
+    listener: RendererListener<T>,
   ): void;
 
   off<T extends MessageToRenderer>(
     channel: T["channel"],
-    listener: RendererListener<T>
+    listener: RendererListener<T>,
   ): void;
 }

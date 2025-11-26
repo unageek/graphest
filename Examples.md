@@ -29,7 +29,6 @@ x^2 + y^2 = 1 ∨ y = -cos(x)
 ## Examples taken from [GrafEq](http://www.peda.com/grafeq/)
 
 - 📂 Single Relation/Abstract/Simple/
-
   - 📄 Irrationally Contin.gqs 🐌🐌🐌
 
     ```test
@@ -67,7 +66,6 @@ x^2 + y^2 = 1 ∨ y = -cos(x)
     ```
 
 - 📂 Single Relation/Abstract/Traditionally Difficult/
-
   - 📄 Infinite Frequency.gqs
 
     ```text
@@ -111,7 +109,6 @@ x^2 + y^2 = 1 ∨ y = -cos(x)
     ```
 
 - 📂 Single Relation/Enumerations/Binary/
-
   - 📄 binary naturals.gqs
 
     ```text
@@ -125,7 +122,6 @@ x^2 + y^2 = 1 ∨ y = -cos(x)
     ```
 
 - 📂 Single Relation/Enumerations/Decimal/
-
   - 📄 decimal squares.gqs
 
     ```text
@@ -133,7 +129,6 @@ x^2 + y^2 = 1 ∨ y = -cos(x)
     ```
 
 - 📂 Single Relation/Enumerations/Trees/
-
   - 📄 bi-infinite binary tree.gqs
 
     ```text
@@ -141,7 +136,6 @@ x^2 + y^2 = 1 ∨ y = -cos(x)
     ```
 
 - 📂 Single Relation/Half-Toned/
-
   - 📄 Simply Spherical.gqs
 
     ```text
@@ -155,7 +149,6 @@ x^2 + y^2 = 1 ∨ y = -cos(x)
     ```
 
 - 📂 Single Relation/Linelike/
-
   - 📄 Frontispiece #2.gqs
 
     ```text
@@ -187,7 +180,6 @@ x^2 + y^2 = 1 ∨ y = -cos(x)
     ```
 
 - 📂 Single Relation/Solid/
-
   - 📄 Sharp Threesome.gqs
 
     ```text

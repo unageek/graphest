@@ -63,7 +63,7 @@ const slice = createSlice({
         id: string,
         relId: string,
         rel: string,
-        inputByUser: boolean
+        inputByUser: boolean,
       ) => ({
         payload: { id, relId, rel, inputByUser },
       }),
@@ -74,7 +74,7 @@ const slice = createSlice({
           relId: string;
           rel: string;
           inputByUser: boolean;
-        }>
+        }>,
       ) =>
         a.payload.id === s.id
           ? {

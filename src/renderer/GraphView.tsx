@@ -169,7 +169,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
             maxBoundsViscosity: 1,
             wheelDebounceTime: 100,
             zoomControl: false,
-          })
+          }),
         );
       }
       secondMount.current = true;
@@ -209,10 +209,10 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         })
         .addTo(map);
       createRoot(
-        document.getElementById("zoom-in-button") as HTMLElement
+        document.getElementById("zoom-in-button") as HTMLElement,
       ).render(<AddFilled />);
       createRoot(
-        document.getElementById("zoom-out-button") as HTMLElement
+        document.getElementById("zoom-out-button") as HTMLElement,
       ).render(<SubtractFilled />);
 
       L.easyButton(
@@ -224,10 +224,10 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
             .setMaxZoom(Infinity)
             .setView([0, 0], zoom, { reset: true } as ZoomPanOptions);
         },
-        "Reset view"
+        "Reset view",
       ).addTo(map);
       createRoot(
-        document.getElementById("reset-view-button") as HTMLElement
+        document.getElementById("reset-view-button") as HTMLElement,
       ).render(<HomeFilled />);
 
       function onZoomStart() {
@@ -251,7 +251,7 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         const y = center.lat;
         const z = map.getZoom();
         store.dispatch(
-          setCenter([x * 2 ** BASE_ZOOM_LEVEL, y * 2 ** BASE_ZOOM_LEVEL])
+          setCenter([x * 2 ** BASE_ZOOM_LEVEL, y * 2 ** BASE_ZOOM_LEVEL]),
         );
         store.dispatch(setZoomLevel(z - BASE_ZOOM_LEVEL));
       }
@@ -272,5 +272,5 @@ export const GraphView = forwardRef<HTMLDivElement, GraphViewProps>(
         }}
       />
     );
-  }
+  },
 );

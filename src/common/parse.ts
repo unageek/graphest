@@ -22,7 +22,7 @@ export const tryParseInteger = (value: string): Result<number, string> => {
 export const tryParseIntegerInRange = (
   value: string,
   min: number,
-  max: number
+  max: number,
 ): Result<number, string> => {
   const result = tryParseInteger(value);
   if (result.ok !== undefined && result.ok >= min && result.ok <= max) {
@@ -47,7 +47,7 @@ export const tryParseNumber = (value: string): Result<number, string> => {
 export const tryParseNumberInRange = (
   value: string,
   min: number,
-  max: number
+  max: number,
 ): Result<number, string> => {
   const result = tryParseNumber(value);
   if (result.ok !== undefined && result.ok >= min && result.ok <= max) {

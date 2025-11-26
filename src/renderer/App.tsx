@@ -64,13 +64,13 @@ const exportImage = async (opts: ExportImageOptions) => {
       messages: [],
       numTiles: 0,
       numTilesRendered: 0,
-    })
+    }),
   );
 
   await window.ipcRenderer.invoke<ipc.ExportImage>(
     ipc.exportImage,
     { background: new Color(state.graphBackground).hexa(), graphs },
-    opts
+    opts,
   );
 };
 
@@ -96,20 +96,20 @@ const getDocument = (): Document => {
 const requestRelation = async (
   rel: string,
   graphId: string,
-  highRes: boolean
+  highRes: boolean,
 ): Promise<RequestRelationResult> => {
   return await window.ipcRenderer.invoke<ipc.RequestRelation>(
     ipc.requestRelation,
     rel,
     graphId,
-    highRes
+    highRes,
   );
 };
 
 const showSaveDialog = async (path: string): Promise<string | undefined> => {
   return await window.ipcRenderer.invoke<ipc.ShowSaveDialog>(
     ipc.showSaveDialog,
-    path
+    path,
   );
 };
 
@@ -132,13 +132,13 @@ const App = () => {
     (async function () {
       const path =
         await window.ipcRenderer.invoke<ipc.GetDefaultExportImagePath>(
-          ipc.getDefaultExportImagePath
+          ipc.getDefaultExportImagePath,
         );
       store.dispatch(
         setLastExportImageOpts({
           ...exportImageOpts,
           path,
-        })
+        }),
       );
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -199,7 +199,7 @@ createRoot(document.getElementById("app") as HTMLElement).render(
     <Provider store={store}>
       <App />
     </Provider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
 
 window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {
@@ -224,21 +224,21 @@ window.ipcRenderer.on<ipc.ExportImageStatusChanged>(
   ipc.exportImageStatusChanged,
   (_, progress) => {
     store.dispatch(setExportImageProgress(progress));
-  }
+  },
 );
 
 window.ipcRenderer.on<ipc.InitiateSave>(ipc.initiateSave, (_, to) => {
   window.ipcRenderer.invoke<ipc.RequestSave>(
     ipc.requestSave,
     getDocument(),
-    to
+    to,
   );
 });
 
 window.ipcRenderer.on<ipc.InitiateUnload>(ipc.initiateUnload, () => {
   window.ipcRenderer.invoke<ipc.RequestUnload>(
     ipc.requestUnload,
-    getDocument()
+    getDocument(),
   );
 });
 

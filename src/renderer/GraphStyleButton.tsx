@@ -24,7 +24,7 @@ export interface GraphStyleButtonProps {
 }
 
 export const GraphStyleButton = (
-  props: GraphStyleButtonProps
+  props: GraphStyleButtonProps,
 ): React.ReactNode => {
   const { onPenSizeChanged } = props;
   const [penSize, setPenSize] = useState<string>(props.penSize.toString());
@@ -39,7 +39,7 @@ export const GraphStyleButton = (
           onPenSizeChanged(result.ok);
         }
       }, 200),
-    [onPenSizeChanged]
+    [onPenSizeChanged],
   );
 
   return (

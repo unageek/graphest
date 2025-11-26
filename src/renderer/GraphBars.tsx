@@ -17,7 +17,7 @@ export interface GraphBarsProps {
   requestRelation: (
     rel: string,
     graphId: string,
-    highRes: boolean
+    highRes: boolean,
   ) => Promise<RequestRelationResult>;
 }
 
@@ -34,7 +34,7 @@ export const GraphBars = (props: GraphBarsProps): React.ReactNode => {
         dispatch(reorderGraph(result.source.index, result.destination.index));
       }
     },
-    [dispatch]
+    [dispatch],
   );
 
   return (

@@ -156,7 +156,7 @@ const EXPECTED_TOKENS_BEFORE_RIGHT_BRACKETS = new Set([
 
 export function getDecorations(
   tokens: Token[],
-  selection: Range
+  selection: Range,
 ): {
   highlightedLeftBrackets: Token[];
   highlightedRightBrackets: Token[];
