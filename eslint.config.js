@@ -14,8 +14,7 @@ export default [
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        ecmaVersion: 2020,
-        sourceType: "module",
+        ecmaVersion: 2024,
       },
       globals: {
         ...globals.browser,
@@ -23,7 +22,6 @@ export default [
         ...globals.jest,
         ...globals.node,
         Electron: "readonly",
-        JSX: "readonly",
         L: "readonly",
       },
     },
