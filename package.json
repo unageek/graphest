@@ -13,8 +13,8 @@
     "clean:rust": "rm -rf target",
     "guide": "cd docs/guide && asciidoctor --trace -r ./config/remove_mathjax.rb index.adoc && open index.html",
     "lint": "prettier --check .",
-    "release:mac": "npm run lint && npm run clean && NODE_ENV=production npm run build && electron-builder --mac --publish always",
-    "release:win": "npm run lint && npm run clean && cross-env-shell NODE_ENV=production npm run build && electron-builder --win --publish always",
+    "release:mac": "npm run lint && npm run clean && NODE_ENV=production npm run build && electron-builder --config electron-builder.config.js --mac --publish always",
+    "release:win": "npm run lint && npm run clean && cross-env-shell NODE_ENV=production npm run build && electron-builder --config electron-builder.config.js --win --publish always",
     "start": "cross-env-shell NODE_ENV=development npm run build && electron .",
     "test": "jest"
   },
