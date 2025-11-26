@@ -51,6 +51,8 @@ export const GraphBar = (props: GraphBarProps): JSX.Element => {
         style={{
           alignItems: "center",
           color: tokens.colorNeutralForeground4,
+          // https://github.com/hello-pangea/dnd/issues/711
+          cursor: "grab",
           display: "flex",
           fontSize: "20px",
           justifyContent: "center",
