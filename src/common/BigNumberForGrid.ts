@@ -11,12 +11,13 @@ const BigNumberForGridConstructor = BN.clone({
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-(BigNumberForGridConstructor.prototype as any).ceil = function () {
+const P = BigNumberForGridConstructor.prototype as any;
+
+P.ceil = function (): BigNumberForGrid {
   return this.integerValue(BN.ROUND_CEIL);
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(BigNumberForGridConstructor.prototype as any).floor = function () {
+P.floor = function (): BigNumberForGrid {
   return this.integerValue(BN.ROUND_FLOOR);
 };
 

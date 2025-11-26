@@ -3,6 +3,7 @@ export interface IBigNumber<T> {
   div(n: number | T): T;
   floor(): T;
   idiv(n: number | T): T;
+  integerValue(rm: number): T;
   isFinite(): boolean;
   isZero(): boolean;
   lt(n: number | T): boolean;

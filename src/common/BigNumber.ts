@@ -6,12 +6,13 @@ type BigNumber = IBigNumber<BigNumber>;
 const BigNumberConstructor = BN.clone();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-(BigNumberConstructor.prototype as any).ceil = function () {
+const P = BigNumberConstructor.prototype as any;
+
+P.ceil = function (): BigNumber {
   return this.integerValue(BN.ROUND_CEIL);
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(BigNumberConstructor.prototype as any).floor = function () {
+P.floor = function (): BigNumber {
   return this.integerValue(BN.ROUND_FLOOR);
 };
 
