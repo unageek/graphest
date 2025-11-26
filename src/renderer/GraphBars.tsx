@@ -6,6 +6,7 @@ import {
   DropResult,
 } from "@hello-pangea/dnd";
 import * as React from "react";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { GraphBar } from "./GraphBar";
@@ -24,14 +25,17 @@ export const GraphBars = (props: GraphBarsProps): React.ReactNode => {
   const dispatch = useDispatch();
   const graphs = useSelector((s) => s.graphs);
 
-  function onDragEnd(result: DropResult) {
-    if (
-      result.destination &&
-      result.destination.index !== result.source.index
-    ) {
-      dispatch(reorderGraph(result.source.index, result.destination.index));
-    }
-  }
+  const onDragEnd = useCallback(
+    (result: DropResult) => {
+      if (
+        result.destination &&
+        result.destination.index !== result.source.index
+      ) {
+        dispatch(reorderGraph(result.source.index, result.destination.index));
+      }
+    },
+    [dispatch]
+  );
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>

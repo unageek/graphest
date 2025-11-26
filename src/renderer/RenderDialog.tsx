@@ -120,19 +120,6 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
   const [yMaxErrorMessage, setYMaxErrorMessage] = useState<string>();
   const [yMinErrorMessage, setYMinErrorMessage] = useState<string>();
 
-  let pathParts = [];
-  let separator = "/";
-  if (/^([A-Z]:\\|\\\\)/.test(opts.path)) {
-    pathParts = opts.path.split("\\");
-    separator = "\\";
-  } else {
-    pathParts = opts.path.split("/");
-  }
-  const briefPath =
-    pathParts.length <= 3
-      ? opts.path
-      : "…" + separator + pathParts.slice(-2).join(separator);
-
   const addOrRemoveErrors = useCallback(
     (keys: string[], e?: string): string | undefined => {
       const newErrors = new Set(errors);
@@ -279,14 +266,33 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
     }
   }, [dismiss, progress.messages.length, state]);
 
-  const tilesPerRelation =
-    Math.ceil((opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE) *
-    Math.ceil((opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE);
+  const approxMinPenSize = useMemo(() => {
+    const minPenSize = bignum(1).div(bignum(opts.antiAliasing));
+    const digits = Math.floor(-Math.log10(opts.antiAliasing));
+    const scale = bignum(10).pow(digits - 1);
+    return minPenSize.div(scale).ceil().times(scale);
+  }, [opts.antiAliasing]);
 
-  const minPenSize = bignum(1).div(bignum(opts.antiAliasing));
-  const digits = Math.floor(-Math.log10(opts.antiAliasing));
-  const scale = bignum(10).pow(digits - 1);
-  const approxMinPenSize = minPenSize.div(scale).ceil().times(scale);
+  const briefPath = useMemo(() => {
+    let pathParts = [];
+    let separator = "/";
+    if (/^([A-Z]:\\|\\\\)/.test(opts.path)) {
+      pathParts = opts.path.split("\\");
+      separator = "\\";
+    } else {
+      pathParts = opts.path.split("/");
+    }
+    return pathParts.length <= 3
+      ? opts.path
+      : "…" + separator + pathParts.slice(-2).join(separator);
+  }, [opts.path]);
+
+  const tilesPerRelation = useMemo(() => {
+    return (
+      Math.ceil((opts.antiAliasing * opts.width) / EXPORT_GRAPH_TILE_SIZE) *
+      Math.ceil((opts.antiAliasing * opts.height) / EXPORT_GRAPH_TILE_SIZE)
+    );
+  }, [opts.antiAliasing, opts.height, opts.width]);
 
   return (
     <Dialog
