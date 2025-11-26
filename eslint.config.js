@@ -1,8 +1,10 @@
+import { includeIgnoreFile } from "@eslint/compat";
 import js from "@eslint/js";
 import ts from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
+import * as path from "node:path";
 
 /** @type { import("eslint").Linter.Config[] } */
 export default [
@@ -51,4 +53,5 @@ export default [
       "react-hooks/rules-of-hooks": "error",
     },
   },
+  includeIgnoreFile(path.resolve(".gitignore")),
 ];
