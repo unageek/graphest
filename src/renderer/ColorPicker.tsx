@@ -9,7 +9,7 @@ export interface ColorPickerProps {
   onColorChanged: (color: string) => void;
 }
 
-export const ColorPicker = (props: ColorPickerProps): JSX.Element => {
+export const ColorPicker = (props: ColorPickerProps): React.ReactNode => {
   const [selectedTab, setSelectedTab] = useState<TabValue>("swatch");
 
   return (

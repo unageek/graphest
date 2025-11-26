@@ -23,7 +23,9 @@ export interface GraphStyleButtonProps {
   penSize: number;
 }
 
-export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
+export const GraphStyleButton = (
+  props: GraphStyleButtonProps
+): React.ReactNode => {
   const { onPenSizeChanged } = props;
   const [penSize, setPenSize] = useState<string>(props.penSize.toString());
   const [penSizeErrorMessage, setPenSizeErrorMessage] = useState<string>();
@@ -60,7 +62,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): JSX.Element => {
     </Popover>
   );
 
-  function renderPopover(): JSX.Element {
+  function renderPopover() {
     return (
       <div
         style={{

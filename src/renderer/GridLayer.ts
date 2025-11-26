@@ -1,5 +1,6 @@
 import * as L from "leaflet";
-import { bignum, BigNumber } from "../common/bignumberForGrid";
+import { BigNumber } from "../common/BigNumber";
+import { bignum } from "../common/BigNumberForGrid";
 import { BASE_ZOOM_LEVEL, GRAPH_TILE_SIZE } from "../common/constants";
 import { GraphTheme, StubGraphTheme } from "../common/graphTheme";
 import {
@@ -19,7 +20,10 @@ const EXTENDED_TILE_SIZE = TILE_SIZE + TILE_EXTENSION;
 const TRANSFORM = "translate(-0.4990234375px, -0.4990234375px)";
 
 class Point {
-  constructor(readonly x: BigNumber, readonly y: BigNumber) {}
+  constructor(
+    readonly x: BigNumber,
+    readonly y: BigNumber
+  ) {}
 }
 
 const dst0 = new Point(bignum(0.5), bignum(TILE_SIZE + 0.5));

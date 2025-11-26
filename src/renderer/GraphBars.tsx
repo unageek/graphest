@@ -20,7 +20,7 @@ export interface GraphBarsProps {
   ) => Promise<RequestRelationResult>;
 }
 
-export const GraphBars = (props: GraphBarsProps): JSX.Element => {
+export const GraphBars = (props: GraphBarsProps): React.ReactNode => {
   const dispatch = useDispatch();
   const graphs = useSelector((s) => s.graphs);
 

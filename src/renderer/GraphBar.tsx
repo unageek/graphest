@@ -39,7 +39,7 @@ export interface GraphBarProps {
   ) => Promise<RequestRelationResult>;
 }
 
-export const GraphBar = (props: GraphBarProps): JSX.Element => {
+export const GraphBar = (props: GraphBarProps): React.ReactNode => {
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
   const highRes = useSelector((s) => s.highRes);

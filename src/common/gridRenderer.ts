@@ -1,9 +1,9 @@
-import { bignum, BigNumber } from "./bignumberForGrid";
+import { bignum, BigNumberForGrid } from "./BigNumberForGrid";
 import { GraphTheme } from "./graphTheme";
 import { Rect } from "./rect";
 
-const ZERO: BigNumber = bignum(0);
-const ONE: BigNumber = bignum(1);
+const ZERO: BigNumberForGrid = bignum(0);
+const ONE: BigNumberForGrid = bignum(1);
 
 const LABEL_FONT = "14px 'Noto Sans'";
 const MAJOR_GRID_LINE_DASH: number[] = [];
@@ -34,24 +34,27 @@ export function loadFonts(): Promise<FontFace[]> {
 
 export class Bounds {
   constructor(
-    readonly xMin: BigNumber,
-    readonly xMax: BigNumber,
-    readonly yMin: BigNumber,
-    readonly yMax: BigNumber
+    readonly xMin: BigNumberForGrid,
+    readonly xMax: BigNumberForGrid,
+    readonly yMin: BigNumberForGrid,
+    readonly yMax: BigNumberForGrid
   ) {}
 }
 
 export class GridInterval {
-  #x?: BigNumber;
-  #xInv?: BigNumber;
+  #x?: BigNumberForGrid;
+  #xInv?: BigNumberForGrid;
 
-  constructor(readonly mantissa: BigNumber, readonly exponent: number) {}
+  constructor(
+    readonly mantissa: BigNumberForGrid,
+    readonly exponent: number
+  ) {}
 
-  get(): BigNumber {
+  get(): BigNumberForGrid {
     return (this.#x ??= this.mantissa.times(ONE.shiftedBy(this.exponent)));
   }
 
-  getInv(): BigNumber {
+  getInv(): BigNumberForGrid {
     return (this.#xInv ??= ONE.div(this.mantissa).times(
       ONE.shiftedBy(-this.exponent)
     ));
@@ -85,7 +88,7 @@ export function suggestGridIntervals(
 }
 
 export interface Transform {
-  (x: BigNumber): number;
+  (x: BigNumberForGrid): number;
 }
 
 /**
@@ -95,8 +98,8 @@ export interface Transform {
  * @param toPoints The destination points.
  */
 export function getTransform(
-  fromPoints: [BigNumber, BigNumber],
-  toPoints: [BigNumber, BigNumber]
+  fromPoints: [BigNumberForGrid, BigNumberForGrid],
+  toPoints: [BigNumberForGrid, BigNumberForGrid]
 ): Transform {
   const [x0, x1] = fromPoints;
   const [y0, y1] = toPoints;
@@ -357,7 +360,7 @@ export class AxesRenderer {
     ctx.restore();
   }
 
-  #format(x: BigNumber): string {
+  #format(x: BigNumberForGrid): string {
     // Replace hyphen-minuses with minus signs.
     return x.toString().replaceAll("-", "−");
   }
@@ -400,7 +403,7 @@ export class GridRenderer {
     ctx.strokeStyle = theme.tertiary;
   }
 
-  drawXGrid(interval: GridInterval, skipEveryNthLine: BigNumber = ZERO) {
+  drawXGrid(interval: GridInterval, skipEveryNthLine: BigNumberForGrid = ZERO) {
     const { ctx, height, tx } = this;
     const { xMax, xMin } = this.bounds;
 
@@ -417,7 +420,7 @@ export class GridRenderer {
     ctx.stroke();
   }
 
-  drawYGrid(interval: GridInterval, skipEveryNthLine: BigNumber = ZERO) {
+  drawYGrid(interval: GridInterval, skipEveryNthLine: BigNumberForGrid = ZERO) {
     const { ctx, ty, width } = this;
     const { yMax, yMin } = this.bounds;
 

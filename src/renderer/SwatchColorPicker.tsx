@@ -12,7 +12,7 @@ export interface SwatchColorPickerProps {
 
 export const SwatchColorPicker = (
   props: SwatchColorPickerProps
-): JSX.Element => {
+): React.ReactNode => {
   const color = new Color(props.color);
 
   return (

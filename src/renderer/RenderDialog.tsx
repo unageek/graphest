@@ -20,7 +20,7 @@ import { DismissRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { bignum, BigNumber } from "../common/bignumber";
+import { bignum, BigNumber } from "../common/BigNumber";
 import {
   EXPORT_GRAPH_TILE_SIZE,
   ExportImageOptions,
@@ -93,7 +93,7 @@ enum State {
   Completed = "completed",
 }
 
-export const RenderDialog = (props: RenderDialogProps): JSX.Element => {
+export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
   const { dismiss, exportImage, saveOpts } = props;
 
   const [errors, setErrors] = useState<Set<string>>(new Set());

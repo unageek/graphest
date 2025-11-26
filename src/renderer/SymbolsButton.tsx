@@ -24,7 +24,7 @@ const useStyles = makeStyles({
   },
 });
 
-export const SymbolsButton = (props: SymbolsButtonProps): JSX.Element => {
+export const SymbolsButton = (props: SymbolsButtonProps): React.ReactNode => {
   const [showCallout, setShowCallout] = useState(false);
   const styles = useStyles();
 

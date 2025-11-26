@@ -36,7 +36,7 @@ export interface RelationInputActions {
 }
 
 export interface RelationInputProps {
-  actionsRef?: RefObject<RelationInputActions>;
+  actionsRef?: RefObject<RelationInputActions | null>;
   graphId: string;
   grow?: boolean;
   highRes: boolean;
@@ -278,7 +278,7 @@ const renderLeaf = (props: RenderLeafProps) => {
   );
 };
 
-export const RelationInput = (props: RelationInputProps) => {
+export const RelationInput = (props: RelationInputProps): React.ReactNode => {
   const { onEnterKeyPressed } = props;
   const [editor] = useState<S.Editor>(
     withRelationEditingExtensions(withHistory(withReact(S.createEditor())))

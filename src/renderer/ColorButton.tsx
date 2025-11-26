@@ -12,7 +12,7 @@ export interface ColorButtonProps {
   onColorChanged: (color: string) => void;
 }
 
-export const ColorButton = (props: ColorButtonProps): JSX.Element => {
+export const ColorButton = (props: ColorButtonProps): React.ReactNode => {
   return (
     <Popover positioning="below-start">
       <PopoverTrigger>

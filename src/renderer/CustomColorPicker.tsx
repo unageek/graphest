@@ -17,7 +17,7 @@ export interface CustomColorPickerProps {
 
 export const CustomColorPicker = (
   props: CustomColorPickerProps
-): JSX.Element => {
+): React.ReactNode => {
   const color = new Color(props.color);
   const [hex, setHex] = useState(color.hex().substring(1));
   const [hue, setHue] = useState(color.hue());

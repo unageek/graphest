@@ -27,7 +27,7 @@ const MIN_ZOOM_LEVEL: number = -BASE_ZOOM_LEVEL;
 // Leaflet maps cannot be zoomed in to a level greater than 1023.
 const MAX_ZOOM_LEVEL: number = 1023 - BASE_ZOOM_LEVEL;
 
-export const GoToDialog = (props: GoToDialogProps): JSX.Element => {
+export const GoToDialog = (props: GoToDialogProps): React.ReactNode => {
   const { dismiss, goTo } = props;
 
   const [errors, setErrors] = useState<Set<string>>(new Set());

@@ -106,6 +106,17 @@ function rendererConfig() {
           resolve: {
             extensions: [".ts", ".tsx", ".js"],
           },
+          use: {
+            loader: "ts-loader",
+            options: {
+              compilerOptions: {
+                jsx:
+                  process.env.NODE_ENV === "development"
+                    ? "react-jsxdev"
+                    : "react-jsx",
+              },
+            },
+          },
         },
       ],
     },

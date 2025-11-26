@@ -25,7 +25,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
 import * as util from "node:util";
-import { bignum } from "../common/bignumber";
+import { bignum } from "../common/BigNumber";
 import { Command } from "../common/command";
 import {
   BASE_ZOOM_LEVEL,

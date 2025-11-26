@@ -14,7 +14,7 @@ import {
   setShowGoToDialog,
 } from "./models/app";
 
-export const CommandBar = (): JSX.Element => {
+export const CommandBar = (): React.ReactNode => {
   const dispatch = useDispatch();
 
   return (

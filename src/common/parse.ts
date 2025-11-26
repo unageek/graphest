@@ -1,4 +1,4 @@
-import { bignum, BigNumber } from "./bignumber";
+import { bignum, BigNumber } from "./BigNumber";
 import { err, ok, Result } from "./result";
 
 export const tryParseBignum = (value: string): Result<BigNumber, string> => {

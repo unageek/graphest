@@ -21,7 +21,7 @@ export interface ColorsDialogProps {
   dismiss: () => void;
 }
 
-export const ColorsDialog = (props: ColorsDialogProps): JSX.Element => {
+export const ColorsDialog = (props: ColorsDialogProps): React.ReactNode => {
   const background = useSelector((s) => s.graphBackground);
   const foreground = useSelector((s) => s.graphForeground);
   const dispatch = useDispatch();
