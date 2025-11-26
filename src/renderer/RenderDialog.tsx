@@ -482,7 +482,9 @@ export const RenderDialog = (props: RenderDialogProps): React.ReactNode => {
                         }}
                       >
                         {antiAliasingOptions.map((o) => (
-                          <Option value={o.value}>{o.text}</Option>
+                          <Option key={o.value} value={o.value}>
+                            {o.text}
+                          </Option>
                         ))}
                       </Dropdown>
 
