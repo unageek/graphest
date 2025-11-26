@@ -5,7 +5,7 @@ export default {
     output: "release",
   },
   files: ["dist/**/*", "!**/*.js.map"],
-  afterSign: "scripts/afterSign.js",
+  afterSign: "build/hooks/afterSign.js",
   protocols: [{ name: "Graphest", schemes: ["graphest"] }],
   mac: {
     category: "public.app-category.utilities",

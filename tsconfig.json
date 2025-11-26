@@ -13,5 +13,5 @@
     // Run `console.log(process.versions)` in the main process to check the versions of Node.js and Chromium.
     "target": "es2024"
   },
-  "include": ["*.js", "scripts/**/*.js", "src/**/*.ts", "src/**/*.tsx"]
+  "include": ["*.js", "build/hooks/*.js", "src/**/*.ts", "src/**/*.tsx"]
 }

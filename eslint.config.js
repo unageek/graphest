@@ -10,7 +10,7 @@ import * as path from "node:path";
 export default [
   js.configs.recommended,
   {
-    files: ["*.js", "scripts/**/*.js", "src/**/*.ts", "src/**/*.tsx"],
+    files: ["*.js", "build/hooks/*.js", "src/**/*.ts", "src/**/*.tsx"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
