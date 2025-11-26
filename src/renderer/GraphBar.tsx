@@ -13,9 +13,9 @@ import {
   MoreHorizontalRegular,
   ReOrderDotsVerticalRegular,
 } from "@fluentui/react-icons";
+import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import * as React from "react";
 import { useRef } from "react";
-import { DraggableProvidedDragHandleProps } from "react-beautiful-dnd";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { GraphStyleButton } from "./GraphStyleButton";

@@ -1,11 +1,11 @@
 import { tokens } from "@fluentui/react-components";
-import * as React from "react";
 import {
   DragDropContext,
   Draggable,
   Droppable,
   DropResult,
-} from "react-beautiful-dnd";
+} from "@hello-pangea/dnd";
+import * as React from "react";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { GraphBar } from "./GraphBar";
