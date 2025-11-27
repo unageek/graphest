@@ -555,6 +555,9 @@ const altKeySymbols: Map<string, string> = new Map([
   ["KeyZ", "ζ"],
   ["Comma", "≤"],
   ["Period", "≥"],
+  ["Digit1", "¬"],
+  ["Digit7", "∧"],
+  ["Backslash", "∨"],
 ]);
 
 const shiftAltKeySymbols: Map<string, string> = new Map([
@@ -582,7 +585,4 @@ const shiftAltKeySymbols: Map<string, string> = new Map([
   ["KeyX", "Ξ"],
   ["KeyY", "Ψ"],
   ["KeyZ", "Ζ"],
-  ["Digit1", "¬"],
-  ["Digit7", "∧"],
-  ["Backslash", "∨"],
 ]);
