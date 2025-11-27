@@ -23,7 +23,7 @@
    Open Start > MSYS2 > MSYS2 MINGW64 and run the following command:
 
    ```bash
-   pacman -S diffutils git m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc mingw-w64-x86_64-nodejs mingw-w64-x86_64-rustup
+   pacman -S diffutils git m4 make mingw-w64-x86_64-clang mingw-w64-x86_64-gcc mingw-w64-x86_64-nodejs mingw-w64-x86_64-rustup mingw-w64-x86_64-yarn
    ```
 
    All commands below must be run in the MSYS2 MINGW64 terminal.

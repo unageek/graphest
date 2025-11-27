@@ -36,12 +36,10 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-nodejs
             mingw-w64-x86_64-rustup
+            mingw-w64-x86_64-yarn
 
       - name: Select Rust toolchain
         run: rustup set default-host x86_64-pc-windows-gnu
-
-      - name: Install Yarn
-        run: npm install -g yarn
 
       - name: Install dependencies
         run: yarn
