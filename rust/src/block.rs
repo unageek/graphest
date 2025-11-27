@@ -93,7 +93,7 @@ impl Coordinate {
     ///
     /// Two blocks are returned.
     ///
-    /// Precondition: [`self.is_subdivisible()`] is `true`.
+    /// Precondition: [`Self::is_subdivisible`] returns `true`.
     pub fn subdivide(&self) -> [Self; 2] {
         let i0 = 2 * self.i;
         let i1 = i0 + 1;
@@ -103,7 +103,7 @@ impl Coordinate {
 
     /// Returns the block width in pixels.
     ///
-    /// Panics if `self.level() < 0`.
+    /// Panics if [`Self::level`] is less than 0.
     pub fn width(&self) -> u32 {
         assert!(self.k >= 0);
         1u32 << self.k
@@ -191,7 +191,7 @@ impl IntegerParameter {
     ///
     /// Three blocks are returned at most.
     ///
-    /// Precondition: [`self.is_subdivisible()`] is `true`.
+    /// Precondition: [`Self::is_subdivisible`] returns `true`.
     pub fn subdivide(&self) -> SmallVec<[Self; 3]> {
         let x = self.0;
         let a = x.inf();
@@ -255,7 +255,7 @@ impl RealParameter {
     ///
     /// Two blocks are returned at most.
     ///
-    /// Precondition: [`self.is_subdivisible()`] is `true`.
+    /// Precondition: [`Self::is_subdivisible`] returns `true`.
     pub fn subdivide(&self) -> SmallVec<[Self; 2]> {
         let x = self.0;
         let a = x.inf();

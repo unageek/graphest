@@ -383,7 +383,7 @@ impl Explicit {
 
     /// For the pixel-aligned region, returns the pixels in the region that are contained in the image.
     ///
-    /// If [`self.transpose`] is `true`, the x and y components of the result are swapped.
+    /// If [`Self::transpose`] is `true`, the x and y components of the result are swapped.
     fn pixels_in_image(&self, r: &Region) -> PixelRange {
         let r = r.intersection(&self.im_region);
         if r.is_empty() {
