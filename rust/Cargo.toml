@@ -36,7 +36,7 @@ optional = true
 path = "graphest-fftw-sys"
 
 [dependencies.image]
-version = "0.24"
+version = "0.25"
 default-features = false
 features = ["png"]
 

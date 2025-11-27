@@ -1,5 +1,5 @@
 use clap::{value_parser, Arg, Command};
-use image::{imageops, io::Reader as ImageReader, ImageBuffer, LumaA};
+use image::{imageops, ImageBuffer, ImageReader, LumaA};
 use std::ffi::OsString;
 
 type GrayAlpha16Image = ImageBuffer<LumaA<u16>, Vec<u16>>;

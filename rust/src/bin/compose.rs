@@ -1,5 +1,5 @@
 use clap::{value_parser, Arg, ArgAction, Command};
-use image::{imageops, io::Reader as ImageReader, DynamicImage, Rgba, Rgba32FImage};
+use image::{imageops, DynamicImage, ImageReader, Rgba, Rgba32FImage};
 use std::ffi::OsString;
 
 #[derive(Clone, Debug)]
