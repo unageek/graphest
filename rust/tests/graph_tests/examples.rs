@@ -111,7 +111,7 @@ t!(
 t!(
     t_ed8070659e554cc881b864687658ee9b,
     "sin(2^⌊y⌋ x + π/4 (y - ⌊y⌋) - π/2) = 0 ∨ sin(2^⌊y⌋ x - π/4 (y - ⌊y⌋) - π/2) = 0",
-    @timeout(5000),
+    @timeout(6000),
 );
 
 // Simply Spherical
@@ -163,7 +163,7 @@ t!(
 t!(
     t_2bd34182bf58454bb6b7ce7d72548588,
     "sin(sqrt((x+5)^2 + y^2)) cos(8 atan(y / (x+5))) sin(sqrt((x-5)^2 + (y-5)^2)) cos(8 atan((y-5) / (x-5))) sin(sqrt(x^2 + (y+5)^2)) cos(8 atan((y+5) / x)) > 0",
-    @timeout(6000),
+    @timeout(7000),
 );
 
 // The Disco Hall

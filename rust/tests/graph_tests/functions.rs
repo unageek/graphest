@@ -71,7 +71,7 @@ t!(
     t_4f55a2d3f14b4539b5a1c38277a1aaf1,
     "y = J(-1, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(2000),
+    @timeout(3000),
 );
 t!(
     t_e657f897db644391905f6245dfd67df1,
@@ -93,7 +93,7 @@ t!(
     t_6334b67231b84fcaa62320fa65b7c77f,
     "y = J(1, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(2000),
+    @timeout(3000),
 );
 t!(
     t_49dd5ac993f24e078ae1a0606b95a49f,

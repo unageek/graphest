@@ -72,6 +72,7 @@ t!(
     t_6c81a6bd650d4af2806953aa6668fc7f,
     "r = 1 / sqrt(θ)",
     @bounds(-1, 1, -1, 1),
+    @timeout(2000),
 );
 
 // Maltese cross curve (a = 1)

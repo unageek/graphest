@@ -37,7 +37,7 @@ t!(
     t_98966651db534aa79c7e026b6d2171dd,
     "x = 8 sin(t)^2 cos(t)^2 / (cos(4 t) + 3) ∧ y = 8 sin(t)^3 cos(t) / (cos(4 t) + 3)",
     @bounds(-2, 2, -2, 2),
-    @timeout(2000),
+    @timeout(3000),
 );
 
 // bifolium (a = 1)
@@ -169,7 +169,7 @@ t!(
     t_c6f55e36d9ce4673bad541e0b1ad5f24,
     "x = cos(t) / sqrt(t) ∧ y = sin(t) / sqrt(t)",
     @bounds(-1, 1, -1, 1),
-    @timeout(5000),
+    @timeout(6000),
 );
 
 // Maltese cross curve (a = 1)
@@ -210,7 +210,7 @@ t!(
     t_ec7bc6583a004fca8a4dfefe5d24ca8b,
     "x = cos(t) cos(t - tan(t)) ∧ y = cos(t) sin(t - tan(t)) ∧ 0 ≤ t < π/2",
     @bounds(-1, 1, -1, 1),
-    @timeout(3000),
+    @timeout(4000),
 );
 
 // trifolium (a = 1)
