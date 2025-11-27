@@ -1,11 +1,12 @@
 #![cfg(all(not(debug_assertions), feature = "arb"))]
 
 use std::{
-    fs::{create_dir, read},
+    fs::create_dir,
     path::PathBuf,
     process::{Command, Stdio},
 };
 use uuid::Uuid;
+use image::io::Reader as ImageReader;
 
 fn execute(cmd: &mut Command) -> bool {
     cmd.stdout(Stdio::null())
@@ -28,26 +29,26 @@ pub fn test(id: &str, args: &[String]) {
     let graph = PathBuf::from("../target/release/graph");
     let ref_dir = PathBuf::from("./tests/graph_tests/reference");
     let actual_dir = PathBuf::from("./tests/graph_tests/actual");
-    let ref_img = ref_dir.join([id, ".png"].concat());
-    let actual_img = actual_dir.join([id, ".png"].concat());
+    let ref_img_path = ref_dir.join([id, ".png"].concat());
+    let actual_img_path = actual_dir.join([id, ".png"].concat());
 
-    if ref_img.exists() {
+    if ref_img_path.exists() {
         let _ = create_dir(actual_dir);
 
         let mut cmd = Command::new(graph);
-        cmd.args(args).arg("--output").arg(actual_img.clone());
+        cmd.args(args).arg("--output").arg(actual_img_path.clone());
         if !args.iter().any(|a| a == "--timeout") {
             cmd.args(["--timeout", "1000"]);
         }
         assert!(execute(&mut cmd));
 
-        let ref_bytes = read(ref_img).unwrap();
-        let actual_bytes = read(actual_img).unwrap();
+        let ref_img = ImageReader::open(ref_img_path).unwrap().decode().unwrap().to_rgba8();
+        let actual_img = ImageReader::open(actual_img_path).unwrap().decode().unwrap().to_rgba8();
         // Use `assert!` instead of `assert_eq!` to avoid the `Vec`s to be printed.
-        assert!(ref_bytes == actual_bytes);
+        assert!(ref_img == actual_img);
     } else {
         let mut cmd = Command::new(graph);
-        cmd.args(args).arg("--output").arg(ref_img);
+        cmd.args(args).arg("--output").arg(ref_img_path);
         if !args.iter().any(|a| a == "--timeout") {
             cmd.args(["--timeout", "1000"]);
         }
