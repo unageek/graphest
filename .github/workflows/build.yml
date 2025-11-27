@@ -63,18 +63,18 @@ jobs:
           node-version: 24
 
       - name: Install dependencies
-        run: npm ci
+        run: yarn
 
       - name: Build
-        run: npm run build:app
+        run: yarn build:app
         env:
           NODE_ENV: production
 
       - name: Test
-        run: npm test
+        run: yarn test
 
       - name: Lint
-        run: npm run lint
+        run: yarn lint
 
       - name: Check format
-        run: npm run check-format
+        run: yarn check-format

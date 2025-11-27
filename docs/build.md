@@ -10,13 +10,7 @@
    xcode-select --install
    ```
 
-1. [Homebrew](https://brew.sh)
-
-1. [Node.js](https://nodejs.org)
-
-   ```bash
-   brew install node@24
-   ```
+1. [Node.js](https://nodejs.org/en/download/) v24
 
 1. [Rust](https://rustup.rs)
 
@@ -60,27 +54,28 @@
    sudo apt install -y libatk-bridge2.0-0 libatk1.0-0 libgbm1 libgconf-2-4 libgdk-pixbuf2.0-0 libgtk-3-0 libnss3
    ```
 
-1. [Node.js](https://nodejs.org/en/download/package-manager/)
-
-   ```bash
-   curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-   sudo apt install -y nodejs
-   ```
+1. [Node.js](https://nodejs.org/en/download/) v24
 
 1. [Rust](https://rustup.rs)
 
 ## Build
+
+1. Install Yarn (if you don't have it yet)
+
+   ```bash
+   npm install -g yarn
+   ```
 
 1. Clone the repo and install Node.js dependencies
 
    ```bash
    git clone https://github.com/unageek/graphest.git
    cd graphest
-   npm install
+   yarn
    ```
 
 1. Run the app
 
    ```bash
-   npm start
+   yarn start
    ```
