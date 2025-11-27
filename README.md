@@ -1,14 +1,13 @@
-![banner image](docs/banner.png)
-
 # Graphest
 
 **Graphest** is a graphing calculator that can faithfully plot arbitrary mathematical relations.
 
+<p align="center"><img width="656" height="456" alt="cover image" src="docs/cover.png"></p>
+
 ## Getting Started
 
-[Download the app](https://github.com/unageek/graphest/releases) (available for both macOS and Windows), and try plotting some of the [example relations](Examples.md).
-
-<img align="right" width="415" alt="cover image" src="docs/cover.png">
+1. [Download the app](https://github.com/unageek/graphest/releases) (both for macOS and Windows)
+2. Copy and paste some of the [example relations](Examples.md), and voilà!
 
 ## Features
 
