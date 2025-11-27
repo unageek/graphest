@@ -14,9 +14,9 @@
     "clean:rust": "rm -rf target",
     "guide": "cd docs/guide && asciidoctor --trace -r ./config/remove_mathjax.rb index.adoc && open index.html",
     "lint": "eslint .",
-    "release:mac": "yarn run lint && yarn run clean && NODE_ENV=production yarn run build && electron-builder --config electron-builder.config.js --mac --publish always",
-    "release:win": "yarn run lint && yarn run clean && cross-env-shell NODE_ENV=production yarn run build && electron-builder --config electron-builder.config.js --win --publish always",
-    "start": "cross-env-shell NODE_ENV=development yarn run build && electron .",
+    "release:mac": "yarn clean && NODE_ENV=production yarn build && electron-builder --config electron-builder.config.js --mac --publish always",
+    "release:win": "yarn clean && cross-env-shell NODE_ENV=production yarn build && electron-builder --config electron-builder.config.js --win --publish always",
+    "start": "cross-env-shell NODE_ENV=development yarn build && electron .",
     "test": "jest"
   },
   "author": "Masashi Mizuno",
