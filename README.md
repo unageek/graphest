@@ -1,6 +1,6 @@
-# Graphest
+<h1 align="center">Graphest</h1>
 
-**Graphest** is a graphing calculator that can faithfully plot arbitrary mathematical relations.
+<p align="center">A graphing calculator that faithfully plots arbitrary mathematical relations.</p>
 
 <p align="center"><img width="656" height="456" alt="cover image" src="docs/cover.png"></p>
 
