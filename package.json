@@ -79,5 +79,7 @@
     "slate-react": "^0.119.0",
     "zod": "^4.1.13"
   },
-  "productName": "Graphest"
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "*"
+  }
 }

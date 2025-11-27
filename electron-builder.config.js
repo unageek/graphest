@@ -1,10 +1,11 @@
 /** @type { import("electron-builder").Configuration } */
 export default {
   appId: "io.github.unageek.graphest",
+  productName: "Graphest",
   directories: {
     output: "release",
   },
-  files: ["dist/**/*", "!**/*.js.map"],
+  files: ["dist/**/*"],
   afterSign: "build/hooks/afterSign.js",
   protocols: [{ name: "Graphest", schemes: ["graphest"] }],
   mac: {
