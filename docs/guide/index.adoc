@@ -5,6 +5,7 @@
 :sectlinks:
 :stem: latexmath
 :toc: left
+:experimental:
 
 
 == Graphing a Circle
@@ -96,6 +97,47 @@ Each pixel of a graph is painted based on whether it contains a solution of the 
 |The pixel does not contain a solution.
 |===
 
+
+== Keybindings
+
+Symbols can be entered with dedicated keybindings.
+
+[cols="1a,1a,1"]
+|===
+|Keybinding (macOS) |Keybinding (Windows) |Symbol
+
+|kbd:[⌥ + P]
+|kbd:[Alt + P]
+|`π`
+
+|kbd:[⌥ + Q]
+|kbd:[Alt + Q]
+|`θ`
+
+|kbd:[⌥ + ⇧ + G]
+|kbd:[Alt + Shift + G]
+|`Γ`
+
+|kbd:[⌥ + ,]
+|kbd:[Alt + ,]
+|`≤`
+
+|kbd:[⌥ + .]
+|kbd:[Alt + .]
+|`≥`
+
+|kbd:[⌥ + 1]
+|kbd:[Alt + 1]
+|`¬` (logical NOT)
+
+|kbd:[⌥ + 7]
+|kbd:[Alt + 7]
+|`∧` (logical AND)
+
+|kbd:[⌥ + \ ]
+|kbd:[Alt + \ ]
+|`∨` (logical OR)
+|===
 
 == Built-in Definitions
 
