@@ -74,6 +74,12 @@ export const SymbolsButton = (props: SymbolsButtonProps): React.ReactNode => {
         />
       </PopoverTrigger>
       <PopoverSurface
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            dismiss();
+            e.preventDefault();
+          }
+        }}
         onMouseEnter={openDebounced}
         onMouseLeave={dismissDebounced}
         style={{
