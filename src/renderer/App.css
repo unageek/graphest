@@ -130,11 +130,11 @@ a:not([draggable]) {
 
 .relation-input-outer::before {
   border-radius: calc(var(--indicator-width) / 2);
-  bottom: 4px;
+  bottom: 2px;
   content: "";
   left: 0;
   position: absolute;
-  top: 4px;
+  top: 2px;
   transition: background-color 50ms;
   width: var(--indicator-width);
 }
