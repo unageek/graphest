@@ -309,6 +309,10 @@ export const RelationInput = (props: RelationInputProps): React.ReactNode => {
         ArrowLeft: true,
         ArrowRight: true,
         ArrowUp: true,
+        End: true,
+        Home: true,
+        PageDown: true,
+        PageUp: true,
       },
     },
   });
