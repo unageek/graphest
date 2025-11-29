@@ -5,6 +5,7 @@ import {
   PopoverSurface,
   PopoverTrigger,
   ToolbarButton,
+  useArrowNavigationGroup,
 } from "@fluentui/react-components";
 import { MathFormulaRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
@@ -29,6 +30,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): React.ReactNode => {
   const { onDismissed } = props;
   const [showCallout, setShowCallout] = useState(false);
   const styles = useStyles();
+  const arrowNavigationGroup = useArrowNavigationGroup({ axis: "grid" });
 
   const setShowCalloutDebounced = useMemo(
     () =>
@@ -79,6 +81,7 @@ export const SymbolsButton = (props: SymbolsButtonProps): React.ReactNode => {
         }}
       >
         <div
+          {...arrowNavigationGroup}
           style={{
             display: "grid",
             gridAutoRows: "32px",
