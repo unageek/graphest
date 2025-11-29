@@ -2,7 +2,7 @@ import { Range } from "../common/range";
 
 export enum TokenKind {
   /** `&&` or `∧`. */
-  And = 1,
+  And = 1, // Start from 1 to make tokens truthy.
   /** `*`. */
   Asterisk,
   /** `|`. */
@@ -61,11 +61,40 @@ export enum TokenKind {
   Unknown,
 }
 
-export type Token = {
-  kind: TokenKind;
-  range: Range;
-  source: string;
-};
+export class Token {
+  constructor(
+    readonly kind: TokenKind,
+    readonly range: Range,
+    readonly source: string,
+  ) {}
+
+  isLeftBracket(): boolean {
+    return (
+      this.kind === TokenKind.LBracket ||
+      this.kind === TokenKind.LCeil ||
+      this.kind === TokenKind.LFloor ||
+      this.kind === TokenKind.LParen
+    );
+  }
+
+  isMatchingLeftBracketWith(right: Token): boolean {
+    return (
+      (this.kind === TokenKind.LBracket && right.kind === TokenKind.RBracket) ||
+      (this.kind === TokenKind.LCeil && right.kind === TokenKind.RCeil) ||
+      (this.kind === TokenKind.LFloor && right.kind === TokenKind.RFloor) ||
+      (this.kind === TokenKind.LParen && right.kind === TokenKind.RParen)
+    );
+  }
+
+  isRightBracket(): boolean {
+    return (
+      this.kind === TokenKind.RBracket ||
+      this.kind === TokenKind.RCeil ||
+      this.kind === TokenKind.RFloor ||
+      this.kind === TokenKind.RParen
+    );
+  }
+}
 
 export const NormalizationRules: [string, string][] = [
   ["-", "−"], // a hyphen-minus → a minus sign
@@ -92,27 +121,16 @@ const rightBracketToLeft = new Map([
   ["⌋", "⌊"],
 ]);
 
-export function areBracketsBalanced(tokens: Token[]): boolean {
+export function areBracketsBalanced(tokens: Iterable<Token>): boolean {
   const leftBrackets: Token[] = [];
 
   for (const token of tokens) {
-    switch (token.kind) {
-      case TokenKind.LBracket:
-      case TokenKind.LCeil:
-      case TokenKind.LFloor:
-      case TokenKind.LParen:
-        leftBrackets.push(token);
-        break;
-
-      case TokenKind.RBracket:
-      case TokenKind.RCeil:
-      case TokenKind.RFloor:
-      case TokenKind.RParen: {
-        const left = leftBrackets.pop();
-        if (!left || left.source !== getLeftBracket(token.source)) {
-          return false;
-        }
-        break;
+    if (token.isLeftBracket()) {
+      leftBrackets.push(token);
+    } else if (token.isRightBracket()) {
+      const left = leftBrackets.pop();
+      if (!left || !left.isMatchingLeftBracketWith(token)) {
+        return false;
       }
     }
   }
@@ -182,60 +200,40 @@ export function getDecorations(
     const prev = tokens[i - 1];
     const next = tokens[i + 1];
 
-    switch (token.kind) {
-      case TokenKind.LBracket:
-      case TokenKind.LCeil:
-      case TokenKind.LFloor:
-      case TokenKind.LParen: {
-        leftBrackets.push(token);
+    if (token.isLeftBracket()) {
+      leftBrackets.push(token);
 
-        if (next && !EXPECTED_TOKENS_AFTER_LEFT_BRACKET.has(next.kind)) {
-          syntaxErrors.push(next);
-        }
-        break;
+      if (next && !EXPECTED_TOKENS_AFTER_LEFT_BRACKET.has(next.kind)) {
+        syntaxErrors.push(next);
       }
-
-      case TokenKind.RBracket:
-      case TokenKind.RCeil:
-      case TokenKind.RFloor:
-      case TokenKind.RParen: {
-        const left = leftBrackets.pop();
-        if (!left || left.source !== getLeftBracket(token.source)) {
-          syntaxErrors.push(...leftBrackets);
-          if (left) {
-            syntaxErrors.push(left);
-          }
-          syntaxErrors.push(token);
-          leftBrackets.length = 0;
-        } else if (highlightedLeftBrackets.length === 0) {
-          if (
-            left.range.start < selection.start &&
-            selection.end <= token.range.start
-          ) {
-            highlightedLeftBrackets.push(left);
-            highlightedRightBrackets.push(token);
-          }
+    } else if (token.isRightBracket()) {
+      const left = leftBrackets.pop();
+      if (!left || !left.isMatchingLeftBracketWith(token)) {
+        syntaxErrors.push(...leftBrackets);
+        if (left) {
+          syntaxErrors.push(left);
         }
-
-        if (prev && !EXPECTED_TOKENS_BEFORE_RIGHT_BRACKETS.has(prev.kind)) {
-          syntaxErrors.push(prev);
-        }
-        break;
-      }
-
-      case TokenKind.Space: {
-        if (
-          prev?.kind === TokenKind.Number &&
-          next?.kind === TokenKind.Number
-        ) {
-          multiplications.push(token);
-        }
-        break;
-      }
-
-      case TokenKind.Unknown:
         syntaxErrors.push(token);
-        break;
+        leftBrackets.length = 0;
+      } else if (highlightedLeftBrackets.length === 0) {
+        if (
+          left.range.start < selection.start &&
+          selection.end <= token.range.start
+        ) {
+          highlightedLeftBrackets.push(left);
+          highlightedRightBrackets.push(token);
+        }
+      }
+
+      if (prev && !EXPECTED_TOKENS_BEFORE_RIGHT_BRACKETS.has(prev.kind)) {
+        syntaxErrors.push(prev);
+      }
+    } else if (token.kind === TokenKind.Space) {
+      if (prev?.kind === TokenKind.Number && next?.kind === TokenKind.Number) {
+        multiplications.push(token);
+      }
+    } else if (token.kind === TokenKind.Unknown) {
+      syntaxErrors.push(token);
     }
   }
 
@@ -256,12 +254,20 @@ export function getDecorations(
   };
 }
 
-export function getLeftBracket(rightBracket: string): string | undefined {
-  return rightBracketToLeft.get(rightBracket);
+export function getLeftBracket(rightBracket: string): string {
+  const leftBracket = rightBracketToLeft.get(rightBracket);
+  if (leftBracket === undefined) {
+    throw new Error();
+  }
+  return leftBracket;
 }
 
-export function getRightBracket(leftBracket: string): string | undefined {
-  return leftBracketToRight.get(leftBracket);
+export function getRightBracket(leftBracket: string): string {
+  const rightBracket = leftBracketToRight.get(leftBracket);
+  if (rightBracket === undefined) {
+    throw new Error();
+  }
+  return rightBracket;
 }
 
 export function isLeftBracket(ch: string): boolean {
@@ -295,7 +301,7 @@ export function* tokenize(rel: string): Generator<Token, void> {
         break;
     }
     if (kind !== undefined) {
-      yield { kind, range: new Range(i, i + 2), source: rel.slice(i, i + 2) };
+      yield new Token(kind, new Range(i, i + 2), rel.slice(i, i + 2));
       i += 2;
       continue;
     }
@@ -381,7 +387,7 @@ export function* tokenize(rel: string): Generator<Token, void> {
         break;
     }
     if (kind !== undefined) {
-      yield { kind, range: new Range(i, i + 1), source: rel[i] };
+      yield new Token(kind, new Range(i, i + 1), rel[i]);
       i++;
       continue;
     }
@@ -391,11 +397,11 @@ export function* tokenize(rel: string): Generator<Token, void> {
     const identifier = forward.match(IDENTIFIER);
     if (identifier) {
       const len = identifier[0].length;
-      yield {
-        kind: TokenKind.Identifier,
-        range: new Range(i, i + len),
-        source: identifier[0],
-      };
+      yield new Token(
+        TokenKind.Identifier,
+        new Range(i, i + len),
+        identifier[0],
+      );
       i += len;
       continue;
     }
@@ -403,20 +409,20 @@ export function* tokenize(rel: string): Generator<Token, void> {
     const numberLiteral = forward.match(NUMBER_LITERAL);
     if (numberLiteral) {
       const len = numberLiteral[0].length;
-      yield {
-        kind: TokenKind.Number,
-        range: new Range(i, i + len),
-        source: numberLiteral[0],
-      };
+      yield new Token(
+        TokenKind.Number,
+        new Range(i, i + len),
+        numberLiteral[0],
+      );
       i += len;
       continue;
     }
 
-    yield {
-      kind: TokenKind.Unknown,
-      range: new Range(i, i + 1),
-      source: rel.slice(i, i + 1),
-    };
+    yield new Token(
+      TokenKind.Unknown,
+      new Range(i, i + 1),
+      rel.slice(i, i + 1),
+    );
     i++;
   }
 }

@@ -23,6 +23,7 @@ import { Range } from "../common/range";
 import {
   NormalizationRules,
   Token,
+  TokenKind,
   areBracketsBalanced,
   getDecorations,
   getRightBracket,
@@ -84,6 +85,20 @@ declare module "slate" {
 
 type DecoratedRange = S.Range & Partial<Decoration>;
 
+const shouldInsertBracketPairBefore = (subsequentText: string): boolean => {
+  for (const token of tokenize(subsequentText)) {
+    if (token.kind === TokenKind.Space) {
+      continue;
+    }
+    if (token.isRightBracket() || token.kind === TokenKind.Comma) {
+      return true;
+    }
+    return false;
+  }
+
+  return true; // No tokens.
+};
+
 const insertSymbolPair = (editor: S.Editor, left: string, right: string) => {
   // Do not read `editor.selection` after any transformation.
   // See https://github.com/ianstormtaylor/slate/issues/4541
@@ -123,15 +138,17 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
         const after = S.Editor.after(editor, point, { unit: "character" });
         if (!before || !after) return;
 
-        const charBefore = S.Editor.string(editor, {
+        const prevChar = S.Editor.string(editor, {
           anchor: before,
           focus: point,
         });
-        const charAfter = S.Editor.string(editor, {
+        if (!isLeftBracket(prevChar)) return;
+
+        const nextChar = S.Editor.string(editor, {
           anchor: point,
           focus: after,
         });
-        if (getRightBracket(charBefore) !== charAfter) return;
+        if (getRightBracket(prevChar) !== nextChar) return;
 
         if (!areBracketsBalanced(editor.tokens)) return;
 
@@ -163,21 +180,19 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
       if (isLeftBracket(text)) {
         S.Editor.withoutNormalizing(editor, () => {
           const point = S.Editor.point(editor, sel);
-          const after = S.Editor.after(editor, point, { unit: "character" });
-          if (after) {
-            const charAfter = S.Editor.string(editor, {
-              anchor: point,
-              focus: after,
-            });
-            if (!isRightBracket(charAfter)) return;
+          const end = S.Editor.end(editor, [0]);
+          const subsequentText = S.Editor.string(editor, {
+            anchor: point,
+            focus: end,
+          });
+          if (
+            !shouldInsertBracketPairBefore(subsequentText) ||
+            !areBracketsBalanced(editor.tokens)
+          ) {
+            return;
           }
 
-          const rightBracket = getRightBracket(text);
-          if (!rightBracket) throw new Error();
-
-          if (!areBracketsBalanced(editor.tokens)) return;
-
-          insertSymbolPair(editor, text, rightBracket);
+          insertSymbolPair(editor, text, getRightBracket(text));
           handled = true;
         });
       } else if (isRightBracket(text)) {
@@ -186,15 +201,24 @@ const withRelationEditingExtensions = (editor: S.Editor) => {
           const after = S.Editor.after(editor, point, { unit: "character" });
           if (!after) return;
 
-          const charAfter = S.Editor.string(editor, {
+          const nextChar = S.Editor.string(editor, {
             anchor: point,
             focus: after,
           });
-          if (text !== charAfter) return;
+          if (text !== nextChar || !areBracketsBalanced(editor.tokens)) return;
 
-          if (!areBracketsBalanced(editor.tokens)) return;
-
+          // Step over the right bracket.
           S.Transforms.select(editor, after);
+          handled = true;
+        });
+      }
+    } else {
+      if (isLeftBracket(text)) {
+        S.Editor.withoutNormalizing(editor, () => {
+          const selectedText = S.Editor.string(editor, sel);
+          if (!areBracketsBalanced(tokenize(selectedText))) return;
+
+          insertSymbolPair(editor, text, getRightBracket(text));
           handled = true;
         });
       }
