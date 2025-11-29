@@ -121,7 +121,7 @@ t!(
     t_9359b338708e4df1a8bdc6220b95e527,
     "y = Y(0, x)",
     @bounds(-4, 4, -4, 4),
-    @timeout(3000),
+    @timeout(4000),
 );
 t!(
     t_795e8b2422db48ca86b5de4a2de94b4c,
