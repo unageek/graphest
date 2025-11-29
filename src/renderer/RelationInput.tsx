@@ -32,6 +32,7 @@ import {
 } from "./relationUtils";
 
 export interface RelationInputActions {
+  focus: () => void;
   insertSymbol: (symbol: string) => void;
   insertSymbolPair: (left: string, right: string) => void;
 }
@@ -437,6 +438,11 @@ export const RelationInput = (props: RelationInputProps): React.ReactNode => {
   }, [editor, moveCursorToTheEnd, props.relation, props.relationInputByUser]);
 
   useImperativeHandle(props.actionsRef, () => ({
+    focus: () => {
+      // Blurring is required since we are ignoring the `onBlur` event for the `Editable`.
+      ReactEditor.blur(editor);
+      ReactEditor.focus(editor);
+    },
     insertSymbol: (symbol: string) => {
       S.Transforms.insertText(editor, symbol);
     },
@@ -478,10 +484,14 @@ export const RelationInput = (props: RelationInputProps): React.ReactNode => {
           {...tabsterAttributes}
           className="relation-input"
           decorate={decorate}
-          // https://github.com/ianstormtaylor/slate/issues/4721
+          onBlur={(e) => {
+            // https://github.com/ianstormtaylor/slate/issues/3412#issuecomment-946844682
+            e.preventDefault();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               updateRelation();
+              // https://github.com/ianstormtaylor/slate/issues/4721
               updateRelation.flush()?.then((result) => {
                 if (result.ok !== undefined) {
                   onEnterKeyPressed();

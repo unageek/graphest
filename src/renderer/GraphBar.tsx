@@ -86,6 +86,9 @@ export const GraphBar = (props: GraphBarProps): React.ReactNode => {
         }}
       />
       <SymbolsButton
+        onDismissed={() => {
+          relationInputActionsRef.current?.focus();
+        }}
         onSymbolChosen={(symbol: string) =>
           relationInputActionsRef.current?.insertSymbol(symbol)
         }

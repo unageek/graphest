@@ -12,6 +12,7 @@ import * as React from "react";
 import { useCallback, useMemo, useState } from "react";
 
 export interface SymbolsButtonProps {
+  onDismissed?: () => void;
   onSymbolChosen: (symbol: string) => void;
   onSymbolPairChosen: (first: string, second: string) => void;
 }
@@ -25,6 +26,7 @@ const useStyles = makeStyles({
 });
 
 export const SymbolsButton = (props: SymbolsButtonProps): React.ReactNode => {
+  const { onDismissed } = props;
   const [showCallout, setShowCallout] = useState(false);
   const styles = useStyles();
 
@@ -32,14 +34,18 @@ export const SymbolsButton = (props: SymbolsButtonProps): React.ReactNode => {
     () =>
       debounce((show: boolean) => {
         setShowCallout(show);
+        if (!show) {
+          onDismissed?.();
+        }
       }, 200),
-    [],
+    [onDismissed],
   );
 
   const dismiss = useCallback(() => {
     setShowCalloutDebounced.cancel();
     setShowCallout(false);
-  }, [setShowCalloutDebounced]);
+    onDismissed?.();
+  }, [onDismissed, setShowCalloutDebounced]);
 
   const dismissDebounced = useCallback(() => {
     setShowCalloutDebounced(false);
