@@ -1,3 +1,4 @@
+import { useTabsterAttributes } from "@fluentui/react-tabster";
 import { debounce } from "lodash";
 import * as React from "react";
 import {
@@ -300,6 +301,16 @@ export const RelationInput = (props: RelationInputProps): React.ReactNode => {
   ]);
   const [validationError, setValidationError] = useState<RelationError>();
   const [showValidationError, setShowValidationError] = useState(false);
+  const tabsterAttributes = useTabsterAttributes({
+    focusable: {
+      ignoreKeydown: {
+        ArrowDown: true,
+        ArrowLeft: true,
+        ArrowRight: true,
+        ArrowUp: true,
+      },
+    },
+  });
 
   const decorate = useCallback(
     (entry: S.NodeEntry): S.Range[] => {
@@ -464,6 +475,7 @@ export const RelationInput = (props: RelationInputProps): React.ReactNode => {
         initialValue={initialValue}
       >
         <Editable
+          {...tabsterAttributes}
           className="relation-input"
           decorate={decorate}
           // https://github.com/ianstormtaylor/slate/issues/4721
@@ -492,10 +504,12 @@ export const RelationInput = (props: RelationInputProps): React.ReactNode => {
             }
           }}
           renderLeaf={renderLeaf}
+          tabIndex={0}
         />
       </Slate>
     );
   }, [
+    tabsterAttributes,
     decorate,
     editor,
     initialValue,
