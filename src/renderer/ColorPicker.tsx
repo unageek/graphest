@@ -1,6 +1,5 @@
 import { Tab, TabList, TabValue } from "@fluentui/react-components";
-import * as React from "react";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { CustomColorPicker } from "./CustomColorPicker";
 import { SwatchColorPicker } from "./SwatchColorPicker";
 
@@ -9,7 +8,7 @@ export interface ColorPickerProps {
   onColorChanged: (color: string) => void;
 }
 
-export const ColorPicker = (props: ColorPickerProps): React.ReactNode => {
+export const ColorPicker = (props: ColorPickerProps): ReactNode => {
   const [selectedTab, setSelectedTab] = useState<TabValue>("swatch");
 
   return (

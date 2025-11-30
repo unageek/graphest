@@ -9,8 +9,7 @@ import {
 } from "@fluentui/react-components";
 import { MathFormulaRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
-import * as React from "react";
-import { useCallback, useMemo, useState } from "react";
+import { ReactNode, useCallback, useMemo, useState } from "react";
 
 export interface SymbolsButtonProps {
   onDismissed?: () => void;
@@ -26,7 +25,7 @@ const useStyles = makeStyles({
   },
 });
 
-export const SymbolsButton = (props: SymbolsButtonProps): React.ReactNode => {
+export const SymbolsButton = (props: SymbolsButtonProps): ReactNode => {
   const { onDismissed } = props;
   const [showCallout, setShowCallout] = useState(false);
   const styles = useStyles();

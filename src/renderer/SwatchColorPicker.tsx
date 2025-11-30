@@ -3,16 +3,14 @@ import {
   SwatchPicker,
 } from "@fluentui/react-components";
 import Color from "color";
-import * as React from "react";
+import { ReactNode } from "react";
 
 export interface SwatchColorPickerProps {
   color: string;
   onColorChanged: (color: string) => void;
 }
 
-export const SwatchColorPicker = (
-  props: SwatchColorPickerProps,
-): React.ReactNode => {
+export const SwatchColorPicker = (props: SwatchColorPickerProps): ReactNode => {
   const color = new Color(props.color);
 
   return (

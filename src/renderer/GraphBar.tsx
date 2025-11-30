@@ -14,8 +14,7 @@ import {
   ReOrderDotsVerticalRegular,
 } from "@fluentui/react-icons";
 import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
-import * as React from "react";
-import { useRef } from "react";
+import { ReactNode, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { GraphStyleButton } from "./GraphStyleButton";
@@ -39,7 +38,7 @@ export interface GraphBarProps {
   ) => Promise<RequestRelationResult>;
 }
 
-export const GraphBar = (props: GraphBarProps): React.ReactNode => {
+export const GraphBar = (props: GraphBarProps): ReactNode => {
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
   const highRes = useSelector((s) => s.highRes);

@@ -7,17 +7,14 @@ import {
   tokens,
 } from "@fluentui/react-components";
 import Color from "color";
-import * as React from "react";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 
 export interface CustomColorPickerProps {
   color: string;
   onColorChanged: (color: string) => void;
 }
 
-export const CustomColorPicker = (
-  props: CustomColorPickerProps,
-): React.ReactNode => {
+export const CustomColorPicker = (props: CustomColorPickerProps): ReactNode => {
   const color = new Color(props.color);
   const [hex, setHex] = useState(color.hex().substring(1));
   const [hue, setHue] = useState(color.hue());

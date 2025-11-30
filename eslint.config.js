@@ -4,7 +4,7 @@ import ts from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
-import * as path from "node:path";
+import path from "node:path";
 
 /** @type { import("eslint").Linter.Config[] } */
 export default [

@@ -8,7 +8,7 @@ import {
   DialogTitle,
   Label,
 } from "@fluentui/react-components";
-import * as React from "react";
+import { ReactNode } from "react";
 import { useDispatch } from "react-redux";
 import { ColorButton } from "./ColorButton";
 import {
@@ -21,7 +21,7 @@ export interface ColorsDialogProps {
   dismiss: () => void;
 }
 
-export const ColorsDialog = (props: ColorsDialogProps): React.ReactNode => {
+export const ColorsDialog = (props: ColorsDialogProps): ReactNode => {
   const background = useSelector((s) => s.graphBackground);
   const foreground = useSelector((s) => s.graphForeground);
   const dispatch = useDispatch();

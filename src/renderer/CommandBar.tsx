@@ -5,7 +5,7 @@ import {
   ColorRegular,
   ImageRegular,
 } from "@fluentui/react-icons";
-import * as React from "react";
+import { ReactNode } from "react";
 import { useDispatch } from "react-redux";
 import {
   newGraph,
@@ -14,7 +14,7 @@ import {
   setShowGoToDialog,
 } from "./models/app";
 
-export const CommandBar = (): React.ReactNode => {
+export const CommandBar = (): ReactNode => {
   const dispatch = useDispatch();
 
   return (

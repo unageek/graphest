@@ -4,7 +4,7 @@ import {
   PopoverSurface,
   PopoverTrigger,
 } from "@fluentui/react-components";
-import * as React from "react";
+import { ReactNode } from "react";
 import { ColorPicker } from "./ColorPicker";
 
 export interface ColorButtonProps {
@@ -12,7 +12,7 @@ export interface ColorButtonProps {
   onColorChanged: (color: string) => void;
 }
 
-export const ColorButton = (props: ColorButtonProps): React.ReactNode => {
+export const ColorButton = (props: ColorButtonProps): ReactNode => {
   return (
     <Popover positioning="below-start">
       <PopoverTrigger>

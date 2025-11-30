@@ -7,8 +7,7 @@ import {
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
 import Color from "color";
-import * as React from "react";
-import { useEffect, useRef } from "react";
+import { StrictMode, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider, useDispatch } from "react-redux";
 import { Command } from "../common/command";
@@ -195,11 +194,11 @@ const App = () => {
 };
 
 createRoot(document.getElementById("app") as HTMLElement).render(
-  <React.StrictMode>
+  <StrictMode>
     <Provider store={store}>
       <App />
     </Provider>
-  </React.StrictMode>,
+  </StrictMode>,
 );
 
 window.ipcRenderer.on<ipc.CommandInvoked>(ipc.commandInvoked, (_, item) => {

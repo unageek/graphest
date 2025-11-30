@@ -1,5 +1,5 @@
-import * as path from "node:path";
-import * as process from "node:process";
+import path from "node:path";
+import process from "node:process";
 
 /** @typedef { import('webpack').Configuration } WebpackConfig */
 

@@ -10,8 +10,7 @@ import {
   ToolbarButton,
 } from "@fluentui/react-components";
 import { debounce } from "lodash";
-import * as React from "react";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { MAX_PEN_SIZE } from "../common/constants";
 import { tryParseNumberInRange } from "../common/parse";
 import { ColorPicker } from "./ColorPicker";
@@ -23,9 +22,7 @@ export interface GraphStyleButtonProps {
   penSize: number;
 }
 
-export const GraphStyleButton = (
-  props: GraphStyleButtonProps,
-): React.ReactNode => {
+export const GraphStyleButton = (props: GraphStyleButtonProps): ReactNode => {
   const { onPenSizeChanged } = props;
   const [penSize, setPenSize] = useState<string>(props.penSize.toString());
   const [penSizeErrorMessage, setPenSizeErrorMessage] = useState<string>();

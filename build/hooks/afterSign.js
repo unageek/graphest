@@ -1,7 +1,7 @@
 import { notarize } from "@electron/notarize";
 import "dotenv/config";
-import * as path from "node:path";
-import * as process from "node:process";
+import path from "node:path";
+import process from "node:process";
 
 /** @type { (ctx: import("app-builder-lib").PackContext) => Promise<void> } */
 export default async (ctx) => {

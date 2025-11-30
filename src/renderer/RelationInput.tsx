@@ -1,7 +1,7 @@
 import { useTabsterAttributes } from "@fluentui/react-tabster";
 import { debounce } from "lodash";
-import * as React from "react";
 import {
+  ReactNode,
   RefObject,
   useCallback,
   useEffect,
@@ -304,7 +304,7 @@ const renderLeaf = (props: RenderLeafProps) => {
   );
 };
 
-export const RelationInput = (props: RelationInputProps): React.ReactNode => {
+export const RelationInput = (props: RelationInputProps): ReactNode => {
   const { onEnterKeyPressed } = props;
   const [editor] = useState<S.Editor>(
     withRelationEditingExtensions(withHistory(withReact(S.createEditor()))),

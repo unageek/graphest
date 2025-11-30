@@ -5,8 +5,7 @@ import {
   Droppable,
   DropResult,
 } from "@hello-pangea/dnd";
-import * as React from "react";
-import { useCallback } from "react";
+import { ReactNode, useCallback } from "react";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { GraphBar } from "./GraphBar";
@@ -21,7 +20,7 @@ export interface GraphBarsProps {
   ) => Promise<RequestRelationResult>;
 }
 
-export const GraphBars = (props: GraphBarsProps): React.ReactNode => {
+export const GraphBars = (props: GraphBarsProps): ReactNode => {
   const dispatch = useDispatch();
   const graphs = useSelector((s) => s.graphs);
 

@@ -12,7 +12,7 @@ import installExtension, {
   REDUX_DEVTOOLS,
 } from "electron-devtools-installer";
 import { autoUpdater } from "electron-updater";
-import * as _ from "lodash";
+import _ from "lodash";
 import assert from "node:assert";
 import {
   ChildProcess,
@@ -20,11 +20,11 @@ import {
   ExecFileException,
   spawn,
 } from "node:child_process";
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
-import * as url from "node:url";
-import * as util from "node:util";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import url from "node:url";
+import util from "node:util";
 import { bignum } from "../common/BigNumber";
 import { Command } from "../common/command";
 import {

@@ -11,8 +11,7 @@ import {
   Label,
 } from "@fluentui/react-components";
 import { debounce } from "lodash";
-import * as React from "react";
-import { useCallback, useMemo, useState } from "react";
+import { ReactNode, useCallback, useMemo, useState } from "react";
 import { BASE_ZOOM_LEVEL } from "../common/constants";
 import { tryParseIntegerInRange, tryParseNumber } from "../common/parse";
 
@@ -27,7 +26,7 @@ const MIN_ZOOM_LEVEL: number = -BASE_ZOOM_LEVEL;
 // Leaflet maps cannot be zoomed in to a level greater than 1023.
 const MAX_ZOOM_LEVEL: number = 1023 - BASE_ZOOM_LEVEL;
 
-export const GoToDialog = (props: GoToDialogProps): React.ReactNode => {
+export const GoToDialog = (props: GoToDialogProps): ReactNode => {
   const { dismiss, goTo } = props;
 
   const [errors, setErrors] = useState<Set<string>>(new Set());
