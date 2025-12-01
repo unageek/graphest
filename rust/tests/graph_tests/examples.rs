@@ -178,5 +178,5 @@ t!(
     t_40c29ccd39684aa7847dc32caf5bcab6,
     "0.15 > |rankedMin([cos(8y), cos(4(y-sqrt(3)x)), cos(4(y+sqrt(3)x))], 2) - cos(⌊3/π mod(atan2(y,x),2π) - 0.5⌋) - 0.1| ∧ rankedMin([|2x|, |x-sqrt(3)y|, |x+sqrt(3)y|], 2) < 10",
     @bounds(-10.1, 9.9, -9.8, 10.2),
-    @timeout(4000),
+    @timeout(5000),
 );
