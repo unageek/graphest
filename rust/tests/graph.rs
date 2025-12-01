@@ -1,12 +1,12 @@
 #![cfg(all(not(debug_assertions), feature = "arb"))]
 
+use image::ImageReader;
 use std::{
     fs::create_dir,
     path::PathBuf,
     process::{Command, Stdio},
 };
 use uuid::Uuid;
-use image::io::Reader as ImageReader;
 
 fn execute(cmd: &mut Command) -> bool {
     cmd.stdout(Stdio::null())
@@ -42,10 +42,17 @@ pub fn test(id: &str, args: &[String]) {
         }
         assert!(execute(&mut cmd));
 
-        let ref_img = ImageReader::open(ref_img_path).unwrap().decode().unwrap().to_rgba8();
-        let actual_img = ImageReader::open(actual_img_path).unwrap().decode().unwrap().to_rgba8();
-        // Use `assert!` instead of `assert_eq!` to avoid the `Vec`s to be printed.
-        assert!(ref_img == actual_img);
+        let ref_img = ImageReader::open(ref_img_path)
+            .unwrap()
+            .decode()
+            .unwrap()
+            .to_rgba8();
+        let actual_img = ImageReader::open(actual_img_path)
+            .unwrap()
+            .decode()
+            .unwrap()
+            .to_rgba8();
+        assert_eq!(ref_img, actual_img);
     } else {
         let mut cmd = Command::new(graph);
         cmd.args(args).arg("--output").arg(ref_img_path);
