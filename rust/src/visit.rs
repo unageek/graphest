@@ -942,6 +942,8 @@ fn cmp_terms(x: &Expr, y: &Expr) -> Ordering {
             }
             xs.len().cmp(&ys.len())
         })(),
+        (nary!(Times, _), _) => Ordering::Less,
+        (_, nary!(Times, _)) => Ordering::Greater,
         _ => Ordering::Equal,
     }
 }
@@ -2285,6 +2287,9 @@ mod tests {
 
         test("y z + x y z", "(Plus (Times y z) (Times x y z))");
         test("x y z + y z", "(Plus (Times y z) (Times x y z))");
+
+        test("x y + sin(z)", "(Plus (Times x y) (Sin z))");
+        test("sin(z) + x y", "(Plus (Times x y) (Sin z))");
     }
 
     #[test]
