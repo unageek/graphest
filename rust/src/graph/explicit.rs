@@ -259,27 +259,27 @@ impl Explicit {
         let cond = cond.result(self.rel.forms());
         let dec = ys.decoration();
 
-        if dec >= Decoration::Def && cond.certainly_true() {
-            let y = ys
-                .iter()
-                .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y.x));
-
-            let pixels = self.possibly_true_pixels(px, y);
-            let t_pixels = self.true_pixels(px, y);
-            for p in &t_pixels {
-                self.im[p] = PixelState::True;
-            }
-            if pixels == t_pixels {
-                return;
-            }
-        } else if cond.certainly_false() {
-            return;
-        }
-
         let x_dn = self.region(b.x.pixel()).inner();
         let inter = x_up.intersection(x_dn);
 
         if !inter.is_empty() {
+            if dec >= Decoration::Def && cond.certainly_true() {
+                let y = ys
+                    .iter()
+                    .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y.x));
+
+                let pixels = self.possibly_true_pixels(px, y);
+                let t_pixels = self.true_pixels(px, y);
+                for p in &t_pixels {
+                    self.im[p] = PixelState::True;
+                }
+                if pixels == t_pixels {
+                    return;
+                }
+            } else if cond.certainly_false() {
+                return;
+            }
+
             // To dedup, points must be sorted.
             let rs = [inter.inf(), simple_fraction(inter), inter.sup()]
                 .into_iter()
