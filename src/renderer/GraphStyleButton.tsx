@@ -3,40 +3,43 @@ import {
   Divider,
   Field,
   Input,
-  Label,
   Popover,
   PopoverSurface,
   PopoverTrigger,
   ToolbarButton,
+  ToolbarDivider,
 } from "@fluentui/react-components";
 import { debounce } from "lodash";
 import { ReactNode, useMemo, useState } from "react";
 import { MAX_PEN_SIZE } from "../common/constants";
 import { tryParseNumberInRange } from "../common/parse";
 import { ColorPicker } from "./ColorPicker";
+import { ThicknessButton } from "./ThicknessButton";
 
 export interface GraphStyleButtonProps {
   color: string;
   onColorChanged: (color: string) => void;
-  onPenSizeChanged: (penSize: number) => void;
-  penSize: number;
+  onThicknessChanged: (penSize: number) => void;
+  thickness: number;
 }
 
 export const GraphStyleButton = (props: GraphStyleButtonProps): ReactNode => {
-  const { onPenSizeChanged } = props;
-  const [penSize, setPenSize] = useState<string>(props.penSize.toString());
-  const [penSizeErrorMessage, setPenSizeErrorMessage] = useState<string>();
+  const { onThicknessChanged } = props;
+  const [thickness, setThickness] = useState<string>(
+    props.thickness.toString(),
+  );
+  const [thicknessErrorMessage, setThicknessErrorMessage] = useState<string>();
 
-  const validatePenSize = useMemo(
+  const validateThickness = useMemo(
     () =>
       debounce((value: string) => {
         const result = tryParseNumberInRange(value, 0, MAX_PEN_SIZE);
-        setPenSizeErrorMessage(result.err);
+        setThicknessErrorMessage(result.err);
         if (result.ok !== undefined) {
-          onPenSizeChanged(result.ok);
+          onThicknessChanged(result.ok);
         }
       }, 200),
-    [onPenSizeChanged],
+    [onThicknessChanged],
   );
 
   return (
@@ -75,35 +78,45 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): ReactNode => {
           onColorChanged={props.onColorChanged}
         />
         <Divider />
-        <div
-          style={{
-            alignItems: "baseline",
-            display: "flex",
-            flexDirection: "row",
-            gap: "8px",
-          }}
-        >
-          <Label style={{ textWrap: "nowrap" }}>Pen size:</Label>
-          <Field validationMessage={penSizeErrorMessage}>
+        <Field validationMessage={thicknessErrorMessage}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexDirection: "row",
+            }}
+          >
+            {[1, 2, 3].map((t) => (
+              <ThicknessButton
+                appearance="subtle"
+                checked={props.thickness === t}
+                onClick={() => {
+                  setThickness(t.toString());
+                  onThicknessChanged(t);
+                }}
+                thickness={t}
+              />
+            ))}
+            <ToolbarDivider />
             <Input
-              contentAfter={props.penSize > 1 ? "pixels" : "pixel"}
+              contentAfter={props.thickness > 1 ? "pixels" : "pixel"}
               onChange={(_, { value }) => {
-                setPenSize(value);
-                validatePenSize(value);
+                setThickness(value);
+                validateThickness(value);
               }}
-              style={{ width: "150px" }}
-              value={penSize}
+              style={{ width: "120px" }}
+              value={thickness}
             />
-          </Field>
-        </div>
-        {props.penSize < 1.0 && (
+          </div>
+        </Field>
+        {props.thickness < 1.0 && (
           <Caption1>
-            A pen size less than 1px is only applied to rendered graphs.
+            A pen thickness less than 1px is only applied to rendered graphs.
           </Caption1>
         )}
-        {props.penSize > 3.0 && (
+        {props.thickness > 3.0 && (
           <Caption1>
-            A pen size greater then 3px is only applied to rendered graphs.
+            A pen thickness greater then 3px is only applied to rendered graphs.
           </Caption1>
         )}
       </div>

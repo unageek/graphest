@@ -65,8 +65,8 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
       <GraphStyleButton
         color={graph.color}
         onColorChanged={(c) => dispatch(setGraphColor(props.graphId, c))}
-        onPenSizeChanged={(t) => dispatch(setGraphPenSize(props.graphId, t))}
-        penSize={graph.penSize}
+        onThicknessChanged={(t) => dispatch(setGraphPenSize(props.graphId, t))}
+        thickness={graph.penSize}
       />
       <RelationInput
         actionsRef={relationInputActionsRef}
