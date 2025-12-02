@@ -90,6 +90,7 @@ export const PenButton = (props: PenButtonProps): ReactNode => {
               <ThicknessButton
                 appearance="subtle"
                 checked={props.thickness === t}
+                key={t}
                 onClick={() => {
                   setThickness(t.toString());
                   onThicknessChanged(t);
