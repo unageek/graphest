@@ -17,14 +17,14 @@ import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import { ReactNode, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
-import { GraphStyleButton } from "./GraphStyleButton";
+import { PenButton } from "./PenButton";
 import { RelationInput, RelationInputActions } from "./RelationInput";
 import { SymbolsButton } from "./SymbolsButton";
 import { removeGraph, useSelector } from "./models/app";
 import {
   setGraphColor,
-  setGraphPenSize,
   setGraphRelation,
+  setGraphThickness,
 } from "./models/graph";
 
 export interface GraphBarProps {
@@ -62,11 +62,13 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
       >
         <ReOrderDotsVerticalRegular />
       </div>
-      <GraphStyleButton
+      <PenButton
         color={graph.color}
         onColorChanged={(c) => dispatch(setGraphColor(props.graphId, c))}
-        onThicknessChanged={(t) => dispatch(setGraphPenSize(props.graphId, t))}
-        thickness={graph.penSize}
+        onThicknessChanged={(t) =>
+          dispatch(setGraphThickness(props.graphId, t))
+        }
+        thickness={graph.thickness}
       />
       <RelationInput
         actionsRef={relationInputActionsRef}

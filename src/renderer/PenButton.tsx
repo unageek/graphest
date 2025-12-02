@@ -11,19 +11,19 @@ import {
 } from "@fluentui/react-components";
 import { debounce } from "lodash";
 import { ReactNode, useMemo, useState } from "react";
-import { MAX_PEN_SIZE } from "../common/constants";
+import { MAX_PEN_THICKNESS } from "../common/constants";
 import { tryParseNumberInRange } from "../common/parse";
 import { ColorPicker } from "./ColorPicker";
 import { ThicknessButton } from "./ThicknessButton";
 
-export interface GraphStyleButtonProps {
+export interface PenButtonProps {
   color: string;
   onColorChanged: (color: string) => void;
-  onThicknessChanged: (penSize: number) => void;
+  onThicknessChanged: (thickness: number) => void;
   thickness: number;
 }
 
-export const GraphStyleButton = (props: GraphStyleButtonProps): ReactNode => {
+export const PenButton = (props: PenButtonProps): ReactNode => {
   const { onThicknessChanged } = props;
   const [thickness, setThickness] = useState<string>(
     props.thickness.toString(),
@@ -33,7 +33,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): ReactNode => {
   const validateThickness = useMemo(
     () =>
       debounce((value: string) => {
-        const result = tryParseNumberInRange(value, 0, MAX_PEN_SIZE);
+        const result = tryParseNumberInRange(value, 0, MAX_PEN_THICKNESS);
         setThicknessErrorMessage(result.err);
         if (result.ok !== undefined) {
           onThicknessChanged(result.ok);
@@ -55,7 +55,7 @@ export const GraphStyleButton = (props: GraphStyleButtonProps): ReactNode => {
               }}
             />
           }
-          title="Graph style"
+          title="Pen"
         />
       </PopoverTrigger>
       <PopoverSurface>{renderPopover()}</PopoverSurface>

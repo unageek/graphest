@@ -4,20 +4,20 @@ export interface Graph {
   color: string;
   id: string;
   isProcessing: boolean;
-  penSize: number;
   relation: string;
   relationInputByUser: boolean;
   relId: string;
+  thickness: number;
 }
 
 const initialState: Graph = {
   color: "",
   id: "",
   isProcessing: false,
-  penSize: 1,
   relation: "",
   relationInputByUser: false,
   relId: "",
+  thickness: 1,
 };
 
 const slice = createSlice({
@@ -43,18 +43,6 @@ const slice = createSlice({
           ? {
               ...s,
               isProcessing: a.payload.processing,
-            }
-          : s,
-    },
-    setGraphPenSize: {
-      prepare: (id: string, penSize: number) => ({
-        payload: { id, penSize },
-      }),
-      reducer: (s, a: PayloadAction<{ id: string; penSize: number }>) =>
-        a.payload.id === s.id
-          ? {
-              ...s,
-              penSize: a.payload.penSize,
             }
           : s,
     },
@@ -85,14 +73,26 @@ const slice = createSlice({
             }
           : s,
     },
+    setGraphThickness: {
+      prepare: (id: string, thickness: number) => ({
+        payload: { id, thickness: thickness },
+      }),
+      reducer: (s, a: PayloadAction<{ id: string; thickness: number }>) =>
+        a.payload.id === s.id
+          ? {
+              ...s,
+              thickness: a.payload.thickness,
+            }
+          : s,
+    },
   },
 });
 
 export const {
   setGraphColor,
   setGraphIsProcessing,
-  setGraphPenSize,
   setGraphRelation,
+  setGraphThickness,
 } = slice.actions;
 
 export const graphReducer = slice.reducer;

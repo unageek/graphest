@@ -2,7 +2,7 @@ import { createSlice, isAnyOf, PayloadAction } from "@reduxjs/toolkit";
 import { useSelector as _useSelector, TypedUseSelectorHook } from "react-redux";
 import {
   BASE_ZOOM_LEVEL,
-  DEFAULT_COLOR,
+  DEFAULT_PEN_COLOR,
   INITIAL_ZOOM_LEVEL,
 } from "../../common/constants";
 import {
@@ -15,8 +15,8 @@ import {
   graphReducer,
   setGraphColor,
   setGraphIsProcessing,
-  setGraphPenSize,
   setGraphRelation,
+  setGraphThickness,
 } from "./graph";
 
 export type ThemeName = "dark" | "light";
@@ -86,7 +86,7 @@ const slice = createSlice({
         payload: data,
       }),
       reducer: (s, a: PayloadAction<GraphData>) => {
-        const { color, penSize, relation } = a.payload;
+        const { color, relation, thickness } = a.payload;
         const id = s.nextGraphId.toString();
         return {
           ...s,
@@ -97,10 +97,10 @@ const slice = createSlice({
                 color,
                 id,
                 isProcessing: false,
-                penSize,
                 relationInputByUser: false,
                 relation,
                 relId: "",
+                thickness,
               },
             },
             allIds: [...s.graphs.allIds, id],
@@ -117,13 +117,13 @@ const slice = createSlice({
           byId: {
             ...s.graphs.byId,
             [id]: {
-              color: DEFAULT_COLOR,
+              color: DEFAULT_PEN_COLOR,
               id,
               isProcessing: false,
-              penSize: 1,
               relationInputByUser: false,
               relation: "y = sin(x)",
               relId: "",
+              thickness: 1,
             },
           },
           allIds: [...s.graphs.allIds, id],
@@ -290,8 +290,8 @@ const slice = createSlice({
         isAnyOf(
           setGraphColor,
           setGraphIsProcessing,
-          setGraphPenSize,
           setGraphRelation,
+          setGraphThickness,
         ),
         (s, a) => ({
           ...s,

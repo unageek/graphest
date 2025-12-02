@@ -161,7 +161,7 @@ let nextExportImageId = 0;
 let nextRelId = 0;
 let postStartup: (() => void | Promise<void>) | undefined = () =>
   openUrl(
-    "graphest://eyJjZW50ZXIiOlswLDBdLCJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicGVuU2l6ZSI6MSwicmVsYXRpb24iOiJ5ID0gc2luKHgpIn1dLCJ2ZXJzaW9uIjoxLCJ6b29tTGV2ZWwiOjZ9",
+    "graphest://eyJjZW50ZXIiOlswLDBdLCJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicmVsYXRpb24iOiJ5ID0gc2luKHgpIiwidGhpY2tuZXNzIjoxfV0sInZlcnNpb24iOjEsInpvb21MZXZlbCI6Nn0=",
   );
 let postUnload: (() => void | Promise<void>) | undefined;
 const relationById = new Map<string, Relation>();
@@ -467,7 +467,7 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
           path,
           "--output-once",
           "--pen-size",
-          entry.penSize.toString(),
+          entry.thickness.toString(),
           "--size",
           width.toString(),
           height.toString(),
@@ -800,7 +800,7 @@ function getFilenameForDisplay(thePath?: string): string {
 
 function newDocument() {
   openUrl(
-    "graphest://eyJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicGVuU2l6ZSI6MSwicmVsYXRpb24iOiIifV0sInZlcnNpb24iOjF9",
+    "graphest://eyJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicmVsYXRpb24iOiIiLCJ0aGlja25lc3MiOjF9XSwidmVyc2lvbiI6MX0=",
   );
 }
 

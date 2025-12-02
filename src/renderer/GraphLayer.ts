@@ -153,12 +153,12 @@ export class GraphLayer extends L.GridLayer {
       this.#updateColor();
     }
 
-    if (this.#graph.penSize !== oldGraph?.penSize) {
-      this.#updatePenSize();
-    }
-
     if (this.#graph.relId !== oldGraph?.relId) {
       this.#updateRelation(oldGraph?.relId);
+    }
+
+    if (this.#graph.thickness !== oldGraph?.thickness) {
+      this.#updateThickness();
     }
   }
 
@@ -198,22 +198,22 @@ export class GraphLayer extends L.GridLayer {
     }
   }
 
-  #updatePenSize() {
-    if (!this.#graph) {
-      throw new Error("`this.#graph` must not be undefined");
-    }
-
-    const penSize = this.#graph.penSize;
-    const radius = Math.min(Math.max((penSize - 1.0) / 2.0, 0), 1);
-    this.#dilationElement.setAttribute("radius", radius.toString());
-  }
-
   async #updateRelation(oldRelId?: string) {
     if (oldRelId !== undefined) {
       this.#abortGraphing(oldRelId);
     }
 
     this.redraw();
+  }
+
+  #updateThickness() {
+    if (!this.#graph) {
+      throw new Error("`this.#graph` must not be undefined");
+    }
+
+    const thickness = this.#graph.thickness;
+    const radius = Math.min(Math.max((thickness - 1.0) / 2.0, 0), 1);
+    this.#dilationElement.setAttribute("radius", radius.toString());
   }
 
   #updateTile(tileId: string, url: string): void {

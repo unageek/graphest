@@ -28,10 +28,10 @@ export interface ExportImageData {
 export interface ExportImageGraph {
   /** The color of the graph as a case-insensitive hex code (`#RRGGBBAA`). */
   color: string;
-  /** The pen size of the graph in pixels. */
-  penSize: number;
   /** The ID of the relation. */
   relId: string;
+  /** The pen thickness of the graph in pixels. */
+  thickness: number;
 }
 
 export interface ExportImageOptions {

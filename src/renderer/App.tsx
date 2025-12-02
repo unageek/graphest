@@ -54,8 +54,8 @@ const exportImage = async (opts: ExportImageOptions) => {
 
   for (const graphId of state.graphs.allIds) {
     const graph = state.graphs.byId[graphId];
-    const { color, penSize, relId } = graph;
-    graphs.push({ color: new Color(color).hexa(), penSize, relId });
+    const { color, relId, thickness } = graph;
+    graphs.push({ color: new Color(color).hexa(), relId, thickness });
   }
 
   store.dispatch(
@@ -83,8 +83,8 @@ const getDocument = (): Document => {
       const g = s.graphs.byId[id];
       return {
         color: g.color,
-        penSize: g.penSize,
         relation: g.relation,
+        thickness: g.thickness,
       };
     }),
     version: 1,

@@ -37,12 +37,12 @@ export const EXTENDED_GRAPH_TILE_SIZE = GRAPH_TILE_SIZE + GRAPH_TILE_EXTENSION;
 /**
  * The default graph color.
  */
-export const DEFAULT_COLOR = "rgba(0, 78, 140, 0.8)"; // `SharedColors.cyanBlue20`
+export const DEFAULT_PEN_COLOR = "rgba(0, 78, 140, 0.8)"; // `SharedColors.cyanBlue20`
 
 /**
- * The maximum value allowed for a pen size.
+ * The maximum value allowed for a pen thickness.
  */
-export const MAX_PEN_SIZE = 1000;
+export const MAX_PEN_THICKNESS = 1000;
 
 /**
  * The amount of coordinate perturbation in horizontal direction in pixels.

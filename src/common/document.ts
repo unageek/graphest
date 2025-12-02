@@ -2,9 +2,9 @@ import Color from "color";
 import { z } from "zod";
 import {
   BASE_ZOOM_LEVEL,
-  DEFAULT_COLOR,
+  DEFAULT_PEN_COLOR,
   INITIAL_ZOOM_LEVEL,
-  MAX_PEN_SIZE,
+  MAX_PEN_THICKNESS,
 } from "./constants";
 
 export const documentSchema = z.object({
@@ -41,15 +41,15 @@ export const documentSchema = z.object({
               new Color(s);
               return s;
             } catch {
-              return DEFAULT_COLOR;
+              return DEFAULT_PEN_COLOR;
             }
           })
-          .default(DEFAULT_COLOR),
-        penSize: z
-          .number()
-          .transform((x) => Math.min(Math.max(x, 0), MAX_PEN_SIZE))
-          .default(1),
+          .default(DEFAULT_PEN_COLOR),
         relation: z.string().default(""),
+        thickness: z
+          .number()
+          .transform((x) => Math.min(Math.max(x, 0), MAX_PEN_THICKNESS))
+          .default(1),
       }),
     )
     .default([]),

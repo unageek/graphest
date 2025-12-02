@@ -265,11 +265,11 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
     }
   }, [dismiss, progress.messages.length, state]);
 
-  const approxMinPenSize = useMemo(() => {
-    const minPenSize = bignum(1).div(bignum(opts.antiAliasing));
+  const approxMinThickness = useMemo(() => {
+    const minThickness = bignum(1).div(bignum(opts.antiAliasing));
     const digits = Math.floor(-Math.log10(opts.antiAliasing));
     const scale = bignum(10).pow(digits - 1);
-    return minPenSize.div(scale).ceil().times(scale);
+    return minThickness.div(scale).ceil().times(scale);
   }, [opts.antiAliasing]);
 
   const briefPath = useMemo(() => {
@@ -488,7 +488,8 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                       </Dropdown>
 
                       <Text style={{ gridColumn: "2" }}>
-                        Minimum pen size: {approxMinPenSize.toString()} pixel
+                        Minimum pen thickness: {approxMinThickness.toString()}{" "}
+                        pixel
                         <br />
                         {tilesPerRelation}{" "}
                         {tilesPerRelation > 1 ? "tiles" : "tile"} per relation
