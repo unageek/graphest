@@ -16,3 +16,10 @@ t!(
     "sin(x) = cos(y)",
     @bounds(4.712, 4.713, 3.141, 3.142)
 );
+
+// Huge coordinates
+t!(
+    t_2ccd8bdd9d2840bfbaee9b34138011fd,
+    "2 y = 2 sin(x)",
+    @bounds(1000000000000000, 1000000000000004, -2, 2)
+);

@@ -243,3 +243,10 @@ t!(
     t_bfe7a22400304fa0bf9d0260f522f047,
     "x = cos(t) + m ∧ y = sin(t) + 2 n ∧ m = n",
 );
+
+// Huge coordinates
+t!(
+    t_c99d61b6e2324c6c8f307b3a90b522d4,
+    "x = t ∧ y = sin(t)",
+    @bounds(1000000000000000, 1000000000000004, -2, 2)
+);

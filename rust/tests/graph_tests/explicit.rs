@@ -16,3 +16,10 @@ t!(t_c8bcbe5b1ca849a9bf413518c22d4fa4, "y ≥ sqrt(x)");
 
 // Check if `ModEqTransform` is applied.
 t!(t_531465e0b09043fd9a61a215df79afab, "mod(x, π) = 0");
+
+// Huge coordinates
+t!(
+    t_4a655f11265f4fe68ebab2f796dbc43f,
+    "y = sin(x)",
+    @bounds(1000000000000000, 1000000000000004, -2, 2)
+);
