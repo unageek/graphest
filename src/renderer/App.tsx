@@ -7,7 +7,7 @@ import {
 import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
 import Color from "color";
-import { StrictMode, useEffect, useRef } from "react";
+import { StrictMode, useCallback, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider, useDispatch } from "react-redux";
 import { Command } from "../common/command";
@@ -41,6 +41,7 @@ import {
   setZoomLevel,
   useSelector,
 } from "./models/app";
+import { setGraphRelation } from "./models/graph";
 import { store } from "./models/store";
 import { RenderDialog } from "./RenderDialog";
 
@@ -117,15 +118,23 @@ const App = () => {
   const center = useSelector((s) => s.center);
   const exportImageOpts = useSelector((s) => s.lastExportImageOpts);
   const graphViewRef = useRef<HTMLDivElement>(null);
+  const highRes = useSelector((s) => s.highRes);
   const showColorsDialog = useSelector((s) => s.showColorsDialog);
   const showExportImageDialog = useSelector((s) => s.showExportImageDialog);
   const showGoToDialog = useSelector((s) => s.showGoToDialog);
   const appTheme = useSelector((s) => s.theme);
   const zoomLevel = useSelector((s) => s.zoomLevel);
 
-  function focusGraphView() {
+  const focusGraphView = useCallback(() => {
     graphViewRef.current?.focus();
-  }
+  }, []);
+
+  const requestRelationInner = useCallback(
+    (rel: string, graphId: string) => {
+      return requestRelation(rel, graphId, highRes);
+    },
+    [highRes],
+  );
 
   useEffect(() => {
     (async function () {
@@ -142,6 +151,17 @@ const App = () => {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    (async () => {
+      const { allIds, byId } = store.getState().graphs;
+      for (const id of allIds) {
+        const { relation } = byId[id];
+        const result = await requestRelation(relation, id, highRes);
+        dispatch(setGraphRelation(id, result.ok ?? "", relation, true));
+      }
+    })();
+  }, [highRes]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <FluentProvider
       style={{ height: "100%" }}
@@ -156,7 +176,7 @@ const App = () => {
         >
           <GraphBars
             focusGraphView={focusGraphView}
-            requestRelation={requestRelation}
+            requestRelation={requestRelationInner}
           />
           <CommandBar />
         </div>

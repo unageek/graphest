@@ -14,7 +14,7 @@ import {
   ReOrderDotsVerticalRegular,
 } from "@fluentui/react-icons";
 import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
-import { ReactNode, useRef } from "react";
+import { ReactNode, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { PenButton } from "./PenButton";
@@ -34,15 +34,28 @@ export interface GraphBarProps {
   requestRelation: (
     rel: string,
     graphId: string,
-    highRes: boolean,
   ) => Promise<RequestRelationResult>;
 }
 
 export const GraphBar = (props: GraphBarProps): ReactNode => {
+  const { graphId, requestRelation } = props;
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
-  const highRes = useSelector((s) => s.highRes);
   const relationInputActionsRef = useRef<RelationInputActions>(null);
+
+  const onRelationChanged = useCallback(
+    (relId: string, rel: string) => {
+      dispatch(setGraphRelation(graphId, relId, rel, true));
+    },
+    [dispatch, graphId],
+  );
+
+  const requestRelationInner = useCallback(
+    (rel: string) => {
+      return requestRelation(rel, graphId);
+    },
+    [graphId, requestRelation],
+  );
 
   return (
     <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
@@ -74,17 +87,12 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
         actionsRef={relationInputActionsRef}
         graphId={props.graphId}
         grow
-        highRes={highRes}
         onEnterKeyPressed={props.focusGraphView}
-        onRelationChanged={(relId, rel) =>
-          dispatch(setGraphRelation(props.graphId, relId, rel, true))
-        }
+        onRelationChanged={onRelationChanged}
         processing={graph.isProcessing}
         relation={graph.relation}
         relationInputByUser={graph.relationInputByUser}
-        requestRelation={(rel: string, highRes: boolean) => {
-          return props.requestRelation(rel, props.graphId, highRes);
-        }}
+        requestRelation={requestRelationInner}
       />
       <SymbolsButton
         onDismissed={() => {

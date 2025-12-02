@@ -7,6 +7,7 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import * as S from "slate";
@@ -42,16 +43,12 @@ export interface RelationInputProps {
   actionsRef?: RefObject<RelationInputActions | null>;
   graphId: string;
   grow?: boolean;
-  highRes: boolean;
   onEnterKeyPressed: () => void;
   onRelationChanged: (relId: string, rel: string) => void;
   processing: boolean;
   relation: string;
   relationInputByUser: boolean;
-  requestRelation: (
-    rel: string,
-    highRes: boolean,
-  ) => Promise<RequestRelationResult>;
+  requestRelation: (rel: string) => Promise<RequestRelationResult>;
 }
 
 type CustomElement = {
@@ -305,7 +302,13 @@ const renderLeaf = (props: RenderLeafProps) => {
 };
 
 export const RelationInput = (props: RelationInputProps): ReactNode => {
-  const { onEnterKeyPressed } = props;
+  const {
+    onEnterKeyPressed,
+    onRelationChanged,
+    relation,
+    relationInputByUser,
+    requestRelation,
+  } = props;
   const [editor] = useState<S.Editor>(
     withRelationEditingExtensions(withHistory(withReact(S.createEditor()))),
   );
@@ -324,8 +327,11 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
       ],
     },
   ]);
+  const lastRelation = useRef<string>(relation);
+  const lastResult = useRef<RequestRelationResult | null>(null);
   const [validationError, setValidationError] = useState<RelationError>();
   const [showValidationError, setShowValidationError] = useState(false);
+
   const tabsterAttributes = useTabsterAttributes({
     focusable: {
       ignoreKeydown: {
@@ -416,21 +422,26 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
     S.Transforms.select(editor, end);
   }, [editor]);
 
-  const updateRelationImmediately = useCallback(async () => {
+  const updateRelation = useCallback(async () => {
     const rel = S.Node.string(editor);
-    const result = await props.requestRelation(rel, props.highRes);
-    props.onRelationChanged(result.ok ?? "", rel);
-    setValidationError(result.err);
-    // For immediate use of the result.
-    return result;
-  }, [editor, props.highRes]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (rel === lastRelation.current && lastResult.current) {
+      return lastResult.current;
+    }
 
-  const updateRelation = useMemo(
+    const result = await requestRelation(rel);
+    onRelationChanged(result.ok ?? "", rel);
+    setValidationError(result.err);
+    lastRelation.current = rel;
+    lastResult.current = result;
+    return result;
+  }, [editor, onRelationChanged, lastRelation, requestRelation]);
+
+  const updateRelationDebounced = useMemo(
     () =>
       debounce(async (): Promise<RequestRelationResult> => {
-        return updateRelationImmediately();
+        return updateRelation();
       }, 200),
-    [updateRelationImmediately],
+    [updateRelation],
   );
 
   const updateTokens = useCallback(() => {
@@ -442,14 +453,10 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
     updateTokens();
     ReactEditor.focus(editor);
     moveCursorToTheEnd();
-  }, [editor, moveCursorToTheEnd, updateTokens]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    updateRelationImmediately();
-  }, [props.highRes, updateRelationImmediately]);
-
-  useEffect(() => {
-    if (props.relationInputByUser) return;
+    if (relationInputByUser) return;
 
     S.Editor.withoutNormalizing(editor, () => {
       S.Transforms.delete(editor, {
@@ -458,12 +465,12 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
           focus: S.Editor.end(editor, [editor.children.length - 1]),
         },
       });
-      S.Transforms.insertText(editor, props.relation, {
+      S.Transforms.insertText(editor, relation, {
         at: S.Editor.start(editor, [0]),
       });
       moveCursorToTheEnd();
     });
-  }, [editor, moveCursorToTheEnd, props.relation, props.relationInputByUser]);
+  }, [editor, moveCursorToTheEnd, relation, relationInputByUser]);
 
   useImperativeHandle(props.actionsRef, () => ({
     focus: () => {
@@ -489,7 +496,7 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
           const sel = editor.selection;
           if (!sel) return;
 
-          // Do some harmless operations to force Slate to re-render decorations.
+          // HACK: Do some harmless operations to force Slate to re-render decorations.
           // https://github.com/ianstormtaylor/slate/issues/4483
           editor.withoutNormalizing(() => {
             if (S.Range.isCollapsed(sel)) {
@@ -503,7 +510,7 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
         }}
         onValueChange={() => {
           setShowValidationError(false);
-          updateRelation();
+          updateRelationDebounced();
           updateTokens();
         }}
         initialValue={initialValue}
@@ -518,9 +525,9 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              updateRelation();
+              updateRelationDebounced();
               // https://github.com/ianstormtaylor/slate/issues/4721
-              updateRelation.flush()?.then((result) => {
+              updateRelationDebounced.flush()?.then((result) => {
                 if (result.ok !== undefined) {
                   onEnterKeyPressed();
                 } else {
@@ -547,12 +554,12 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
       </Slate>
     );
   }, [
-    tabsterAttributes,
     decorate,
     editor,
     initialValue,
+    tabsterAttributes,
     onEnterKeyPressed,
-    updateRelation,
+    updateRelationDebounced,
     updateTokens,
   ]);
 

@@ -16,7 +16,6 @@ export interface GraphBarsProps {
   requestRelation: (
     rel: string,
     graphId: string,
-    highRes: boolean,
   ) => Promise<RequestRelationResult>;
 }
 
