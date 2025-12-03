@@ -313,7 +313,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
 
                     <DialogContent
                       style={{
-                        alignItems: "baseline",
+                        alignItems: "center",
                         display: "grid",
                         gap: "8px",
                         gridTemplateColumns: "auto auto",
@@ -323,7 +323,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                       <Label style={{ textAlign: "right" }}>x:</Label>
                       <div
                         style={{
-                          alignItems: "baseline",
+                          alignItems: "center",
                           display: "flex",
                           flexDirection: "row",
                           gap: "8px",
@@ -355,7 +355,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                       <Label style={{ textAlign: "right" }}>y:</Label>
                       <div
                         style={{
-                          alignItems: "baseline",
+                          alignItems: "center",
                           display: "flex",
                           flexDirection: "row",
                           gap: "8px",
@@ -503,7 +503,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                       </Label>
                       <div
                         style={{
-                          alignItems: "baseline",
+                          alignItems: "center",
                           display: "flex",
                           flexDirection: "row",
                           gap: "8px",
@@ -527,7 +527,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                       <Label style={{ textAlign: "right" }}>Save as:</Label>
                       <div
                         style={{
-                          alignItems: "baseline",
+                          alignItems: "center",
                           display: "flex",
                           flexDirection: "row",
                           gap: "8px",

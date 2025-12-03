@@ -41,7 +41,7 @@ export const ColorsDialog = (props: ColorsDialogProps): ReactNode => {
 
           <DialogContent
             style={{
-              alignItems: "baseline",
+              alignItems: "center",
               display: "grid",
               gap: "8px",
               gridTemplateColumns: "auto auto",

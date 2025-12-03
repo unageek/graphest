@@ -115,7 +115,7 @@ export const CustomColorPicker = (props: CustomColorPickerProps): ReactNode => {
       </ColorPicker>
       <div
         style={{
-          alignItems: "baseline",
+          alignItems: "center",
           display: "grid",
           gap: "8px",
           gridTemplateColumns: "auto auto",

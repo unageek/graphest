@@ -111,7 +111,7 @@ export const GoToDialog = (props: GoToDialogProps): ReactNode => {
 
             <DialogContent
               style={{
-                alignItems: "baseline",
+                alignItems: "center",
                 display: "grid",
                 gap: "8px",
                 gridTemplateColumns: "auto auto",
@@ -147,7 +147,7 @@ export const GoToDialog = (props: GoToDialogProps): ReactNode => {
                     setZoomLevel(value);
                     validateZoomLevel(value);
                   }}
-                  style={{ width: "80px" }}
+                  style={{ width: "100px" }}
                   value={zoomLevel.toString()}
                 />
               </Field>
