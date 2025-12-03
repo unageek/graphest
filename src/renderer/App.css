@@ -3,12 +3,6 @@
     /* https://github.com/microsoft/fluentui/blob/master/packages/theme/src/colors/DefaultPalette.ts */
     --theme-primary: #0078d4;
     --theme-light: #c7e0f4;
-    --neutral-lighter: #f3f2f1;
-    --neutral-light: #edebe9;
-    --neutral-quaternary: #d2d0ce;
-    --neutral-tertiary: #a19f9d;
-    --neutral-primary: #323130;
-    --white: #ffffff;
     --red-dark: #a4262c;
 
     /* https://tailwindcolor.com/ */
@@ -16,6 +10,23 @@
     --syntax-error: #a21caf; /* fuchsia-700 */
     --implicit-multiplication: silver;
     --highlight: greenyellow;
+
+    /* https://storybooks.fluentui.dev/react/?path=/docs/theme-colors--docs */
+    --color-neutral-foreground1: #242424;
+    --color-neutral-foreground1-hover: #242424;
+    --color-neutral-foreground1-pressed: #242424;
+    --color-neutral-foreground-disabled: #bdbdbd;
+    --color-neutral-background1: #ffffff;
+    --color-neutral-background1-hover: #f5f5f5;
+    --color-neutral-background1-pressed: #e0e0e0;
+    --color-neutral-background-disabled: #f0f0f0;
+    --color-neutral-stroke1: #d1d1d1;
+    --color-neutral-stroke1-hover: #c7c7c7;
+    --color-neutral-stroke1-pressed: #b3b3b3;
+    --color-neutral-stroke-disabled: #e0e0e0;
+
+    /* https://storybooks.fluentui.dev/react/?path=/docs/theme-shadows--docs */
+    --shadow4: 0 0 2px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.14);
   }
 }
 
@@ -23,12 +34,6 @@
   :root {
     --theme-primary: #2899f5;
     --theme-light: #0c2e49;
-    --neutral-lighter: #2f2d2c;
-    --neutral-light: #3d3b39;
-    --neutral-quaternary: #4d4b49;
-    --neutral-tertiary: #c8c8c8;
-    --neutral-primary: #ffffff;
-    --white: #1b1a19;
     --red-dark: #f1707b;
 
     /* https://tailwindcolor.com/ */
@@ -36,6 +41,23 @@
     --syntax-error: #f0abfc; /* fuchsia-300 */
     --implicit-multiplication: gray;
     --highlight: rgb(100, 167, 0);
+
+    /* https://storybooks.fluentui.dev/react/?path=/docs/theme-colors--docs */
+    --color-neutral-foreground1: #ffffff;
+    --color-neutral-foreground1-hover: #ffffff;
+    --color-neutral-foreground1-pressed: #ffffff;
+    --color-neutral-foreground-disabled: #5c5c5c;
+    --color-neutral-background1: #292929;
+    --color-neutral-background1-hover: #3d3d3d;
+    --color-neutral-background1-pressed: #1f1f1f;
+    --color-neutral-background-disabled: #141414;
+    --color-neutral-stroke1: #666666;
+    --color-neutral-stroke1-hover: #757575;
+    --color-neutral-stroke1-pressed: #6b6b6b;
+    --color-neutral-stroke-disabled: #424242;
+
+    /* https://storybooks.fluentui.dev/react/?path=/docs/theme-shadows--docs */
+    --shadow4: 0 0 2px rgba(0, 0, 0, 0.24), 0 2px 4px rgba(0, 0, 0, 0.28);
   }
 }
 
@@ -58,11 +80,9 @@ a:not([draggable]) {
 }
 
 .leaflet-bar {
-  border: 1px solid var(--neutral-quaternary) !important;
+  border: 1px solid var(--color-neutral-stroke1) !important;
   border-radius: 3px !important;
-  box-shadow:
-    0 1.6px 3.6px 0 rgba(0, 0, 0, 0.132),
-    0 0.3px 0.9px 0 rgba(0, 0, 0, 0.108) !important; /* depth8 */
+  box-shadow: var(--shadow4) !important;
   opacity: 0.75;
 }
 
@@ -72,28 +92,30 @@ a:not([draggable]) {
 }
 
 .leaflet-control-zoom-in {
-  border-bottom: 1px solid var(--neutral-quaternary) !important;
+  border-bottom: 1px solid var(--color-neutral-stroke1) !important;
 }
 
 .leaflet-bar a /* Zoom buttons */,
 .leaflet-bar button /* Reset view button */ {
-  background: var(--white) !important;
-  color: var(--neutral-primary) !important;
+  background: var(--color-neutral-background1) !important;
+  color: var(--color-neutral-foreground1) !important;
 }
 
 .leaflet-bar a.leaflet-disabled /* Zoom buttons */ {
-  background: var(--neutral-lighter) !important;
-  color: var(--neutral-tertiary) !important;
+  background: var(--color-neutral-background-disabled) !important;
+  color: var(--color-neutral-foreground-disabled) !important;
 }
 
 .leaflet-bar a:hover:not(.leaflet-disabled),
 .leaflet-bar button:hover {
-  background: var(--neutral-lighter) !important;
+  background: var(--color-neutral-background1-hover) !important;
+  color: var(--color-neutral-foreground1-hover) !important;
 }
 
 .leaflet-bar a:active:not(.leaflet-disabled),
 .leaflet-bar button:active {
-  background: var(--neutral-light) !important;
+  background: var(--color-neutral-background1-pressed) !important;
+  color: var(--color-neutral-foreground1-pressed) !important;
 }
 
 .leaflet-bar a:first-child /* Zoom in button*/,
