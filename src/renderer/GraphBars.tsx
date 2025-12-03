@@ -41,7 +41,12 @@ export const GraphBars = (props: GraphBarsProps): ReactNode => {
         {(provided) => (
           <div ref={provided.innerRef} {...provided.droppableProps}>
             {graphs.allIds.map((id, index) => (
-              <Draggable key={id} draggableId={id.toString()} index={index}>
+              <Draggable
+                key={id}
+                disableInteractiveElementBlocking={true}
+                draggableId={id.toString()}
+                index={index}
+              >
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}

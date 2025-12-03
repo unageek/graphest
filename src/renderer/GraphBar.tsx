@@ -59,22 +59,17 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
 
   return (
     <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
-      <div
+      <ToolbarButton
+        appearance="transparent"
+        icon={<ReOrderDotsVerticalRegular />}
         style={{
-          alignItems: "center",
           color: tokens.colorNeutralForeground4,
           // https://github.com/hello-pangea/dnd/issues/711
           cursor: "grab",
-          display: "flex",
-          fontSize: "20px",
-          justifyContent: "center",
-          minWidth: "32px",
         }}
-        {...props.dragHandleProps}
         title="Drag to reorder"
-      >
-        <ReOrderDotsVerticalRegular />
-      </div>
+        {...props.dragHandleProps}
+      />
       <PenButton
         color={graph.color}
         onColorChanged={(c) => dispatch(setGraphColor(props.graphId, c))}
