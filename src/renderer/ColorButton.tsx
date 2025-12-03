@@ -1,11 +1,12 @@
 import {
-  MenuButton,
+  Button,
   Popover,
   PopoverSurface,
   PopoverTrigger,
 } from "@fluentui/react-components";
 import { ReactNode } from "react";
 import { ColorPicker } from "./ColorPicker";
+import { ColorWell } from "./ColorWell";
 
 export interface ColorButtonProps {
   color: string;
@@ -16,17 +17,7 @@ export const ColorButton = (props: ColorButtonProps): ReactNode => {
   return (
     <Popover positioning="below-start">
       <PopoverTrigger>
-        <MenuButton title="Color">
-          <span
-            style={{
-              backgroundColor: props.color,
-              height: "20px",
-              width: "20px",
-            }}
-          >
-            &nbsp; {/* For vertical alignment. */}
-          </span>
-        </MenuButton>
+        <Button icon={<ColorWell color={props.color} />} title="Color"></Button>
       </PopoverTrigger>
       <PopoverSurface>
         <ColorPicker

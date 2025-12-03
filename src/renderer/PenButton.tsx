@@ -14,6 +14,7 @@ import { ReactNode, useMemo, useState } from "react";
 import { MAX_PEN_THICKNESS } from "../common/constants";
 import { tryParseNumberInRange } from "../common/parse";
 import { ColorPicker } from "./ColorPicker";
+import { ColorWell } from "./ColorWell";
 import { ThicknessButton } from "./ThicknessButton";
 
 export interface PenButtonProps {
@@ -45,18 +46,7 @@ export const PenButton = (props: PenButtonProps): ReactNode => {
   return (
     <Popover positioning="below-start">
       <PopoverTrigger>
-        <ToolbarButton
-          icon={
-            <span
-              style={{
-                backgroundColor: props.color,
-                height: "20px",
-                width: "20px",
-              }}
-            />
-          }
-          title="Pen"
-        />
+        <ToolbarButton icon={<ColorWell color={props.color} />} title="Pen" />
       </PopoverTrigger>
       <PopoverSurface>{renderPopover()}</PopoverSurface>
     </Popover>
