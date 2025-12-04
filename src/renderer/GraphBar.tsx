@@ -38,7 +38,7 @@ export interface GraphBarProps {
 }
 
 export const GraphBar = (props: GraphBarProps): ReactNode => {
-  const { graphId, requestRelation } = props;
+  const { dragHandleProps, focusGraphView, graphId, requestRelation } = props;
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
   const relationInputActionsRef = useRef<RelationInputActions>(null);
@@ -60,6 +60,7 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
   return (
     <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
       <ToolbarButton
+        {...dragHandleProps}
         appearance="transparent"
         icon={<ReOrderDotsVerticalRegular />}
         style={{
@@ -68,21 +69,18 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
           cursor: "grab",
         }}
         title="Drag to reorder"
-        {...props.dragHandleProps}
       />
       <PenButton
         color={graph.color}
-        onColorChanged={(c) => dispatch(setGraphColor(props.graphId, c))}
-        onThicknessChanged={(t) =>
-          dispatch(setGraphThickness(props.graphId, t))
-        }
+        onColorChanged={(c) => dispatch(setGraphColor(graphId, c))}
+        onThicknessChanged={(t) => dispatch(setGraphThickness(graphId, t))}
         thickness={graph.thickness}
       />
       <RelationInput
         actionsRef={relationInputActionsRef}
-        graphId={props.graphId}
+        graphId={graphId}
         grow
-        onEnterKeyPressed={props.focusGraphView}
+        onEnterKeyPressed={focusGraphView}
         onRelationChanged={onRelationChanged}
         processing={graph.isProcessing}
         relation={graph.relation}
@@ -90,9 +88,7 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
         requestRelation={requestRelationInner}
       />
       <SymbolsButton
-        onDismissed={() => {
-          relationInputActionsRef.current?.focus();
-        }}
+        onDismissed={() => relationInputActionsRef.current?.focus()}
         onSymbolChosen={(symbol: string) =>
           relationInputActionsRef.current?.insertSymbol(symbol)
         }
@@ -108,9 +104,7 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
           <MenuList>
             <MenuItem
               icon={<DeleteRegular />}
-              onClick={() => {
-                dispatch(removeGraph(props.graphId));
-              }}
+              onClick={() => dispatch(removeGraph(graphId))}
             >
               Remove
             </MenuItem>
