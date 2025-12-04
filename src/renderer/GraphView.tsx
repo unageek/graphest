@@ -1,3 +1,8 @@
+import {
+  makeStyles,
+  tokens,
+  useArrowNavigationGroup,
+} from "@fluentui/react-components";
 import { AddFilled, HomeFilled, SubtractFilled } from "@fluentui/react-icons";
 import Color from "color";
 import * as L from "leaflet";
@@ -13,7 +18,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { createRoot } from "react-dom/client";
 import { useStore } from "react-redux";
 import { BASE_ZOOM_LEVEL, INITIAL_ZOOM_LEVEL } from "../common/constants";
 import { GraphTheme } from "../common/graphTheme";
@@ -66,6 +70,23 @@ export const GraphView = (
   const [map, setMap] = useState<L.Map | undefined>();
   const store = useStore<AppState>();
   const secondMount = useRef(false);
+  const styles = useStyles();
+  const arrowNavigationGroup = useArrowNavigationGroup({ axis: "vertical" });
+  const [canZoomIn, setCanZoomIn] = useState(false);
+  const [canZoomOut, setCanZoomOut] = useState(false);
+
+  const loadViewFromStore = useCallback(() => {
+    if (map === undefined) return;
+    const state = store.getState();
+    const { center: cc, zoomLevel: zz } = state;
+    const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
+    const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
+    const z = zz + BASE_ZOOM_LEVEL;
+    // Use `{ reset: true }` to set the view exactly.
+    map
+      .setMaxZoom(Infinity)
+      .setView([y, x], z, { reset: true } as ZoomPanOptions);
+  }, [map, store]);
 
   const updateMaxBounds = useCallback(() => {
     if (map === undefined) return;
@@ -77,6 +98,9 @@ export const GraphView = (
       [min, min],
       [max, max],
     ]);
+
+    setCanZoomIn(map.getZoom() < map.getMaxZoom());
+    setCanZoomOut(map.getZoom() > map.getMinZoom());
   }, [map]);
 
   const updateMaxZoom = useCallback(() => {
@@ -91,20 +115,28 @@ export const GraphView = (
       map.getZoom() + Math.max(0, 52 - Math.ceil(Math.log2(maxPixelCoord)));
     // Leaflet maps cannot be zoomed in to a level greater than 1023.
     map.setMaxZoom(Math.min(maxZoom, 1023));
+
+    setCanZoomIn(map.getZoom() < map.getMaxZoom());
+    setCanZoomOut(map.getZoom() > map.getMinZoom());
   }, [map]);
 
-  const loadViewFromStore = useCallback(() => {
+  const zoomIn = useCallback(() => {
     if (map === undefined) return;
-    const state = store.getState();
-    const { center: cc, zoomLevel: zz } = state;
-    const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
-    const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
-    const z = zz + BASE_ZOOM_LEVEL;
+    map.zoomIn();
+  }, [map]);
+
+  const zoomOut = useCallback(() => {
+    if (map === undefined) return;
+    map.zoomOut();
+  }, [map]);
+
+  const home = useCallback(() => {
+    if (map === undefined) return;
     // Use `{ reset: true }` to set the view exactly.
     map
       .setMaxZoom(Infinity)
-      .setView([y, x], z, { reset: true } as ZoomPanOptions);
-  }, [map, store]);
+      .setView([0, 0], INITIAL_ZOOM_LEVEL, { reset: true } as ZoomPanOptions);
+  }, [map]);
 
   useEffect(() => {
     if (map === undefined) return;
@@ -212,39 +244,6 @@ export const GraphView = (
     });
     resizeObserver.observe(map.getContainer());
 
-    L.control
-      .zoom({
-        position: "topleft",
-        zoomInText:
-          "<div id='zoom-in-button' style='align-items: center; display: flex; font-size: 20px; height: 100%; justify-content: center;'></div>",
-        zoomInTitle: "Zoom in",
-        zoomOutText:
-          "<div id='zoom-out-button' style='align-items: center; display: flex; font-size: 20px; height: 100%; justify-content: center;'></div>",
-        zoomOutTitle: "Zoom out",
-      })
-      .addTo(map);
-    createRoot(document.getElementById("zoom-in-button") as HTMLElement).render(
-      <AddFilled />,
-    );
-    createRoot(
-      document.getElementById("zoom-out-button") as HTMLElement,
-    ).render(<SubtractFilled />);
-
-    L.easyButton(
-      "<div id='reset-view-button' style='align-items: center; display: flex; font-size: 20px; height: 100%; justify-content: center;'></div>",
-      () => {
-        const zoom = INITIAL_ZOOM_LEVEL;
-        // Use `{ reset: true }` to set the view exactly.
-        map
-          .setMaxZoom(Infinity)
-          .setView([0, 0], zoom, { reset: true } as ZoomPanOptions);
-      },
-      "Reset view",
-    ).addTo(map);
-    createRoot(
-      document.getElementById("reset-view-button") as HTMLElement,
-    ).render(<HomeFilled />);
-
     function onZoomStart() {
       if (map === undefined) return;
       // Workaround for an issue that the zoom animation does not occur when the map is centered.
@@ -279,12 +278,106 @@ export const GraphView = (
 
   return (
     <div
-      id="map"
-      ref={props.ref}
       style={{
-        background: graphBackground,
+        display: "flex",
         flexGrow: props.grow ? 1 : undefined,
+        position: "relative",
       }}
-    />
+    >
+      <div {...arrowNavigationGroup} className={styles.bar}>
+        <div className={styles.buttonContainer}>
+          <button
+            className={styles.button}
+            disabled={!canZoomIn}
+            onClick={zoomIn}
+          >
+            <AddFilled />
+          </button>
+          <button
+            className={styles.button}
+            disabled={!canZoomOut}
+            onClick={zoomOut}
+          >
+            <SubtractFilled />
+          </button>
+        </div>
+        <div className={styles.buttonContainer}>
+          <button className={styles.button} onClick={home}>
+            <HomeFilled />
+          </button>
+        </div>
+      </div>
+      <div
+        id="map"
+        ref={props.ref}
+        style={{
+          background: graphBackground,
+          flexGrow: 1,
+        }}
+      />
+    </div>
   );
 };
+
+const useStyles = makeStyles({
+  bar: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    left: "10px",
+    position: "absolute",
+    top: "10px",
+    zIndex: 1000,
+  },
+  buttonContainer: {
+    background: tokens.colorNeutralStroke1,
+    borderRadius: tokens.borderRadiusMedium,
+    boxShadow: tokens.shadow4,
+    opacity: 0.75,
+    "&:hover": {
+      opacity: 1,
+    },
+    "&:focus-within": {
+      opacity: 1,
+    },
+  },
+  button: {
+    alignItems: "center",
+    background: tokens.colorNeutralBackground1,
+    border: "none",
+    color: tokens.colorNeutralForeground1,
+    display: "flex",
+    fontSize: "20px",
+    height: "30px",
+    justifyContent: "center",
+    margin: "1px",
+    padding: 0,
+    width: "30px",
+    "&:first-child": {
+      borderTopLeftRadius: `calc(${tokens.borderRadiusMedium} - 1px)`,
+      borderTopRightRadius: `calc(${tokens.borderRadiusMedium} - 1px)`,
+    },
+    "&:last-child": {
+      borderBottomLeftRadius: `calc(${tokens.borderRadiusMedium} - 1px)`,
+      borderBottomRightRadius: `calc(${tokens.borderRadiusMedium} - 1px)`,
+    },
+    "&:hover:not(:disabled)": {
+      background: tokens.colorNeutralBackground1Hover,
+      color: tokens.colorNeutralForeground1Hover,
+      cursor: "pointer",
+    },
+    "&:active:not(:disabled)": {
+      background: tokens.colorNeutralBackground1Pressed,
+      color: tokens.colorNeutralForeground1Pressed,
+    },
+    "&:disabled": {
+      background: tokens.colorNeutralBackgroundDisabled,
+      color: tokens.colorNeutralForegroundDisabled,
+      cursor: "default",
+    },
+    "&:focus-visible": {
+      outline: `2px solid ${tokens.colorStrokeFocus2}`,
+      outlineOffset: "-1px",
+    },
+  },
+});
