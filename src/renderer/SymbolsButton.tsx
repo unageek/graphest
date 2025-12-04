@@ -52,33 +52,25 @@ export const SymbolsButton = (props: SymbolsButtonProps): ReactNode => {
     setShowCalloutDebounced(false);
   }, [setShowCalloutDebounced]);
 
-  const open = useCallback(() => {
-    setShowCalloutDebounced.cancel();
-    setShowCallout(true);
-  }, [setShowCalloutDebounced]);
-
   const openDebounced = useCallback(() => {
     setShowCalloutDebounced(true);
   }, [setShowCalloutDebounced]);
 
   return (
-    <Popover open={showCallout} positioning={"below-end"}>
-      <PopoverTrigger>
+    <Popover
+      open={showCallout}
+      onOpenChange={(_, { open }) => setShowCallout(open)}
+      positioning={"below-end"}
+    >
+      <PopoverTrigger disableButtonEnhancement>
         <ToolbarButton
           icon={<MathFormulaRegular />}
-          onClick={open}
           onMouseEnter={openDebounced}
           onMouseLeave={dismissDebounced}
           title="Symbols"
         />
       </PopoverTrigger>
       <PopoverSurface
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            dismiss();
-            e.preventDefault();
-          }
-        }}
         onMouseEnter={openDebounced}
         onMouseLeave={dismissDebounced}
         style={{
