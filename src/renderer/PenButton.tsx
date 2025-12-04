@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
   ToolbarButton,
   ToolbarDivider,
+  useArrowNavigationGroup,
 } from "@fluentui/react-components";
 import { debounce } from "lodash";
 import { ReactNode, useMemo, useState } from "react";
@@ -30,6 +31,7 @@ export const PenButton = (props: PenButtonProps): ReactNode => {
     props.thickness.toString(),
   );
   const [thicknessErrorMessage, setThicknessErrorMessage] = useState<string>();
+  const arrowNavigationGroup = useArrowNavigationGroup({ axis: "horizontal" });
 
   const validateThickness = useMemo(
     () =>
@@ -70,6 +72,7 @@ export const PenButton = (props: PenButtonProps): ReactNode => {
         <Divider />
         <Field validationMessage={thicknessErrorMessage}>
           <div
+            {...arrowNavigationGroup}
             style={{
               display: "flex",
               alignItems: "center",
