@@ -27,6 +27,7 @@ export interface AppState {
   graphBackground: string;
   graphForeground: string;
   graphs: { byId: { [id: string]: Graph }; allIds: string[] };
+  graphTransposition: [number, number] | null;
   highRes: boolean;
   lastExportImageOpts: ExportImageOptions;
   nextGraphId: number;
@@ -51,6 +52,7 @@ const initialState: AppState = {
   graphBackground: "#ffffff",
   graphForeground: "#000000",
   graphs: { byId: {}, allIds: [] },
+  graphTransposition: null,
   highRes: false,
   lastExportImageOpts: {
     antiAliasing: 5,
@@ -204,6 +206,18 @@ const slice = createSlice({
         graphForeground: a.payload.color,
       }),
     },
+    setGraphTransposition: {
+      prepare: (transposition: [number, number] | null) => ({
+        payload: { transposition },
+      }),
+      reducer: (
+        s,
+        a: PayloadAction<{ transposition: [number, number] | null }>,
+      ) => ({
+        ...s,
+        graphTransposition: a.payload.transposition,
+      }),
+    },
     setHighRes: {
       prepare: (highRes: boolean) => ({ payload: { highRes } }),
       reducer: (s, a: PayloadAction<{ highRes: boolean }>) => ({
@@ -327,6 +341,7 @@ export const {
   setExportImageProgress,
   setGraphBackground,
   setGraphForeground,
+  setGraphTransposition,
   setHighRes,
   setLastExportImageOpts,
   setResetView,

@@ -55,6 +55,7 @@ export const GraphView = (
   const graphBackground = useSelector((s) => s.graphBackground);
   const graphForeground = useSelector((s) => s.graphForeground);
   const graphs = useSelector((s) => s.graphs);
+  const graphTransposition = useSelector((s) => s.graphTransposition);
   const resetView = useSelector((s) => s.resetView);
   const showAxes = useSelector((s) => s.showAxes);
   const showMajorGrid = useSelector((s) => s.showMajorGrid);
@@ -121,9 +122,16 @@ export const GraphView = (
       }
     }
     graphs.allIds.forEach((id, index) => {
+      if (graphTransposition) {
+        if (index === graphTransposition[0]) {
+          index = graphTransposition[1];
+        } else if (index === graphTransposition[1]) {
+          index = graphTransposition[0];
+        }
+      }
       graphLayers.get(id)?.setZIndex(index + 10);
     });
-  }, [graphLayers, graphs, map, store]);
+  }, [graphLayers, graphs, graphTransposition, map, store]);
 
   useEffect(() => {
     map?.addLayer(gridLayer);

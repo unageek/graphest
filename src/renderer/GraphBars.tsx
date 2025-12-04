@@ -2,6 +2,7 @@ import { tokens } from "@fluentui/react-components";
 import {
   DragDropContext,
   Draggable,
+  DragUpdate,
   Droppable,
   DropResult,
 } from "@hello-pangea/dnd";
@@ -9,7 +10,7 @@ import { ReactNode, useCallback } from "react";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { GraphBar } from "./GraphBar";
-import { reorderGraph, useSelector } from "./models/app";
+import { reorderGraph, setGraphTransposition, useSelector } from "./models/app";
 
 export interface GraphBarsProps {
   focusGraphView: () => void;
@@ -24,26 +25,33 @@ export const GraphBars = (props: GraphBarsProps): ReactNode => {
   const graphs = useSelector((s) => s.graphs);
 
   const onDragEnd = useCallback(
-    (result: DropResult) => {
-      if (
-        result.destination &&
-        result.destination.index !== result.source.index
-      ) {
-        dispatch(reorderGraph(result.source.index, result.destination.index));
+    ({ source, destination }: DropResult) => {
+      if (destination && destination.index !== source.index) {
+        dispatch(reorderGraph(source.index, destination.index));
+      }
+      dispatch(setGraphTransposition(null));
+    },
+    [dispatch],
+  );
+
+  const onDragUpdate = useCallback(
+    ({ source, destination }: DragUpdate) => {
+      if (destination) {
+        dispatch(setGraphTransposition([source.index, destination.index]));
       }
     },
     [dispatch],
   );
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
+    <DragDropContext onDragEnd={onDragEnd} onDragUpdate={onDragUpdate}>
       <Droppable droppableId="graphBars">
         {(provided) => (
           <div ref={provided.innerRef} {...provided.droppableProps}>
             {graphs.allIds.map((id, index) => (
               <Draggable
                 key={id}
-                disableInteractiveElementBlocking={true}
+                disableInteractiveElementBlocking
                 draggableId={id.toString()}
                 index={index}
               >
