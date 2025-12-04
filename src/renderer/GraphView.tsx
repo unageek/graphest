@@ -120,15 +120,21 @@ export const GraphView = (
     setCanZoomOut(map.getZoom() > map.getMinZoom());
   }, [map]);
 
-  const zoomIn = useCallback(() => {
-    if (map === undefined) return;
-    map.zoomIn();
-  }, [map]);
+  const zoomIn = useCallback(
+    (delta?: number) => {
+      if (map === undefined) return;
+      map.zoomIn(delta);
+    },
+    [map],
+  );
 
-  const zoomOut = useCallback(() => {
-    if (map === undefined) return;
-    map.zoomOut();
-  }, [map]);
+  const zoomOut = useCallback(
+    (delta?: number) => {
+      if (map === undefined) return;
+      map.zoomOut(delta);
+    },
+    [map],
+  );
 
   const home = useCallback(() => {
     if (map === undefined) return;
@@ -289,14 +295,14 @@ export const GraphView = (
           <button
             className={styles.button}
             disabled={!canZoomIn}
-            onClick={zoomIn}
+            onClick={(e) => zoomIn(e.shiftKey ? 3 : 1)}
           >
             <AddFilled />
           </button>
           <button
             className={styles.button}
             disabled={!canZoomOut}
-            onClick={zoomOut}
+            onClick={(e) => zoomOut(e.shiftKey ? 3 : 1)}
           >
             <SubtractFilled />
           </button>
