@@ -474,8 +474,6 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
 
   useImperativeHandle(props.actionsRef, () => ({
     focus: () => {
-      // Blurring is required since we are ignoring the `onBlur` event for the `Editable`.
-      ReactEditor.blur(editor);
       ReactEditor.focus(editor);
     },
     insertSymbol: (symbol: string) => {
@@ -519,10 +517,6 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
           {...tabsterAttributes}
           className="relation-input"
           decorate={decorate}
-          onBlur={(e) => {
-            // https://github.com/ianstormtaylor/slate/issues/3412#issuecomment-946844682
-            e.preventDefault();
-          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               updateRelationDebounced();
