@@ -24,6 +24,7 @@
     --color-neutral-stroke1-hover: #c7c7c7;
     --color-neutral-stroke1-pressed: #b3b3b3;
     --color-neutral-stroke-disabled: #e0e0e0;
+    --color-stroke-focus2: #000000;
 
     /* https://storybooks.fluentui.dev/react/?path=/docs/theme-shadows--docs */
     --shadow4: 0 0 2px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.14);
@@ -55,10 +56,15 @@
     --color-neutral-stroke1-hover: #757575;
     --color-neutral-stroke1-pressed: #6b6b6b;
     --color-neutral-stroke-disabled: #424242;
+    --color-stroke-focus2: #ffffff;
 
     /* https://storybooks.fluentui.dev/react/?path=/docs/theme-shadows--docs */
     --shadow4: 0 0 2px rgba(0, 0, 0, 0.24), 0 2px 4px rgba(0, 0, 0, 0.28);
   }
+}
+
+*:focus-visible {
+  outline: none;
 }
 
 html,
@@ -80,8 +86,9 @@ a:not([draggable]) {
 }
 
 .leaflet-bar {
-  border: 1px solid var(--color-neutral-stroke1) !important;
-  border-radius: 3px !important;
+  background: var(--color-neutral-stroke1);
+  border: none !important;
+  border-radius: 4px !important;
   box-shadow: var(--shadow4) !important;
   opacity: 0.75;
 }
@@ -91,14 +98,12 @@ a:not([draggable]) {
   opacity: 1;
 }
 
-.leaflet-control-zoom-in {
-  border-bottom: 1px solid var(--color-neutral-stroke1) !important;
-}
-
 .leaflet-bar a /* Zoom buttons */,
 .leaflet-bar button /* Reset view button */ {
   background: var(--color-neutral-background1) !important;
+  border: none !important;
   color: var(--color-neutral-foreground1) !important;
+  margin: 1px;
 }
 
 .leaflet-bar a.leaflet-disabled /* Zoom buttons */ {
@@ -120,14 +125,20 @@ a:not([draggable]) {
 
 .leaflet-bar a:first-child /* Zoom in button*/,
 .leaflet-bar button /* Reset view button */ {
-  border-top-left-radius: 2px !important;
-  border-top-right-radius: 2px !important;
+  border-top-left-radius: 3px !important;
+  border-top-right-radius: 3px !important;
 }
 
 .leaflet-bar a:last-child /* Zoom out button */,
 .leaflet-bar button /* Reset view button */ {
-  border-bottom-left-radius: 2px !important;
-  border-bottom-right-radius: 2px !important;
+  border-bottom-left-radius: 3px !important;
+  border-bottom-right-radius: 3px !important;
+}
+
+.leaflet-bar a:focus-visible,
+.leaflet-bar button:focus-visible {
+  outline: 2px solid var(--color-stroke-focus2);
+  outline-offset: -1px;
 }
 
 .leaflet-layer {
