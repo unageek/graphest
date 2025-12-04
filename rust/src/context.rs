@@ -324,7 +324,6 @@ static BUILTIN_CONTEXT: LazyLock<Context> = LazyLock::new(|| {
         .def("Shi", Def::unary(Shi))
         .def("Si", Def::unary(Si))
         .def("sgn", Def::unary(Sign))
-        .def("sign", Def::unary(Sign))
         .def("sin", Def::unary(Sin))
         .def("sinc", Def::unary(Sinc))
         .def("sinh", Def::unary(Sinh))

@@ -265,7 +265,7 @@ A relation stem:[R] that contains parameters is interpreted as stem:[∃m, n ∈
 |https://mathworld.wolfram.com/AbsoluteValue.html[MW]
 https://functions.wolfram.com/ComplexComponents/Abs/[WFS]
 
-|`sign(x)` or `sgn(x)`
+|`sgn(x)`
 |stem:[\sgn x = \begin{cases}
   -1 & \if x < 0, \\
   0  & \if x = 0, \\
@@ -584,7 +584,7 @@ https://functions.wolfram.com/ComplexComponents/Arg/[WFS]
 |https://mathworld.wolfram.com/ComplexConjugate.html[MW]
 https://functions.wolfram.com/ComplexComponents/Conjugate/[WFS]
 
-|`sgn(z)` or `sign(z)`
+|`sgn(z)`
 |stem:[\sgn z = \begin{cases}
   0                & \if z = 0, \\
   \dfrac{z}{\|z\|} & \if z ≠ 0

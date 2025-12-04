@@ -663,7 +663,6 @@ mod tests {
         test("Shi(x)", "(Shi x)");
         test("Si(x)", "(Si x)");
         test("sgn(x)", "(Sign x)");
-        test("sign(x)", "(Sign x)");
         test("sin(x)", "(Sin x)");
         test("sinc(x)", "(Sinc x)");
         test("sinh(x)", "(Sinh x)");
