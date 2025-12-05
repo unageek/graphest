@@ -104,7 +104,7 @@ export function createMainMenu(actions: MenuActions): Menu {
         {
           id: Command.AbortGraphing,
           label: "A&bort Graphing",
-          accelerator: "Esc",
+          accelerator: "CmdOrCtrl+.",
           click: actions[Command.AbortGraphing],
         },
       ],
