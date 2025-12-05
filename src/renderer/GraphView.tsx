@@ -347,17 +347,16 @@ const useStyles = makeStyles({
   bar: {
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
-    left: "10px",
+    gap: tokens.spacingVerticalM,
+    left: tokens.spacingVerticalM,
     position: "absolute",
-    top: "10px",
+    top: tokens.spacingVerticalM,
     zIndex: 1000,
   },
   buttonContainer: {
-    background: tokens.colorNeutralStroke1,
     borderRadius: tokens.borderRadiusMedium,
     boxShadow: tokens.shadow4,
-    opacity: 0.75,
+    opacity: 0.8,
     "&:hover": {
       opacity: 1,
     },
@@ -370,25 +369,24 @@ const useStyles = makeStyles({
     background: tokens.colorNeutralBackground1,
     border: "none",
     color: tokens.colorNeutralForeground1,
+    cursor: "pointer",
     display: "flex",
     fontSize: "20px",
-    height: "30px",
+    height: "32px",
     justifyContent: "center",
-    margin: "1px",
     padding: 0,
-    width: "30px",
+    width: "32px",
     "&:first-child": {
-      borderTopLeftRadius: `calc(${tokens.borderRadiusMedium} - 1px)`,
-      borderTopRightRadius: `calc(${tokens.borderRadiusMedium} - 1px)`,
+      borderTopLeftRadius: tokens.borderRadiusMedium,
+      borderTopRightRadius: tokens.borderRadiusMedium,
     },
     "&:last-child": {
-      borderBottomLeftRadius: `calc(${tokens.borderRadiusMedium} - 1px)`,
-      borderBottomRightRadius: `calc(${tokens.borderRadiusMedium} - 1px)`,
+      borderBottomLeftRadius: tokens.borderRadiusMedium,
+      borderBottomRightRadius: tokens.borderRadiusMedium,
     },
     "&:hover:not(:disabled)": {
       background: tokens.colorNeutralBackground1Hover,
       color: tokens.colorNeutralForeground1Hover,
-      cursor: "pointer",
     },
     "&:active:not(:disabled)": {
       background: tokens.colorNeutralBackground1Pressed,
@@ -401,7 +399,7 @@ const useStyles = makeStyles({
     },
     "&[data-fui-focus-visible]": {
       outline: `2px solid ${tokens.colorStrokeFocus2}`,
-      outlineOffset: "-1px",
+      outlineOffset: "-2px",
     },
   },
 });
