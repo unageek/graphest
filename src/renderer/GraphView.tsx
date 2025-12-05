@@ -314,6 +314,7 @@ export const GraphView = (
         </div>
       </div>
       <div
+        className={styles.map}
         id="map"
         ref={props.ref}
         style={{
@@ -326,6 +327,18 @@ export const GraphView = (
 };
 
 const useStyles = makeStyles({
+  map: {
+    "&[data-fui-focus-visible]::after": {
+      bottom: 0,
+      left: 0,
+      outline: `2px solid ${tokens.colorStrokeFocus2}`,
+      outlineOffset: "-2px",
+      position: "absolute",
+      right: 0,
+      top: 0,
+      zIndex: 999,
+    },
+  },
   bar: {
     display: "flex",
     flexDirection: "column",
@@ -381,7 +394,7 @@ const useStyles = makeStyles({
       color: tokens.colorNeutralForegroundDisabled,
       cursor: "default",
     },
-    "&:focus-visible": {
+    "&[data-fui-focus-visible]": {
       outline: `2px solid ${tokens.colorStrokeFocus2}`,
       outlineOffset: "-1px",
     },

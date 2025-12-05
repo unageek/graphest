@@ -49,6 +49,11 @@ a:not([draggable]) {
   -webkit-user-drag: none;
 }
 
+.leaflet-container[data-fui-focus-visible]::after {
+  /* This cannot be done by `makeStyles()` */
+  content: "";
+}
+
 .leaflet-layer {
   image-rendering: pixelated;
 }
