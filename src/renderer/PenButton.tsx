@@ -31,7 +31,10 @@ export const PenButton = (props: PenButtonProps): ReactNode => {
     props.thickness.toString(),
   );
   const [thicknessErrorMessage, setThicknessErrorMessage] = useState<string>();
-  const arrowNavigationGroup = useArrowNavigationGroup({ axis: "horizontal" });
+  const arrowNavigationGroup = useArrowNavigationGroup({
+    axis: "horizontal",
+    circular: true,
+  });
 
   const validateThickness = useMemo(
     () =>

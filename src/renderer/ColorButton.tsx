@@ -17,7 +17,7 @@ export const ColorButton = (props: ColorButtonProps): ReactNode => {
   return (
     <Popover positioning="below-start" trapFocus={true}>
       <PopoverTrigger>
-        <Button icon={<ColorWell color={props.color} />} title="Color"></Button>
+        <Button icon={<ColorWell color={props.color} />} title="Color" />
       </PopoverTrigger>
       <PopoverSurface>
         <ColorPicker

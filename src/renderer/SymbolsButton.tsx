@@ -29,7 +29,10 @@ export const SymbolsButton = (props: SymbolsButtonProps): ReactNode => {
   const { onDismissed } = props;
   const [showCallout, setShowCallout] = useState(false);
   const styles = useStyles();
-  const arrowNavigationGroup = useArrowNavigationGroup({ axis: "grid-linear" });
+  const arrowNavigationGroup = useArrowNavigationGroup({
+    axis: "grid-linear",
+    circular: true,
+  });
 
   const setShowCalloutDebounced = useMemo(
     () =>

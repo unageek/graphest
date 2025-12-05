@@ -1,4 +1,3 @@
-import { useTabsterAttributes } from "@fluentui/react-tabster";
 import { debounce } from "lodash";
 import {
   ReactNode,
@@ -332,21 +331,6 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
   const [validationError, setValidationError] = useState<RelationError>();
   const [showValidationError, setShowValidationError] = useState(false);
 
-  const tabsterAttributes = useTabsterAttributes({
-    focusable: {
-      ignoreKeydown: {
-        ArrowDown: true,
-        ArrowLeft: true,
-        ArrowRight: true,
-        ArrowUp: true,
-        End: true,
-        Home: true,
-        PageDown: true,
-        PageUp: true,
-      },
-    },
-  });
-
   const decorate = useCallback(
     (entry: S.NodeEntry): S.Range[] => {
       const [node, path] = entry;
@@ -514,7 +498,6 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
         initialValue={initialValue}
       >
         <Editable
-          {...tabsterAttributes}
           className="relation-input"
           decorate={decorate}
           onKeyDown={(e) => {
@@ -551,7 +534,6 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
     decorate,
     editor,
     initialValue,
-    tabsterAttributes,
     onEnterKeyPressed,
     updateRelationDebounced,
     updateTokens,

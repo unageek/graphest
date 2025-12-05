@@ -50,18 +50,18 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
   const relationInputActionsRef = useRef<RelationInputActions>(null);
-  const tabsterAttributes = useTabsterAttributes({
+  const dragHandleTabsterAttributes = useTabsterAttributes({
     focusable: {
       ignoreKeydown: {
-        ArrowDown: true,
-        ArrowLeft: true,
-        ArrowRight: true,
-        ArrowUp: true,
-        End: true,
-        Home: true,
-        PageDown: true,
-        PageUp: true,
-        Tab: true,
+        ArrowDown: draggingWithKeyboard,
+        ArrowLeft: draggingWithKeyboard,
+        ArrowRight: draggingWithKeyboard,
+        ArrowUp: draggingWithKeyboard,
+        End: draggingWithKeyboard,
+        Home: draggingWithKeyboard,
+        PageDown: draggingWithKeyboard,
+        PageUp: draggingWithKeyboard,
+        Tab: draggingWithKeyboard,
       },
     },
   });
@@ -84,7 +84,7 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
     <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
       <ToolbarButton
         {...dragHandleProps}
-        {...(draggingWithKeyboard ? tabsterAttributes : {})}
+        {...dragHandleTabsterAttributes}
         appearance="transparent"
         icon={<ReOrderDotsVerticalRegular />}
         style={{

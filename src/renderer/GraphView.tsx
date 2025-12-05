@@ -71,7 +71,10 @@ export const GraphView = (
   const store = useStore<AppState>();
   const secondMount = useRef(false);
   const styles = useStyles();
-  const arrowNavigationGroup = useArrowNavigationGroup({ axis: "vertical" });
+  const arrowNavigationGroup = useArrowNavigationGroup({
+    axis: "both",
+    circular: true,
+  });
   const [canZoomIn, setCanZoomIn] = useState(false);
   const [canZoomOut, setCanZoomOut] = useState(false);
 
