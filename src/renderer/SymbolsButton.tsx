@@ -58,9 +58,10 @@ export const SymbolsButton = (props: SymbolsButtonProps): ReactNode => {
 
   return (
     <Popover
-      open={showCallout}
       onOpenChange={(_, { open }) => setShowCallout(open)}
+      open={showCallout}
       positioning={"below-end"}
+      trapFocus={true}
     >
       <PopoverTrigger disableButtonEnhancement>
         <ToolbarButton

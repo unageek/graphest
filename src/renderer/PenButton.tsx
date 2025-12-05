@@ -46,7 +46,7 @@ export const PenButton = (props: PenButtonProps): ReactNode => {
   );
 
   return (
-    <Popover positioning="below-start">
+    <Popover positioning="below-start" trapFocus={true}>
       <PopoverTrigger>
         <ToolbarButton icon={<ColorWell color={props.color} />} title="Pen" />
       </PopoverTrigger>
