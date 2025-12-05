@@ -285,7 +285,7 @@ export const GraphView = (
       resizeObserver.disconnect();
       map.remove();
     };
-  }, [loadViewFromStore, map, store, updateMaxBounds, updateMaxZoom]);
+  }, [home, loadViewFromStore, map, store, updateMaxBounds, updateMaxZoom]);
 
   return (
     <div
