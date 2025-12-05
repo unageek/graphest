@@ -13,6 +13,7 @@ import {
   MoreHorizontalRegular,
   ReOrderDotsVerticalRegular,
 } from "@fluentui/react-icons";
+import { useTabsterAttributes } from "@fluentui/react-tabster";
 import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import { ReactNode, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
@@ -28,6 +29,7 @@ import {
 } from "./models/graph";
 
 export interface GraphBarProps {
+  draggingWithKeyboard?: boolean;
   dragHandleProps?: DraggableProvidedDragHandleProps | null;
   focusGraphView: () => void;
   graphId: string;
@@ -38,10 +40,31 @@ export interface GraphBarProps {
 }
 
 export const GraphBar = (props: GraphBarProps): ReactNode => {
-  const { dragHandleProps, focusGraphView, graphId, requestRelation } = props;
+  const {
+    draggingWithKeyboard,
+    dragHandleProps,
+    focusGraphView,
+    graphId,
+    requestRelation,
+  } = props;
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
   const relationInputActionsRef = useRef<RelationInputActions>(null);
+  const tabsterAttributes = useTabsterAttributes({
+    focusable: {
+      ignoreKeydown: {
+        ArrowDown: true,
+        ArrowLeft: true,
+        ArrowRight: true,
+        ArrowUp: true,
+        End: true,
+        Home: true,
+        PageDown: true,
+        PageUp: true,
+        Tab: true,
+      },
+    },
+  });
 
   const onRelationChanged = useCallback(
     (relId: string, rel: string) => {
@@ -61,6 +84,7 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
     <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
       <ToolbarButton
         {...dragHandleProps}
+        {...(draggingWithKeyboard ? tabsterAttributes : {})}
         appearance="transparent"
         icon={<ReOrderDotsVerticalRegular />}
         style={{

@@ -2,11 +2,12 @@ import { tokens } from "@fluentui/react-components";
 import {
   DragDropContext,
   Draggable,
+  DragStart,
   DragUpdate,
   Droppable,
   DropResult,
 } from "@hello-pangea/dnd";
-import { ReactNode, useCallback } from "react";
+import { ReactNode, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { GraphBar } from "./GraphBar";
@@ -23,6 +24,7 @@ export interface GraphBarsProps {
 export const GraphBars = (props: GraphBarsProps): ReactNode => {
   const dispatch = useDispatch();
   const graphs = useSelector((s) => s.graphs);
+  const [draggingBarId, setDraggingBarId] = useState<string | null>(null);
 
   const onDragEnd = useCallback(
     ({ source, destination }: DropResult) => {
@@ -30,9 +32,17 @@ export const GraphBars = (props: GraphBarsProps): ReactNode => {
         dispatch(reorderGraph(source.index, destination.index));
       }
       dispatch(setGraphTransposition(null));
+      setDraggingBarId(null);
     },
     [dispatch],
   );
+
+  const onDragStart = useCallback(({ mode, draggableId }: DragStart) => {
+    if (mode === "SNAP") {
+      // Dragging with keyboard.
+      setDraggingBarId(draggableId);
+    }
+  }, []);
 
   const onDragUpdate = useCallback(
     ({ source, destination }: DragUpdate) => {
@@ -44,7 +54,11 @@ export const GraphBars = (props: GraphBarsProps): ReactNode => {
   );
 
   return (
-    <DragDropContext onDragEnd={onDragEnd} onDragUpdate={onDragUpdate}>
+    <DragDropContext
+      onDragEnd={onDragEnd}
+      onDragStart={onDragStart}
+      onDragUpdate={onDragUpdate}
+    >
       <Droppable droppableId="graphBars">
         {(provided) => (
           <div ref={provided.innerRef} {...provided.droppableProps}>
@@ -67,6 +81,7 @@ export const GraphBars = (props: GraphBarsProps): ReactNode => {
                     }}
                   >
                     <GraphBar
+                      draggingWithKeyboard={draggingBarId === id}
                       dragHandleProps={provided.dragHandleProps}
                       focusGraphView={props.focusGraphView}
                       graphId={id}
