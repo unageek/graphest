@@ -18,7 +18,14 @@ import {
 } from "@fluentui/react-components";
 import { DismissRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { bignum, BigNumber } from "../common/BigNumber";
 import {
   EXPORT_GRAPH_TILE_SIZE,
@@ -135,13 +142,17 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
     [errors],
   );
 
-  const submit = useCallback(async () => {
-    if (errors.size > 0) return;
-    setState(State.Processing);
-    saveOpts(opts);
-    await exportImage(opts);
-    setState(State.Completed);
-  }, [errors, exportImage, opts, saveOpts]);
+  const submit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (errors.size > 0) return;
+      setState(State.Processing);
+      saveOpts(opts);
+      await exportImage(opts);
+      setState(State.Completed);
+    },
+    [errors, exportImage, opts, saveOpts],
+  );
 
   const validateHeight = useMemo(
     () =>

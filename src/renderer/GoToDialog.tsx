@@ -11,7 +11,7 @@ import {
   Label,
 } from "@fluentui/react-components";
 import { debounce } from "lodash";
-import { ReactNode, useCallback, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useMemo, useState } from "react";
 import { BASE_ZOOM_LEVEL } from "../common/constants";
 import { tryParseIntegerInRange, tryParseNumber } from "../common/parse";
 
@@ -55,14 +55,18 @@ export const GoToDialog = (props: GoToDialogProps): ReactNode => {
     [errors],
   );
 
-  const submit = useCallback(() => {
-    if (errors.size > 0) return;
-    goTo(
-      [Number.parseFloat(x), Number.parseFloat(y)],
-      Number.parseInt(zoomLevel),
-    );
-    dismiss();
-  }, [dismiss, errors, goTo, x, y, zoomLevel]);
+  const submit = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault();
+      if (errors.size > 0) return;
+      goTo(
+        [Number.parseFloat(x), Number.parseFloat(y)],
+        Number.parseInt(zoomLevel),
+      );
+      dismiss();
+    },
+    [dismiss, errors, goTo, x, y, zoomLevel],
+  );
 
   const validateX = useMemo(
     () =>
