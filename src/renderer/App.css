@@ -10,24 +10,6 @@
     --syntax-error: #a21caf; /* fuchsia-700 */
     --implicit-multiplication: silver;
     --highlight: greenyellow;
-
-    /* https://storybooks.fluentui.dev/react/?path=/docs/theme-colors--docs */
-    --color-neutral-foreground1: #242424;
-    --color-neutral-foreground1-hover: #242424;
-    --color-neutral-foreground1-pressed: #242424;
-    --color-neutral-foreground-disabled: #bdbdbd;
-    --color-neutral-background1: #ffffff;
-    --color-neutral-background1-hover: #f5f5f5;
-    --color-neutral-background1-pressed: #e0e0e0;
-    --color-neutral-background-disabled: #f0f0f0;
-    --color-neutral-stroke1: #d1d1d1;
-    --color-neutral-stroke1-hover: #c7c7c7;
-    --color-neutral-stroke1-pressed: #b3b3b3;
-    --color-neutral-stroke-disabled: #e0e0e0;
-    --color-stroke-focus2: #000000;
-
-    /* https://storybooks.fluentui.dev/react/?path=/docs/theme-shadows--docs */
-    --shadow4: 0 0 2px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.14);
   }
 }
 
@@ -42,24 +24,6 @@
     --syntax-error: #f0abfc; /* fuchsia-300 */
     --implicit-multiplication: gray;
     --highlight: rgb(100, 167, 0);
-
-    /* https://storybooks.fluentui.dev/react/?path=/docs/theme-colors--docs */
-    --color-neutral-foreground1: #ffffff;
-    --color-neutral-foreground1-hover: #ffffff;
-    --color-neutral-foreground1-pressed: #ffffff;
-    --color-neutral-foreground-disabled: #5c5c5c;
-    --color-neutral-background1: #292929;
-    --color-neutral-background1-hover: #3d3d3d;
-    --color-neutral-background1-pressed: #1f1f1f;
-    --color-neutral-background-disabled: #141414;
-    --color-neutral-stroke1: #666666;
-    --color-neutral-stroke1-hover: #757575;
-    --color-neutral-stroke1-pressed: #6b6b6b;
-    --color-neutral-stroke-disabled: #424242;
-    --color-stroke-focus2: #ffffff;
-
-    /* https://storybooks.fluentui.dev/react/?path=/docs/theme-shadows--docs */
-    --shadow4: 0 0 2px rgba(0, 0, 0, 0.24), 0 2px 4px rgba(0, 0, 0, 0.28);
   }
 }
 
