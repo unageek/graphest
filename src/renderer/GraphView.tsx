@@ -237,6 +237,11 @@ export const GraphView = (
     updateMaxZoom();
 
     map
+      .on("keydown", (e) => {
+        if (e.originalEvent.key === "Home") {
+          home();
+        }
+      })
       .on("moveend", () => {
         updateMaxZoom();
         saveViewToStore();
