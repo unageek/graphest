@@ -117,9 +117,8 @@ export class GraphLayer extends L.GridLayer {
       inner.style.width = GRAPH_TILE_SIZE + "px";
       inner.style.height = GRAPH_TILE_SIZE + "px";
       inner.style.background = this.#graph.color;
-      inner.style.webkitMaskPosition =
-        "top -0.4990234375px left -0.4990234375px";
-      inner.style.webkitMaskSize = EXTENDED_GRAPH_TILE_SIZE + "px";
+      inner.style.maskPosition = "top -0.4990234375px left -0.4990234375px";
+      inner.style.maskSize = EXTENDED_GRAPH_TILE_SIZE + "px";
       outer.appendChild(inner);
     }
 
@@ -230,8 +229,8 @@ export class GraphLayer extends L.GridLayer {
             inner1.style.visibility === "hidden"
               ? [inner2, inner1]
               : [inner1, inner2];
-          cur.style.webkitMaskImage = `url(${url})`;
-          const firstUpdate = prev.style.webkitMaskImage === "";
+          cur.style.maskImage = `url(${url})`;
+          const firstUpdate = prev.style.maskImage === "";
           if (firstUpdate) {
             prev.style.visibility = "hidden";
             cur.style.visibility = "";
