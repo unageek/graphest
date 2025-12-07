@@ -9,12 +9,12 @@
 
 ## Getting Started
 
-1. [Download the app](https://github.com/unageek/graphest/releases) (both for macOS and Windows)
-2. Copy and paste some of the [example relations](Examples.md), and voilà!
+1. 📦 [Download the app](https://github.com/unageek/graphest/releases) available for both macOS and Windows.
+2. 🎉 Copy and paste some of the [example relations](Examples.md), and voilà!
 
 ## Features
 
-- Plot arbitrary equations/inequalities
+- Plots arbitrary equations/inequalities
 - Never gives an incorrect result; if you find any relation plotted incorrectly, please [report it here](https://github.com/unageek/graphest/issues/new)
 - Cartesian and polar coordinates
 - Parametric relations
