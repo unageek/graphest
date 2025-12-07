@@ -27,6 +27,13 @@
   }
 }
 
+@font-face {
+  font-family: "DejaVu Mono";
+  src: url("../../fonts/ttf/DejaVuSansMono.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+
 *:focus-visible {
   outline: none;
 }

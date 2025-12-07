@@ -1586,11 +1586,6 @@
   dependencies:
     "@swc/helpers" "^0.5.1"
 
-"@fontsource/dejavu-mono@^5.2.5":
-  version "5.2.5"
-  resolved "https://registry.yarnpkg.com/@fontsource/dejavu-mono/-/dejavu-mono-5.2.5.tgz#139aaf2dcc24c75d7bb1123473b52118d452e93a"
-  integrity sha512-xofv4WG9ReUsH0GmAt35itE+1Q4bZ/mOs0Q6+Fo96HSUHZxVfApObZWexjtPYU1WqDxSN2iLIS8kMOB+qTmntQ==
-
 "@fontsource/noto-sans@^5.2.10":
   version "5.2.10"
   resolved "https://registry.yarnpkg.com/@fontsource/noto-sans/-/noto-sans-5.2.10.tgz#74476071b53fda1554ac009b98f18d763d0f7135"

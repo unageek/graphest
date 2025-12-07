@@ -64,7 +64,6 @@
     "@fluentui/react-components": "^9.72.7",
     "@fluentui/react-icons": "^2.0.315",
     "@fluentui/react-tabster": "^9.26.10",
-    "@fontsource/dejavu-mono": "^5.2.5",
     "@fontsource/noto-sans": "^5.2.10",
     "@hello-pangea/dnd": "^18.0.1",
     "@reduxjs/toolkit": "^2.11.0",

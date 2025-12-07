@@ -4,7 +4,6 @@ import {
   webDarkTheme,
   webLightTheme,
 } from "@fluentui/react-components";
-import "@fontsource/dejavu-mono/400.css";
 import "@fontsource/noto-sans/400.css";
 import Color from "color";
 import { StrictMode, useCallback, useEffect, useRef } from "react";
