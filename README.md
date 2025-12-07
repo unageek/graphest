@@ -2,7 +2,10 @@
 
 <p align="center">A graphing calculator that faithfully plots arbitrary mathematical relations.</p>
 
-<p align="center"><img width="656" height="456" alt="cover image" src="docs/cover.png"></p>
+<p align="center">
+  <img width="656" height="556" alt="cover image" src="docs/cover_light.png#gh-light-mode-only">
+  <img width="656" height="556" alt="cover image" src="docs/cover_dark.png#gh-dark-mode-only">
+</p>
 
 ## Getting Started
 
