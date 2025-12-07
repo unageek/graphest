@@ -69,7 +69,7 @@ export const GraphView = (
   const [gridLayer] = useState(new GridLayer().setZIndex(0));
   const [map, setMap] = useState<L.Map | undefined>();
   const store = useStore<AppState>();
-  const secondMount = useRef(false);
+  const finalMount = useRef(process.env.NODE_ENV === "production");
   const styles = useStyles();
   const arrowNavigationGroup = useArrowNavigationGroup({
     axis: "both",
@@ -215,7 +215,7 @@ export const GraphView = (
 
   useEffect(() => {
     // https://stackoverflow.com/a/74609594
-    if (process.env.NODE_ENV === "production" || secondMount.current) {
+    if (finalMount.current) {
       setMap(
         L.map("map", {
           attributionControl: false,
@@ -228,7 +228,7 @@ export const GraphView = (
         }),
       );
     }
-    secondMount.current = true;
+    finalMount.current = true;
   }, []);
 
   useEffect(() => {
