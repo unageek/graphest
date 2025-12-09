@@ -2,6 +2,16 @@ use gmp_mpfr_sys::{mpfr, mpfr::rnd_t};
 use inari::{interval, Interval};
 use rug::{Float, Rational};
 
+pub fn cos_pi(x: Rational) -> Option<Rational> {
+    match modulo(2 * x, 4.into()) {
+        Some(r) if r == 0 => Some(1.into()),
+        Some(r) if r == 1 => Some(0.into()),
+        Some(r) if r == 2 => Some((-1).into()),
+        Some(r) if r == 3 => Some(0.into()),
+        _ => None,
+    }
+}
+
 pub fn div(x: Rational, y: Rational) -> Option<Rational> {
     if y == 0 {
         None
@@ -92,6 +102,25 @@ pub fn pow_rational(x: Rational, y: Rational) -> Option<Rational> {
     pow(x, y)
 }
 
+pub fn sin_pi(x: Rational) -> Option<Rational> {
+    match modulo(2 * x, 4.into()) {
+        Some(r) if r == 0 => Some(0.into()),
+        Some(r) if r == 1 => Some(1.into()),
+        Some(r) if r == 2 => Some(0.into()),
+        Some(r) if r == 3 => Some((-1).into()),
+        _ => None,
+    }
+}
+
+pub fn tan_pi(x: Rational) -> Option<Rational> {
+    match modulo(4 * x, 4.into()) {
+        Some(r) if r == 0 => Some(0.into()),
+        Some(r) if r == 1 => Some(1.into()),
+        Some(r) if r == 3 => Some((-1).into()),
+        _ => None,
+    }
+}
+
 // Based on `inari::parse::rational_to_f64`.
 #[allow(clippy::many_single_char_names)]
 pub fn to_interval(r: &Rational) -> Interval {
@@ -131,6 +160,10 @@ mod tests {
     }
 
     macro_rules! test {
+        ($f:path, $x:expr, $y:expr) => {
+            assert_eq!($f($x), $y);
+        };
+
         ($f:path, $x:expr, $y:expr, $z:expr) => {
             assert_eq!($f($x, $y), $z);
         };
@@ -159,6 +192,20 @@ mod tests {
             test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* $y, $z);
             test!($(@$af)* $f, $(@$ax)* $x, $(@$ay)* -$y, $z.map(|z: Rational| -z));
         };
+    }
+
+    #[test]
+    fn cos_pi() {
+        use super::cos_pi;
+        test!(cos_pi, r!(-1), Some(r!(-1)));
+        test!(cos_pi, r!(-1 / 2), Some(r!(0)));
+        test!(cos_pi, r!(0), Some(r!(1)));
+        test!(cos_pi, r!(1 / 2), Some(r!(0)));
+        test!(cos_pi, r!(1), Some(r!(-1)));
+        test!(cos_pi, r!(3 / 2), Some(r!(0)));
+        test!(cos_pi, r!(2), Some(r!(1)));
+        test!(cos_pi, r!(5 / 2), Some(r!(0)));
+        test!(cos_pi, r!(3), Some(r!(-1)));
     }
 
     #[test]
@@ -239,5 +286,30 @@ mod tests {
 
         // The result is rational, but not computed.
         test!(pow_rational, r!(1), r!(1 / 2), None);
+    }
+
+    #[test]
+    fn sin_pi() {
+        use super::sin_pi;
+        test!(sin_pi, r!(-1), Some(r!(0)));
+        test!(sin_pi, r!(-1 / 2), Some(r!(-1)));
+        test!(sin_pi, r!(0), Some(r!(0)));
+        test!(sin_pi, r!(1 / 2), Some(r!(1)));
+        test!(sin_pi, r!(1), Some(r!(0)));
+        test!(sin_pi, r!(3 / 2), Some(r!(-1)));
+        test!(sin_pi, r!(2), Some(r!(0)));
+        test!(sin_pi, r!(5 / 2), Some(r!(1)));
+        test!(sin_pi, r!(3), Some(r!(0)));
+    }
+
+    #[test]
+    fn tan_pi() {
+        use super::tan_pi;
+        test!(tan_pi, r!(-1 / 4), Some(r!(-1)));
+        test!(tan_pi, r!(0), Some(r!(0)));
+        test!(tan_pi, r!(1 / 4), Some(r!(1)));
+        test!(tan_pi, r!(3 / 4), Some(r!(-1)));
+        test!(tan_pi, r!(1), Some(r!(0)));
+        test!(tan_pi, r!(5 / 4), Some(r!(1)));
     }
 }

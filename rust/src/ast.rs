@@ -1,5 +1,5 @@
 use crate::{real::Real, vars::VarSet};
-use inari::{const_dec_interval, DecInterval, Decoration};
+use inari::{const_dec_interval, Decoration};
 use std::{
     collections::hash_map::DefaultHasher,
     fmt,
@@ -349,7 +349,7 @@ impl Expr {
 
     /// Creates a constant node with value 1.
     pub fn one() -> Self {
-        Self::constant(const_dec_interval!(1.0, 1.0).into())
+        Self::constant(Real::one())
     }
 
     /// Creates a constant node with value 1/2.
@@ -369,7 +369,7 @@ impl Expr {
 
     /// Creates a constant node with value 2π.
     pub fn tau() -> Self {
-        Self::constant(DecInterval::TAU.into())
+        Self::constant(Real::tau())
     }
 
     /// Creates a new expression of kind [`ExprKind::Ternary`].
@@ -394,7 +394,7 @@ impl Expr {
 
     /// Creates a constant node with value 0.
     pub fn zero() -> Self {
-        Self::constant(const_dec_interval!(0.0, 0.0).into())
+        Self::constant(Real::zero())
     }
 
     /// Formats the AST in a fashion similar to an S-expression.
