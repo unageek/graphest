@@ -9,6 +9,8 @@ use crate::{
     nary,
     ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
     parse::{format_error, parse_expr},
+    rational_ops,
+    real::{Real, RealUnit},
     ternary, unary, var, vars,
     vars::{VarIndex, VarSet, VarType},
     visit::*,
@@ -301,10 +303,18 @@ impl FromStr for Relation {
         let n_theta_range = {
             let period = function_period(&e, VarSet::N_THETA);
             if let Some(period) = &period {
-                if *period == 0 {
+                let (q, unit) = period.rational_unit().unwrap();
+                if q.is_zero() {
                     const_interval!(0.0, 0.0)
                 } else {
-                    interval!(&format!("[0,{}]", Integer::from(period - 1))).unwrap()
+                    match unit {
+                        RealUnit::One => Interval::ENTIRE,
+                        RealUnit::Pi => interval!(&format!(
+                            "[0,{}]",
+                            Integer::from(Rational::from(q / 2).numer() - 1)
+                        ))
+                        .unwrap(),
+                    }
                 }
             } else {
                 Interval::ENTIRE
@@ -315,7 +325,11 @@ impl FromStr for Relation {
         let t_range = {
             let period = function_period(&e, VarSet::T);
             if let Some(period) = &period {
-                Interval::TAU * interval!(&format!("[0,{}]", period)).unwrap()
+                let (q, unit) = period.rational_unit().unwrap();
+                match unit {
+                    RealUnit::One => interval!(&format!("[0,{}]", q)).unwrap(),
+                    RealUnit::Pi => interval!(&format!("[0,{}]", q)).unwrap() * Interval::PI,
+                }
             } else {
                 Interval::ENTIRE
             }
@@ -506,28 +520,30 @@ fn expand_polar_coords(e: &mut Expr) {
     *e = Expr::binary(BinaryOp::Or, e1, e2);
 }
 
-/// Returns the period of a function of a variable t in multiples of 2π,
-/// i.e., an integer p that satisfies (e /. t → t + 2π p) = e.
+/// Returns the period of a function of a variable t,
+/// i.e., a real number p that satisfies (e /. t → t + p) = e.
 /// If the period is 0, the expression is independent of the variable.
 ///
 /// Precondition: `e` has been pre-transformed and simplified.
-fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
+fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
     use {BinaryOp::*, NaryOp::*, UnaryOp::*};
 
-    fn common_period(xp: Integer, yp: Integer) -> Integer {
-        if xp == 0 {
-            yp
-        } else if yp == 0 {
-            xp
-        } else {
-            xp.lcm(&yp)
+    fn common_period(xp: Real, yp: Real) -> Option<Real> {
+        match (xp.rational_unit(), yp.rational_unit()) {
+            (Some((q, _)), _) if q.is_zero() => Some(yp),
+            (_, Some((r, _))) if r.is_zero() => Some(xp),
+            (Some((q, q_unit)), Some((r, r_unit))) if q_unit == r_unit => Some(Real::from((
+                rational_ops::lcm(q.clone(), r.clone()).unwrap(),
+                q_unit,
+            ))),
+            _ => None,
         }
     }
 
     match e {
-        bool_constant!(_) | constant!(_) => Some(0.into()),
+        bool_constant!(_) | constant!(_) => Some(Real::zero()),
         x @ var!(_) if x.vars.contains(variable) => None,
-        var!(_) => Some(0.into()),
+        var!(_) => Some(Real::zero()),
         unary!(op, x) => {
             if let Some(p) = function_period(x, variable) {
                 Some(p)
@@ -535,22 +551,30 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                 match x {
                     x @ var!(_) if x.vars.contains(variable) => {
                         // op(t)
-                        Some(1.into())
+                        match op {
+                            Tan => Some(Real::pi()),
+                            _ => Some(Real::tau()),
+                        }
                     }
                     nary!(Plus, xs) => match &xs[..] {
                         [constant!(_), x @ var!(_)] if x.vars.contains(variable) => {
                             // op(b + t)
-                            Some(1.into())
+                            match op {
+                                Tan => Some(Real::pi()),
+                                _ => Some(Real::tau()),
+                            }
                         }
                         [constant!(_), nary!(Times, xs)] => match &xs[..] {
                             [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                                 // op(b + a t)
-                                if let Some(a) = a.rational() {
-                                    let p = a.denom().clone();
-                                    if *op == Tan && p.is_divisible_u(2) {
-                                        Some(p.div_exact_u(2))
-                                    } else {
-                                        Some(p)
+                                if let Some((q, unit)) = a.rational_unit() {
+                                    let unit = match unit {
+                                        RealUnit::One => RealUnit::Pi,
+                                        RealUnit::Pi => RealUnit::One,
+                                    };
+                                    match op {
+                                        Tan => Some(Real::from((q.clone().recip(), unit))),
+                                        _ => Some(Real::from((2 * q.clone().recip(), unit))),
                                     }
                                 } else {
                                     None
@@ -563,12 +587,14 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                     nary!(Times, xs) => match &xs[..] {
                         [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                             // op(a t)
-                            if let Some(a) = a.rational() {
-                                let p = a.denom().clone();
-                                if *op == Tan && p.is_divisible_u(2) {
-                                    Some(p.div_exact_u(2))
-                                } else {
-                                    Some(p)
+                            if let Some((q, unit)) = a.rational_unit() {
+                                let unit = match unit {
+                                    RealUnit::One => RealUnit::Pi,
+                                    RealUnit::Pi => RealUnit::One,
+                                };
+                                match op {
+                                    Tan => Some(Real::from((q.clone().recip(), unit))),
+                                    _ => Some(Real::from((2 * q.clone().recip(), unit))),
                                 }
                             } else {
                                 None
@@ -582,14 +608,10 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                 None
             }
         }
-        binary!(Mod, x, constant!(y)) if y.rational_pi().is_some() => {
-            let p = Integer::from(
-                (y.rational_pi().unwrap() / Rational::from(2))
-                    .numer()
-                    .abs_ref(),
-            );
+        binary!(Mod, x, constant!(y)) if y.rational_unit().is_some() => {
+            let p = y.clone().abs();
             if let Some(xp) = function_period(x, variable) {
-                Some(common_period(xp, p))
+                common_period(xp, p)
             } else {
                 match x {
                     x @ var!(_) if x.vars.contains(variable) => {
@@ -604,11 +626,9 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                         [constant!(_), nary!(Times, xs)] => match &xs[..] {
                             [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                                 // mod(b + a t, y)
-                                if let Some(a) = a.rational() {
-                                    let q = a.denom().clone();
-                                    Some(common_period(p, q))
-                                } else {
-                                    None
+                                match p / a.clone().abs() {
+                                    p if p.rational_unit().is_some() => Some(p),
+                                    _ => None,
                                 }
                             }
                             _ => None,
@@ -618,11 +638,9 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                     nary!(Times, xs) => match &xs[..] {
                         [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
                             // mod(a t, y)
-                            if let Some(a) = a.rational() {
-                                let q = a.denom().clone();
-                                Some(common_period(p, q))
-                            } else {
-                                None
+                            match p / a.clone().abs() {
+                                p if p.rational_unit().is_some() => Some(p),
+                                _ => None,
                             }
                         }
                         _ => None,
@@ -634,19 +652,20 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
         binary!(_, x, y) => {
             let xp = function_period(x, variable)?;
             let yp = function_period(y, variable)?;
-            Some(common_period(xp, yp))
+            common_period(xp, yp)
         }
         ternary!(_, x, y, z) => {
             let xp = function_period(x, variable)?;
             let yp = function_period(y, variable)?;
             let zp = function_period(z, variable)?;
-            Some(common_period(common_period(xp, yp), zp))
+            common_period(common_period(xp, yp)?, zp)
         }
         nary!(_, xs) => xs
             .iter()
             .map(|x| function_period(x, variable))
-            .collect::<Option<Vec<_>>>()
-            .map(|ps| ps.into_iter().fold(Integer::from(0), common_period)),
+            .collect::<Vec<_>>()
+            .into_iter()
+            .fold(Some(Real::zero()), |x, y| common_period(x?, y?)),
         _ => panic!("unexpected kind of expression"),
     }
 }
@@ -944,7 +963,11 @@ mod tests {
         );
         assert_eq!(
             f("sin(3/5t) = 0"),
-            interval!(0.0, (const_interval!(5.0, 5.0) * Interval::TAU).sup()).unwrap()
+            interval!(
+                0.0,
+                (const_interval!(5.0, 5.0) / const_interval!(3.0, 3.0) * Interval::TAU).sup()
+            )
+            .unwrap()
         );
     }
 

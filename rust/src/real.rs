@@ -4,7 +4,7 @@ use rug::Rational;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-enum RealUnit {
+pub enum RealUnit {
     One,
     Pi,
 }
@@ -80,6 +80,11 @@ impl Real {
             Some((q, RealUnit::One)) if q.is_zero() => Some(q),
             _ => None,
         }
+    }
+
+    /// Returns the value as [`Rational`] and its unit if the representation is exact.
+    pub fn rational_unit(&self) -> Option<(&Rational, RealUnit)> {
+        self.q.as_ref().map(|(q, unit)| (q, *unit))
     }
 
     /// Returns the value as [`f64`] if the representation is exact.
