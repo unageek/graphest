@@ -969,6 +969,34 @@ mod tests {
             )
             .unwrap()
         );
+        assert_eq!(
+            f("mod(2/3 t, 5/7) = 0"),
+            interval!(
+                0.0,
+                (const_interval!(15.0, 15.0) / const_interval!(14.0, 14.0)).sup()
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            f("mod(2/3 π t, 5/7 π) = 0"),
+            interval!(
+                0.0,
+                (const_interval!(15.0, 15.0) / const_interval!(14.0, 14.0)).sup()
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            f("mod(2/3 t, 5/7 π) = 0"),
+            interval!(
+                0.0,
+                (const_interval!(15.0, 15.0) / const_interval!(14.0, 14.0) * Interval::PI).sup()
+            )
+            .unwrap()
+        );
+        assert_eq!(f("mod(2/3 π t, 5/7) = 0"), Interval::ENTIRE);
+        assert_eq!(f("mod(-t, 1) = 0"), interval!(0.0, 1.0).unwrap());
+        assert_eq!(f("mod(t, -1) = 0"), interval!(0.0, 1.0).unwrap());
+        assert_eq!(f("mod(-t, -1) = 0"), interval!(0.0, 1.0).unwrap());
     }
 
     #[test]
