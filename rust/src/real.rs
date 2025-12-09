@@ -253,6 +253,15 @@ mod tests {
     use inari::{const_dec_interval, const_interval};
 
     #[test]
+    fn decoration() {
+        let x = Real::from(Rational::ZERO.clone());
+        let y = x.floor();
+        // Without the treatment explained in `From<Rational> for Real`,
+        // the decoration would be `Decoration::Com`, which is wrong.
+        assert_eq!(y.interval().decoration(), Decoration::Dac);
+    }
+
+    #[test]
     fn from_dec_interval() {
         let x = Real::from(const_dec_interval!(1.5, 1.5));
         assert_eq!(x.rational(), Some(&(3, 2).into()));
