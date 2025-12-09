@@ -14,7 +14,7 @@ use crate::{
     visit::*,
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
-use rug::Integer;
+use rug::{Integer, Rational};
 use std::{collections::HashMap, iter::once, mem::take, ops::Range, str::FromStr};
 
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
@@ -512,7 +512,7 @@ fn expand_polar_coords(e: &mut Expr) {
 ///
 /// Precondition: `e` has been pre-transformed and simplified.
 fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
-    use {NaryOp::*, UnaryOp::*};
+    use {BinaryOp::*, NaryOp::*, UnaryOp::*};
 
     fn common_period(xp: Integer, yp: Integer) -> Integer {
         if xp == 0 {
@@ -534,17 +534,17 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
             } else if matches!(op, Cos | Sin | Tan) {
                 match x {
                     x @ var!(_) if x.vars.contains(variable) => {
-                        // op(θ)
+                        // op(t)
                         Some(1.into())
                     }
                     nary!(Plus, xs) => match &xs[..] {
                         [constant!(_), x @ var!(_)] if x.vars.contains(variable) => {
-                            // op(b + θ)
+                            // op(b + t)
                             Some(1.into())
                         }
                         [constant!(_), nary!(Times, xs)] => match &xs[..] {
                             [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
-                                // op(b + a θ)
+                                // op(b + a t)
                                 if let Some(a) = a.rational() {
                                     let p = a.denom().clone();
                                     if *op == Tan && p.is_divisible_u(2) {
@@ -562,7 +562,7 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                     },
                     nary!(Times, xs) => match &xs[..] {
                         [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
-                            // op(a θ)
+                            // op(a t)
                             if let Some(a) = a.rational() {
                                 let p = a.denom().clone();
                                 if *op == Tan && p.is_divisible_u(2) {
@@ -580,6 +580,55 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Integer> {
                 }
             } else {
                 None
+            }
+        }
+        binary!(Mod, x, constant!(y)) if y.rational_pi().is_some() => {
+            let p = Integer::from(
+                (y.rational_pi().unwrap() / Rational::from(2))
+                    .numer()
+                    .abs_ref(),
+            );
+            if let Some(xp) = function_period(x, variable) {
+                Some(common_period(xp, p))
+            } else {
+                match x {
+                    x @ var!(_) if x.vars.contains(variable) => {
+                        // mod(t, y)
+                        Some(p)
+                    }
+                    nary!(Plus, xs) => match &xs[..] {
+                        [constant!(_), x @ var!(_)] if x.vars.contains(variable) => {
+                            // mod(b + t, y)
+                            Some(p)
+                        }
+                        [constant!(_), nary!(Times, xs)] => match &xs[..] {
+                            [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
+                                // mod(b + a t, y)
+                                if let Some(a) = a.rational() {
+                                    let q = a.denom().clone();
+                                    Some(common_period(p, q))
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    },
+                    nary!(Times, xs) => match &xs[..] {
+                        [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
+                            // mod(a t, y)
+                            if let Some(a) = a.rational() {
+                                let q = a.denom().clone();
+                                Some(common_period(p, q))
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    },
+                    _ => None,
+                }
             }
         }
         binary!(_, x, y) => {

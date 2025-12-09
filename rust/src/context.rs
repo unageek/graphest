@@ -170,8 +170,8 @@ static BUILTIN_CONTEXT: LazyLock<Context> = LazyLock::new(|| {
         .def("e", Def::constant(DecInterval::E.into()))
         .def("gamma", Def::constant(EULER_GAMMA.into()))
         .def("γ", Def::constant(EULER_GAMMA.into()))
-        .def("pi", Def::constant(DecInterval::PI.into()))
-        .def("π", Def::constant(DecInterval::PI.into()))
+        .def("pi", Def::constant(Real::pi()))
+        .def("π", Def::constant(Real::pi()))
         .def(
             "i",
             Def::Constant {

@@ -912,6 +912,12 @@ struct SortTerms {
 fn cmp_terms(x: &Expr, y: &Expr) -> Ordering {
     use {BinaryOp::*, NaryOp::*};
     match (x, y) {
+        (constant!(x), constant!(y)) if x.rational().is_some() && y.rational_pi().is_some() => {
+            Ordering::Less
+        }
+        (constant!(x), constant!(y)) if x.rational_pi().is_some() && y.rational().is_some() => {
+            Ordering::Greater
+        }
         (constant!(x), constant!(y)) => {
             let x = x
                 .interval()
