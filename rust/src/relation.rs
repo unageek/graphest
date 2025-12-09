@@ -665,7 +665,7 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
             .map(|x| function_period(x, variable))
             .collect::<Vec<_>>()
             .into_iter()
-            .fold(Some(Real::zero()), |x, y| common_period(x?, y?)),
+            .try_fold(Real::zero(), |x, y| common_period(x, y?)),
         _ => panic!("unexpected kind of expression"),
     }
 }
