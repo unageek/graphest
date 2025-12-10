@@ -31,7 +31,7 @@ impl Real {
     pub fn zero() -> Self {
         Self {
             x: interval_set(const_interval!(0.0, 0.0)),
-            q: Some((Rational::ZERO.clone(), RealUnit::One)),
+            q: Some((Rational::new(), RealUnit::One)),
         }
     }
 
@@ -39,7 +39,7 @@ impl Real {
     pub fn one() -> Self {
         Self {
             x: interval_set(const_interval!(1.0, 1.0)),
-            q: Some((Rational::ONE.clone(), RealUnit::One)),
+            q: Some((Rational::from(1), RealUnit::One)),
         }
     }
 
@@ -47,7 +47,7 @@ impl Real {
     pub fn pi() -> Self {
         Self {
             x: interval_set(Interval::PI),
-            q: Some((Rational::ONE.clone(), RealUnit::Pi)),
+            q: Some((Rational::from(1), RealUnit::Pi)),
         }
     }
 
@@ -467,9 +467,9 @@ mod tests {
 
     #[test]
     fn decoration() {
-        let x = Real::from(Rational::ZERO.clone());
+        let x = Real::zero();
         let y = x.floor();
-        // Without the treatment explained in `From<Rational> for Real`,
+        // Without the treatment explained in `interval_set`,
         // the decoration would be `Decoration::Com`, which is wrong.
         assert_eq!(y.interval().decoration(), Decoration::Dac);
     }

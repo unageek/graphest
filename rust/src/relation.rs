@@ -56,6 +56,8 @@ pub struct Relation {
     x_explicit: Option<StoreIndex>,
     y_explicit: Option<StoreIndex>,
     cached_terms: Vec<Vec<StoreIndex>>,
+    m_range: Interval,
+    n_range: Interval,
     n_theta_range: Interval,
     t_range: Interval,
     relation_type: RelationType,
@@ -165,7 +167,21 @@ impl Relation {
         &self.forms
     }
 
-    /// Returns the range of n_θ that needs to be covered to plot the graph of the relation.
+    /// Returns the range of the parameter m that needs to be covered to plot the graph of the relation.
+    ///
+    /// Each of the bounds is either an integer or ±∞.
+    pub fn m_range(&self) -> Interval {
+        self.m_range
+    }
+
+    /// Returns the range of the parameter n that needs to be covered to plot the graph of the relation.
+    ///
+    /// Each of the bounds is either an integer or ±∞.
+    pub fn n_range(&self) -> Interval {
+        self.n_range
+    }
+
+    /// Returns the range of the parameter n_θ that needs to be covered to plot the graph of the relation.
     ///
     /// Each of the bounds is either an integer or ±∞.
     pub fn n_theta_range(&self) -> Interval {
@@ -177,7 +193,7 @@ impl Relation {
         self.relation_type
     }
 
-    /// Returns the range of t that needs to be covered to plot the graph of the relation.
+    /// Returns the range of the parameter t that needs to be covered to plot the graph of the relation.
     pub fn t_range(&self) -> Interval {
         self.t_range
     }
@@ -300,6 +316,40 @@ impl FromStr for Relation {
         ModEqTransform.visit_expr_mut(&mut e);
         simplify(&mut e);
 
+        let m_range = {
+            let period = function_period(&e, VarSet::M);
+            if let Some(period) = &period {
+                if let Some(q) = period.rational() {
+                    if q.is_zero() {
+                        const_interval!(0.0, 0.0)
+                    } else {
+                        interval!(&format!("[0,{}]", Integer::from(q.numer() - 1))).unwrap()
+                    }
+                } else {
+                    Interval::ENTIRE
+                }
+            } else {
+                Interval::ENTIRE
+            }
+        };
+
+        let n_range = {
+            let period = function_period(&e, VarSet::N);
+            if let Some(period) = &period {
+                if let Some(q) = period.rational() {
+                    if q.is_zero() {
+                        const_interval!(0.0, 0.0)
+                    } else {
+                        interval!(&format!("[0,{}]", Integer::from(q.numer() - 1))).unwrap()
+                    }
+                } else {
+                    Interval::ENTIRE
+                }
+            } else {
+                Interval::ENTIRE
+            }
+        };
+
         let n_theta_range = {
             let period = function_period(&e, VarSet::N_THETA);
             if let Some(period) = &period {
@@ -406,6 +456,8 @@ impl FromStr for Relation {
             x_explicit,
             y_explicit,
             cached_terms,
+            m_range,
+            n_range,
             n_theta_range,
             t_range,
             relation_type,

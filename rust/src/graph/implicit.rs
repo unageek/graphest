@@ -111,6 +111,24 @@ impl Implicit {
             ..Default::default()
         }];
 
+        if vars.contains(VarSet::M) {
+            let m_range = g.rel.m_range();
+            bs = IntegerParameter::initial_subdivision(m_range)
+                .into_iter()
+                .cartesian_product(bs)
+                .map(|(m, b)| Block { m, ..b })
+                .collect::<Vec<_>>();
+        }
+
+        if vars.contains(VarSet::N) {
+            let n_range = g.rel.n_range();
+            bs = IntegerParameter::initial_subdivision(n_range)
+                .into_iter()
+                .cartesian_product(bs)
+                .map(|(n, b)| Block { n, ..b })
+                .collect::<Vec<_>>();
+        }
+
         if vars.contains(VarSet::N_THETA) {
             let n_theta_range = g.rel.n_theta_range();
             bs = IntegerParameter::initial_subdivision(n_theta_range)
