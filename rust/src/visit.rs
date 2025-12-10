@@ -812,9 +812,10 @@ impl VisitMut for ExpandBoole {
     }
 }
 
-/// Transforms `mod(x, y) = 0` into `mod(x + y / 2, a) - y / 2 = 0`.
+/// Transforms `M1 ... Mn = 0` into `M1' ... Mn' = 0`,
+/// where `Mi = mod(xi, yi)` and `Mi' = mod(xi + yi / 2, yi) - yi / 2`.
 ///
-/// Precondition: [`NormalizeRelationalExprs`] has been applied to the expression,
+/// Precondition: [`PreTransform`] and [`NormalizeRelationalExprs`] have been applied to the expression,
 /// and then the expression has been simplified.
 ///
 /// It might be better to also apply [`ExpandBoole`] before this one,
@@ -827,28 +828,56 @@ impl VisitMut for ModEqTransform {
         use {BinaryOp::*, NaryOp::*};
         traverse_expr_mut(self, e);
 
-        if let binary!(Eq, binary!(Mod, x, y), rhs) = e {
-            *e = Expr::binary(
-                Eq,
-                Expr::nary(
-                    Plus,
-                    vec![
-                        Expr::binary(
-                            Mod,
-                            Expr::nary(
-                                Plus,
-                                vec![
-                                    take(x),
-                                    Expr::nary(Times, vec![Expr::one_half(), y.clone()]),
-                                ],
+        match e {
+            binary!(Eq, binary!(Mod, x, y), rhs) => {
+                *e = Expr::binary(
+                    Eq,
+                    Expr::nary(
+                        Plus,
+                        vec![
+                            Expr::binary(
+                                Mod,
+                                Expr::nary(
+                                    Plus,
+                                    vec![
+                                        take(x),
+                                        Expr::nary(Times, vec![Expr::one_half(), y.clone()]),
+                                    ],
+                                ),
+                                y.clone(),
                             ),
-                            y.clone(),
-                        ),
-                        Expr::nary(Times, vec![Expr::minus_one_half(), y.clone()]),
-                    ],
-                ),
-                take(rhs),
-            );
+                            Expr::nary(Times, vec![Expr::minus_one_half(), y.clone()]),
+                        ],
+                    ),
+                    take(rhs),
+                );
+            }
+            binary!(Eq, nary!(Times, zs), _)
+                if zs.iter().all(|z| matches!(z, binary!(Mod, _, _))) =>
+            {
+                for z in zs.iter_mut() {
+                    if let binary!(Mod, x, y) = z {
+                        *z = Expr::nary(
+                            Plus,
+                            vec![
+                                Expr::binary(
+                                    Mod,
+                                    Expr::nary(
+                                        Plus,
+                                        vec![
+                                            take(x),
+                                            Expr::nary(Times, vec![Expr::one_half(), y.clone()]),
+                                        ],
+                                    ),
+                                    y.clone(),
+                                ),
+                                Expr::nary(Times, vec![Expr::minus_one_half(), y.clone()]),
+                            ],
+                        );
+                    }
+                }
+            }
+            _ => (),
         }
     }
 }
@@ -2218,15 +2247,24 @@ mod tests {
 
     #[test]
     fn mod_eq_transform() {
-        fn test(input: &str, expected: &str) {
-            let mut e = parse_expr(input, &[Context::builtin()]).unwrap();
+        let ctx = Context::new()
+            .def("z", Def::var("z", VarProps::default()))
+            .def("w", Def::var("w", VarProps::default()));
+
+        let test = |input, expected| {
+            let mut e = parse_expr(input, &[Context::builtin(), &ctx]).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
             ModEqTransform.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_short()), expected);
-        }
+        };
 
         test(
             "mod(x, y) = 0",
             "(Eq (Plus (Mod (Plus x (Times 0.5 y)) y) (Times -0.5 y)) 0)",
+        );
+        test(
+            "mod(x, y) mod(z, w) = 0",
+            "(Eq (Times (Plus (Mod (Plus x (Times 0.5 y)) y) (Times -0.5 y)) (Plus (Mod (Plus z (Times 0.5 w)) w) (Times -0.5 w))) 0)",
         );
     }
 
