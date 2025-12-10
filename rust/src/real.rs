@@ -4,7 +4,7 @@ use rug::Rational;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-enum RealUnit {
+pub enum RealUnit {
     One,
     Pi,
 }
@@ -80,6 +80,11 @@ impl Real {
             Some((q, RealUnit::One)) if q.is_zero() => Some(q),
             _ => None,
         }
+    }
+
+    /// Returns the value as [`Rational`] and its unit if the representation is exact.
+    pub fn rational_unit(&self) -> Option<(&Rational, RealUnit)> {
+        self.q.as_ref().map(|(q, unit)| (q, *unit))
     }
 
     /// Returns the value as [`f64`] if the representation is exact.
@@ -213,8 +218,7 @@ impl Real {
 
     pub fn add(self, rhs: Self) -> Self {
         let z_q = match (self.q, rhs.q) {
-            (Some((x, RealUnit::One)), Some((y, RealUnit::One))) => Some((x + y, RealUnit::One)),
-            (Some((x, RealUnit::Pi)), Some((y, RealUnit::Pi))) => Some((x + y, RealUnit::Pi)),
+            (Some((x, x_unit)), Some((y, y_unit))) if x_unit == y_unit => Some((x + y, x_unit)),
             (Some((x, _)), y_q) | (y_q, Some((x, _))) if x.is_zero() => y_q,
             _ => None,
         };
@@ -265,8 +269,7 @@ impl Real {
 
     pub fn div(self, rhs: Self) -> Self {
         let z_q = match (self.q, rhs.q) {
-            (Some((x, RealUnit::One)), Some((y, RealUnit::One)))
-            | (Some((x, RealUnit::Pi)), Some((y, RealUnit::Pi))) => {
+            (Some((x, x_unit)), Some((y, y_unit))) if x_unit == y_unit => {
                 rational_ops::div(x, y).map(|q| (q, RealUnit::One))
             }
             (Some((x, RealUnit::Pi)), Some((y, RealUnit::One))) => {
@@ -385,8 +388,7 @@ impl Real {
 
     pub fn sub(self, rhs: Self) -> Self {
         let z_q = match (self.q, rhs.q) {
-            (Some((x, RealUnit::One)), Some((y, RealUnit::One))) => Some((x - y, RealUnit::One)),
-            (Some((x, RealUnit::Pi)), Some((y, RealUnit::Pi))) => Some((x - y, RealUnit::Pi)),
+            (Some((x, x_unit)), Some((y, y_unit))) if x_unit == y_unit => Some((x - y, x_unit)),
             (Some((x, _)), Some((y, unit))) if x.is_zero() => Some((-y, unit)),
             (x_q, Some((y, _))) if y.is_zero() => x_q,
             _ => None,
