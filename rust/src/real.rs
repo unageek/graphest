@@ -218,8 +218,7 @@ impl Real {
 
     pub fn add(self, rhs: Self) -> Self {
         let z_q = match (self.q, rhs.q) {
-            (Some((x, RealUnit::One)), Some((y, RealUnit::One))) => Some((x + y, RealUnit::One)),
-            (Some((x, RealUnit::Pi)), Some((y, RealUnit::Pi))) => Some((x + y, RealUnit::Pi)),
+            (Some((x, x_unit)), Some((y, y_unit))) if x_unit == y_unit => Some((x + y, x_unit)),
             (Some((x, _)), y_q) | (y_q, Some((x, _))) if x.is_zero() => y_q,
             _ => None,
         };
@@ -270,8 +269,7 @@ impl Real {
 
     pub fn div(self, rhs: Self) -> Self {
         let z_q = match (self.q, rhs.q) {
-            (Some((x, RealUnit::One)), Some((y, RealUnit::One)))
-            | (Some((x, RealUnit::Pi)), Some((y, RealUnit::Pi))) => {
+            (Some((x, x_unit)), Some((y, y_unit))) if x_unit == y_unit => {
                 rational_ops::div(x, y).map(|q| (q, RealUnit::One))
             }
             (Some((x, RealUnit::Pi)), Some((y, RealUnit::One))) => {
@@ -390,8 +388,7 @@ impl Real {
 
     pub fn sub(self, rhs: Self) -> Self {
         let z_q = match (self.q, rhs.q) {
-            (Some((x, RealUnit::One)), Some((y, RealUnit::One))) => Some((x - y, RealUnit::One)),
-            (Some((x, RealUnit::Pi)), Some((y, RealUnit::Pi))) => Some((x - y, RealUnit::Pi)),
+            (Some((x, x_unit)), Some((y, y_unit))) if x_unit == y_unit => Some((x - y, x_unit)),
             (Some((x, _)), Some((y, unit))) if x.is_zero() => Some((-y, unit)),
             (x_q, Some((y, _))) if y.is_zero() => x_q,
             _ => None,
