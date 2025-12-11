@@ -52,7 +52,8 @@ pub fn test(id: &str, args: &[String]) {
             .decode()
             .unwrap()
             .to_rgba8();
-        assert_eq!(ref_img, actual_img);
+        // Avoid using assert_eq! to prevent printing a huge sequence of numbers.
+        assert!(ref_img == actual_img);
     } else {
         let mut cmd = Command::new(graph);
         cmd.args(args).arg("--output").arg(ref_img_path);
