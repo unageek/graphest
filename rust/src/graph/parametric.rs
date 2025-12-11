@@ -1,5 +1,5 @@
 use crate::{
-    block::{Block, BlockQueue, RealParameter},
+    block::{Block, BlockQueue, IntegerParameter, RealParameter},
     eval_cache::{EvalCacheLevel, EvalParametricCache},
     eval_result::EvalArgs,
     geom::{Box2D, Transformation1D, TransformationMode},
@@ -98,10 +98,42 @@ impl Parametric {
             cache: EvalParametricCache::new(EvalCacheLevel::Full, vars),
         };
 
-        g.bs_to_subdivide.push_back(Block {
+        let mut bs = vec![Block {
             t: RealParameter::new(g.rel.t_range()),
             ..Default::default()
-        });
+        }];
+
+        if vars.contains(VarSet::M) {
+            let m_range = g.rel.m_range();
+            bs = IntegerParameter::initial_subdivision(m_range)
+                .into_iter()
+                .cartesian_product(bs)
+                .map(|(m, b)| Block { m, ..b })
+                .collect::<Vec<_>>();
+        }
+
+        if vars.contains(VarSet::N) {
+            let n_range = g.rel.n_range();
+            bs = IntegerParameter::initial_subdivision(n_range)
+                .into_iter()
+                .cartesian_product(bs)
+                .map(|(n, b)| Block { n, ..b })
+                .collect::<Vec<_>>();
+        }
+
+        let last_block = bs.len() - 1;
+        g.set_last_queued_block(
+            &[PixelRange::new(
+                PixelIndex::new(0, 0),
+                PixelIndex::new(im_width, im_height),
+            )],
+            last_block,
+            None,
+        )
+        .unwrap();
+        for b in bs {
+            g.bs_to_subdivide.push_back(b);
+        }
 
         g
     }
@@ -179,7 +211,7 @@ impl Parametric {
 
                 self.bs_to_subdivide.push_back(sub_b.clone());
                 let last_bi = self.bs_to_subdivide.end_index() - 1;
-                self.set_last_queued_block(&incomplete_pixels, last_bi, bi)?;
+                self.set_last_queued_block(&incomplete_pixels, last_bi, Some(bi))?;
             }
 
             let mut clear_cache_and_retry = true;
@@ -397,11 +429,13 @@ impl Parametric {
         &mut self,
         pixels: &[PixelRange],
         block_index: usize,
-        parent_block_index: usize,
+        parent_block_index: Option<usize>,
     ) -> Result<(), GraphingError> {
         if let Ok(block_index) = QueuedBlockIndex::try_from(block_index) {
             for p in pixels.iter().flatten() {
-                if self.im[p].is_uncertain_and_disprovable(parent_block_index) {
+                if parent_block_index.is_none()
+                    || self.im[p].is_uncertain_and_disprovable(parent_block_index.unwrap())
+                {
                     self.im[p] = PixelState::Uncertain(Some(block_index));
                 }
             }
