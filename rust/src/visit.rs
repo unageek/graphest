@@ -829,10 +829,9 @@ impl VisitMut for ModEqTransform {
         traverse_expr_mut(self, e);
 
         match e {
-            binary!(Eq, binary!(Mod, x, y), rhs) => {
-                *e = Expr::binary(
-                    Eq,
-                    Expr::nary(
+            binary!(Eq, z, _) if matches!(z, binary!(Mod, _, _)) => {
+                if let binary!(Mod, x, y) = z {
+                    *z = Expr::nary(
                         Plus,
                         vec![
                             Expr::binary(
@@ -848,9 +847,8 @@ impl VisitMut for ModEqTransform {
                             ),
                             Expr::nary(Times, vec![Expr::minus_one_half(), y.clone()]),
                         ],
-                    ),
-                    take(rhs),
-                );
+                    );
+                }
             }
             binary!(Eq, nary!(Times, zs), _)
                 if zs.iter().all(|z| matches!(z, binary!(Mod, _, _))) =>

@@ -16,6 +16,7 @@ use crate::{
     visit::*,
 };
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
+use itertools::Itertools;
 use rug::{Integer, Rational};
 use std::{collections::HashMap, iter::once, mem::take, ops::Range, str::FromStr};
 
@@ -596,100 +597,89 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
         bool_constant!(_) | constant!(_) => Some(Real::zero()),
         x @ var!(_) if x.vars.contains(variable) => None,
         var!(_) => Some(Real::zero()),
-        unary!(op, x) => {
-            if let Some(p) = function_period(x, variable) {
-                Some(p)
-            } else if matches!(op, Cos | Sin | Tan) {
-                match x {
-                    x @ var!(_) if x.vars.contains(variable) => {
-                        // op(t)
-                        match op {
-                            Tan => Some(Real::pi()),
-                            _ => Some(Real::tau()),
+        unary!(op @ (Cos | Sin | Tan), x) if x.vars.contains(variable) => match x {
+            var!(_) => {
+                // op(t)
+                match op {
+                    Tan => Some(Real::pi()),
+                    _ => Some(Real::tau()),
+                }
+            }
+            nary!(Plus, xs) => match xs
+                .iter()
+                .filter(|x| x.vars.contains(variable))
+                .exactly_one()
+            {
+                Ok(var!(_)) => {
+                    // op(… + t + …)
+                    match op {
+                        Tan => Some(Real::pi()),
+                        _ => Some(Real::tau()),
+                    }
+                }
+                Ok(nary!(Times, xs)) => match &xs[..] {
+                    [constant!(a), var!(_)] => {
+                        // op(… + a t + …)
+                        if let Some((q, unit)) = a.rational_unit() {
+                            let unit = match unit {
+                                RealUnit::One => RealUnit::Pi,
+                                RealUnit::Pi => RealUnit::One,
+                            };
+                            match op {
+                                Tan => Some(Real::from((q.clone().recip(), unit))),
+                                _ => Some(Real::from((2 * q.clone().recip(), unit))),
+                            }
+                        } else {
+                            None
                         }
                     }
-                    nary!(Plus, xs) => match &xs[..] {
-                        [constant!(_), x @ var!(_)] if x.vars.contains(variable) => {
-                            // op(b + t)
-                            match op {
-                                Tan => Some(Real::pi()),
-                                _ => Some(Real::tau()),
-                            }
-                        }
-                        [constant!(_), nary!(Times, xs)] => match &xs[..] {
-                            [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
-                                // op(b + a t)
-                                if let Some((q, unit)) = a.rational_unit() {
-                                    let unit = match unit {
-                                        RealUnit::One => RealUnit::Pi,
-                                        RealUnit::Pi => RealUnit::One,
-                                    };
-                                    match op {
-                                        Tan => Some(Real::from((q.clone().recip(), unit))),
-                                        _ => Some(Real::from((2 * q.clone().recip(), unit))),
-                                    }
-                                } else {
-                                    None
-                                }
-                            }
-                            _ => None,
-                        },
-                        _ => None,
-                    },
-                    nary!(Times, xs) => match &xs[..] {
-                        [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
-                            // op(a t)
-                            if let Some((q, unit)) = a.rational_unit() {
-                                let unit = match unit {
-                                    RealUnit::One => RealUnit::Pi,
-                                    RealUnit::Pi => RealUnit::One,
-                                };
-                                match op {
-                                    Tan => Some(Real::from((q.clone().recip(), unit))),
-                                    _ => Some(Real::from((2 * q.clone().recip(), unit))),
-                                }
-                            } else {
-                                None
-                            }
-                        }
-                        _ => None,
-                    },
                     _ => None,
+                },
+                _ => None,
+            },
+            nary!(Times, xs) => match &xs[..] {
+                [constant!(a), var!(_)] => {
+                    // op(a t)
+                    if let Some((q, unit)) = a.rational_unit() {
+                        let unit = match unit {
+                            RealUnit::One => RealUnit::Pi,
+                            RealUnit::Pi => RealUnit::One,
+                        };
+                        match op {
+                            Tan => Some(Real::from((q.clone().recip(), unit))),
+                            _ => Some(Real::from((2 * q.clone().recip(), unit))),
+                        }
+                    } else {
+                        None
+                    }
                 }
-            } else {
-                None
-            }
-        }
-        binary!(Mod, x, constant!(y)) if y.rational_unit().is_some() => {
+                _ => None,
+            },
+            _ => None,
+        },
+        unary!(_, x) => function_period(x, variable),
+        binary!(Mod, x, constant!(y))
+            if x.vars.contains(variable) && y.rational_unit().is_some() =>
+        {
             let p = y.clone().abs();
-            if let Some(xp) = function_period(x, variable) {
-                common_period(xp, p)
-            } else {
-                match x {
-                    x @ var!(_) if x.vars.contains(variable) => {
-                        // mod(t, y)
+
+            match x {
+                var!(_) => {
+                    // mod(t, y)
+                    Some(p)
+                }
+                nary!(Plus, xs) => match xs
+                    .iter()
+                    .filter(|x| x.vars.contains(variable))
+                    .exactly_one()
+                {
+                    Ok(var!(_)) => {
+                        // mod(… + t + …, y)
                         Some(p)
                     }
-                    nary!(Plus, xs) => match &xs[..] {
-                        [constant!(_), x @ var!(_)] if x.vars.contains(variable) => {
-                            // mod(b + t, y)
-                            Some(p)
-                        }
-                        [constant!(_), nary!(Times, xs)] => match &xs[..] {
-                            [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
-                                // mod(b + a t, y)
-                                match p / a.clone().abs() {
-                                    p if p.rational_unit().is_some() => Some(p),
-                                    _ => None,
-                                }
-                            }
-                            _ => None,
-                        },
-                        _ => None,
-                    },
-                    nary!(Times, xs) => match &xs[..] {
-                        [constant!(a), x @ var!(_)] if x.vars.contains(variable) => {
-                            // mod(a t, y)
+                    Ok(nary!(Times, xs)) => match &xs[..] {
+                        [constant!(a), var!(_)] => {
+                            // mod(… + a t + …, y)
                             match p / a.clone().abs() {
                                 p if p.rational_unit().is_some() => Some(p),
                                 _ => None,
@@ -698,7 +688,21 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
                         _ => None,
                     },
                     _ => None,
-                }
+                },
+                nary!(Times, xs) => match &xs[..] {
+                    [constant!(a), var!(_)] => {
+                        // mod(a t, y)
+                        match p / a.clone().abs() {
+                            p if p.rational_unit().is_some() => Some(p),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                },
+                _ => match function_period(x, variable) {
+                    Some(xp) => common_period(xp, p),
+                    _ => None,
+                },
             }
         }
         binary!(_, x, y) => {
