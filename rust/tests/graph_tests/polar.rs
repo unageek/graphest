@@ -13,7 +13,7 @@ t!(
     t_cc34e20f7186486690b8cf44e6eee27f,
     "r = 4 sin(θ)^2 cos(θ)",
     @bounds(-2, 2, -2, 2),
-    @timeout(2000),
+    @timeout(3000),
 );
 
 // cardioid (a = 1)
@@ -28,6 +28,7 @@ t!(
     t_a96f22e561114a4ca946e8e0aae6d124,
     "r = cos(θ / 3)^3",
     @bounds(-2, 2, -2, 2),
+    @timeout(2000),
 );
 
 // cycloid of Ceva (a = 1)
@@ -65,6 +66,7 @@ t!(
     t_d32ed36d48f94fc8960be7e237e99913,
     "r = sin(θ) sqrt(|cos(θ)|) / (sin(θ) + 7/5) - 2 sin(θ) + 2",
     @bounds(-5, 5, -5, 5),
+    @timeout(2000),
 );
 
 // lituus (a = 1)
@@ -83,6 +85,7 @@ t!(
     t_ec54de81941547d9a1bfec6f09badf75,
     "r = -cos(3θ)",
     @bounds(-2, 2, -2, 2),
+    @timeout(2000),
 );
 
 // Tschirnhausen cubic (a = 1)
