@@ -17,7 +17,6 @@ use crate::{
 };
 use inari::Decoration;
 use itertools::Itertools;
-use smallvec::smallvec;
 use std::{
     convert::TryFrom,
     time::{Duration, Instant},
@@ -133,13 +132,6 @@ impl Implicit {
             let n_theta_range = g.rel.n_theta_range();
             bs = IntegerParameter::initial_subdivision(n_theta_range)
                 .into_iter()
-                .flat_map(|n| {
-                    if n.is_subdivisible() {
-                        n.subdivide()
-                    } else {
-                        smallvec![n]
-                    }
-                })
                 .cartesian_product(bs)
                 .map(|(n, b)| Block { n_theta: n, ..b })
                 .collect::<Vec<_>>();

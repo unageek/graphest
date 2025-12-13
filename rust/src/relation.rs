@@ -487,90 +487,94 @@ fn expand_polar_coords(e: &mut Expr) {
     use {BinaryOp::*, NaryOp::*};
     let ctx = Context::builtin();
 
-    // e1 = e /. {r → sqrt(x^2 + y^2), θ → atan2(y, x) + 2π n_θ}.
-    let mut e1 = e.clone();
-    let mut v = ReplaceAll::new(|e| match e {
-        var!(x) if x == "r" => Some(Expr::binary(
-            Pow,
-            Expr::nary(
+    let x = ctx.get_constant("x").unwrap();
+    let y = ctx.get_constant("y").unwrap();
+    let minus_x = Expr::nary(Times, vec![Expr::minus_one(), x.clone()]);
+    let minus_y = Expr::nary(Times, vec![Expr::minus_one(), y.clone()]);
+    let hypot = Expr::binary(
+        Pow,
+        Expr::nary(
+            Plus,
+            vec![
+                Expr::binary(Pow, x.clone(), Expr::two()),
+                Expr::binary(Pow, y.clone(), Expr::two()),
+            ],
+        ),
+        Expr::one_half(),
+    );
+    let neg_hypot = Expr::nary(Times, vec![Expr::minus_one(), hypot.clone()]);
+    let atan2 = Expr::binary(Atan2, y.clone(), x.clone());
+    let anti_atan2 = Expr::binary(Atan2, minus_y.clone(), minus_x.clone());
+    let two_pi_n_theta = Expr::nary(
+        Times,
+        vec![Expr::tau(), ctx.get_constant("<n-theta>").unwrap()],
+    );
+
+    // e11 = e /. {r → sqrt(x^2 + y^2), θ → 2π n_θ + atan2(y, x)}.
+    let e11 = {
+        let mut e = e.clone();
+        let mut v = ReplaceAll::new(|e| match e {
+            var!(x) if x == "r" => Some(hypot.clone()),
+            var!(x) if x == "theta" => Some(Expr::nary(
                 Plus,
-                vec![
-                    Expr::binary(Pow, ctx.get_constant("x").unwrap(), Expr::two()),
-                    Expr::binary(Pow, ctx.get_constant("y").unwrap(), Expr::two()),
-                ],
-            ),
-            Expr::one_half(),
-        )),
-        var!(x) if x == "theta" => Some(Expr::nary(
-            Plus,
-            vec![
-                Expr::binary(
-                    Atan2,
-                    ctx.get_constant("y").unwrap(),
-                    ctx.get_constant("x").unwrap(),
-                ),
-                Expr::nary(
-                    Times,
-                    vec![Expr::tau(), ctx.get_constant("<n-theta>").unwrap()],
-                ),
-            ],
-        )),
-        _ => None,
-    });
-    v.visit_expr_mut(&mut e1);
-    if !v.modified {
-        // `e` does not contain r nor θ.
-        return;
-    }
+                vec![two_pi_n_theta.clone(), atan2.clone()],
+            )),
+            _ => None,
+        });
+        v.visit_expr_mut(&mut e);
+        if !v.modified {
+            // `e` contains neither r nor θ.
+            return;
+        }
+        e
+    };
 
-    // e2 = e /. {r → -sqrt(x^2 + y^2), θ → atan2(y, x) + 2π (1/2 + n_θ)}.
-    // θ can alternatively be replaced by atan2(-y, -x) + 2π n_θ,
-    // which will be a little more precise for some n_θ,
-    // but much slower since we have to evaluate `atan2` separately for `e1` and `e2`.
-    let mut e2 = e.clone();
-    let mut v = ReplaceAll::new(|e| match e {
-        var!(x) if x == "r" => Some(Expr::nary(
-            Times,
-            vec![
-                Expr::minus_one(),
-                Expr::binary(
-                    Pow,
-                    Expr::nary(
-                        Plus,
-                        vec![
-                            Expr::binary(Pow, ctx.get_constant("x").unwrap(), Expr::two()),
-                            Expr::binary(Pow, ctx.get_constant("y").unwrap(), Expr::two()),
-                        ],
-                    ),
-                    Expr::one_half(),
-                ),
-            ],
-        )),
-        var!(x) if x == "theta" => Some(Expr::nary(
-            Plus,
-            vec![
-                Expr::binary(
-                    Atan2,
-                    ctx.get_constant("y").unwrap(),
-                    ctx.get_constant("x").unwrap(),
-                ),
-                Expr::nary(
-                    Times,
-                    vec![
-                        Expr::tau(),
-                        Expr::nary(
-                            Plus,
-                            vec![Expr::one_half(), ctx.get_constant("<n-theta>").unwrap()],
-                        ),
-                    ],
-                ),
-            ],
-        )),
-        _ => None,
-    });
-    v.visit_expr_mut(&mut e2);
+    // e12 = e /. {r → sqrt(x^2 + y^2), θ → π + 2π n_θ + atan2(-y, -x)}.
+    let e12 = {
+        let mut e = e.clone();
+        let mut v = ReplaceAll::new(|e| match e {
+            var!(x) if x == "r" => Some(hypot.clone()),
+            var!(x) if x == "theta" => Some(Expr::nary(
+                Plus,
+                vec![Expr::pi(), two_pi_n_theta.clone(), anti_atan2.clone()],
+            )),
+            _ => None,
+        });
+        v.visit_expr_mut(&mut e);
+        e
+    };
 
-    *e = Expr::binary(BinaryOp::Or, e1, e2);
+    // e21 = e /. {r → -sqrt(x^2 + y^2), θ → 2π n_θ + atan2(-y, -x)}.
+    let e21 = {
+        let mut e = e.clone();
+        let mut v = ReplaceAll::new(|e| match e {
+            var!(x) if x == "r" => Some(neg_hypot.clone()),
+            var!(x) if x == "theta" => Some(Expr::nary(
+                Plus,
+                vec![two_pi_n_theta.clone(), anti_atan2.clone()],
+            )),
+            _ => None,
+        });
+        v.visit_expr_mut(&mut e);
+        e
+    };
+
+    // e22 = e /. {r → -sqrt(x^2 + y^2), θ → π + 2π n_θ + atan2(y, x)}.
+    let e22 = {
+        let mut e = e.clone();
+        let mut v = ReplaceAll::new(|e| match e {
+            var!(x) if x == "r" => Some(neg_hypot.clone()),
+            var!(x) if x == "theta" => Some(Expr::nary(
+                Plus,
+                vec![Expr::pi(), two_pi_n_theta.clone(), atan2.clone()],
+            )),
+            _ => None,
+        });
+        v.visit_expr_mut(&mut e);
+        e
+    };
+
+    *e = Expr::binary(Or, Expr::binary(Or, e11, e12), Expr::binary(Or, e21, e22));
 }
 
 /// Returns the period of a function of a variable t,
