@@ -357,6 +357,11 @@ impl Expr {
         Self::constant(const_dec_interval!(0.5, 0.5).into())
     }
 
+    /// Creates a constant node with value π.
+    pub fn pi() -> Self {
+        Self::constant(Real::pi())
+    }
+
     /// Creates a new expression of kind [`ExprKind::Pown`].
     pub fn pown(x: Expr, n: i32) -> Self {
         Self::new(ExprKind::Pown(Box::new(x), n))

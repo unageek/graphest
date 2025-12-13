@@ -10,7 +10,9 @@ use crate::{
         StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex,
     },
     parse::parse_expr,
-    pown, rootn, ternary, unary, uninit, var,
+    pown,
+    real::Real,
+    rootn, ternary, unary, uninit, var,
     vars::{VarIndex, VarSet},
 };
 use inari::Decoration;
@@ -19,6 +21,7 @@ use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
+    iter,
     marker::Sized,
     mem::take,
     ops::{Deref, Range},
@@ -1071,6 +1074,56 @@ impl VisitMut for Transform {
         }
 
         match e {
+            unary!(op @ (Cos | Sin | Tan), nary!(Times, xs)) => {
+                if let [constant!(a), nary!(Plus, ys)] = &mut xs[..] {
+                    if let [constant!(b), ..] = &mut ys[..] {
+                        // a (b + …) → a*b + a (…) /; a*b = q π ∧ q ∈ ℚ
+                        let c = a.clone() * b.clone();
+                        if c.rational_pi().is_some() {
+                            *e = Expr::unary(
+                                *op,
+                                Expr::nary(
+                                    Plus,
+                                    vec![
+                                        Expr::constant(c),
+                                        Expr::nary(
+                                            Times,
+                                            vec![
+                                                Expr::constant(take(a)),
+                                                Expr::nary(Plus, ys.drain(1..).collect()),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                            );
+                            self.modified = true;
+                        }
+                    }
+                }
+            }
+            unary!(op @ (Cos | Sin | Tan), nary!(Plus, xs)) => {
+                if let [constant!(a), xs_tail @ ..] = &xs[..] {
+                    if a.rational_pi().is_some() {
+                        let a_reduced = match op {
+                            Cos | Sin => a.clone().modulo(Real::tau()),
+                            Tan => a.clone().modulo(Real::pi()),
+                            _ => unreachable!(),
+                        };
+                        if a_reduced != *a {
+                            *e = Expr::unary(
+                                *op,
+                                Expr::nary(
+                                    Plus,
+                                    iter::once(Expr::constant(a_reduced))
+                                        .chain(xs_tail.iter().cloned())
+                                        .collect(),
+                                ),
+                            );
+                            self.modified = true;
+                        }
+                    }
+                }
+            }
             binary!(And, x @ bool_constant!(_), y) | binary!(And, y, x @ bool_constant!(_)) => {
                 *e = match x {
                     bool_constant!(false) => take(x),
@@ -2417,6 +2470,13 @@ mod tests {
             "if(x < 0, 1, 0) y",
             "(IfThenElse (BooleLtZero x) (Times y 1) 0)",
         );
+
+        test("sin(4(π + x))", "(Sin (Plus @ (Times 4 x)))");
+        test("cos(4(π + x))", "(Cos (Plus @ (Times 4 x)))");
+        test("tan(3(π + x))", "(Tan (Plus @ (Times 3 x)))");
+        test("sin(4π + 4x)", "(Sin (Plus 0 (Times 4 x)))");
+        test("cos(4π + 4x)", "(Cos (Plus 0 (Times 4 x)))");
+        test("tan(3π + 3x)", "(Tan (Plus 0 (Times 3 x)))");
     }
 
     #[test]

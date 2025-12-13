@@ -93,6 +93,12 @@ impl Real {
     }
 }
 
+impl Default for Real {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 impl From<DecInterval> for Real {
     fn from(x: DecInterval) -> Self {
         let x = TupperIntervalSet::from(x);
