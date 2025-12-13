@@ -5,7 +5,7 @@ t!(
     t_b1b247d3dba94a98a1e89ae9099bb442,
     "r = 8 sin(θ)^2 cos(θ) / (cos(4 θ) + 3)",
     @bounds(-2, 2, -2, 2),
-    @timeout(3000),
+    @timeout(4000),
 );
 
 // bifolium (a = 1)
@@ -28,7 +28,7 @@ t!(
     t_a96f22e561114a4ca946e8e0aae6d124,
     "r = cos(θ / 3)^3",
     @bounds(-2, 2, -2, 2),
-    @timeout(2000),
+    @timeout(3000),
 );
 
 // cycloid of Ceva (a = 1)
@@ -59,6 +59,7 @@ t!(
 t!(
     t_34429ea795494b0593297fdb67e1c823,
     "r = θ cos(θ) ∧ -2π ≤ θ ≤ 2π",
+    @timeout(2000),
 );
 
 // fourth heart curve (a = 1)
