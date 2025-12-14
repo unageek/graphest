@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, ExplicitRelOp, Expr, NaryOp, UnaryOp, ValueType},
+    ast::{BinaryOp, ExplicitRelOp, Expr, NaryOp, TernaryOp, UnaryOp, ValueType},
     binary, bool_constant, constant,
     context::Context,
     eval_cache::{EvalExplicitCache, EvalImplicitCache, EvalParametricCache, UnivariateCache},
@@ -898,6 +898,68 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
     }
 }
 
+struct ImplicitRelationParts {
+    eq: Option<Expr>,  // The equality relation if it is unique.
+    others: Vec<Expr>, // Other relations.
+}
+
+fn normalize_implicit_relation(e: &mut Expr) {
+    use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
+
+    let mut parts = ImplicitRelationParts {
+        eq: None,
+        others: vec![],
+    };
+
+    normalize_implicit_relation_impl(&mut e.clone(), &mut parts);
+
+    *e = match (&mut parts.eq, &parts.others[..]) {
+        (Some(binary!(Eq, x, y)), [_, ..]) => Expr::binary(
+            Eq,
+            Expr::ternary(
+                IfThenElse,
+                Expr::unary(
+                    Boole,
+                    parts
+                        .others
+                        .into_iter()
+                        .reduce(|acc, e| Expr::binary(And, acc, e))
+                        .unwrap(),
+                ),
+                Expr::binary(Sub, take(x), take(y)),
+                Expr::one(),
+            ),
+            Expr::zero(),
+        ),
+        _ => parts
+            .eq
+            .into_iter()
+            .chain(parts.others.into_iter())
+            .reduce(|acc, e| Expr::binary(And, acc, e))
+            .unwrap(),
+    };
+}
+
+fn normalize_implicit_relation_impl(e: &mut Expr, parts: &mut ImplicitRelationParts) {
+    use BinaryOp::*;
+
+    match e {
+        binary!(And, e1, e2) => {
+            normalize_implicit_relation_impl(e1, parts);
+            normalize_implicit_relation_impl(e2, parts);
+        }
+        binary!(Eq, _, _) => match &mut parts.eq {
+            Some(eq) => {
+                parts.others.push(take(eq));
+                parts.others.push(take(e));
+                parts.eq = None;
+            }
+            _ => parts.eq = Some(take(e)),
+        },
+        _ => parts.others.push(take(e)),
+    }
+}
+
 /// Determines the type of the relation. If it is [`RelationType::ExplicitFunctionOfX`],
 /// [`RelationType::ExplicitFunctionOfY`], or [`RelationType::Parametric`],
 /// normalizes the explicit part(s) of the relation to the form `(ExplicitRel x f(x))`,
@@ -914,6 +976,7 @@ fn relation_type(e: &mut Expr) -> RelationType {
     } else if let Some(op) = normalize_explicit_relation(e, VarSet::X, VarSet::Y) {
         ExplicitFunctionOfY(op)
     } else {
+        normalize_implicit_relation(e);
         Implicit
     }
 }
