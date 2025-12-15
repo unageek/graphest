@@ -18,7 +18,7 @@ use crate::{
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use itertools::Itertools;
 use rug::{Integer, Rational};
-use std::{collections::HashMap, iter::once, mem::take, ops::Range, str::FromStr};
+use std::{collections::HashMap, iter::once, mem::take, ops::Range, str::FromStr, vec};
 
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -57,6 +57,7 @@ pub struct Relation {
     x_explicit: Option<StoreIndex>,
     y_explicit: Option<StoreIndex>,
     cached_terms: Vec<Vec<StoreIndex>>,
+    is_maximal_univariate_term: Vec<bool>,
     m_range: Interval,
     n_range: Interval,
     n_theta_range: Interval,
@@ -213,7 +214,7 @@ impl Relation {
 
     fn eval(&mut self, args: &EvalArgs, cache: &mut UnivariateCache) -> EvalResult {
         let ts = &mut self.ts;
-        let mut cached_vars = VarSet::EMPTY;
+        let mut updated_vars = VarSet::EMPTY;
 
         for t in &self.terms {
             if !t.vars.is_empty() {
@@ -226,11 +227,14 @@ impl Relation {
                 for (&i, mx) in self.cached_terms[i].iter().zip(mx_ts.iter()) {
                     ts[i] = mx.clone();
                 }
-                cached_vars |= self.vars_ordered[i];
             }
         }
 
         for t in &self.terms[self.eval_terms.clone()] {
+            let is_multivariate = t.vars.len() > 1;
+            let is_maximal_univariate =
+                self.is_maximal_univariate_term[t.store_index.get() as usize];
+
             match t.kind {
                 StaticTermKind::Var(i, ty) => {
                     let x = args[i as usize];
@@ -241,10 +245,15 @@ impl Relation {
                     };
                     t.put(ts, DecInterval::set_dec(x, d).into());
                 }
-                _ if t.vars.len() <= 1 && cached_vars.contains(t.vars) => {
-                    // `t` is constant or cached.
+                _ if is_multivariate
+                    || is_maximal_univariate && ts[t.store_index].is_unevaluated() =>
+                {
+                    t.put_eval(&self.terms[..], ts);
+                    if is_maximal_univariate {
+                        updated_vars |= t.vars;
+                    }
                 }
-                _ => t.put_eval(&self.terms[..], ts),
+                _ => (),
             }
         }
 
@@ -256,7 +265,7 @@ impl Relation {
         );
 
         for i in 0..self.vars_ordered.len() {
-            if !cached_vars.contains(self.vars_ordered[i]) {
+            if updated_vars.contains(self.vars_ordered[i]) {
                 cache.insert_with(i, args, || {
                     self.cached_terms[i]
                         .iter()
@@ -446,6 +455,11 @@ impl FromStr for Relation {
         v.visit_expr(&e);
         let cached_terms = v.get();
 
+        let mut is_maximal_univariate_term = vec![false; n_terms];
+        for i in cached_terms.iter().flatten() {
+            is_maximal_univariate_term[i.get() as usize] = true;
+        }
+
         let mut slf = Self {
             ast: e,
             terms,
@@ -457,6 +471,7 @@ impl FromStr for Relation {
             x_explicit,
             y_explicit,
             cached_terms,
+            is_maximal_univariate_term,
             m_range,
             n_range,
             n_theta_range,
