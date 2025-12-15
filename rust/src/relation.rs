@@ -949,7 +949,7 @@ fn normalize_implicit_relation(e: &mut Expr) {
         _ => parts
             .eq
             .into_iter()
-            .chain(parts.others.into_iter())
+            .chain(parts.others)
             .reduce(|acc, e| Expr::binary(And, acc, e))
             .unwrap(),
     };
