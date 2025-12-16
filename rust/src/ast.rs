@@ -392,6 +392,11 @@ impl Expr {
         Self::new(ExprKind::Unary(op, Box::new(x)))
     }
 
+    /// Creates a constant node with an undefined value.
+    pub fn undefined() -> Self {
+        Self::constant(Real::undefined())
+    }
+
     /// Creates a new expression of kind [`ExprKind::Var`].
     pub fn var(name: &str) -> Self {
         Self::new(ExprKind::Var(name.into()))

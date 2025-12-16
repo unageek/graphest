@@ -59,6 +59,14 @@ impl Real {
         }
     }
 
+    /// Returns a [`Real`] representing an undefined value.
+    pub fn undefined() -> Self {
+        Self {
+            x: TupperIntervalSet::new(),
+            q: None,
+        }
+    }
+
     /// Returns an enclosure of the value.
     pub fn interval(&self) -> &TupperIntervalSet {
         &self.x

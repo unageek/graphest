@@ -18,7 +18,7 @@ use crate::{
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use itertools::Itertools;
 use rug::{Integer, Rational};
-use std::{collections::HashMap, iter::once, mem::take, str::FromStr, vec};
+use std::{collections::HashMap, mem::take, str::FromStr, vec};
 
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -801,7 +801,7 @@ fn normalize_explicit_relation(
     y_var: VarSet,
     x_var: VarSet,
 ) -> Option<ExplicitRelOp> {
-    use BinaryOp::*;
+    use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
 
     let mut parts = ExplicitRelationParts {
         op: ExplicitRelOp::Eq,
@@ -813,11 +813,26 @@ fn normalize_explicit_relation(
         return None;
     }
 
-    if let Some(y) = parts.y {
-        *e = once(y)
-            .chain(parts.px)
-            .reduce(|acc, e| Expr::binary(And, acc, e))
-            .unwrap();
+    if let Some(y) = &mut parts.y {
+        let mut pt = parts
+            .px
+            .into_iter()
+            .reduce(|acc, e| Expr::binary(And, acc, e));
+
+        if let Some(pt) = &mut pt {
+            if let binary!(_, _, f) = y {
+                *f = Expr::ternary(
+                    IfThenElse,
+                    Expr::unary(Boole, take(pt)),
+                    take(f),
+                    Expr::undefined(),
+                );
+            } else {
+                unreachable!();
+            }
+        }
+
+        *e = take(y);
         Some(parts.op)
     } else {
         None
@@ -891,7 +906,7 @@ struct ParametricRelationParts {
 
 /// Tries to identify `e` as a parametric relation.
 fn normalize_parametric_relation(e: &mut Expr) -> bool {
-    use BinaryOp::*;
+    use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
 
     let mut parts = ParametricRelationParts {
         xt: None,
@@ -903,12 +918,36 @@ fn normalize_parametric_relation(e: &mut Expr) -> bool {
         return false;
     }
 
-    if let (Some(xt), Some(yt)) = (parts.xt, parts.yt) {
-        *e = [xt, yt]
+    if let (Some(xt), Some(yt)) = &mut (parts.xt, parts.yt) {
+        let mut pt = parts
+            .pt
             .into_iter()
-            .chain(parts.pt)
-            .reduce(|acc, e| Expr::binary(And, acc, e))
-            .unwrap();
+            .reduce(|acc, e| Expr::binary(And, acc, e));
+
+        if let Some(pt) = &mut pt {
+            if let binary!(_, _, f) = xt {
+                *f = Expr::ternary(
+                    IfThenElse,
+                    Expr::unary(Boole, pt.clone()),
+                    take(f),
+                    Expr::undefined(),
+                );
+            } else {
+                unreachable!();
+            }
+            if let binary!(_, _, f) = yt {
+                *f = Expr::ternary(
+                    IfThenElse,
+                    Expr::unary(Boole, take(pt)),
+                    take(f),
+                    Expr::undefined(),
+                );
+            } else {
+                unreachable!();
+            }
+        }
+
+        *e = Expr::binary(And, take(xt), take(yt));
         true
     } else {
         false
@@ -972,30 +1011,25 @@ fn normalize_implicit_relation(e: &mut Expr) {
 
     normalize_implicit_relation_impl(&mut e.clone(), &mut parts);
 
-    *e = match (&mut parts.eq, &parts.others[..]) {
-        (Some(binary!(Eq, x, y)), [_, ..]) => Expr::binary(
+    let mut others = parts
+        .others
+        .into_iter()
+        .reduce(|acc, e| Expr::binary(And, acc, e));
+
+    *e = match (&mut parts.eq, &mut others) {
+        (Some(binary!(Eq, x, y)), Some(others)) => Expr::binary(
             Eq,
             Expr::ternary(
                 IfThenElse,
-                Expr::unary(
-                    Boole,
-                    parts
-                        .others
-                        .into_iter()
-                        .reduce(|acc, e| Expr::binary(And, acc, e))
-                        .unwrap(),
-                ),
+                Expr::unary(Boole, take(others)),
                 Expr::binary(Sub, take(x), take(y)),
-                Expr::one(),
+                Expr::undefined(),
             ),
             Expr::zero(),
         ),
-        _ => parts
-            .eq
-            .into_iter()
-            .chain(parts.others)
-            .reduce(|acc, e| Expr::binary(And, acc, e))
-            .unwrap(),
+        (Some(eq), None) => take(eq),
+        (None, Some(others)) => take(others),
+        _ => unreachable!(),
     };
 }
 
