@@ -107,24 +107,19 @@ impl Relation {
         self.eval_count += 1;
 
         cache.full.get_or_insert_with(args, || {
-            let p = self.eval(args, &mut cache.univariate).result(self.forms());
-            if p.certainly_false() {
-                let ys = TupperIntervalSet::new();
-                (ys, p)
-            } else {
-                let mut ys = match self.relation_type {
-                    RelationType::ExplicitFunctionOfX(_) => {
-                        self.ts.get(self.y_explicit.unwrap()).unwrap().clone()
-                    }
-                    RelationType::ExplicitFunctionOfY(_) => {
-                        self.ts.get(self.x_explicit.unwrap()).unwrap().clone()
-                    }
-                    _ => unreachable!(),
-                };
-                ys.normalize(true);
-                ys.transform_in_place(ty);
-                (ys, p)
-            }
+            self.eval(args, &mut cache.univariate);
+            let mut ys = match self.relation_type {
+                RelationType::ExplicitFunctionOfX(_) => {
+                    self.ts.get(self.y_explicit.unwrap()).unwrap().clone()
+                }
+                RelationType::ExplicitFunctionOfY(_) => {
+                    self.ts.get(self.x_explicit.unwrap()).unwrap().clone()
+                }
+                _ => unreachable!(),
+            };
+            ys.normalize(true);
+            ys.transform_in_place(ty);
+            ys
         })
     }
 
@@ -165,20 +160,14 @@ impl Relation {
         self.eval_count += 1;
 
         cache.full.get_or_insert_with(args, || {
-            let p = self.eval(args, &mut cache.univariate).result(self.forms());
-            if p.certainly_false() {
-                let xs = TupperIntervalSet::new();
-                let ys = TupperIntervalSet::new();
-                (xs, ys, p)
-            } else {
-                let mut xs = self.ts.get(self.x_explicit.unwrap()).unwrap().clone();
-                let mut ys = self.ts.get(self.y_explicit.unwrap()).unwrap().clone();
-                xs.normalize(true);
-                ys.normalize(true);
-                xs.transform_in_place(tx);
-                ys.transform_in_place(ty);
-                (xs, ys, p)
-            }
+            self.eval(args, &mut cache.univariate);
+            let mut xs = self.ts.get(self.x_explicit.unwrap()).unwrap().clone();
+            let mut ys = self.ts.get(self.y_explicit.unwrap()).unwrap().clone();
+            xs.normalize(true);
+            ys.normalize(true);
+            xs.transform_in_place(tx);
+            ys.transform_in_place(ty);
+            (xs, ys)
         })
     }
 

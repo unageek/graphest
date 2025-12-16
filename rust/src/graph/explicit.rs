@@ -199,10 +199,14 @@ impl Explicit {
     ) {
         let x_up = self.region_clipped(b.x).outer();
         set_arg!(args, self.x_index, x_up);
-        let (ys, cond) = self
+        let ys = self
             .rel
             .eval_explicit(args, &self.real_to_im_y, &mut self.no_cache)
             .clone();
+
+        if ys.is_empty() {
+            return;
+        }
 
         let px = {
             let begin = b.x.pixel_index();
@@ -211,7 +215,7 @@ impl Explicit {
         };
 
         let dec = ys.decoration();
-        if dec >= Decoration::Def && cond.certainly_true() {
+        if dec >= Decoration::Def {
             let y = ys
                 .iter()
                 .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y.x));
@@ -224,8 +228,6 @@ impl Explicit {
             if pixels == t_pixels {
                 return;
             }
-        } else if cond.certainly_false() {
-            return;
         }
 
         incomplete_pixels.extend(ys.into_iter().map(|y| self.possibly_true_pixels(px, y.x)))
@@ -243,10 +245,14 @@ impl Explicit {
     ) {
         let x_up = subpixel_outer_x(&self.region(b.x), b);
         set_arg!(args, self.x_index, x_up);
-        let (ys, cond) = self
+        let ys = self
             .rel
             .eval_explicit(args, &self.real_to_im_y, &mut self.no_cache)
             .clone();
+
+        if ys.is_empty() {
+            return;
+        }
 
         let px = {
             let begin = b.x.pixel_index();
@@ -260,7 +266,7 @@ impl Explicit {
         let inter = x_up.intersection(x_dn);
 
         if !inter.is_empty() {
-            if dec >= Decoration::Def && cond.certainly_true() {
+            if dec >= Decoration::Def {
                 let y = ys
                     .iter()
                     .fold(Interval::EMPTY, |acc, &y| acc.convex_hull(y.x));
@@ -273,8 +279,6 @@ impl Explicit {
                 if pixels == t_pixels {
                     return;
                 }
-            } else if cond.certainly_false() {
-                return;
             }
 
             // To dedup, points must be sorted.
@@ -289,10 +293,10 @@ impl Explicit {
                 })
                 .collect::<SmallVec<[_; 3]>>();
 
-            if dec >= Decoration::Dac && cond.certainly_true() {
+            if dec >= Decoration::Dac {
                 let ys = rs
                     .into_iter()
-                    .map(|(y, _)| {
+                    .map(|y| {
                         assert_eq!(y.len(), 1);
                         y.iter().next().unwrap().x
                     })
@@ -322,10 +326,9 @@ impl Explicit {
                     }
                 }
             } else {
-                for (ys, cond) in rs {
+                for ys in rs {
                     let dec = ys.decoration();
-
-                    if dec >= Decoration::Def && cond.certainly_true() {
+                    if dec >= Decoration::Def {
                         let y = ys
                             .iter()
                             .fold(Interval::EMPTY, |acc, y| acc.convex_hull(y.x));

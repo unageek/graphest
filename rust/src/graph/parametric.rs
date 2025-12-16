@@ -259,7 +259,7 @@ impl Parametric {
         set_arg!(args, self.var_indices.m, block.m.interval());
         set_arg!(args, self.var_indices.n, block.n.interval());
         set_arg!(args, self.var_indices.t, block.t.interval());
-        let (xs, ys, cond) = self
+        let (xs, ys) = self
             .rel
             .eval_parametric(
                 args,
@@ -268,12 +268,17 @@ impl Parametric {
                 &mut self.no_cache,
             )
             .clone();
+
+        if xs.is_empty() || ys.is_empty() {
+            return;
+        }
+
         let rs = Self::regions(&xs, &ys)
             .map(|r| Self::outer_pixels(&r))
             .collect::<SmallVec<[_; 4]>>();
 
         let dec = xs.decoration().min(ys.decoration());
-        if dec >= Decoration::Def && cond.certainly_true() {
+        if dec >= Decoration::Def {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));
 
             if Self::is_pixel(&r) {
@@ -290,7 +295,7 @@ impl Parametric {
                         self.var_indices.t,
                         point_interval_possibly_infinite(block.t.interval().inf())
                     );
-                    let (xs, ys, _) = self
+                    let (xs, ys) = self
                         .rel
                         .eval_parametric(
                             args,
@@ -308,7 +313,7 @@ impl Parametric {
                         self.var_indices.t,
                         point_interval_possibly_infinite(block.t.interval().sup())
                     );
-                    let (xs, ys, _) = self
+                    let (xs, ys) = self
                         .rel
                         .eval_parametric(
                             args,
@@ -363,8 +368,6 @@ impl Parametric {
                     return;
                 }
             }
-        } else if cond.certainly_false() {
-            return;
         }
 
         incomplete_pixels.extend(rs.into_iter().map(|r| self.pixels_in_image(&r)))
