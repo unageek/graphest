@@ -24,7 +24,7 @@ use std::{
     iter,
     marker::Sized,
     mem::take,
-    ops::{Deref, Range},
+    ops::Deref,
 };
 
 /// A visitor that visits AST nodes in depth-first order.
@@ -1728,7 +1728,6 @@ pub struct CollectRealExprs {
     branch_id_map: HashMap<UnsafeExprRef, usize>,
     exprs: Vec<Option<UnsafeExprRef>>,
     index_map: HashMap<UnsafeExprRef, usize>,
-    index_prefix: Vec<usize>,
     next_index: Vec<usize>,
 }
 
@@ -1754,7 +1753,6 @@ impl CollectRealExprs {
             branch_id_map: assign_branch_id.branch_id_map,
             exprs: vec![None; *index_prefix.last().unwrap()],
             index_map: HashMap::new(),
-            index_prefix,
             next_index,
         }
     }
@@ -1778,7 +1776,6 @@ impl VisitMut for CollectRealExprs {
 
 /// Collects [`StaticTerm`]s and [`StaticForm`]s.
 pub struct CollectStatic<'a> {
-    pub eval_terms: Range<usize>,
     pub forms: Vec<StaticForm>,
     pub terms: Vec<StaticTerm>,
     bool_exprs: Vec<UnsafeExprRef>,
@@ -1796,7 +1793,6 @@ impl<'a> CollectStatic<'a> {
         var_index: &'a HashMap<VarSet, VarIndex>,
     ) -> Self {
         let mut slf = Self {
-            eval_terms: 0..collect_real_exprs.index_prefix[1],
             forms: vec![],
             terms: vec![],
             bool_exprs: assign_site.bool_exprs,
