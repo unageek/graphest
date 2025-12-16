@@ -18,7 +18,7 @@ use crate::{
 use inari::{const_interval, interval, DecInterval, Decoration, Interval};
 use itertools::Itertools;
 use rug::{Integer, Rational};
-use std::{collections::HashMap, iter::once, mem::take, ops::Range, str::FromStr, vec};
+use std::{collections::HashMap, iter::once, mem::take, str::FromStr, vec};
 
 /// The type of a [`Relation`], which decides the graphing algorithm to be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -51,13 +51,13 @@ pub struct Relation {
     terms: Vec<StaticTerm>,
     forms: Vec<StaticForm>,
     n_atom_forms: usize,
-    eval_terms: Range<usize>,
     ts: OptionalValueStore<TupperIntervalSet>,
     eval_count: usize,
     x_explicit: Option<StoreIndex>,
     y_explicit: Option<StoreIndex>,
     cached_terms: Vec<Vec<StoreIndex>>,
-    is_maximal_univariate_term: Vec<bool>,
+    cache_index: Vec<Option<usize>>,
+    term_to_eval: Vec<bool>,
     m_range: Interval,
     n_range: Interval,
     n_theta_range: Interval,
@@ -218,7 +218,6 @@ impl Relation {
 
     fn eval(&mut self, args: &EvalArgs, cache: &mut UnivariateCache) -> EvalResult {
         let ts = &mut self.ts;
-        let mut updated_vars = VarSet::EMPTY;
 
         for t in &self.terms {
             if !t.vars.is_empty() {
@@ -236,10 +235,17 @@ impl Relation {
             }
         }
 
-        for t in &self.terms[self.eval_terms.clone()] {
-            let is_multivariate = t.vars.len() > 1;
-            let is_maximal_univariate =
-                self.is_maximal_univariate_term[t.store_index.get() as usize];
+        let mut num_evaluated_terms = vec![0; self.vars_ordered.len()];
+        for t in &self.terms {
+            if let Some(var_index) = self.cache_index[t.store_index.get() as usize] {
+                if ts.get(t.store_index).is_some() {
+                    num_evaluated_terms[var_index] -= 1;
+                }
+            }
+        }
+
+        for t in &self.terms {
+            let to_eval = self.term_to_eval[t.store_index.get() as usize];
 
             match t.kind {
                 StaticTermKind::Var(i, ty) => {
@@ -251,15 +257,16 @@ impl Relation {
                     };
                     t.put(ts, DecInterval::set_dec(x, d).into());
                 }
-                _ if is_multivariate
-                    || is_maximal_univariate && ts.get(t.store_index).is_none() =>
-                {
-                    t.put_eval(&self.terms[..], ts);
-                    if is_maximal_univariate {
-                        updated_vars |= t.vars;
-                    }
-                }
+                _ if to_eval => t.put_eval(&self.terms[..], ts),
                 _ => (),
+            }
+        }
+
+        for t in &self.terms {
+            if let Some(var_index) = self.cache_index[t.store_index.get() as usize] {
+                if ts.get(t.store_index).is_some() {
+                    num_evaluated_terms[var_index] += 1;
+                }
             }
         }
 
@@ -270,8 +277,9 @@ impl Relation {
                 .collect(),
         );
 
+        #[allow(clippy::needless_range_loop)]
         for i in 0..self.vars_ordered.len() {
-            if updated_vars.contains(self.vars_ordered[i]) {
+            if num_evaluated_terms[i] > 0 {
                 cache.insert_with(i, args, || {
                     self.cached_terms[i]
                         .iter()
@@ -447,7 +455,6 @@ impl FromStr for Relation {
             .iter()
             .filter(|f| matches!(f.kind, StaticFormKind::Atomic(_, _)))
             .count();
-        let eval_terms = collector.eval_terms.clone();
 
         let mut v = FindExplicitRelation::new(&collector, VarSet::X);
         v.visit_expr(&e);
@@ -461,9 +468,24 @@ impl FromStr for Relation {
         v.visit_expr(&e);
         let cached_terms = v.get();
 
-        let mut is_maximal_univariate_term = vec![false; n_terms];
-        for i in cached_terms.iter().flatten() {
-            is_maximal_univariate_term[i.get() as usize] = true;
+        let mut term_to_eval = vec![false; n_terms];
+        for f in &forms {
+            if let StaticFormKind::Atomic(_, i) = &f.kind {
+                term_to_eval[i.get() as usize] = true;
+            }
+        }
+        if let Some(i) = x_explicit {
+            term_to_eval[i.get() as usize] = true;
+        }
+        if let Some(i) = y_explicit {
+            term_to_eval[i.get() as usize] = true;
+        }
+
+        let mut cache_index = vec![None; n_terms];
+        for var_index in 0..cached_terms.len() {
+            for i in &cached_terms[var_index] {
+                cache_index[i.get() as usize] = Some(var_index);
+            }
         }
 
         let mut slf = Self {
@@ -471,13 +493,13 @@ impl FromStr for Relation {
             terms,
             forms,
             n_atom_forms,
-            eval_terms,
             ts: OptionalValueStore::new(n_terms),
             eval_count: 0,
             x_explicit,
             y_explicit,
             cached_terms,
-            is_maximal_univariate_term,
+            term_to_eval,
+            cache_index,
             m_range,
             n_range,
             n_theta_range,
