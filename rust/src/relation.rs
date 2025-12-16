@@ -482,8 +482,8 @@ impl FromStr for Relation {
         }
 
         let mut cache_index = vec![None; n_terms];
-        for var_index in 0..cached_terms.len() {
-            for i in &cached_terms[var_index] {
+        for (var_index, is) in cached_terms.iter().enumerate() {
+            for i in is {
                 cache_index[i.get() as usize] = Some(var_index);
             }
         }
