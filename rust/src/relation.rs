@@ -7,7 +7,7 @@ use crate::{
     geom::{TransformInPlace, Transformation1D},
     interval_set::TupperIntervalSet,
     nary,
-    ops::{StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex, ValueStore},
+    ops::{OptionalValueStore, StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex},
     parse::{format_error, parse_expr},
     rational_ops,
     real::{Real, RealUnit},
@@ -52,7 +52,7 @@ pub struct Relation {
     forms: Vec<StaticForm>,
     n_atom_forms: usize,
     eval_terms: Range<usize>,
-    ts: ValueStore<TupperIntervalSet>,
+    ts: OptionalValueStore<TupperIntervalSet>,
     eval_count: usize,
     x_explicit: Option<StoreIndex>,
     y_explicit: Option<StoreIndex>,
@@ -108,8 +108,12 @@ impl Relation {
         cache.full.get_or_insert_with(args, || {
             let p = self.eval(args, &mut cache.univariate);
             let mut ys = match self.relation_type {
-                RelationType::ExplicitFunctionOfX(_) => self.ts[self.y_explicit.unwrap()].clone(),
-                RelationType::ExplicitFunctionOfY(_) => self.ts[self.x_explicit.unwrap()].clone(),
+                RelationType::ExplicitFunctionOfX(_) => {
+                    self.ts.get(self.y_explicit.unwrap()).unwrap().clone()
+                }
+                RelationType::ExplicitFunctionOfY(_) => {
+                    self.ts.get(self.x_explicit.unwrap()).unwrap().clone()
+                }
                 _ => unreachable!(),
             };
             ys.normalize(true);
@@ -155,8 +159,8 @@ impl Relation {
 
         cache.full.get_or_insert_with(args, || {
             let p = self.eval(args, &mut cache.univariate);
-            let mut xs = self.ts[self.x_explicit.unwrap()].clone();
-            let mut ys = self.ts[self.y_explicit.unwrap()].clone();
+            let mut xs = self.ts.get(self.x_explicit.unwrap()).unwrap().clone();
+            let mut ys = self.ts.get(self.y_explicit.unwrap()).unwrap().clone();
             xs.normalize(true);
             ys.normalize(true);
             xs.transform_in_place(tx);
@@ -218,14 +222,16 @@ impl Relation {
 
         for t in &self.terms {
             if !t.vars.is_empty() {
-                ts[t.store_index].set_unevaluated();
+                ts.remove(t.store_index);
             }
         }
 
         for i in 0..self.vars_ordered.len() {
             if let Some(mx_ts) = cache.get(i, args) {
                 for (&i, mx) in self.cached_terms[i].iter().zip(mx_ts.iter()) {
-                    ts[i] = mx.clone();
+                    if let Some(mx) = mx {
+                        ts.put(i, mx.clone());
+                    }
                 }
             }
         }
@@ -246,7 +252,7 @@ impl Relation {
                     t.put(ts, DecInterval::set_dec(x, d).into());
                 }
                 _ if is_multivariate
-                    || is_maximal_univariate && ts[t.store_index].is_unevaluated() =>
+                    || is_maximal_univariate && ts.get(t.store_index).is_none() =>
                 {
                     t.put_eval(&self.terms[..], ts);
                     if is_maximal_univariate {
@@ -269,7 +275,7 @@ impl Relation {
                 cache.insert_with(i, args, || {
                     self.cached_terms[i]
                         .iter()
-                        .map(|&i| ts[i].clone())
+                        .map(|&i| ts.get(i).cloned())
                         .collect()
                 });
             }
@@ -280,7 +286,7 @@ impl Relation {
 
     fn initialize(&mut self) {
         for t in &self.terms {
-            self.ts[t.store_index].set_unevaluated();
+            self.ts.remove(t.store_index);
 
             // This condition is different from `let StaticTermKind::Constant(_) = t.kind`,
             // as not all constant expressions are folded. See the comment on [`FoldConstant`].
@@ -466,7 +472,7 @@ impl FromStr for Relation {
             forms,
             n_atom_forms,
             eval_terms,
-            ts: ValueStore::new(TupperIntervalSet::new(), n_terms),
+            ts: OptionalValueStore::new(n_terms),
             eval_count: 0,
             x_explicit,
             y_explicit,

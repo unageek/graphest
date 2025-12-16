@@ -117,7 +117,7 @@ impl<T: BytesAllocated> BytesAllocated for FullCache<T> {
 pub struct UnivariateCache {
     cache_level: EvalCacheLevel,
     n_vars: usize,
-    cs: Vec<HashMap<Interval, Vec<TupperIntervalSet>>>,
+    cs: Vec<HashMap<Interval, Vec<Option<TupperIntervalSet>>>>,
     bytes_allocated_by_values: usize,
 }
 
@@ -138,7 +138,7 @@ impl UnivariateCache {
         self.bytes_allocated_by_values = 0;
     }
 
-    pub fn get(&self, index: usize, args: &EvalArgs) -> Option<&Vec<TupperIntervalSet>> {
+    pub fn get(&self, index: usize, args: &EvalArgs) -> Option<&Vec<Option<TupperIntervalSet>>> {
         if self.cache_level >= EvalCacheLevel::Univariate {
             self.cs[index].get(&args[index])
         } else {
@@ -146,7 +146,7 @@ impl UnivariateCache {
         }
     }
 
-    pub fn insert_with<F: FnOnce() -> Vec<TupperIntervalSet>>(
+    pub fn insert_with<F: FnOnce() -> Vec<Option<TupperIntervalSet>>>(
         &mut self,
         index: usize,
         args: &EvalArgs,

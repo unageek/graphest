@@ -171,8 +171,6 @@ pub struct TupperIntervalSet {
     /// However, this is the only place where we can keep track of the decoration [`Decoration::Trv`]
     /// if the first intervals being inserted are empty, since they will not be stored in `xs`.
     d: Decoration,
-
-    unevaluated: bool,
 }
 
 impl TupperIntervalSet {
@@ -186,7 +184,6 @@ impl TupperIntervalSet {
         Self {
             xs: TupperIntervalVec::new(),
             d: Decoration::Com,
-            unevaluated: false,
         }
     }
 
@@ -215,11 +212,6 @@ impl TupperIntervalSet {
     /// Returns `true` if the set is empty.
     pub fn is_empty(&self) -> bool {
         self.xs.is_empty()
-    }
-
-    /// Returns `true` if the interval set is unevaluated.
-    pub fn is_unevaluated(&self) -> bool {
-        self.unevaluated
     }
 
     /// Returns an iterator over the intervals.
@@ -282,11 +274,6 @@ impl TupperIntervalSet {
         }
 
         xs.shrink_to_fit();
-    }
-
-    /// Marks the interval set as unevaluated.
-    pub fn set_unevaluated(&mut self) {
-        self.unevaluated = true;
     }
 
     /// Returns the only [`f64`] number in the set if `self` contains exactly one interval
@@ -531,6 +518,12 @@ mod tests {
                 TupperInterval::new(i!(1.0, 3.0), g2),
             ],
         );
+    }
+
+    #[test]
+    fn struct_size() {
+        assert_eq!(size_of::<TupperIntervalSet>(), 112);
+        assert_eq!(size_of::<Option<TupperIntervalSet>>(), 112);
     }
 
     #[test]
