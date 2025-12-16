@@ -8,12 +8,12 @@ use inari::const_interval;
 pub struct StoreIndex(u32);
 
 impl StoreIndex {
-    pub fn new(i: u32) -> Self {
-        Self(i)
+    pub fn new(i: usize) -> Self {
+        Self(u32::try_from(i).unwrap())
     }
 
-    pub fn get(&self) -> u32 {
-        self.0
+    pub fn get(&self) -> usize {
+        self.0 as usize
     }
 }
 
@@ -26,15 +26,15 @@ impl<T: Clone> OptionalValueStore<T> {
     }
 
     pub fn get(&self, index: StoreIndex) -> Option<&T> {
-        self.0[index.0 as usize].as_ref()
+        self.0[index.get()].as_ref()
     }
 
     pub fn insert(&mut self, index: StoreIndex, value: T) -> Option<T> {
-        self.0[index.0 as usize].replace(value)
+        self.0[index.get()].replace(value)
     }
 
     pub fn remove(&mut self, index: StoreIndex) -> Option<T> {
-        self.0[index.0 as usize].take()
+        self.0[index.get()].take()
     }
 }
 
@@ -185,50 +185,50 @@ impl StaticTerm {
         match &self.kind {
             Unary(_, x) | Pown(x, _) | Rootn(x, _) => {
                 if ts.get(*x).is_none() {
-                    terms[x.get() as usize].put_eval(terms, ts);
+                    terms[x.get()].put_eval(terms, ts);
                 }
             }
             Binary(_, x, y) => {
                 if ts.get(*x).is_none() {
-                    terms[x.get() as usize].put_eval(terms, ts);
+                    terms[x.get()].put_eval(terms, ts);
                 }
                 if ts.get(*y).is_none() {
-                    terms[y.get() as usize].put_eval(terms, ts);
+                    terms[y.get()].put_eval(terms, ts);
                 }
             }
             Ternary(IfThenElse, cond, t, f) => {
                 if ts.get(*cond).is_none() {
-                    terms[cond.get() as usize].put_eval(terms, ts);
+                    terms[cond.get()].put_eval(terms, ts);
                 }
                 let c = &ts.get(*cond).unwrap();
                 let eval_t = c.iter().any(|x| x.x == const_interval!(1.0, 1.0));
                 let eval_f = c.iter().any(|x| x.x == const_interval!(0.0, 0.0));
                 if eval_t && ts.get(*t).is_none() {
-                    terms[t.get() as usize].put_eval(terms, ts);
+                    terms[t.get()].put_eval(terms, ts);
                 }
                 if eval_f && ts.get(*f).is_none() {
-                    terms[f.get() as usize].put_eval(terms, ts);
+                    terms[f.get()].put_eval(terms, ts);
                 }
             }
             Ternary(_, x, y, z) => {
                 if ts.get(*x).is_none() {
-                    terms[x.get() as usize].put_eval(terms, ts);
+                    terms[x.get()].put_eval(terms, ts);
                 }
                 if ts.get(*y).is_none() {
-                    terms[y.get() as usize].put_eval(terms, ts);
+                    terms[y.get()].put_eval(terms, ts);
                 }
                 if ts.get(*z).is_none() {
-                    terms[z.get() as usize].put_eval(terms, ts);
+                    terms[z.get()].put_eval(terms, ts);
                 }
             }
             RankedMinMax(_, xs, n) => {
                 for x in xs {
                     if ts.get(*x).is_none() {
-                        terms[x.get() as usize].put_eval(terms, ts);
+                        terms[x.get()].put_eval(terms, ts);
                     }
                 }
                 if ts.get(*n).is_none() {
-                    terms[n.get() as usize].put_eval(terms, ts);
+                    terms[n.get()].put_eval(terms, ts);
                 }
             }
             Constant(_) | Var(_, _) => (),

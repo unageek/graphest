@@ -1944,7 +1944,7 @@ impl<'a> CollectStatic<'a> {
                 self.terms.push(StaticTerm {
                     kind: k,
                     site: self.site_map.get(&UnsafeExprRef::from(&e)).copied(),
-                    store_index: StoreIndex::new(i as u32),
+                    store_index: StoreIndex::new(i),
                     vars: e.vars,
                 })
             }
@@ -2004,7 +2004,7 @@ impl<'a> CollectStatic<'a> {
     fn store_index(&self, e: &Expr) -> StoreIndex {
         let e_ref = UnsafeExprRef::from(e);
         let index = self.real_expr_index_map[&e_ref];
-        StoreIndex::new(index as u32)
+        StoreIndex::new(index)
     }
 }
 
@@ -2038,7 +2038,7 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
             binary!(And, _, _) => traverse_expr(self, e),
             binary!(ExplicitRel(_), x @ var!(_), e) if x.vars == self.variable => {
                 self.store_index = Some(StoreIndex::new(
-                    self.collector.real_expr_index_map[&UnsafeExprRef::from(e)] as u32,
+                    self.collector.real_expr_index_map[&UnsafeExprRef::from(e)],
                 ));
             }
             _ => (),
@@ -2082,8 +2082,7 @@ impl<'a> Visit<'a> for FindMaximalScalarTerms<'a> {
             }
             vars if vars.len() == 1 && e.ty == ValueType::Real => {
                 if !matches!(e, var!(_)) {
-                    let index =
-                        StoreIndex::new(self.real_expr_index_map[&UnsafeExprRef::from(e)] as u32);
+                    let index = StoreIndex::new(self.real_expr_index_map[&UnsafeExprRef::from(e)]);
                     self.mx[self.var_index[&vars] as usize].push(index);
                 }
                 // Stop traversal.

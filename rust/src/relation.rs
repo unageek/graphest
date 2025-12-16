@@ -238,7 +238,7 @@ impl Relation {
 
         let mut num_evaluated_terms = vec![0; self.vars_ordered.len()];
         for t in &self.terms {
-            if let Some(var_index) = self.cache_index[t.store_index.get() as usize] {
+            if let Some(var_index) = self.cache_index[t.store_index.get()] {
                 if ts.get(t.store_index).is_some() {
                     num_evaluated_terms[var_index] -= 1;
                 }
@@ -246,7 +246,7 @@ impl Relation {
         }
 
         for t in &self.terms {
-            let to_eval = self.term_to_eval[t.store_index.get() as usize];
+            let to_eval = self.term_to_eval[t.store_index.get()];
 
             match t.kind {
                 StaticTermKind::Var(i, ty) => {
@@ -264,7 +264,7 @@ impl Relation {
         }
 
         for t in &self.terms {
-            if let Some(var_index) = self.cache_index[t.store_index.get() as usize] {
+            if let Some(var_index) = self.cache_index[t.store_index.get()] {
                 if ts.get(t.store_index).is_some() {
                     num_evaluated_terms[var_index] += 1;
                 }
@@ -472,20 +472,20 @@ impl FromStr for Relation {
         let mut term_to_eval = vec![false; n_terms];
         for f in &forms {
             if let StaticFormKind::Atomic(_, i) = &f.kind {
-                term_to_eval[i.get() as usize] = true;
+                term_to_eval[i.get()] = true;
             }
         }
         if let Some(i) = x_explicit {
-            term_to_eval[i.get() as usize] = true;
+            term_to_eval[i.get()] = true;
         }
         if let Some(i) = y_explicit {
-            term_to_eval[i.get() as usize] = true;
+            term_to_eval[i.get()] = true;
         }
 
         let mut cache_index = vec![None; n_terms];
         for (var_index, is) in cached_terms.iter().enumerate() {
             for i in is {
-                cache_index[i.get() as usize] = Some(var_index);
+                cache_index[i.get()] = Some(var_index);
             }
         }
 
