@@ -29,12 +29,8 @@ impl<T: Clone> OptionalValueStore<T> {
         self.0[index.0 as usize].as_ref()
     }
 
-    pub fn get_mut(&mut self, index: StoreIndex) -> Option<&mut T> {
-        self.0[index.0 as usize].as_mut()
-    }
-
-    pub fn put(&mut self, index: StoreIndex, value: T) {
-        self.0[index.0 as usize] = Some(value);
+    pub fn insert(&mut self, index: StoreIndex, value: T) -> Option<T> {
+        self.0[index.0 as usize].replace(value)
     }
 
     pub fn remove(&mut self, index: StoreIndex) -> Option<T> {
@@ -170,7 +166,7 @@ pub struct StaticTerm {
 
 impl StaticTerm {
     pub fn put(&self, store: &mut OptionalValueStore<TupperIntervalSet>, value: TupperIntervalSet) {
-        store.put(self.store_index, value);
+        store.insert(self.store_index, value);
     }
 
     /// Evaluates the term and puts the result in the value store.

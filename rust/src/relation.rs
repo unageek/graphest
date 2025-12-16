@@ -230,7 +230,7 @@ impl Relation {
             if let Some(mx_ts) = cache.get(i, args) {
                 for (&i, mx) in self.cached_terms[i].iter().zip(mx_ts.iter()) {
                     if let Some(mx) = mx {
-                        ts.put(i, mx.clone());
+                        ts.insert(i, mx.clone());
                     }
                 }
             }
