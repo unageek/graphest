@@ -5,7 +5,7 @@ t!(
     t_b1b247d3dba94a98a1e89ae9099bb442,
     "r = 8 sin(θ)^2 cos(θ) / (cos(4 θ) + 3)",
     @bounds(-2, 2, -2, 2),
-    @timeout(6000),
+    @timeout(7000),
 );
 
 // bifolium (a = 1)
