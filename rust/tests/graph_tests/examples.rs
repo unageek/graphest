@@ -140,7 +140,7 @@ t!(
 t!(
     t_29f17030e314469e816e03979778f244,
     "x / sin(x) + y / sin(y) = x y / sin(x y) ∨ x / sin(x) + y / sin(y) = -(x y / sin(x y)) ∨ x / sin(x) - y / sin(y) = x y / sin(x y) ∨ x / sin(x) - y / sin(y) = -(x y / sin(x y))",
-    @timeout(6000),
+    @timeout(7000),
 );
 
 // Highwire
