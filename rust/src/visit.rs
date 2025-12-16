@@ -1782,10 +1782,8 @@ pub struct CollectStatic<'a> {
     pub forms: Vec<StaticForm>,
     pub terms: Vec<StaticTerm>,
     bool_exprs: Vec<UnsafeExprRef>,
-    branch_id_map: HashMap<UnsafeExprRef, usize>,
     form_index: HashMap<UnsafeExprRef, FormIndex>,
     real_expr_index_map: HashMap<UnsafeExprRef, usize>,
-    real_expr_index_prefix: Vec<usize>,
     real_exprs: Vec<UnsafeExprRef>,
     site_map: SiteMap,
     var_index: &'a HashMap<VarSet, VarIndex>,
@@ -1802,10 +1800,8 @@ impl<'a> CollectStatic<'a> {
             forms: vec![],
             terms: vec![],
             bool_exprs: assign_site.bool_exprs,
-            branch_id_map: collect_real_exprs.branch_id_map,
             form_index: HashMap::new(),
             real_expr_index_map: collect_real_exprs.index_map,
-            real_expr_index_prefix: collect_real_exprs.index_prefix,
             real_exprs: collect_real_exprs
                 .exprs
                 .into_iter()
@@ -1930,9 +1926,13 @@ impl<'a> CollectStatic<'a> {
                     })
                 })()
                 .map(|op| StaticTermKind::Binary(op, self.store_index(x), self.store_index(y))),
-                ternary!(MulAdd, x, y, z) => Some({
+                ternary!(op, x, y, z) => Some(match op {
+                    IfThenElse => ScalarTernaryOp::IfThenElse,
+                    MulAdd => ScalarTernaryOp::MulAdd,
+                })
+                .map(|op| {
                     StaticTermKind::Ternary(
-                        ScalarTernaryOp::MulAdd,
+                        op,
                         self.store_index(x),
                         self.store_index(y),
                         self.store_index(z),
@@ -1941,37 +1941,6 @@ impl<'a> CollectStatic<'a> {
                 nary!(List | Plus | Times, _) => None,
                 pown!(x, n) => Some(StaticTermKind::Pown(self.store_index(x), *n)),
                 rootn!(x, n) => Some(StaticTermKind::Rootn(self.store_index(x), *n)),
-                ternary!(IfThenElse, cond, t, f) => {
-                    let t_ref = UnsafeExprRef::from(t);
-                    let f_ref = UnsafeExprRef::from(f);
-                    let t_branch_id = self.branch_id_map[&t_ref];
-                    let f_branch_id = self.branch_id_map[&f_ref];
-                    let t_start = match t_branch_id {
-                        0 => 0,
-                        id => self.real_expr_index_prefix[id] as u32,
-                    };
-                    let t_end = match t_branch_id {
-                        0 => 0,
-                        id => self.real_expr_index_prefix[id + 1] as u32,
-                    };
-                    let f_start = match f_branch_id {
-                        0 => 0,
-                        id => self.real_expr_index_prefix[id] as u32,
-                    };
-                    let f_end = match f_branch_id {
-                        0 => 0,
-                        id => self.real_expr_index_prefix[id + 1] as u32,
-                    };
-                    Some({
-                        StaticTermKind::IfThenElse(
-                            self.store_index(cond),
-                            self.store_index(t),
-                            self.store_index(f),
-                            t_start..t_end,
-                            f_start..f_end,
-                        )
-                    })
-                }
                 error!() => panic!(),
                 uninit!() => panic!(),
             };

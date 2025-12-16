@@ -156,7 +156,10 @@ impl UnivariateCache {
             let v = f();
             self.bytes_allocated_by_values +=
                 v.bytes_allocated() + v.iter().map(|xs| xs.bytes_allocated()).sum::<usize>();
-            self.cs[index].insert(args[index], v);
+            if let Some(old_v) = self.cs[index].insert(args[index], v) {
+                self.bytes_allocated_by_values -= old_v.bytes_allocated()
+                    + old_v.iter().map(|xs| xs.bytes_allocated()).sum::<usize>();
+            }
         }
     }
 }

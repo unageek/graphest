@@ -3,7 +3,7 @@ use crate::{
     vars::{VarIndex, VarSet, VarType},
 };
 use inari::const_interval;
-use std::ops::{Index, IndexMut, Range};
+use std::ops::{Index, IndexMut};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct StoreIndex(u32);
@@ -11,6 +11,10 @@ pub struct StoreIndex(u32);
 impl StoreIndex {
     pub fn new(i: u32) -> Self {
         Self(i)
+    }
+
+    pub fn get(&self) -> u32 {
+        self.0
     }
 }
 
@@ -124,6 +128,7 @@ pub enum ScalarBinaryOp {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ScalarTernaryOp {
+    IfThenElse,
     MulAdd,
 }
 
@@ -151,7 +156,6 @@ pub enum StaticTermKind {
     Pown(StoreIndex, i32),
     Rootn(StoreIndex, u32),
     RankedMinMax(RankedMinMaxOp, Vec<StoreIndex>, StoreIndex),
-    IfThenElse(StoreIndex, StoreIndex, StoreIndex, Range<u32>, Range<u32>),
 }
 
 /// A term in a cache-efficient representation.
@@ -179,6 +183,58 @@ impl StaticTerm {
 
         if !ts[self.store_index].is_unevaluated() {
             return;
+        }
+
+        match &self.kind {
+            Unary(_, x) | Pown(x, _) | Rootn(x, _) => {
+                if ts[*x].is_unevaluated() {
+                    terms[x.get() as usize].put_eval(terms, ts);
+                }
+            }
+            Binary(_, x, y) => {
+                if ts[*x].is_unevaluated() {
+                    terms[x.get() as usize].put_eval(terms, ts);
+                }
+                if ts[*y].is_unevaluated() {
+                    terms[y.get() as usize].put_eval(terms, ts);
+                }
+            }
+            Ternary(IfThenElse, cond, t, f) => {
+                if ts[*cond].is_unevaluated() {
+                    terms[cond.get() as usize].put_eval(terms, ts);
+                }
+                let c = &ts[*cond];
+                let eval_t = c.iter().any(|x| x.x == const_interval!(1.0, 1.0));
+                let eval_f = c.iter().any(|x| x.x == const_interval!(0.0, 0.0));
+                if eval_t && ts[*t].is_unevaluated() {
+                    terms[t.get() as usize].put_eval(terms, ts);
+                }
+                if eval_f && ts[*f].is_unevaluated() {
+                    terms[f.get() as usize].put_eval(terms, ts);
+                }
+            }
+            Ternary(_, x, y, z) => {
+                if ts[*x].is_unevaluated() {
+                    terms[x.get() as usize].put_eval(terms, ts);
+                }
+                if ts[*y].is_unevaluated() {
+                    terms[y.get() as usize].put_eval(terms, ts);
+                }
+                if ts[*z].is_unevaluated() {
+                    terms[z.get() as usize].put_eval(terms, ts);
+                }
+            }
+            RankedMinMax(_, xs, n) => {
+                for x in xs {
+                    if ts[*x].is_unevaluated() {
+                        terms[x.get() as usize].put_eval(terms, ts);
+                    }
+                }
+                if ts[*n].is_unevaluated() {
+                    terms[n.get() as usize].put_eval(terms, ts);
+                }
+            }
+            Constant(_) | Var(_, _) => (),
         }
 
         match &self.kind {
@@ -261,6 +317,9 @@ impl StaticTerm {
             Binary(ReUndefAt0, re_x, im_x) => self.put(ts, ts[*re_x].re_undef_at_0(&ts[*im_x])),
             Binary(ReZeta, re_x, im_x) => self.put(ts, ts[*re_x].re_zeta(&ts[*im_x])),
             Binary(Sub, x, y) => self.put(ts, &ts[*x] - &ts[*y]),
+            Ternary(IfThenElse, cond, t, f) => {
+                self.put(ts, ts[*cond].if_then_else(&ts[*t], &ts[*f]))
+            }
             Ternary(MulAdd, x, y, z) => self.put(ts, ts[*x].mul_add(&ts[*y], &ts[*z])),
             Pown(x, n) => self.put(ts, ts[*x].pown(*n, self.site)),
             Rootn(x, n) => self.put(ts, ts[*x].rootn(*n)),
@@ -283,22 +342,6 @@ impl StaticTerm {
                         self.site,
                     ),
                 );
-            }
-            IfThenElse(cond, t, f, t_range, f_range) => {
-                let c = &ts[*cond];
-                let eval_t = c.iter().any(|x| x.x == const_interval!(1.0, 1.0));
-                let eval_f = c.iter().any(|x| x.x == const_interval!(0.0, 0.0));
-                if eval_t {
-                    for i in t_range.clone() {
-                        terms[i as usize].put_eval(terms, ts);
-                    }
-                }
-                if eval_f {
-                    for i in f_range.clone() {
-                        terms[i as usize].put_eval(terms, ts);
-                    }
-                }
-                self.put(ts, ts[*cond].if_then_else(&ts[*t], &ts[*f]))
             }
             Var(_, _) => panic!("variables cannot be evaluated"),
         }
