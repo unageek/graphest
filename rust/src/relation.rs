@@ -334,7 +334,8 @@ impl FromStr for Relation {
         PreTransform.visit_expr_mut(&mut e);
         expand_complex_functions(&mut e);
         simplify(&mut e);
-        let relation_type = relation_type(&mut e);
+        let mut param_ranges = ParamRanges::new();
+        let relation_type = relation_type(&mut e, &mut param_ranges);
         NormalizeRelationalExprs.visit_expr_mut(&mut e);
         ExpandBoole.visit_expr_mut(&mut e);
         simplify(&mut e);
@@ -356,7 +357,8 @@ impl FromStr for Relation {
             } else {
                 Interval::ENTIRE
             }
-        };
+        }
+        .intersection(param_ranges.m_range);
 
         let n_range = {
             let period = function_period(&e, VarSet::N);
@@ -373,7 +375,8 @@ impl FromStr for Relation {
             } else {
                 Interval::ENTIRE
             }
-        };
+        }
+        .intersection(param_ranges.n_range);
 
         let n_theta_range = {
             let period = function_period(&e, VarSet::N_THETA);
@@ -408,7 +411,8 @@ impl FromStr for Relation {
             } else {
                 Interval::ENTIRE
             }
-        };
+        }
+        .intersection(param_ranges.t_range);
 
         expand_polar_coords(&mut e);
         simplify(&mut e);
@@ -777,6 +781,82 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
     }
 }
 
+struct ParamRanges {
+    m_range: Interval,
+    n_range: Interval,
+    t_range: Interval,
+}
+
+impl ParamRanges {
+    fn new() -> Self {
+        Self {
+            m_range: Interval::ENTIRE,
+            n_range: Interval::ENTIRE,
+            t_range: Interval::ENTIRE,
+        }
+    }
+
+    fn refine_with(&mut self, e: &Expr) {
+        use BinaryOp::*;
+
+        match e {
+            binary!(Ge | Gt, var!(x), constant!(a)) | binary!(Le | Lt, constant!(a), var!(x)) => {
+                if let Some(r) = get_mut(self, x) {
+                    let inf = a
+                        .interval()
+                        .iter()
+                        .fold(f64::INFINITY, |acc, x| acc.min(x.x.inf()));
+                    *r = r.intersection(interval!(inf, f64::INFINITY).unwrap_or(Interval::EMPTY));
+                }
+            }
+            binary!(Le | Lt, var!(x), constant!(a)) | binary!(Ge | Gt, constant!(a), var!(x)) => {
+                if let Some(r) = get_mut(self, x) {
+                    let sup = a
+                        .interval()
+                        .iter()
+                        .fold(f64::NEG_INFINITY, |acc, x| acc.max(x.x.sup()));
+                    *r = r
+                        .intersection(interval!(f64::NEG_INFINITY, sup).unwrap_or(Interval::EMPTY));
+                }
+            }
+            binary!(Eq, var!(x), constant!(a)) | binary!(Eq, constant!(a), var!(x)) => {
+                if let Some(r) = get_mut(self, x) {
+                    *r = r.intersection(
+                        a.interval()
+                            .iter()
+                            .fold(Interval::EMPTY, |acc, x| acc.convex_hull(x.x)),
+                    );
+                }
+            }
+            _ => return,
+        }
+
+        self.m_range = self.m_range.trunc();
+        self.n_range = self.n_range.trunc();
+
+        // Empty ranges are not supported.
+        const I_ZERO: Interval = const_interval!(0.0, 0.0);
+        if self.m_range.is_empty() {
+            self.m_range = I_ZERO;
+        }
+        if self.n_range.is_empty() {
+            self.n_range = I_ZERO;
+        }
+        if self.t_range.is_empty() {
+            self.t_range = I_ZERO;
+        }
+
+        fn get_mut<'a>(slf: &'a mut ParamRanges, param_name: &str) -> Option<&'a mut Interval> {
+            match param_name {
+                "m" => Some(&mut slf.m_range),
+                "n" => Some(&mut slf.n_range),
+                "t" => Some(&mut slf.t_range),
+                _ => None,
+            }
+        }
+    }
+}
+
 struct ExplicitRelationParts {
     op: ExplicitRelOp,
     y: Option<Expr>, // y op f(x)
@@ -893,7 +973,7 @@ struct ParametricRelationParts {
 }
 
 /// Tries to identify `e` as a parametric relation.
-fn normalize_parametric_relation(e: &mut Expr) -> bool {
+fn normalize_parametric_relation(e: &mut Expr, param_ranges: &mut ParamRanges) -> bool {
     use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
 
     let mut parts = ParametricRelationParts {
@@ -907,6 +987,10 @@ fn normalize_parametric_relation(e: &mut Expr) -> bool {
     }
 
     if let (Some(xt), Some(yt)) = &mut (parts.xt, parts.yt) {
+        for e in &parts.pt {
+            param_ranges.refine_with(e);
+        }
+
         let mut pt = parts
             .pt
             .into_iter()
@@ -989,7 +1073,7 @@ struct ImplicitRelationParts {
     others: Vec<Expr>, // Other relations.
 }
 
-fn normalize_implicit_relation(e: &mut Expr) {
+fn normalize_implicit_relation(e: &mut Expr, param_ranges: &mut ParamRanges) {
     use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
 
     let mut parts = ImplicitRelationParts {
@@ -998,6 +1082,10 @@ fn normalize_implicit_relation(e: &mut Expr) {
     };
 
     normalize_implicit_relation_impl(&mut e.clone(), &mut parts);
+
+    for e in &parts.others {
+        param_ranges.refine_with(e);
+    }
 
     let mut others = parts
         .others
@@ -1045,19 +1133,19 @@ fn normalize_implicit_relation_impl(e: &mut Expr, parts: &mut ImplicitRelationPa
 /// [`RelationType::ExplicitFunctionOfY`], or [`RelationType::Parametric`],
 /// normalizes the explicit part(s) of the relation to the form `(ExplicitRel x f(x))`,
 /// where `x` is a variable and `f(x)` is a function of `x`.
-fn relation_type(e: &mut Expr) -> RelationType {
+fn relation_type(e: &mut Expr, param_ranges: &mut ParamRanges) -> RelationType {
     use RelationType::*;
 
     UpdateMetadata.visit_expr_mut(e);
 
-    if normalize_parametric_relation(e) {
+    if normalize_parametric_relation(e, param_ranges) {
         Parametric
     } else if let Some(op) = normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
         ExplicitFunctionOfX(op)
     } else if let Some(op) = normalize_explicit_relation(e, VarSet::X, VarSet::Y) {
         ExplicitFunctionOfY(op)
     } else {
-        normalize_implicit_relation(e);
+        normalize_implicit_relation(e, param_ranges);
         Implicit
     }
 }
