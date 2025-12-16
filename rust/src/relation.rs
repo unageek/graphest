@@ -86,12 +86,12 @@ impl Relation {
     }
 
     /// Evaluates the explicit relation y = f(x) ∧ P(x) (or x = f(y) ∧ P(y))
-    /// and returns (f'(x), P(x)) (or (f'(y), P(y))), where f'(x) is f(x) transformed by `ty`.
+    /// and returns f'(x) (or f'(y)), where f'(x) is the value of the conditional expression
+    /// if(P(x), f(x), ¿) transformed by `ty`.
     ///
-    /// If P(x) is absent, its value is assumed to be always true.
+    /// If P(x) is absent, it is assumed to be always true.
     ///
-    /// If P(x) is certainly false, an empty set is returned in place of f'(x).
-    /// Otherwise, f'(x) will be a forced normalized interval set.
+    /// f'(x) is forced normalized.
     ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_explicit<'a>(
@@ -139,14 +139,13 @@ impl Relation {
             .get_or_insert_with(args, || self.eval(args, &mut cache.univariate))
     }
 
-    /// Evaluates the parametric relation x = f(…) ∧ y = g(…) ∧ P(…)
-    /// and returns (f'(…), g'(…), P(…)), where f'(…) and g'(…) are f(…) and g(…)
-    /// transformed by `tx` and `ty`, respectively.
+    /// Evaluates the parametric relation x = f(m, n, t) ∧ y = g(m, n, t) ∧ P(m, n, t)
+    /// and returns (f'(…), g'(…)), where f'(…) and g'(…) are the values of the conditional expressions
+    /// if(P(…), f(…), ¿) and if(P(…), g(…), ¿) transformed by `tx` and `ty`, respectively.
     ///
-    /// If P(…) is absent, its value is assumed to be always true.
+    /// If P(…) is absent, it is assumed to be always true.
     ///
-    /// If P(…) is certainly false, empty sets are returned in place of f'(…) and g'(…).
-    /// Otherwise, f'(…) and g'(…) will be forced normalized interval sets.
+    /// f'(…) and g'(…) are forced normalized.
     ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_parametric<'a>(
