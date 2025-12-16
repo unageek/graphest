@@ -183,18 +183,18 @@ macro_rules! set_arg {
     };
 }
 
-pub type EvalExplicitResult = (TupperIntervalSet, EvalResult);
+pub type EvalExplicitResult = (TupperIntervalSet, Ternary);
 
 impl BytesAllocated for EvalExplicitResult {
     fn bytes_allocated(&self) -> usize {
-        self.0.bytes_allocated() + self.1.bytes_allocated()
+        self.0.bytes_allocated()
     }
 }
 
-pub type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, EvalResult);
+pub type EvalParametricResult = (TupperIntervalSet, TupperIntervalSet, Ternary);
 
 impl BytesAllocated for EvalParametricResult {
     fn bytes_allocated(&self) -> usize {
-        self.0.bytes_allocated() + self.1.bytes_allocated() + self.2.bytes_allocated()
+        self.0.bytes_allocated() + self.1.bytes_allocated()
     }
 }

@@ -272,8 +272,6 @@ impl Parametric {
             .map(|r| Self::outer_pixels(&r))
             .collect::<SmallVec<[_; 4]>>();
 
-        let cond = cond.result(self.rel.forms());
-
         let dec = xs.decoration().min(ys.decoration());
         if dec >= Decoration::Def && cond.certainly_true() {
             let r = rs.iter().fold(Region::EMPTY, |acc, r| acc.convex_hull(r));

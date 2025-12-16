@@ -210,9 +210,7 @@ impl Explicit {
             interval!(begin as f64, end as f64).unwrap()
         };
 
-        let cond = cond.result(self.rel.forms());
         let dec = ys.decoration();
-
         if dec >= Decoration::Def && cond.certainly_true() {
             let y = ys
                 .iter()
@@ -256,7 +254,6 @@ impl Explicit {
             interval!(begin as f64, end as f64).unwrap()
         };
 
-        let cond = cond.result(self.rel.forms());
         let dec = ys.decoration();
 
         let x_dn = self.region(b.x.pixel()).inner();
@@ -326,7 +323,6 @@ impl Explicit {
                 }
             } else {
                 for (ys, cond) in rs {
-                    let cond = cond.result(self.rel.forms());
                     let dec = ys.decoration();
 
                     if dec >= Decoration::Def && cond.certainly_true() {

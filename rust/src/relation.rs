@@ -29,8 +29,8 @@ pub enum RelationType {
     ExplicitFunctionOfY(ExplicitRelOp),
     /// The relation is of a general form.
     Implicit,
-    /// The relation is of the form x = f(n, t) ∧ y = g(n, t) ∧ P(n, t),
-    /// where P(n, t) is an optional constraint on the parameters.
+    /// The relation is of the form x = f(m, n, t) ∧ y = g(m, n, t) ∧ P(m, n, t),
+    /// where P(m, n, t) is an optional constraint on the parameters.
     Parametric,
 }
 
@@ -90,7 +90,8 @@ impl Relation {
     ///
     /// If P(x) is absent, its value is assumed to be always true.
     ///
-    /// f'(x) is normalized as an interval set.
+    /// If P(x) is certainly false, an empty set is returned in place of f'(x).
+    /// Otherwise, f'(x) will be a forced normalized interval set.
     ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_explicit<'a>(
@@ -106,19 +107,24 @@ impl Relation {
         self.eval_count += 1;
 
         cache.full.get_or_insert_with(args, || {
-            let p = self.eval(args, &mut cache.univariate);
-            let mut ys = match self.relation_type {
-                RelationType::ExplicitFunctionOfX(_) => {
-                    self.ts.get(self.y_explicit.unwrap()).unwrap().clone()
-                }
-                RelationType::ExplicitFunctionOfY(_) => {
-                    self.ts.get(self.x_explicit.unwrap()).unwrap().clone()
-                }
-                _ => unreachable!(),
-            };
-            ys.normalize(true);
-            ys.transform_in_place(ty);
-            (ys, p)
+            let p = self.eval(args, &mut cache.univariate).result(self.forms());
+            if p.certainly_false() {
+                let ys = TupperIntervalSet::new();
+                (ys, p)
+            } else {
+                let mut ys = match self.relation_type {
+                    RelationType::ExplicitFunctionOfX(_) => {
+                        self.ts.get(self.y_explicit.unwrap()).unwrap().clone()
+                    }
+                    RelationType::ExplicitFunctionOfY(_) => {
+                        self.ts.get(self.x_explicit.unwrap()).unwrap().clone()
+                    }
+                    _ => unreachable!(),
+                };
+                ys.normalize(true);
+                ys.transform_in_place(ty);
+                (ys, p)
+            }
         })
     }
 
@@ -144,7 +150,8 @@ impl Relation {
     ///
     /// If P(…) is absent, its value is assumed to be always true.
     ///
-    /// f'(…) and g'(…) are normalized as interval sets.
+    /// If P(…) is certainly false, empty sets are returned in place of f'(…) and g'(…).
+    /// Otherwise, f'(…) and g'(…) will be forced normalized interval sets.
     ///
     /// Precondition: `cache` has never been passed to other relations.
     pub fn eval_parametric<'a>(
@@ -158,14 +165,20 @@ impl Relation {
         self.eval_count += 1;
 
         cache.full.get_or_insert_with(args, || {
-            let p = self.eval(args, &mut cache.univariate);
-            let mut xs = self.ts.get(self.x_explicit.unwrap()).unwrap().clone();
-            let mut ys = self.ts.get(self.y_explicit.unwrap()).unwrap().clone();
-            xs.normalize(true);
-            ys.normalize(true);
-            xs.transform_in_place(tx);
-            ys.transform_in_place(ty);
-            (xs, ys, p)
+            let p = self.eval(args, &mut cache.univariate).result(self.forms());
+            if p.certainly_false() {
+                let xs = TupperIntervalSet::new();
+                let ys = TupperIntervalSet::new();
+                (xs, ys, p)
+            } else {
+                let mut xs = self.ts.get(self.x_explicit.unwrap()).unwrap().clone();
+                let mut ys = self.ts.get(self.y_explicit.unwrap()).unwrap().clone();
+                xs.normalize(true);
+                ys.normalize(true);
+                xs.transform_in_place(tx);
+                ys.transform_in_place(ty);
+                (xs, ys, p)
+            }
         })
     }
 
@@ -871,9 +884,9 @@ fn normalize_explicit_relation_impl(
 }
 
 struct ParametricRelationParts {
-    xt: Option<Expr>, // x = f(n, t)
-    yt: Option<Expr>, // y = f(n, t)
-    pt: Vec<Expr>,    // P(n, t)
+    xt: Option<Expr>, // x = f(m, n, t)
+    yt: Option<Expr>, // y = f(m, n, t)
+    pt: Vec<Expr>,    // P(m, n, t)
 }
 
 /// Tries to identify `e` as a parametric relation.
