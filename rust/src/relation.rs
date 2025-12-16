@@ -545,7 +545,7 @@ fn expand_polar_coords(e: &mut Expr) {
     };
 
     // e12 = e /. {r → sqrt(x^2 + y^2), θ → π + 2π n_θ + atan2(-y, -x)}.
-    let e12 = {
+    let _e12 = {
         let mut e = e.clone();
         let mut v = ReplaceAll::new(|e| match e {
             var!(x) if x == "r" => Some(hypot.clone()),
@@ -560,7 +560,7 @@ fn expand_polar_coords(e: &mut Expr) {
     };
 
     // e21 = e /. {r → -sqrt(x^2 + y^2), θ → 2π n_θ + atan2(-y, -x)}.
-    let e21 = {
+    let _e21 = {
         let mut e = e.clone();
         let mut v = ReplaceAll::new(|e| match e {
             var!(x) if x == "r" => Some(neg_hypot.clone()),
@@ -589,7 +589,10 @@ fn expand_polar_coords(e: &mut Expr) {
         e
     };
 
-    *e = Expr::binary(Or, Expr::binary(Or, e11, e12), Expr::binary(Or, e21, e22));
+    // This is too slow.
+    // *e = Expr::binary(Or, Expr::binary(Or, e11, _e12), Expr::binary(Or, _e21, e22));
+
+    *e = Expr::binary(Or, e11, e22);
 }
 
 /// Returns the period of a function of a variable t,
