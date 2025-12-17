@@ -1653,107 +1653,22 @@ impl VisitMut for AssignSite {
     }
 }
 
-/// Assigns an ID starting from 0 to each branch of [`TernaryOp::IfThenElse`].
-/// The ID 0 is for the root branch, which has no [`TernaryOp::IfThenElse`] in ancestors.
-///
-/// Each sub-expression will be labeled with the branch ID, if the ID is unique.
-/// Sub-expressions shared by multiple branches will have the ID 0.
+/// Collects real-valued expressions, ordered topologically.
 ///
 /// Precondition: [`UpdateMetadata`] has been applied to the expression
 /// and it has not been modified since then.
-pub struct AssignBranchId {
-    branch_id: usize,
-    branch_id_map: HashMap<UnsafeExprRef, usize>,
-    next_branch_id: usize,
+pub struct CollectRealExprs {
+    exprs: Vec<UnsafeExprRef>,
+    index_map: HashMap<UnsafeExprRef, usize>,
     vars: VarSet,
 }
 
-impl AssignBranchId {
+impl CollectRealExprs {
     pub fn new(vars: VarSet) -> Self {
         Self {
-            branch_id: 0,
-            branch_id_map: HashMap::new(),
-            next_branch_id: 1,
-            vars,
-        }
-    }
-}
-
-impl VisitMut for AssignBranchId {
-    fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use TernaryOp::*;
-
-        let branch_id_bak = self.branch_id;
-        match e {
-            ternary!(IfThenElse, cond, t, f) => {
-                self.visit_expr_mut(cond);
-
-                self.branch_id = self.next_branch_id;
-                self.visit_expr_mut(t);
-                self.next_branch_id += 1;
-
-                self.branch_id = self.next_branch_id;
-                self.visit_expr_mut(f);
-                self.next_branch_id += 1;
-            }
-            _ => traverse_expr_mut(self, e),
-        }
-        self.branch_id = branch_id_bak;
-
-        match e {
-            var!(_) if !self.vars.contains(e.vars) => (),
-            _ if e.ty != ValueType::Real => (),
-            _ => {
-                self.branch_id_map
-                    .entry(UnsafeExprRef::from(e))
-                    .and_modify(|id| {
-                        if *id != self.branch_id {
-                            *id = 0;
-                        }
-                    })
-                    .or_insert_with(|| match e {
-                        constant!(_) | var!(_) => 0,
-                        _ => self.branch_id,
-                    });
-            }
-        }
-    }
-}
-
-/// Collects real-valued expressions, ordered by branch ID and then topologically.
-///
-/// Precondition: [`AssignBranchId`] has been applied to the expression
-/// and it has not been modified since then.
-pub struct CollectRealExprs {
-    branch_id_map: HashMap<UnsafeExprRef, usize>,
-    exprs: Vec<Option<UnsafeExprRef>>,
-    index_map: HashMap<UnsafeExprRef, usize>,
-    next_index: Vec<usize>,
-}
-
-impl CollectRealExprs {
-    pub fn new(assign_branch_id: AssignBranchId) -> Self {
-        let n_branches = assign_branch_id.next_branch_id;
-        let mut real_exprs_per_branch = vec![0; n_branches];
-        for id in assign_branch_id.branch_id_map.values() {
-            real_exprs_per_branch[*id] += 1;
-        }
-
-        let mut index_prefix = vec![0];
-        index_prefix.extend({
-            real_exprs_per_branch.iter().scan(0, |acc, n| {
-                *acc += n;
-                Some(*acc)
-            })
-        });
-
-        let next_index = index_prefix[..index_prefix.len() - 1].to_vec();
-
-        Self {
-            branch_id_map: assign_branch_id.branch_id_map,
-            exprs: vec![None; *index_prefix.last().unwrap()],
+            exprs: vec![],
             index_map: HashMap::new(),
-            next_index,
+            vars,
         }
     }
 }
@@ -1762,12 +1677,11 @@ impl VisitMut for CollectRealExprs {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
         traverse_expr_mut(self, e);
 
-        let e_ref = UnsafeExprRef::from(e);
-        if let Some(branch_id) = self.branch_id_map.get(&e_ref) {
+        if e.ty == ValueType::Real && self.vars.contains(e.vars) {
+            let e_ref = UnsafeExprRef::from(e);
             self.index_map.entry(e_ref).or_insert_with(|| {
-                let index = self.next_index[*branch_id];
-                self.exprs[index] = Some(e_ref);
-                self.next_index[*branch_id] += 1;
+                let index = self.exprs.len();
+                self.exprs.push(e_ref);
                 index
             });
         }
@@ -1798,11 +1712,7 @@ impl<'a> CollectStatic<'a> {
             bool_exprs: assign_site.bool_exprs,
             form_index: HashMap::new(),
             real_expr_index_map: collect_real_exprs.index_map,
-            real_exprs: collect_real_exprs
-                .exprs
-                .into_iter()
-                .map(|e| e.unwrap())
-                .collect::<Vec<_>>(),
+            real_exprs: collect_real_exprs.exprs,
             site_map: assign_site.site_map,
             var_index,
         };

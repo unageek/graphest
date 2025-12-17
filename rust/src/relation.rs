@@ -448,9 +448,7 @@ impl FromStr for Relation {
 
         let mut v = AssignSite::new();
         v.visit_expr_mut(&mut e);
-        let mut assign_branch_id = AssignBranchId::new(vars);
-        assign_branch_id.visit_expr_mut(&mut e);
-        let mut collect_real_exprs = CollectRealExprs::new(assign_branch_id);
+        let mut collect_real_exprs = CollectRealExprs::new(vars);
         collect_real_exprs.visit_expr_mut(&mut e);
         let collector = CollectStatic::new(v, collect_real_exprs, &var_index);
         let terms = collector.terms.clone();
