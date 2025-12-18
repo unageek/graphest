@@ -14,18 +14,6 @@ impl<K, V> BytesAllocated for HashMap<K, V> {
     }
 }
 
-impl<T> BytesAllocated for Option<T>
-where
-    T: BytesAllocated,
-{
-    fn bytes_allocated(&self) -> usize {
-        match self {
-            Some(value) => value.bytes_allocated(),
-            None => 0,
-        }
-    }
-}
-
 impl<T> BytesAllocated for Vec<T> {
     fn bytes_allocated(&self) -> usize {
         self.capacity() * size_of::<T>()

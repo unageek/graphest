@@ -1,6 +1,7 @@
 use crate::{
     eval_result::{EvalArgs, EvalExplicitResult, EvalParametricResult, EvalResult},
     interval_set::TupperIntervalSet,
+    ops::{OptionalValueStore, StaticTerm, StaticTermKind, StoreIndex},
     traits::BytesAllocated,
     vars::VarSet,
 };
@@ -114,86 +115,183 @@ impl<T: BytesAllocated> BytesAllocated for FullCache<T> {
     }
 }
 
-pub struct UnivariateCache {
-    cache_level: EvalCacheLevel,
-    n_vars: usize,
-    cs: Vec<HashMap<Interval, Vec<Option<TupperIntervalSet>>>>,
+fn maximal_term_indices(vars: VarSet, terms: &[StaticTerm]) -> Vec<StoreIndex> {
+    use StaticTermKind::*;
+
+    let mut is_maximal = vec![false; terms.len()];
+    for (i, term) in terms.iter().enumerate() {
+        if term.vars != vars {
+            continue;
+        }
+
+        let indices = match &term.kind {
+            Unary(_, k) => vec![*k],
+            Binary(_, k, l) => vec![*k, *l],
+            Ternary(_, k, l, m) => vec![*k, *l, *m],
+            Pown(k, _) => vec![*k],
+            Rootn(k, _) => vec![*k],
+            RankedMinMax(_, ks, l) => {
+                let mut indices = ks.clone();
+                indices.push(*l);
+                indices
+            }
+            Constant(_) | Var(_, _) => continue,
+        };
+
+        for index in indices {
+            is_maximal[index.get()] = false;
+        }
+        is_maximal[i] = true;
+    }
+
+    is_maximal
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, maximal)| {
+            if maximal {
+                Some(StoreIndex::new(i))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>()
+}
+
+pub struct MaximalTermCache<const N: usize> {
+    arg_indices: [usize; N],
+    cache: HashMap<[Interval; N], Vec<Option<TupperIntervalSet>>>,
+    term_indices: Vec<StoreIndex>,
     bytes_allocated_by_values: usize,
 }
 
-impl UnivariateCache {
-    fn new(cache_level: EvalCacheLevel, vars: VarSet) -> Self {
-        let n_vars = vars.len();
+impl<const N: usize> MaximalTermCache<N> {
+    fn new(arg_indices: [usize; N], term_indices: Vec<StoreIndex>) -> Self {
         Self {
-            cache_level,
-            n_vars,
-            cs: vec![HashMap::new(); n_vars],
+            arg_indices,
+            cache: HashMap::new(),
+            term_indices,
             bytes_allocated_by_values: 0,
         }
     }
 
     /// Clears the cache and releases the allocated memory.
     fn clear(&mut self) {
-        self.cs = vec![HashMap::new(); self.n_vars];
+        self.cache = HashMap::new();
         self.bytes_allocated_by_values = 0;
     }
 
-    pub fn get(&self, index: usize, args: &EvalArgs) -> Option<&Vec<Option<TupperIntervalSet>>> {
-        if self.cache_level >= EvalCacheLevel::Univariate {
-            self.cs[index].get(&args[index])
-        } else {
-            None
+    pub fn restore(&self, args: &EvalArgs, store: &mut OptionalValueStore<TupperIntervalSet>) {
+        let mut key = [Interval::EMPTY; N];
+        for (i, &arg_index) in self.arg_indices.iter().enumerate() {
+            key[i] = args[arg_index];
+        }
+        if let Some(vs) = self.cache.get(&key) {
+            for (i, v) in self.term_indices.iter().zip(vs.iter()) {
+                if let Some(v) = v {
+                    store.insert(*i, v.clone());
+                }
+            }
         }
     }
 
-    pub fn insert_with<F: FnOnce() -> Vec<Option<TupperIntervalSet>>>(
-        &mut self,
-        index: usize,
-        args: &EvalArgs,
-        f: F,
-    ) {
-        if self.cache_level >= EvalCacheLevel::Univariate {
-            let v = f();
-            self.bytes_allocated_by_values +=
-                v.bytes_allocated() + v.iter().map(|xs| xs.bytes_allocated()).sum::<usize>();
-            if let Some(old_v) = self.cs[index].insert(args[index], v) {
-                self.bytes_allocated_by_values -= old_v.bytes_allocated()
-                    + old_v.iter().map(|xs| xs.bytes_allocated()).sum::<usize>();
+    pub fn store(&mut self, args: &EvalArgs, store: &OptionalValueStore<TupperIntervalSet>) {
+        let mut key = [Interval::EMPTY; N];
+        for (i, &arg_index) in self.arg_indices.iter().enumerate() {
+            key[i] = args[arg_index];
+        }
+        if let Some(vs) = self.cache.get_mut(&key) {
+            for (i, v) in self.term_indices.iter().zip(vs.iter_mut()) {
+                if v.is_none() {
+                    *v = store.get(*i).cloned();
+                    self.bytes_allocated_by_values +=
+                        v.iter().map(|xs| xs.bytes_allocated()).sum::<usize>();
+                }
             }
+        } else {
+            let mut vs = vec![None; self.term_indices.len()];
+            for (i, v) in self.term_indices.iter().zip(vs.iter_mut()) {
+                *v = store.get(*i).cloned();
+                self.bytes_allocated_by_values +=
+                    v.iter().map(|xs| xs.bytes_allocated()).sum::<usize>();
+            }
+            self.bytes_allocated_by_values += vs.bytes_allocated();
+            self.cache.insert(key, vs);
         }
     }
 }
 
-impl BytesAllocated for UnivariateCache {
+impl<const N: usize> BytesAllocated for MaximalTermCache<N> {
     fn bytes_allocated(&self) -> usize {
-        self.cs.iter().map(|c| c.bytes_allocated()).sum::<usize>() + self.bytes_allocated_by_values
+        self.cache.bytes_allocated() + self.bytes_allocated_by_values
     }
 }
 
 /// A cache for memoizing evaluation of a relation.
 pub struct EvalCache<T: BytesAllocated> {
     pub full: FullCache<T>,
-    pub univariate: UnivariateCache,
+    pub univariate: Vec<MaximalTermCache<1>>,
+    level: EvalCacheLevel,
+    initialized: bool,
 }
 
 impl<T: BytesAllocated> EvalCache<T> {
     pub fn new(cache_level: EvalCacheLevel, vars: VarSet) -> Self {
         Self {
             full: FullCache::new(cache_level, vars),
-            univariate: UnivariateCache::new(cache_level, vars),
+            univariate: vec![],
+            level: cache_level,
+            initialized: false,
         }
+    }
+
+    pub fn setup(&mut self, terms: &[StaticTerm], vars_ordered: &[VarSet]) {
+        if self.initialized || self.level < EvalCacheLevel::Univariate {
+            return;
+        }
+
+        let mut univariate_vars = vec![];
+        for term in terms {
+            if term.vars.len() == 1 {
+                univariate_vars.push(term.vars);
+            }
+        }
+        univariate_vars.sort();
+        univariate_vars.dedup();
+
+        self.univariate = univariate_vars
+            .into_iter()
+            .filter_map(|vars| {
+                let indices = maximal_term_indices(vars, terms);
+                if indices.is_empty() {
+                    return None;
+                }
+                Some(MaximalTermCache::new(
+                    [vars_ordered.iter().position(|&v| v == vars).unwrap()],
+                    indices,
+                ))
+            })
+            .collect();
+
+        self.initialized = true;
     }
 
     /// Clears the cache and releases allocated memory.
     pub fn clear(&mut self) {
         self.full.clear();
-        self.univariate.clear();
+        for cache in &mut self.univariate {
+            cache.clear();
+        }
     }
 }
 
 impl<T: BytesAllocated> BytesAllocated for EvalCache<T> {
     fn bytes_allocated(&self) -> usize {
-        self.full.bytes_allocated() + self.univariate.bytes_allocated()
+        self.full.bytes_allocated()
+            + self
+                .univariate
+                .iter()
+                .map(|c| c.bytes_allocated())
+                .sum::<usize>()
     }
 }
 
