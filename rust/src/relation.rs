@@ -2,7 +2,7 @@ use crate::{
     ast::{BinaryOp, ExplicitRelOp, Expr, NaryOp, TernaryOp, UnaryOp, ValueType},
     binary, bool_constant, constant,
     context::Context,
-    eval_cache::{EvalExplicitCache, EvalImplicitCache, EvalParametricCache, UnivariateCache},
+    eval_cache::{EvalExplicitCache, EvalImplicitCache, EvalParametricCache, MaximalTermCache},
     eval_result::{EvalArgs, EvalExplicitResult, EvalParametricResult, EvalResult},
     geom::{TransformInPlace, Transformation1D},
     interval_set::TupperIntervalSet,
@@ -55,8 +55,6 @@ pub struct Relation {
     eval_count: usize,
     x_explicit: Option<StoreIndex>,
     y_explicit: Option<StoreIndex>,
-    cached_terms: Vec<Vec<StoreIndex>>,
-    cache_index: Vec<Option<usize>>,
     term_to_eval: Vec<bool>,
     m_range: Interval,
     n_range: Interval,
@@ -106,6 +104,7 @@ impl Relation {
         ));
         self.eval_count += 1;
 
+        cache.setup(&self.terms, &self.vars_ordered);
         cache.full.get_or_insert_with(args, || {
             self.eval(args, &mut cache.univariate);
             let mut ys = match self.relation_type {
@@ -134,6 +133,7 @@ impl Relation {
         assert_eq!(self.relation_type, RelationType::Implicit);
         self.eval_count += 1;
 
+        cache.setup(&self.terms, &self.vars_ordered);
         cache
             .full
             .get_or_insert_with(args, || self.eval(args, &mut cache.univariate))
@@ -158,6 +158,7 @@ impl Relation {
         assert_eq!(self.relation_type, RelationType::Parametric);
         self.eval_count += 1;
 
+        cache.setup(&self.terms, &self.vars_ordered);
         cache.full.get_or_insert_with(args, || {
             self.eval(args, &mut cache.univariate);
             let mut xs = self.ts.get(self.x_explicit.unwrap()).unwrap().clone();
@@ -217,7 +218,11 @@ impl Relation {
         &self.var_indices
     }
 
-    fn eval(&mut self, args: &EvalArgs, cache: &mut UnivariateCache) -> EvalResult {
+    fn eval(
+        &mut self,
+        args: &EvalArgs,
+        univariate_caches: &mut [MaximalTermCache<1>],
+    ) -> EvalResult {
         let ts = &mut self.ts;
 
         for t in &self.terms {
@@ -226,23 +231,8 @@ impl Relation {
             }
         }
 
-        for i in 0..self.vars_ordered.len() {
-            if let Some(mx_ts) = cache.get(i, args) {
-                for (&i, mx) in self.cached_terms[i].iter().zip(mx_ts.iter()) {
-                    if let Some(mx) = mx {
-                        ts.insert(i, mx.clone());
-                    }
-                }
-            }
-        }
-
-        let mut num_evaluated_terms = vec![0; self.vars_ordered.len()];
-        for t in &self.terms {
-            if let Some(var_index) = self.cache_index[t.store_index.get()] {
-                if ts.get(t.store_index).is_some() {
-                    num_evaluated_terms[var_index] -= 1;
-                }
-            }
+        for cache in univariate_caches.iter_mut() {
+            cache.restore(args, ts);
         }
 
         for t in &self.terms {
@@ -263,14 +253,6 @@ impl Relation {
             }
         }
 
-        for t in &self.terms {
-            if let Some(var_index) = self.cache_index[t.store_index.get()] {
-                if ts.get(t.store_index).is_some() {
-                    num_evaluated_terms[var_index] += 1;
-                }
-            }
-        }
-
         let r = EvalResult(
             self.forms[..self.n_atom_forms]
                 .iter()
@@ -278,16 +260,8 @@ impl Relation {
                 .collect(),
         );
 
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..self.vars_ordered.len() {
-            if num_evaluated_terms[i] > 0 {
-                cache.insert_with(i, args, || {
-                    self.cached_terms[i]
-                        .iter()
-                        .map(|&i| ts.get(i).cloned())
-                        .collect()
-                });
-            }
+        for cache in univariate_caches.iter_mut() {
+            cache.store(args, ts);
         }
 
         r
@@ -467,10 +441,6 @@ impl FromStr for Relation {
         v.visit_expr(&e);
         let y_explicit = v.get();
 
-        let mut v = FindMaximalScalarTerms::new(collector);
-        v.visit_expr(&e);
-        let cached_terms = v.get();
-
         let mut term_to_eval = vec![false; n_terms];
         for f in &forms {
             if let StaticFormKind::Atomic(_, i) = &f.kind {
@@ -484,13 +454,6 @@ impl FromStr for Relation {
             term_to_eval[i.get()] = true;
         }
 
-        let mut cache_index = vec![None; n_terms];
-        for (var_index, is) in cached_terms.iter().enumerate() {
-            for i in is {
-                cache_index[i.get()] = Some(var_index);
-            }
-        }
-
         let mut slf = Self {
             ast: e,
             terms,
@@ -500,9 +463,7 @@ impl FromStr for Relation {
             eval_count: 0,
             x_explicit,
             y_explicit,
-            cached_terms,
             term_to_eval,
-            cache_index,
             m_range,
             n_range,
             n_theta_range,

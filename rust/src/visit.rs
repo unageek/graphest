@@ -1956,52 +1956,6 @@ impl<'a> Visit<'a> for FindExplicitRelation<'a> {
     }
 }
 
-/// Collects the store indices of maximal scalar sub-expressions that contain exactly one free variable.
-/// Expressions of the kind [`ExprKind::Var`](crate::ast::ExprKind::Var) are excluded from collection.
-pub struct FindMaximalScalarTerms<'a> {
-    mx: Vec<Vec<StoreIndex>>,
-    real_expr_index_map: HashMap<UnsafeExprRef, usize>,
-    var_index: &'a HashMap<VarSet, VarIndex>,
-}
-
-impl<'a> FindMaximalScalarTerms<'a> {
-    pub fn new(collector: CollectStatic<'a>) -> Self {
-        let var_index = collector.var_index;
-        Self {
-            mx: vec![vec![]; var_index.len()],
-            real_expr_index_map: collector.real_expr_index_map,
-            var_index,
-        }
-    }
-
-    /// Returns a vector that maps [`VarIndex`] to a vector of store indices.
-    pub fn get(mut self) -> Vec<Vec<StoreIndex>> {
-        for m in &mut self.mx {
-            m.sort_unstable();
-            m.dedup();
-        }
-        self.mx
-    }
-}
-
-impl<'a> Visit<'a> for FindMaximalScalarTerms<'a> {
-    fn visit_expr(&mut self, e: &'a Expr) {
-        match e.vars {
-            VarSet::EMPTY => {
-                // Stop traversal.
-            }
-            vars if vars.len() == 1 && e.ty == ValueType::Real => {
-                if !matches!(e, var!(_)) {
-                    let index = StoreIndex::new(self.real_expr_index_map[&UnsafeExprRef::from(e)]);
-                    self.mx[self.var_index[&vars] as usize].push(index);
-                }
-                // Stop traversal.
-            }
-            _ => traverse_expr(self, e),
-        }
-    }
-}
-
 /// Precondition: [`PreTransform`] has been applied to the expression.
 pub fn expand_complex_functions(e: &mut Expr) {
     UpdateMetadata.visit_expr_mut(e);
