@@ -2,6 +2,7 @@ use crate::{
     ast::{BinaryOp, ExplicitRelOp, Expr, NaryOp, TernaryOp, UnaryOp, ValueType},
     binary, bool_constant, constant,
     context::Context,
+    error,
     eval_cache::{EvalExplicitCache, EvalImplicitCache, EvalParametricCache, MaximalTermCache},
     eval_result::{EvalArgs, EvalExplicitResult, EvalParametricResult, EvalResult},
     geom::{TransformInPlace, Transformation1D},
@@ -9,9 +10,9 @@ use crate::{
     nary,
     ops::{OptionalValueStore, StaticForm, StaticFormKind, StaticTerm, StaticTermKind, StoreIndex},
     parse::{format_error, parse_expr},
-    rational_ops,
+    pown, rational_ops,
     real::{Real, RealUnit},
-    ternary, unary, var, vars,
+    rootn, ternary, unary, uninit, var, vars,
     vars::{VarIndex, VarSet, VarType},
     visit::*,
 };
@@ -607,10 +608,36 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
         }
     }
 
+    fn generic_function_period(e: &Expr, variable: VarSet) -> Option<Real> {
+        match e {
+            bool_constant!(_) | constant!(_) => Some(Real::zero()),
+            x @ var!(_) if x.vars.contains(variable) => None,
+            var!(_) => Some(Real::zero()),
+            unary!(_, x) => function_period(x, variable),
+            binary!(_, x, y) => {
+                let xp = function_period(x, variable)?;
+                let yp = function_period(y, variable)?;
+                common_period(xp, yp)
+            }
+            ternary!(_, x, y, z) => {
+                let xp = function_period(x, variable)?;
+                let yp = function_period(y, variable)?;
+                let zp = function_period(z, variable)?;
+                common_period(common_period(xp, yp)?, zp)
+            }
+            nary!(_, xs) => xs
+                .iter()
+                .map(|x| function_period(x, variable))
+                .collect::<Vec<_>>()
+                .into_iter()
+                .try_fold(Real::zero(), |x, y| common_period(x, y?)),
+            pown!(_, _) | rootn!(_, _) | error!() | uninit!() => {
+                panic!("unexpected kind of expression")
+            }
+        }
+    }
+
     match e {
-        bool_constant!(_) | constant!(_) => Some(Real::zero()),
-        x @ var!(_) if x.vars.contains(variable) => None,
-        var!(_) => Some(Real::zero()),
         unary!(op @ (Cos | Sin | Tan), x) if x.vars.contains(variable) => match x {
             var!(_) => {
                 // op(t)
@@ -647,9 +674,9 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
                             None
                         }
                     }
-                    _ => None,
+                    _ => generic_function_period(e, variable),
                 },
-                _ => None,
+                _ => generic_function_period(e, variable),
             },
             nary!(Times, xs) => match &xs[..] {
                 [constant!(a), var!(_)] => {
@@ -667,11 +694,10 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
                         None
                     }
                 }
-                _ => None,
+                _ => generic_function_period(e, variable),
             },
-            _ => None,
+            _ => generic_function_period(e, variable),
         },
-        unary!(_, x) => function_period(x, variable),
         binary!(Mod, x, constant!(y))
             if x.vars.contains(variable) && y.rational_unit().is_some() =>
         {
@@ -699,9 +725,9 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
                                 _ => None,
                             }
                         }
-                        _ => None,
+                        _ => generic_function_period(e, variable),
                     },
-                    _ => None,
+                    _ => generic_function_period(e, variable),
                 },
                 nary!(Times, xs) => match &xs[..] {
                     [constant!(a), var!(_)] => {
@@ -711,32 +737,12 @@ fn function_period(e: &Expr, variable: VarSet) -> Option<Real> {
                             _ => None,
                         }
                     }
-                    _ => None,
+                    _ => generic_function_period(e, variable),
                 },
-                _ => match function_period(x, variable) {
-                    Some(xp) => common_period(xp, p),
-                    _ => None,
-                },
+                _ => generic_function_period(x, variable),
             }
         }
-        binary!(_, x, y) => {
-            let xp = function_period(x, variable)?;
-            let yp = function_period(y, variable)?;
-            common_period(xp, yp)
-        }
-        ternary!(_, x, y, z) => {
-            let xp = function_period(x, variable)?;
-            let yp = function_period(y, variable)?;
-            let zp = function_period(z, variable)?;
-            common_period(common_period(xp, yp)?, zp)
-        }
-        nary!(_, xs) => xs
-            .iter()
-            .map(|x| function_period(x, variable))
-            .collect::<Vec<_>>()
-            .into_iter()
-            .try_fold(Real::zero(), |x, y| common_period(x, y?)),
-        _ => panic!("unexpected kind of expression"),
+        _ => generic_function_period(e, variable),
     }
 }
 
@@ -1248,6 +1254,14 @@ mod tests {
         assert_eq!(f("mod(-t, 1) = 0"), interval!(0.0, 1.0).unwrap());
         assert_eq!(f("mod(t, -1) = 0"), interval!(0.0, 1.0).unwrap());
         assert_eq!(f("mod(-t, -1) = 0"), interval!(0.0, 1.0).unwrap());
+        assert_eq!(
+            f("mod(sin(π t) + cos(π t), 1) = 0"),
+            interval!(0.0, 2.0).unwrap()
+        );
+        assert_eq!(
+            f("mod(sin(π t) + cos(π t), 1) = 0"),
+            interval!(0.0, 2.0).unwrap()
+        );
     }
 
     #[test]
