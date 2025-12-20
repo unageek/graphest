@@ -337,6 +337,11 @@ impl Expr {
         Self::constant(const_dec_interval!(-1.0, -1.0).into())
     }
 
+    /// Creates a constant node with value -2.
+    pub fn minus_two() -> Self {
+        Self::constant(const_dec_interval!(-2.0, -2.0).into())
+    }
+
     /// Creates a constant node with value -1/2.
     pub fn minus_one_half() -> Self {
         Self::constant(const_dec_interval!(-0.5, -0.5).into())

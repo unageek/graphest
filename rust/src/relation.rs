@@ -492,7 +492,7 @@ impl FromStr for Relation {
 ///
 /// Precondition: `e` has been pre-transformed and simplified.
 fn expand_polar_coords(e: &mut Expr) {
-    use {BinaryOp::*, NaryOp::*};
+    use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
     let ctx = Context::builtin();
 
     let x = ctx.get_constant("x").unwrap();
@@ -511,8 +511,38 @@ fn expand_polar_coords(e: &mut Expr) {
         Expr::one_half(),
     );
     let neg_hypot = Expr::nary(Times, vec![Expr::minus_one(), hypot.clone()]);
-    let atan2 = Expr::binary(Atan2, y.clone(), x.clone());
-    let anti_atan2 = Expr::binary(Atan2, minus_y.clone(), minus_x.clone());
+    let atan2 = Expr::ternary(
+        IfThenElse,
+        // Restrict the domain to x/r > -1/2 to reduce the computational cost.
+        Expr::unary(
+            BooleLtZero,
+            Expr::nary(
+                Plus,
+                vec![
+                    Expr::nary(Times, vec![Expr::minus_two(), x.clone()]),
+                    neg_hypot.clone(),
+                ],
+            ),
+        ),
+        Expr::binary(Atan2, y.clone(), x.clone()),
+        Expr::undefined(),
+    );
+    let anti_atan2 = Expr::ternary(
+        IfThenElse,
+        // Restrict the domain to x/r < 1/2 to reduce the computational cost.
+        Expr::unary(
+            BooleLtZero,
+            Expr::nary(
+                Plus,
+                vec![
+                    Expr::nary(Times, vec![Expr::two(), x.clone()]),
+                    neg_hypot.clone(),
+                ],
+            ),
+        ),
+        Expr::binary(Atan2, minus_y.clone(), minus_x.clone()),
+        Expr::undefined(),
+    );
     let two_pi_n_theta = Expr::nary(
         Times,
         vec![Expr::tau(), ctx.get_constant("<n-theta>").unwrap()],
@@ -538,7 +568,7 @@ fn expand_polar_coords(e: &mut Expr) {
     };
 
     // e12 = e /. {r → sqrt(x^2 + y^2), θ → π + 2π n_θ + atan2(-y, -x)}.
-    let _e12 = {
+    let e12 = {
         let mut e = e.clone();
         let mut v = ReplaceAll::new(|e| match e {
             var!(x) if x == "r" => Some(hypot.clone()),
@@ -553,7 +583,7 @@ fn expand_polar_coords(e: &mut Expr) {
     };
 
     // e21 = e /. {r → -sqrt(x^2 + y^2), θ → 2π n_θ + atan2(-y, -x)}.
-    let _e21 = {
+    let e21 = {
         let mut e = e.clone();
         let mut v = ReplaceAll::new(|e| match e {
             var!(x) if x == "r" => Some(neg_hypot.clone()),
@@ -582,10 +612,7 @@ fn expand_polar_coords(e: &mut Expr) {
         e
     };
 
-    // This is too slow.
-    // *e = Expr::binary(Or, Expr::binary(Or, e11, _e12), Expr::binary(Or, _e21, e22));
-
-    *e = Expr::binary(Or, e11, e22);
+    *e = Expr::binary(Or, Expr::binary(Or, e11, e12), Expr::binary(Or, e21, e22));
 }
 
 /// Returns the period of a function of a variable t,
