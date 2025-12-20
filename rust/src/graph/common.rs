@@ -4,7 +4,6 @@ use crate::{
     region::Region,
 };
 use inari::{interval, Interval};
-use smallvec::smallvec;
 
 /// The index of a [`Block`] in a [`BlockQueue`].
 ///
@@ -130,7 +129,7 @@ pub fn simple_fraction(x: Interval) -> f64 {
 ///
 /// Precondition: `b.m.is_subdivisible()` is `true`.
 pub fn subdivide_m(sub_bs: &mut Vec<Block>, b: &Block) {
-    sub_bs.extend(b.m.subdivide().into_iter().map(|m| Block { m, ..*b }));
+    sub_bs.extend(b.m.subdivide1().into_iter().map(|m| Block { m, ..*b }));
 }
 
 /// Subdivides `b.n` and appends the sub-blocks to `sub_bs`.
@@ -138,7 +137,7 @@ pub fn subdivide_m(sub_bs: &mut Vec<Block>, b: &Block) {
 ///
 /// Precondition: `b.n.is_subdivisible()` is `true`.
 pub fn subdivide_n(sub_bs: &mut Vec<Block>, b: &Block) {
-    sub_bs.extend(b.n.subdivide().into_iter().map(|n| Block { n, ..*b }));
+    sub_bs.extend(b.n.subdivide1().into_iter().map(|n| Block { n, ..*b }));
 }
 
 /// Subdivides `b.n_theta` and appends the sub-blocks to `sub_bs`.
@@ -148,7 +147,7 @@ pub fn subdivide_n(sub_bs: &mut Vec<Block>, b: &Block) {
 pub fn subdivide_n_theta(sub_bs: &mut Vec<Block>, b: &Block) {
     sub_bs.extend(
         b.n_theta
-            .subdivide()
+            .subdivide1()
             .into_iter()
             .map(|n| Block { n_theta: n, ..*b }),
     );
@@ -158,27 +157,16 @@ pub fn subdivide_n_theta(sub_bs: &mut Vec<Block>, b: &Block) {
 /// Two sub-blocks are created.
 ///
 /// Precondition: `b.t.is_subdivisible()` is `true`.
-pub fn subdivide_t(sub_bs: &mut Vec<Block>, b: &Block) {
+pub fn subdivide_t_parametric(sub_bs: &mut Vec<Block>, b: &Block) {
     sub_bs.extend(b.t.subdivide().into_iter().map(|t| Block { t, ..*b }));
 }
 
-/// Subdivides `b.t` twice and appends the sub-blocks to `sub_bs`.
-/// Four sub-blocks are created at most.
+/// Subdivides `b.t` and appends the sub-blocks to `sub_bs`.
+/// Two sub-blocks are created at most.
 ///
 /// Precondition: `b.t.is_subdivisible()` is `true`.
-pub fn subdivide_t_twice(sub_bs: &mut Vec<Block>, b: &Block) {
-    sub_bs.extend(
-        b.t.subdivide()
-            .into_iter()
-            .flat_map(|t| {
-                if t.is_subdivisible() {
-                    t.subdivide()
-                } else {
-                    smallvec![t]
-                }
-            })
-            .map(|t| Block { t, ..*b }),
-    );
+pub fn subdivide_t_implicit(sub_bs: &mut Vec<Block>, b: &Block) {
+    sub_bs.extend(b.t.subdivide1().into_iter().map(|t| Block { t, ..*b }));
 }
 
 /// Returns a subset of the outer region.

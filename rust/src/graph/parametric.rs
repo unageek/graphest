@@ -105,7 +105,8 @@ impl Parametric {
 
         if vars.contains(VarSet::M) {
             let m_range = g.rel.m_range();
-            bs = IntegerParameter::initial_subdivision(m_range)
+            bs = IntegerParameter::new(m_range)
+                .subdivide0()
                 .into_iter()
                 .cartesian_product(bs)
                 .map(|(m, b)| Block { m, ..b })
@@ -114,7 +115,8 @@ impl Parametric {
 
         if vars.contains(VarSet::N) {
             let n_range = g.rel.n_range();
-            bs = IntegerParameter::initial_subdivision(n_range)
+            bs = IntegerParameter::new(n_range)
+                .subdivide0()
                 .into_iter()
                 .cartesian_product(bs)
                 .map(|(n, b)| Block { n, ..b })
@@ -153,12 +155,11 @@ impl Parametric {
             match next_dir {
                 Some(VarSet::M) => subdivide_m(&mut sub_bs, &b),
                 Some(VarSet::N) => subdivide_n(&mut sub_bs, &b),
-                Some(VarSet::T) => subdivide_t(&mut sub_bs, &b),
+                Some(VarSet::T) => subdivide_t_parametric(&mut sub_bs, &b),
                 Some(_) => panic!(),
                 _ => sub_bs.push(b.clone()),
             }
 
-            let n_sub_bs = sub_bs.len();
             for sub_b in sub_bs.drain(..) {
                 self.process_block(&sub_b, &mut args, &mut incomplete_pixels);
                 if self.is_any_pixel_uncertain(&incomplete_pixels, bi) {
@@ -171,16 +172,16 @@ impl Parametric {
             }
 
             let n_max = match next_dir {
-                Some(VarSet::M | VarSet::N) => 3,
-                Some(VarSet::T) => 1000, // Avoid repeated subdivision of t.
+                Some(VarSet::M | VarSet::N) => 2,
+                Some(VarSet::T) => 1,
                 Some(_) => panic!(),
-                _ => 1,
+                _ => 0,
             };
 
             let it = (0..self.subdivision_dirs.len())
                 .cycle()
                 .skip(
-                    if n_max * incomplete_sub_bs.len() <= n_sub_bs {
+                    if incomplete_sub_bs.len() <= n_max {
                         // Subdivide in the same direction again.
                         b.next_dir_index
                     } else {

@@ -106,13 +106,13 @@ impl Implicit {
         let mut bs = vec![Block {
             x: Coordinate::new(0, k),
             y: Coordinate::new(0, k),
-            t: RealParameter::new(g.rel.t_range()),
             ..Default::default()
         }];
 
         if vars.contains(VarSet::M) {
             let m_range = g.rel.m_range();
-            bs = IntegerParameter::initial_subdivision(m_range)
+            bs = IntegerParameter::new(m_range)
+                .subdivide0()
                 .into_iter()
                 .cartesian_product(bs)
                 .map(|(m, b)| Block { m, ..b })
@@ -121,7 +121,8 @@ impl Implicit {
 
         if vars.contains(VarSet::N) {
             let n_range = g.rel.n_range();
-            bs = IntegerParameter::initial_subdivision(n_range)
+            bs = IntegerParameter::new(n_range)
+                .subdivide0()
                 .into_iter()
                 .cartesian_product(bs)
                 .map(|(n, b)| Block { n, ..b })
@@ -130,10 +131,21 @@ impl Implicit {
 
         if vars.contains(VarSet::N_THETA) {
             let n_theta_range = g.rel.n_theta_range();
-            bs = IntegerParameter::initial_subdivision(n_theta_range)
+            bs = IntegerParameter::new(n_theta_range)
+                .subdivide0()
                 .into_iter()
                 .cartesian_product(bs)
                 .map(|(n, b)| Block { n_theta: n, ..b })
+                .collect::<Vec<_>>();
+        }
+
+        if vars.contains(VarSet::T) {
+            let t_range = g.rel.t_range();
+            bs = RealParameter::new(t_range)
+                .subdivide0()
+                .into_iter()
+                .cartesian_product(bs)
+                .map(|(t, b)| Block { t, ..b })
                 .collect::<Vec<_>>();
         }
 
@@ -163,12 +175,11 @@ impl Implicit {
                 Some(VarSet::M) => subdivide_m(&mut sub_bs, &b),
                 Some(VarSet::N) => subdivide_n(&mut sub_bs, &b),
                 Some(VarSet::N_THETA) => subdivide_n_theta(&mut sub_bs, &b),
-                Some(VarSet::T) => subdivide_t_twice(&mut sub_bs, &b),
+                Some(VarSet::T) => subdivide_t_implicit(&mut sub_bs, &b),
                 Some(_) => panic!(),
                 _ => sub_bs.push(b.clone()),
             }
 
-            let n_sub_bs = sub_bs.len();
             for sub_b in sub_bs.drain(..) {
                 let complete = if !sub_b.x.is_subpixel() {
                     self.process_block(&sub_b, &mut args)
@@ -181,17 +192,17 @@ impl Implicit {
             }
 
             let n_max = match next_dir {
-                Some(XY) => 4,
-                Some(VarSet::M | VarSet::N | VarSet::N_THETA) => 3,
-                Some(VarSet::T) => 1000, // Avoid repeated subdivision of t.
+                Some(XY) => 1,
+                Some(VarSet::M | VarSet::N | VarSet::N_THETA) => 2,
+                Some(VarSet::T) => 2,
                 Some(_) => panic!(),
-                _ => 1,
+                _ => 0,
             };
 
             let it = (0..self.subdivision_dirs.len())
                 .cycle()
                 .skip(
-                    if n_max * incomplete_sub_bs.len() <= n_sub_bs {
+                    if incomplete_sub_bs.len() <= n_max {
                         // Subdivide in the same direction again.
                         b.next_dir_index
                     } else {

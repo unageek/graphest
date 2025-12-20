@@ -93,7 +93,7 @@ impl Coordinate {
     ///
     /// Two blocks are returned.
     ///
-    /// Precondition: [`Self::is_subdivisible`] returns `true`.
+    /// Precondition: [`Self::is_subdivisible()`] is `true`.
     pub fn subdivide(&self) -> [Self; 2] {
         let i0 = 2 * self.i;
         let i1 = i0 + 1;
@@ -151,19 +151,6 @@ fn subdivision_point(x: Interval, integer: bool) -> f64 {
 pub struct IntegerParameter(Interval);
 
 impl IntegerParameter {
-    pub fn initial_subdivision(x: Interval) -> Vec<Self> {
-        assert!(!x.is_empty() && x == x.trunc());
-        let a = x.inf();
-        let b = x.sup();
-        [interval!(a, a), interval!(a, b), interval!(b, b)]
-            .into_iter()
-            .filter_map(|x| x.ok()) // Remove invalid constructions, namely, [-∞, -∞] and [+∞, +∞].
-            .filter(|x| x.wid() != 1.0)
-            .dedup()
-            .map(Self::new)
-            .collect()
-    }
-
     /// Creates a new [`IntegerParameter`].
     ///
     /// Panics if `x` is empty or an endpoint of `x` is a finite non-integer number.
@@ -187,12 +174,30 @@ impl IntegerParameter {
         x.inf() != mid && x.sup() != mid
     }
 
-    /// Returns the subdivided blocks.
+    /// Returns subdivided blocks. This version must be called for the initial subdivision.
+    /// Use [`Self::subdivide1`] for subsequent subdivisions.
+    ///
+    /// Three blocks are returned at most.
+    pub fn subdivide0(&self) -> Vec<Self> {
+        let x = self.0;
+        let a = x.inf();
+        let b = x.sup();
+        [interval!(a, a), interval!(a, b), interval!(b, b)]
+            .into_iter()
+            .filter_map(|x| x.ok()) // Remove invalid constructions, namely, [-∞, -∞] and [+∞, +∞].
+            .filter(|x| x.wid() != 1.0)
+            .dedup()
+            .map(Self)
+            .collect()
+    }
+
+    /// Returns subdivided blocks. This version must be called for subsequent subdivisions.
+    /// Use [`Self::subdivide0`] for the initial subdivision.
     ///
     /// Three blocks are returned at most.
     ///
-    /// Precondition: [`Self::is_subdivisible`] returns `true`.
-    pub fn subdivide(&self) -> SmallVec<[Self; 3]> {
+    /// Precondition: [`Self::is_subdivisible()`] is `true`.
+    pub fn subdivide1(&self) -> SmallVec<[Self; 3]> {
         let x = self.0;
         let a = x.inf();
         let b = x.sup();
@@ -251,11 +256,12 @@ impl RealParameter {
         x.inf() != mid && x.sup() != mid
     }
 
-    /// Returns the subdivided blocks.
+    /// (To be used for parametric relations.)
+    /// Returns subdivided blocks.
     ///
     /// Two blocks are returned at most.
     ///
-    /// Precondition: [`Self::is_subdivisible`] returns `true`.
+    /// Precondition: [`Self::is_subdivisible()`] is `true`.
     pub fn subdivide(&self) -> SmallVec<[Self; 2]> {
         let x = self.0;
         let a = x.inf();
@@ -266,6 +272,44 @@ impl RealParameter {
             .filter(|x| !x.is_singleton())
             .map(Self)
             .collect()
+    }
+
+    /// (To be used for implicit relations.)
+    /// Returns subdivided blocks. This version must be called for the initial subdivision.
+    /// Use [`Self::subdivide1`] for subsequent subdivisions.
+    ///
+    /// Three blocks are returned at most.
+    pub fn subdivide0(&self) -> SmallVec<[Self; 2]> {
+        let x = self.0;
+        let a = x.inf();
+        let b = x.sup();
+        [interval!(a, a), interval!(a, b), interval!(b, b)]
+            .into_iter()
+            .filter_map(|x| x.ok()) // Remove invalid constructions, namely, [-∞, -∞] and [+∞, +∞].
+            .map(Self)
+            .collect()
+    }
+
+    /// (To be used for implicit relations.)
+    /// Returns subdivided blocks. This version must be called for subsequent subdivisions.
+    /// Use [`Self::subdivide0`] for the initial subdivision.
+    ///
+    /// Three blocks are returned at most.
+    ///
+    /// Precondition: [`Self::is_subdivisible()`] is `true`.
+    pub fn subdivide1(&self) -> SmallVec<[Self; 2]> {
+        let x = self.0;
+        let a = x.inf();
+        let b = x.sup();
+        let mid = subdivision_point(x, false);
+        [
+            interval!(a, mid).unwrap(),
+            interval!(mid, mid).unwrap(),
+            interval!(mid, b).unwrap(),
+        ]
+        .into_iter()
+        .map(Self)
+        .collect()
     }
 }
 
@@ -652,7 +696,7 @@ mod tests {
         fn test(x: Interval, ys: Vec<Interval>) {
             let n = IntegerParameter::new(x);
             assert_eq!(
-                n.subdivide(),
+                n.subdivide1(),
                 ys.iter()
                     .copied()
                     .map(IntegerParameter::new)
@@ -661,7 +705,7 @@ mod tests {
 
             let n = IntegerParameter::new(-x);
             assert_eq!(
-                n.subdivide(),
+                n.subdivide1(),
                 ys.into_iter()
                     .map(|y| IntegerParameter::new(-y))
                     .rev()

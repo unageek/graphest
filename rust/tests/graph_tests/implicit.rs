@@ -1,3 +1,21 @@
+t!(
+    t_84a2738be35745da97a9b120c563b4b3,
+    "y = t",
+    @timeout(6000),
+);
+
+t!(
+    t_7f25b9f2bd3746b3ae8f95a82921de2b,
+    "mod(cos(n/12 π) x + sin(n/12 π) y, 3) = 0",
+    @timeout(2000),
+);
+
+t!(
+    t_37b042e4a46346fda37c9af4b71fb404,
+    "⌊16/(2π) ln(r)⌋ = ⌊16/(2π) θ⌋ + n ∧ mod(n, 2) = 0 ∧ 0 ≤ n < 16",
+    @timeout(2000),
+);
+
 // Non-square
 t!(
     t_3d0c421d8fed4ea58e286d3bf1b1fb3a,
