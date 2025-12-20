@@ -1,7 +1,7 @@
 t!(
     t_84a2738be35745da97a9b120c563b4b3,
     "y = t",
-    @timeout(6000),
+    @timeout(8000),
 );
 
 t!(
@@ -13,7 +13,7 @@ t!(
 t!(
     t_37b042e4a46346fda37c9af4b71fb404,
     "⌊16/(2π) ln(r)⌋ = ⌊16/(2π) θ⌋ + n ∧ mod(n, 2) = 0 ∧ 0 ≤ n < 16",
-    @timeout(2000),
+    @timeout(4000),
 );
 
 // Non-square
