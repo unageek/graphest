@@ -1254,14 +1254,17 @@ mod tests {
         assert_eq!(f("mod(-t, 1) = 0"), interval!(0.0, 1.0).unwrap());
         assert_eq!(f("mod(t, -1) = 0"), interval!(0.0, 1.0).unwrap());
         assert_eq!(f("mod(-t, -1) = 0"), interval!(0.0, 1.0).unwrap());
+        assert_eq!(f("mod(sin(π t), 1) = 0"), interval!(0.0, 2.0).unwrap());
+        assert_eq!(f("mod(x sin(π t), 1) = 0"), interval!(0.0, 2.0).unwrap());
+        assert_eq!(f("mod(y + sin(π t), 1) = 0"), interval!(0.0, 2.0).unwrap());
         assert_eq!(
-            f("mod(sin(π t) + cos(π t), 1) = 0"),
+            f("mod(y + x sin(π t), 1) = 0"),
             interval!(0.0, 2.0).unwrap()
         );
-        assert_eq!(
-            f("mod(sin(π t) + cos(π t), 1) = 0"),
-            interval!(0.0, 2.0).unwrap()
-        );
+        assert_eq!(f("cos(sin(π t)) = 0"), interval!(0.0, 2.0).unwrap());
+        assert_eq!(f("cos(x sin(π t)) = 0"), interval!(0.0, 2.0).unwrap());
+        assert_eq!(f("cos(y + sin(π t)) = 0"), interval!(0.0, 2.0).unwrap());
+        assert_eq!(f("cos(y + x sin(π t)) = 0"), interval!(0.0, 2.0).unwrap());
     }
 
     #[test]
