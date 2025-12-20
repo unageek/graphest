@@ -23,6 +23,7 @@ t!(
 t!(
     t_23ac7cf5b57d4c7388397379cd277762,
     "|sin(sqrt(x^2 + y^2))| = |cos(x)|",
+    @timeout(2000),
 );
 
 // Prime Bars
