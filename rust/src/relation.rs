@@ -513,7 +513,7 @@ fn expand_polar_coords(e: &mut Expr) {
     let neg_hypot = Expr::nary(Times, vec![Expr::minus_one(), hypot.clone()]);
     let atan2 = Expr::ternary(
         IfThenElse,
-        // Restrict the domain to x/r > -ε to reduce the computational cost.
+        // Restrict the domain to x > -ε |y| to reduce the computational cost.
         Expr::unary(
             BooleLtZero,
             Expr::nary(
@@ -523,8 +523,10 @@ fn expand_polar_coords(e: &mut Expr) {
                     Expr::nary(
                         Times,
                         vec![
-                            Expr::constant(const_dec_interval!(-1e-4, -1e-4).into()),
-                            hypot.clone(),
+                            Expr::constant(
+                                const_dec_interval!(-6.103515625e-05, -6.103515625e-05).into(),
+                            ),
+                            Expr::unary(Abs, y.clone()),
                         ],
                     ),
                 ],
@@ -535,7 +537,7 @@ fn expand_polar_coords(e: &mut Expr) {
     );
     let anti_atan2 = Expr::ternary(
         IfThenElse,
-        // Restrict the domain to x/r < ε to reduce the computational cost.
+        // Restrict the domain to x < ε |y| to reduce the computational cost.
         Expr::unary(
             BooleLtZero,
             Expr::nary(
@@ -545,8 +547,10 @@ fn expand_polar_coords(e: &mut Expr) {
                     Expr::nary(
                         Times,
                         vec![
-                            Expr::constant(const_dec_interval!(-1e-4, -1e-4).into()),
-                            hypot.clone(),
+                            Expr::constant(
+                                const_dec_interval!(-6.103515625e-05, -6.103515625e-05).into(),
+                            ),
+                            Expr::unary(Abs, y.clone()),
                         ],
                     ),
                 ],
