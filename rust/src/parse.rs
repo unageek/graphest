@@ -14,7 +14,7 @@ use nom::{
     error::{ErrorKind as NomErrorKind, ParseError},
     multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
-    Err, Finish, IResult, InputLength, Parser,
+    Err, Finish, IResult, Input, Mode, OutputM, OutputMode, PResult, Parser,
 };
 use rug::{Integer, Rational};
 use std::ops::Range;
@@ -52,6 +52,16 @@ impl<'a, I> Error<'a, I> {
 }
 
 impl<'a, I> ParseError<I> for Error<'a, I> {
+    fn from_error_kind(input: I, kind: NomErrorKind) -> Self {
+        Self {
+            input,
+            kind: match kind {
+                NomErrorKind::Eof => ErrorKind::ExpectedEof,
+                _ => ErrorKind::OtherNomError,
+            },
+        }
+    }
+
     fn append(_: I, _: NomErrorKind, other: Self) -> Self {
         // Only keep the first error.
         other
@@ -61,16 +71,6 @@ impl<'a, I> ParseError<I> for Error<'a, I> {
         Self {
             input,
             kind: ErrorKind::ExpectedChar(c),
-        }
-    }
-
-    fn from_error_kind(input: I, kind: NomErrorKind) -> Self {
-        Self {
-            input,
-            kind: match kind {
-                NomErrorKind::Eof => ErrorKind::ExpectedEof,
-                _ => ErrorKind::OtherNomError,
-            },
         }
     }
 }
@@ -110,7 +110,8 @@ fn decimal_literal(i: InputWithContext<'_>) -> ParseResult<'_, &str> {
             recognize(pair(char('.'), digit1)),
         )),
         |i: InputWithContext| i.source,
-    )(i)
+    )
+    .parse(i)
 }
 
 fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
@@ -122,7 +123,8 @@ fn decimal_constant(i: InputWithContext) -> ParseResult<Expr> {
             Real::from(dec_interval!(&interval_literal).unwrap())
         };
         Expr::constant(x)
-    })(i)
+    })
+    .parse(i)
 }
 
 fn identifier_head(i: InputWithContext) -> ParseResult<char> {
@@ -133,13 +135,15 @@ fn identifier_tail(i: InputWithContext<'_>) -> ParseResult<'_, &str> {
     map(
         recognize(many0_count(satisfy(|c| c.is_alphanumeric() || c == '\''))),
         |i: InputWithContext| i.source,
-    )(i)
+    )
+    .parse(i)
 }
 
 fn identifier(i: InputWithContext<'_>) -> ParseResult<'_, &str> {
     map(recognize(pair(identifier_head, identifier_tail)), |i| {
         i.source
-    })(i)
+    })
+    .parse(i)
 }
 
 fn name_in_context(i: InputWithContext<'_>) -> ParseResult<'_, (&Context, &str)> {
@@ -150,15 +154,16 @@ fn name_in_context(i: InputWithContext<'_>) -> ParseResult<'_, (&Context, &str)>
             .iter()
             .rfind(|c| c.has(name))
             .map(|&c| (c, name))
-    })(i)
+    })
+    .parse(i)
 }
 
 fn named_constant(i: InputWithContext) -> ParseResult<Expr> {
-    map_opt(name_in_context, |(ctx, name)| ctx.get_constant(name))(i)
+    map_opt(name_in_context, |(ctx, name)| ctx.get_constant(name)).parse(i)
 }
 
 fn function_name(i: InputWithContext<'_>) -> ParseResult<'_, (&Context, &str)> {
-    verify(name_in_context, |(ctx, name)| ctx.is_function(name))(i)
+    verify(name_in_context, |(ctx, name)| ctx.is_function(name)).parse(i)
 }
 
 /// Nonempty, comma-separated list of expressions.
@@ -172,7 +177,8 @@ fn expr_list(i: InputWithContext) -> ParseResult<Vec<Expr>> {
             xs.push(x);
             xs
         },
-    )(i)
+    )
+    .parse(i)
 }
 
 fn function_application(i: InputWithContext) -> ParseResult<Expr> {
@@ -186,14 +192,15 @@ fn function_application(i: InputWithContext) -> ParseResult<Expr> {
             ),
         ),
         |((ctx, name), args)| ctx.apply(name, args),
-    )(i)
+    )
+    .parse(i)
 }
 
 /// If an identifier is found, [`cut`]s with [`ErrorKind::UnknownIdentifier`]
 /// (the position where the identifier is found is reported);
 /// otherwise, fails in the same manner as [`identifier`].
 fn fail_unknown_identifier(i: InputWithContext) -> ParseResult<Expr> {
-    let (i, name) = peek(identifier)(i)?;
+    let (i, name) = peek(identifier).parse(i)?;
 
     Err(Err::Failure(Error::unknown_identifier(i, name)))
 }
@@ -212,12 +219,12 @@ fn expr_within_bars_terminated_with_space0(i: InputWithContext) -> ParseResult<E
         binary, bool_constant, unary,
     };
 
-    let mut o = recognize(take_while(|c| c != '|'))(i.clone())?;
+    let mut o = recognize(take_while(|c| c != '|')).parse(i.clone())?;
     let mut even_bars_taken = true;
     loop {
         let (rest, taken) = o;
         if even_bars_taken {
-            if let Ok((_, x)) = all_consuming(terminated(expr, space0))(taken.clone()) {
+            if let Ok((_, x)) = all_consuming(terminated(expr, space0)).parse(taken.clone()) {
                 match x {
                     bool_constant!(_)
                     | unary!(Not, _)
@@ -236,19 +243,45 @@ fn expr_within_bars_terminated_with_space0(i: InputWithContext) -> ParseResult<E
         o = recognize(pair(
             take(taken.source.chars().count() + 1),
             take_while(|c| c != '|'),
-        ))(i.clone())?;
+        ))
+        .parse(i.clone())?;
         even_bars_taken = !even_bars_taken;
     }
 }
 
 /// The inverse operation of [`cut`]; converts [`Err::Failure`] back to [`Err::Error`].
-fn decut<I, O, E: ParseError<I>, F>(mut parser: F) -> impl FnMut(I) -> IResult<I, O, E>
+pub fn decut<I, E: ParseError<I>, F>(
+    parser: F,
+) -> impl Parser<I, Output = <F as Parser<I>>::Output, Error = E>
 where
-    F: Parser<I, O, E>,
+    F: Parser<I, Error = E>,
 {
-    move |input: I| match parser.parse(input) {
-        Err(Err::Failure(e)) => Err(Err::Error(e)),
-        rest => rest,
+    Decut { parser }
+}
+
+pub struct Decut<F> {
+    parser: F,
+}
+
+impl<I, F> Parser<I> for Decut<F>
+where
+    F: Parser<I>,
+{
+    type Output = <F as Parser<I>>::Output;
+
+    type Error = <F as Parser<I>>::Error;
+
+    #[inline(always)]
+    fn process<OM: OutputMode>(&mut self, input: I) -> PResult<OM, I, Self::Output, Self::Error> {
+        match self
+            .parser
+            .process::<OutputM<OM::Output, OM::Error, OM::Incomplete>>(input)
+        {
+            Err(Err::Error(e)) => Err(Err::Error(e)),
+            Err(Err::Failure(e)) => Err(Err::Error(OM::Error::bind(|| e))),
+            Err(Err::Incomplete(i)) => Err(Err::Incomplete(i)),
+            Ok((i, o)) => Ok((i, o)),
+        }
     }
 }
 
@@ -313,7 +346,8 @@ fn primary_expr(i: InputWithContext) -> ParseResult<Expr> {
             fail_expr,
         ))),
         |(i, x)| x.with_source_range(i.source_range),
-    )(i)
+    )
+    .parse(i)
 }
 
 // ^ is right-associative; x^y^z is equivalent to x^(y^z).
@@ -339,7 +373,8 @@ fn power_expr(i: InputWithContext) -> ParseResult<Expr> {
             }
             _ => x,
         },
-    )(i)
+    )
+    .parse(i)
 }
 
 fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
@@ -360,7 +395,8 @@ fn unary_expr(i: InputWithContext) -> ParseResult<Expr> {
             move |(i, (op, x))| builtin.apply(op, vec![x]).with_source_range(i.source_range),
         ),
         power_expr,
-    ))(i)
+    ))
+    .parse(i)
 }
 
 fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
@@ -388,7 +424,8 @@ fn multiplicative_expr(i: InputWithContext) -> ParseResult<Expr> {
             let range = xs.source_range.start..y.source_range.end;
             builtin.apply(op, vec![xs, y]).with_source_range(range)
         },
-    )(i)
+    )
+    .parse(i)
 }
 
 fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
@@ -412,7 +449,8 @@ fn additive_expr(i: InputWithContext) -> ParseResult<Expr> {
             let range = xs.source_range.start..y.source_range.end;
             builtin.apply(op, vec![xs, y]).with_source_range(range)
         },
-    )(i)
+    )
+    .parse(i)
 }
 
 // Relational operators can be chained: x op1 y op2 z is equivalent to x op1 y ∧ y op2 z.
@@ -461,7 +499,8 @@ fn relational_expr(i: InputWithContext) -> ParseResult<Expr> {
                     .unwrap()
             }
         },
-    )(i)
+    )
+    .parse(i)
 }
 
 fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
@@ -478,7 +517,8 @@ fn and_expr(i: InputWithContext) -> ParseResult<Expr> {
             let range = xs.source_range.start..y.source_range.end;
             builtin.apply("&&", vec![xs, y]).with_source_range(range)
         },
-    )(i)
+    )
+    .parse(i)
 }
 
 fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
@@ -495,7 +535,8 @@ fn or_expr(i: InputWithContext) -> ParseResult<Expr> {
             let range = xs.source_range.start..y.source_range.end;
             builtin.apply("||", vec![xs, y]).with_source_range(range)
         },
-    )(i)
+    )
+    .parse(i)
 }
 
 fn expr(i: InputWithContext) -> ParseResult<Expr> {
@@ -505,7 +546,10 @@ fn expr(i: InputWithContext) -> ParseResult<Expr> {
 /// Parses an expression.
 pub fn parse_expr(source: &str, context_stack: &[&Context]) -> Result<Expr, String> {
     let i = InputWithContext::new(source, context_stack);
-    match all_consuming(delimited(space0, expr, space0))(i.clone()).finish() {
+    match all_consuming(delimited(space0, expr, space0))
+        .parse(i.clone())
+        .finish()
+    {
         Ok((_, x)) => Ok(x),
         Err(e) => Err(convert_error(i, e)),
     }

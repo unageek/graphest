@@ -5,13 +5,10 @@ use crate::{
     visit::{Substitute, VisitMut},
 };
 use inari::{const_dec_interval, DecInterval};
-use nom::{
-    Compare, CompareResult, InputIter, InputLength, InputTake, Needed, Offset, Slice,
-    UnspecializedInput,
-};
+use nom::{Compare, CompareResult, Input, Needed, Offset};
 use std::{
     collections::HashMap,
-    ops::{Range, RangeFrom, RangeFull, RangeTo},
+    ops::Range,
     str::{CharIndices, Chars},
     sync::LazyLock,
 };
@@ -462,43 +459,30 @@ impl<'a> Compare<&str> for InputWithContext<'a> {
     }
 }
 
-impl<'a> InputIter for InputWithContext<'a> {
+impl<'a> Input for InputWithContext<'a> {
     type Item = char;
-    type Iter = CharIndices<'a>;
-    type IterElem = Chars<'a>;
+    type Iter = Chars<'a>;
+    type IterIndices = CharIndices<'a>;
 
-    fn iter_indices(&self) -> Self::Iter {
-        self.source.iter_indices()
-    }
-
-    fn iter_elements(&self) -> Self::IterElem {
-        self.source.iter_elements()
-    }
-
-    fn position<P>(&self, predicate: P) -> Option<usize>
-    where
-        P: Fn(Self::Item) -> bool,
-    {
-        self.source.position(predicate)
-    }
-
-    fn slice_index(&self, count: usize) -> Result<usize, Needed> {
-        self.source.slice_index(count)
-    }
-}
-
-impl<'a> InputLength for InputWithContext<'a> {
     fn input_len(&self) -> usize {
         self.source.input_len()
     }
-}
 
-impl<'a> InputTake for InputWithContext<'a> {
     fn take(&self, count: usize) -> Self {
         let start = self.source_range.start;
         let end = self.source_range.start + count;
         InputWithContext {
             source: self.source.take(count),
+            source_range: start..end,
+            ..*self
+        }
+    }
+
+    fn take_from(&self, index: usize) -> Self {
+        let start = self.source_range.start + index;
+        let end = self.source_range.end;
+        InputWithContext {
+            source: self.source.take_from(index),
             source_range: start..end,
             ..*self
         }
@@ -523,6 +507,25 @@ impl<'a> InputTake for InputWithContext<'a> {
             },
         )
     }
+
+    fn position<P>(&self, predicate: P) -> Option<usize>
+    where
+        P: Fn(Self::Item) -> bool,
+    {
+        self.source.position(predicate)
+    }
+
+    fn iter_elements(&self) -> Self::Iter {
+        self.source.iter_elements()
+    }
+
+    fn iter_indices(&self) -> Self::IterIndices {
+        self.source.iter_indices()
+    }
+
+    fn slice_index(&self, count: usize) -> Result<usize, Needed> {
+        self.source.slice_index(count)
+    }
 }
 
 impl<'a> Offset for InputWithContext<'a> {
@@ -536,51 +539,3 @@ impl<'a> PartialEq for InputWithContext<'a> {
         self.source == other.source
     }
 }
-
-impl<'a> Slice<Range<usize>> for InputWithContext<'a> {
-    fn slice(&self, range: Range<usize>) -> Self {
-        let start = self.source_range.start + range.start;
-        let end = self.source_range.start + range.end;
-        InputWithContext {
-            source: self.source.slice(range),
-            source_range: start..end,
-            ..*self
-        }
-    }
-}
-
-impl<'a> Slice<RangeFrom<usize>> for InputWithContext<'a> {
-    fn slice(&self, range: RangeFrom<usize>) -> Self {
-        let start = self.source_range.start + range.start;
-        let end = self.source_range.end;
-        InputWithContext {
-            source: self.source.slice(range),
-            source_range: start..end,
-            ..*self
-        }
-    }
-}
-
-impl<'a> Slice<RangeTo<usize>> for InputWithContext<'a> {
-    fn slice(&self, range: RangeTo<usize>) -> Self {
-        let start = self.source_range.start;
-        let end = self.source_range.start + range.end;
-        InputWithContext {
-            source: self.source.slice(range),
-            source_range: start..end,
-            ..*self
-        }
-    }
-}
-
-impl<'a> Slice<RangeFull> for InputWithContext<'a> {
-    fn slice(&self, range: RangeFull) -> Self {
-        InputWithContext {
-            source: self.source.slice(range),
-            source_range: self.source_range.clone(),
-            ..*self
-        }
-    }
-}
-
-impl<'a> UnspecializedInput for InputWithContext<'a> {}
