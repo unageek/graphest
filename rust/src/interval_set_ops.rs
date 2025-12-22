@@ -644,23 +644,20 @@ impl TupperIntervalSet {
         assert!(self.decoration() >= Decoration::Def);
         let mut rs = Self::new();
         for cond in self {
-            let xs = if cond.x == I_ZERO {
-                f
-            } else if cond.x == I_ONE {
-                t
-            } else {
-                panic!();
-            };
-
-            if xs.is_empty() {
-                rs.insert(TupperInterval::from(DecInterval::EMPTY));
-            } else {
-                for x in xs {
-                    if let Some(g) = cond.g.union(x.g) {
-                        rs.insert(TupperInterval::new(
-                            DecInterval::set_dec(x.x, cond.d.min(x.d)),
-                            g,
-                        ))
+            // `cond.x` can be [0, 1] if many conjunctions and/or disjunctions are involved.
+            for (a, xs) in [(0.0, f), (1.0, t)] {
+                if cond.x.contains(a) {
+                    if xs.is_empty() {
+                        rs.insert(TupperInterval::from(DecInterval::EMPTY));
+                    } else {
+                        for x in xs {
+                            if let Some(g) = cond.g.union(x.g) {
+                                rs.insert(TupperInterval::new(
+                                    DecInterval::set_dec(x.x, cond.d.min(x.d)),
+                                    g,
+                                ))
+                            }
+                        }
                     }
                 }
             }
