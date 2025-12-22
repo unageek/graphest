@@ -14,7 +14,7 @@ use nom::{
     error::{ErrorKind as NomErrorKind, ParseError},
     multi::{fold_many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
-    Err, Finish, IResult, Input, Mode, OutputM, OutputMode, PResult, Parser,
+    Err, Finish, IResult, Input, Mode, OutputMode, PResult, Parser,
 };
 use rug::{Integer, Rational};
 use std::ops::Range;
@@ -250,11 +250,9 @@ fn expr_within_bars_terminated_with_space0(i: InputWithContext) -> ParseResult<E
 }
 
 /// The inverse operation of [`cut`]; converts [`Err::Failure`] back to [`Err::Error`].
-pub fn decut<I, E: ParseError<I>, F>(
-    parser: F,
-) -> impl Parser<I, Output = <F as Parser<I>>::Output, Error = E>
+pub fn decut<I, F>(parser: F) -> impl Parser<I, Output = F::Output, Error = F::Error>
 where
-    F: Parser<I, Error = E>,
+    F: Parser<I>,
 {
     Decut { parser }
 }
@@ -267,16 +265,12 @@ impl<I, F> Parser<I> for Decut<F>
 where
     F: Parser<I>,
 {
-    type Output = <F as Parser<I>>::Output;
-
-    type Error = <F as Parser<I>>::Error;
+    type Output = F::Output;
+    type Error = F::Error;
 
     #[inline(always)]
     fn process<OM: OutputMode>(&mut self, input: I) -> PResult<OM, I, Self::Output, Self::Error> {
-        match self
-            .parser
-            .process::<OutputM<OM::Output, OM::Error, OM::Incomplete>>(input)
-        {
+        match self.parser.process::<OM>(input) {
             Err(Err::Error(e)) => Err(Err::Error(e)),
             Err(Err::Failure(e)) => Err(Err::Error(OM::Error::bind(|| e))),
             Err(Err::Incomplete(i)) => Err(Err::Incomplete(i)),
