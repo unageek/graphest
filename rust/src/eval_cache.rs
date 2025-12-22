@@ -15,6 +15,7 @@ enum MultiKeyHashMap<K, V> {
     Three(HashMap<[K; 3], V>),
     Four(HashMap<[K; 4], V>),
     Five(HashMap<[K; 5], V>),
+    Six(HashMap<[K; 6], V>),
 }
 
 impl<K, V> MultiKeyHashMap<K, V>
@@ -29,6 +30,7 @@ where
             3 => MultiKeyHashMap::Three(HashMap::new()),
             4 => MultiKeyHashMap::Four(HashMap::new()),
             5 => MultiKeyHashMap::Five(HashMap::new()),
+            6 => MultiKeyHashMap::Six(HashMap::new()),
             _ => panic!(),
         }
     }
@@ -44,6 +46,7 @@ where
             MultiKeyHashMap::Three(m) => m.entry(k.try_into().unwrap()).or_insert_with(f),
             MultiKeyHashMap::Four(m) => m.entry(k.try_into().unwrap()).or_insert_with(f),
             MultiKeyHashMap::Five(m) => m.entry(k.try_into().unwrap()).or_insert_with(f),
+            MultiKeyHashMap::Six(m) => m.entry(k.try_into().unwrap()).or_insert_with(f),
         }
     }
 }
@@ -57,6 +60,7 @@ impl<K, V> BytesAllocated for MultiKeyHashMap<K, V> {
             Self::Three(m) => m.bytes_allocated(),
             Self::Four(m) => m.bytes_allocated(),
             Self::Five(m) => m.bytes_allocated(),
+            Self::Six(m) => m.bytes_allocated(),
         }
     }
 }
