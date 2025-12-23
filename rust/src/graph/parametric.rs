@@ -99,27 +99,23 @@ impl Parametric {
         };
 
         let mut bs = vec![Block {
+            m: IntegerParameter::new(g.rel.m_range()),
+            n: IntegerParameter::new(g.rel.n_range()),
             t: RealParameter::new(g.rel.t_range()),
             ..Default::default()
         }];
 
         if vars.contains(VarSet::M) {
-            let m_range = g.rel.m_range();
-            bs = IntegerParameter::new(m_range)
-                .subdivide0()
+            bs = bs
                 .into_iter()
-                .cartesian_product(bs)
-                .map(|(m, b)| Block { m, ..b })
+                .flat_map(|b| b.m.subdivide0().into_iter().map(move |m| Block { m, ..b }))
                 .collect::<Vec<_>>();
         }
 
         if vars.contains(VarSet::N) {
-            let n_range = g.rel.n_range();
-            bs = IntegerParameter::new(n_range)
-                .subdivide0()
+            bs = bs
                 .into_iter()
-                .cartesian_product(bs)
-                .map(|(n, b)| Block { n, ..b })
+                .flat_map(|b| b.n.subdivide0().into_iter().map(move |n| Block { n, ..b }))
                 .collect::<Vec<_>>();
         }
 

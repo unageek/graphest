@@ -16,7 +16,6 @@ use crate::{
     vars::VarSet,
 };
 use inari::Decoration;
-use itertools::Itertools;
 use std::{
     convert::TryFrom,
     time::{Duration, Instant},
@@ -104,48 +103,45 @@ impl Implicit {
 
         let k = (im_width.max(im_height) as f64).log2().ceil() as i8;
         let mut bs = vec![Block {
+            m: IntegerParameter::new(g.rel.m_range()),
+            n: IntegerParameter::new(g.rel.n_range()),
+            n_theta: IntegerParameter::new(g.rel.n_theta_range()),
+            t: RealParameter::new(g.rel.t_range()),
             x: Coordinate::new(0, k),
             y: Coordinate::new(0, k),
             ..Default::default()
         }];
 
         if vars.contains(VarSet::M) {
-            let m_range = g.rel.m_range();
-            bs = IntegerParameter::new(m_range)
-                .subdivide0()
+            bs = bs
                 .into_iter()
-                .cartesian_product(bs)
-                .map(|(m, b)| Block { m, ..b })
+                .flat_map(|b| b.m.subdivide0().into_iter().map(move |m| Block { m, ..b }))
                 .collect::<Vec<_>>();
         }
 
         if vars.contains(VarSet::N) {
-            let n_range = g.rel.n_range();
-            bs = IntegerParameter::new(n_range)
-                .subdivide0()
+            bs = bs
                 .into_iter()
-                .cartesian_product(bs)
-                .map(|(n, b)| Block { n, ..b })
+                .flat_map(|b| b.n.subdivide0().into_iter().map(move |n| Block { n, ..b }))
                 .collect::<Vec<_>>();
         }
 
         if vars.contains(VarSet::N_THETA) {
-            let n_theta_range = g.rel.n_theta_range();
-            bs = IntegerParameter::new(n_theta_range)
-                .subdivide0()
+            bs = bs
                 .into_iter()
-                .cartesian_product(bs)
-                .map(|(n, b)| Block { n_theta: n, ..b })
+                .flat_map(|b| {
+                    b.n_theta
+                        .subdivide0()
+                        .into_iter()
+                        .map(move |n_theta| Block { n_theta, ..b })
+                })
                 .collect::<Vec<_>>();
         }
 
         if vars.contains(VarSet::T) {
-            let t_range = g.rel.t_range();
-            bs = RealParameter::new(t_range)
-                .subdivide0()
+            bs = bs
                 .into_iter()
-                .cartesian_product(bs)
-                .map(|(t, b)| Block { t, ..b })
+                .flat_map(|b| b.t.subdivide0().into_iter().map(move |t| Block { t, ..b }))
                 .collect::<Vec<_>>();
         }
 
