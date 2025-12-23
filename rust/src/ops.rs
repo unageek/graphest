@@ -2,7 +2,6 @@ use crate::{
     interval_set::{DecSignSet, Site, TupperIntervalSet},
     vars::{VarIndex, VarSet, VarType},
 };
-use inari::const_interval;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct StoreIndex(u32);
@@ -201,8 +200,8 @@ impl StaticTerm {
                     terms[cond.get()].put_eval(terms, ts);
                 }
                 let c = &ts.get(*cond).unwrap();
-                let eval_t = c.iter().any(|x| x.x == const_interval!(1.0, 1.0));
-                let eval_f = c.iter().any(|x| x.x == const_interval!(0.0, 0.0));
+                let eval_t = c.iter().any(|x| x.x.contains(1.0));
+                let eval_f = c.iter().any(|x| x.x.contains(0.0));
                 if eval_t && ts.get(*t).is_none() {
                     terms[t.get()].put_eval(terms, ts);
                 }
