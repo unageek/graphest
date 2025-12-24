@@ -54,7 +54,10 @@ const exportImage = async (opts: ExportImageOptions) => {
 
   for (const graphId of state.graphs.allIds) {
     const graph = state.graphs.byId[graphId];
-    const { color, relId, thickness } = graph;
+    const { color, relId, show, thickness } = graph;
+    if (!show) {
+      continue;
+    }
     graphs.push({ color: new Color(color).hexa(), relId, thickness });
   }
 
@@ -84,6 +87,7 @@ const getDocument = (): Document => {
       return {
         color: g.color,
         relation: g.relation,
+        show: g.show,
         thickness: g.thickness,
       };
     }),

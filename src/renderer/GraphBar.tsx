@@ -10,6 +10,8 @@ import {
 } from "@fluentui/react-components";
 import {
   DeleteRegular,
+  EyeOffRegular,
+  EyeRegular,
   MoreHorizontalRegular,
   ReOrderDotsVerticalRegular,
 } from "@fluentui/react-icons";
@@ -25,6 +27,7 @@ import { removeGraph, useSelector } from "./models/app";
 import {
   setGraphColor,
   setGraphRelation,
+  setGraphShow,
   setGraphThickness,
 } from "./models/graph";
 
@@ -94,10 +97,16 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
         }}
         title="Drag to reorder"
       />
+      <ToolbarButton
+        icon={graph.show ? <EyeRegular /> : <EyeOffRegular />}
+        onClick={() => dispatch(setGraphShow(graphId, !graph.show))}
+        title="Show/Hide"
+      />
       <PenButton
         color={graph.color}
         onColorChanged={(c) => dispatch(setGraphColor(graphId, c))}
         onThicknessChanged={(t) => dispatch(setGraphThickness(graphId, t))}
+        subtle={!graph.show}
         thickness={graph.thickness}
       />
       <RelationInput
@@ -110,6 +119,7 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
         relation={graph.relation}
         relationInputByUser={graph.relationInputByUser}
         requestRelation={requestRelationInner}
+        subtle={!graph.show}
       />
       <SymbolsButton
         onDismissed={() => relationInputActionsRef.current?.focus()}

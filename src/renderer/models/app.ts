@@ -16,6 +16,7 @@ import {
   setGraphColor,
   setGraphIsProcessing,
   setGraphRelation,
+  setGraphShow,
   setGraphThickness,
 } from "./graph";
 
@@ -102,6 +103,7 @@ const slice = createSlice({
                 relationInputByUser: false,
                 relation,
                 relId: "",
+                show: true,
                 thickness,
               },
             },
@@ -125,6 +127,7 @@ const slice = createSlice({
               relationInputByUser: false,
               relation: "y = sin(x)",
               relId: "",
+              show: true,
               thickness: 1,
             },
           },
@@ -305,6 +308,7 @@ const slice = createSlice({
           setGraphColor,
           setGraphIsProcessing,
           setGraphRelation,
+          setGraphShow,
           setGraphThickness,
         ),
         (s, a) => ({

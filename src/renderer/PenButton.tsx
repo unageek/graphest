@@ -10,6 +10,7 @@ import {
   ToolbarDivider,
   useArrowNavigationGroup,
 } from "@fluentui/react-components";
+import Color from "color";
 import { debounce } from "lodash";
 import { ReactNode, useMemo, useState } from "react";
 import { MAX_PEN_THICKNESS } from "../common/constants";
@@ -22,11 +23,12 @@ export interface PenButtonProps {
   color: string;
   onColorChanged: (color: string) => void;
   onThicknessChanged: (thickness: number) => void;
+  subtle?: boolean;
   thickness: number;
 }
 
 export const PenButton = (props: PenButtonProps): ReactNode => {
-  const { onThicknessChanged } = props;
+  const { onThicknessChanged, subtle } = props;
   const [thickness, setThickness] = useState<string>(
     props.thickness.toString(),
   );
@@ -51,7 +53,16 @@ export const PenButton = (props: PenButtonProps): ReactNode => {
   return (
     <Popover positioning="below-start" trapFocus={true}>
       <PopoverTrigger>
-        <ToolbarButton icon={<ColorWell color={props.color} />} title="Pen" />
+        <ToolbarButton
+          icon={
+            <ColorWell
+              color={
+                subtle ? new Color(props.color).fade(0.5).hexa() : props.color
+              }
+            />
+          }
+          title="Pen Options"
+        />
       </PopoverTrigger>
       <PopoverSurface>{renderPopover()}</PopoverSurface>
     </Popover>

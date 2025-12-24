@@ -46,6 +46,7 @@ export const documentSchema = z.object({
           })
           .default(DEFAULT_PEN_COLOR),
         relation: z.string().default(""),
+        show: z.boolean().default(true),
         thickness: z
           .number()
           .transform((x) => Math.min(Math.max(x, 0), MAX_PEN_THICKNESS))

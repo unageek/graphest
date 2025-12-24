@@ -1,3 +1,4 @@
+import { makeStyles } from "@fluentui/react-components";
 import { debounce } from "lodash";
 import {
   ReactNode,
@@ -48,6 +49,7 @@ export interface RelationInputProps {
   relation: string;
   relationInputByUser: boolean;
   requestRelation: (rel: string) => Promise<RequestRelationResult>;
+  subtle: boolean;
 }
 
 type CustomElement = {
@@ -300,13 +302,25 @@ const renderLeaf = (props: RenderLeafProps) => {
   );
 };
 
+const useStyles = makeStyles({
+  grow: {
+    flexGrow: 1,
+  },
+  subtle: {
+    opacity: 0.5,
+  },
+});
+
 export const RelationInput = (props: RelationInputProps): ReactNode => {
   const {
+    grow,
     onEnterKeyPressed,
     onRelationChanged,
+    processing,
     relation,
     relationInputByUser,
     requestRelation,
+    subtle,
   } = props;
   const [editor] = useState<S.Editor>(
     withRelationEditingExtensions(withHistory(withReact(S.createEditor()))),
@@ -330,6 +344,7 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
   const lastResult = useRef<RequestRelationResult | null>(null);
   const [validationError, setValidationError] = useState<RelationError>();
   const [showValidationError, setShowValidationError] = useState(false);
+  const styles = useStyles();
 
   const decorate = useCallback(
     (entry: S.NodeEntry): S.Range[] => {
@@ -541,12 +556,11 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
 
   return (
     <div
-      className={`relation-input-outer ${validationError ? "has-error" : ""} ${
-        !validationError && props.processing ? "processing" : ""
-      }`}
-      style={{
-        flexGrow: props.grow ? 1 : undefined,
-      }}
+      className={`relation-input-outer
+        ${validationError ? "has-error" : ""}
+        ${!validationError && processing ? "processing" : ""}
+        ${grow ? styles.grow : ""}
+        ${subtle ? styles.subtle : ""}`}
       title={
         validationError && !showValidationError
           ? "Press the Enter key to see the details of the error."

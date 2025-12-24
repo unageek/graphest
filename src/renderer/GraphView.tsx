@@ -150,13 +150,13 @@ export const GraphView = (
   useEffect(() => {
     if (map === undefined) return;
     for (const [id, layer] of graphLayers) {
-      if (!(id in graphs.byId)) {
+      if (!(id in graphs.byId) || !graphs.byId[id].show) {
         map.removeLayer(layer);
         graphLayers.delete(id);
       }
     }
     for (const id in graphs.byId) {
-      if (!graphLayers.has(id)) {
+      if (!graphLayers.has(id) && graphs.byId[id].show) {
         const layer = new GraphLayer(store, id);
         map.addLayer(layer);
         graphLayers.set(id, layer);
