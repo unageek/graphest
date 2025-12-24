@@ -313,6 +313,10 @@ ipcMain.handle<ipc.AbortGraphing>(
 );
 
 ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
+  if (data.graphs.length === 0) {
+    return;
+  }
+
   const outDir = path.join(baseOutDir, "export");
   if (!fs.existsSync(outDir)) {
     await fsPromises.mkdir(outDir);

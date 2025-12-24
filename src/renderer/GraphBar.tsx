@@ -70,7 +70,7 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
   });
 
   const onRelationChanged = useCallback(
-    (relId: string, rel: string) => {
+    (relId: string | null, rel: string) => {
       dispatch(setGraphRelation(graphId, relId, rel, true));
     },
     [dispatch, graphId],

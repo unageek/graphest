@@ -44,7 +44,7 @@ export interface RelationInputProps {
   graphId: string;
   grow?: boolean;
   onEnterKeyPressed: () => void;
-  onRelationChanged: (relId: string, rel: string) => void;
+  onRelationChanged: (relId: string | null, rel: string) => void;
   processing: boolean;
   relation: string;
   relationInputByUser: boolean;
@@ -428,7 +428,7 @@ export const RelationInput = (props: RelationInputProps): ReactNode => {
     }
 
     const result = await requestRelation(rel);
-    onRelationChanged(result.ok ?? "", rel);
+    onRelationChanged(result.ok ?? null, rel);
     setValidationError(result.err);
     lastRelation.current = rel;
     lastResult.current = result;

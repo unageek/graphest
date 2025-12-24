@@ -55,7 +55,7 @@ const exportImage = async (opts: ExportImageOptions) => {
   for (const graphId of state.graphs.allIds) {
     const graph = state.graphs.byId[graphId];
     const { color, relId, show, thickness } = graph;
-    if (!show) {
+    if (!relId || !show) {
       continue;
     }
     graphs.push({ color: new Color(color).hexa(), relId, thickness });
@@ -160,7 +160,7 @@ const App = () => {
       for (const id of allIds) {
         const { relation } = byId[id];
         const result = await requestRelation(relation, id, highRes);
-        dispatch(setGraphRelation(id, result.ok ?? "", relation, true));
+        dispatch(setGraphRelation(id, result.ok ?? null, relation, true));
       }
     })();
   }, [highRes]); // eslint-disable-line react-hooks/exhaustive-deps

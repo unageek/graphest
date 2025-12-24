@@ -74,7 +74,7 @@ export class GraphLayer extends L.GridLayer {
 
   onRemove(map: L.Map): this {
     super.onRemove(map);
-    if (this.#graph) {
+    if (this.#graph?.relId) {
       this.#abortGraphing(this.#graph.relId);
     }
     document.body.removeChild(this.#styleElement);
@@ -93,8 +93,9 @@ export class GraphLayer extends L.GridLayer {
 
   _removeTile(key: string): void {
     super._removeTile(key);
-    const tileId = key;
-    if (this.#graph) {
+
+    if (this.#graph?.relId) {
+      const tileId = key;
       this.#abortGraphing(this.#graph.relId, tileId);
     }
   }
@@ -122,13 +123,15 @@ export class GraphLayer extends L.GridLayer {
       outer.appendChild(inner);
     }
 
-    const tileId = this._tileCoordsToKey(coords);
-    window.ipcRenderer.invoke<ipc.RequestTile>(
-      ipc.requestTile,
-      this.#graph.relId,
-      tileId,
-      coords,
-    );
+    if (this.#graph.relId) {
+      const tileId = this._tileCoordsToKey(coords);
+      window.ipcRenderer.invoke<ipc.RequestTile>(
+        ipc.requestTile,
+        this.#graph.relId,
+        tileId,
+        coords,
+      );
+    }
 
     return outer;
   }
@@ -146,18 +149,23 @@ export class GraphLayer extends L.GridLayer {
 
     const oldGraph = this.#graph;
     this.#graph = state.graphs.byId[this.graphId];
+
+    if (oldGraph?.relId && oldGraph.relId !== this.#graph?.relId) {
+      this.#abortGraphing(oldGraph.relId);
+    }
+
     if (!this.#graph) return;
 
     if (this.#graph.color !== oldGraph?.color) {
       this.#updateColor();
     }
 
-    if (this.#graph.relId !== oldGraph?.relId) {
-      this.#updateRelation(oldGraph?.relId);
-    }
-
     if (this.#graph.thickness !== oldGraph?.thickness) {
       this.#updateThickness();
+    }
+
+    if (this.#graph.relId !== oldGraph?.relId) {
+      this.redraw();
     }
   }
 
@@ -195,14 +203,6 @@ export class GraphLayer extends L.GridLayer {
         }
       }
     }
-  }
-
-  async #updateRelation(oldRelId?: string) {
-    if (oldRelId !== undefined) {
-      this.#abortGraphing(oldRelId);
-    }
-
-    this.redraw();
   }
 
   #updateThickness() {
