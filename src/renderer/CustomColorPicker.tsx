@@ -130,7 +130,7 @@ export const CustomColorPicker = (props: CustomColorPickerProps): ReactNode => {
               setHue(c.hue());
               setSaturation(0.01 * c.saturationv());
               setValue(0.01 * c.value());
-              props.onColorChanged(c.hex());
+              props.onColorChanged(c.hexa());
             } catch (_e) {
               // ignore invalid color
             }
