@@ -322,17 +322,17 @@ impl Default for RealParameter {
 /// A subset of the domain of a relation.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Block {
-    /// The horizontal coordinate.
+    /// The horizontal coordinate x.
     pub x: Coordinate,
-    /// The vertical coordinate.
+    /// The vertical coordinate y.
     pub y: Coordinate,
-    /// The parameter m.
+    /// The integer parameter m.
     pub m: IntegerParameter,
-    /// The parameter n.
+    /// The integer parameter n.
     pub n: IntegerParameter,
-    /// The parameter n_θ for polar coordinates.
+    /// The integer parameter used for selecting the branch of the angular coordinate θ.
     pub n_theta: IntegerParameter,
-    /// The parameter t.
+    /// The real parameter t.
     pub t: RealParameter,
     /// The index of the subdivision direction, defined by the graphing algorithm,
     /// that should be chosen to subdivide this block.
