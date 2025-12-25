@@ -1,6 +1,6 @@
 {
   "name": "graphest",
-  "version": "1.7.4",
+  "version": "1.8.0",
   "description": "A faithful graphing calculator",
   "main": "dist/main.js",
   "type": "module",
