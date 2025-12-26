@@ -102,10 +102,21 @@ export function createMainMenu(actions: MenuActions): Menu {
           type: "separator",
         },
         {
+          enabled: false,
           id: Command.AbortGraphing,
           label: "A&bort Graphing",
           accelerator: "CmdOrCtrl+.",
           click: actions[Command.AbortGraphing],
+        },
+        // This is a workaround for an issue where the keybinding for the "Abort Graphing" menu
+        // does not work if the menu item was disabled when the menu was last opened.
+        {
+          id: `${Command.AbortGraphing}-hidden`,
+          label: "Abort Graphing (Hidden)",
+          accelerator: "CmdOrCtrl+.",
+          acceleratorWorksWhenHidden: true,
+          click: actions[Command.AbortGraphing],
+          visible: false,
         },
       ],
     },
