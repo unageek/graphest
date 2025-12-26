@@ -7,6 +7,26 @@ import {
   MAX_PEN_THICKNESS,
 } from "./constants";
 
+const graphSchema = z.object({
+  color: z
+    .string()
+    .transform((s) => {
+      try {
+        new Color(s);
+        return s;
+      } catch {
+        return DEFAULT_PEN_COLOR;
+      }
+    })
+    .default(DEFAULT_PEN_COLOR),
+  relation: z.string().default(""),
+  show: z.boolean().default(true),
+  thickness: z
+    .number()
+    .transform((x) => Math.min(Math.max(x, 0), MAX_PEN_THICKNESS))
+    .default(1),
+});
+
 export const documentSchema = z.object({
   background: z
     .string()
@@ -31,29 +51,7 @@ export const documentSchema = z.object({
       }
     })
     .default("#000000"),
-  graphs: z
-    .array(
-      z.object({
-        color: z
-          .string()
-          .transform((s) => {
-            try {
-              new Color(s);
-              return s;
-            } catch {
-              return DEFAULT_PEN_COLOR;
-            }
-          })
-          .default(DEFAULT_PEN_COLOR),
-        relation: z.string().default(""),
-        show: z.boolean().default(true),
-        thickness: z
-          .number()
-          .transform((x) => Math.min(Math.max(x, 0), MAX_PEN_THICKNESS))
-          .default(1),
-      }),
-    )
-    .default([]),
+  graphs: z.array(graphSchema).default([]),
   version: z.number(),
   zoomLevel: z
     .number()
@@ -62,3 +60,4 @@ export const documentSchema = z.object({
 });
 
 export type Document = z.infer<typeof documentSchema>;
+export type GraphData = z.infer<typeof graphSchema>;

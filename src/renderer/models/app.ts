@@ -5,11 +5,11 @@ import {
   DEFAULT_PEN_COLOR,
   INITIAL_ZOOM_LEVEL,
 } from "../../common/constants";
+import { GraphData } from "../../common/document";
 import {
   ExportImageOptions,
   ExportImageProgress,
 } from "../../common/exportImage";
-import { GraphData } from "../graphData";
 import {
   Graph,
   graphReducer,
@@ -89,7 +89,7 @@ const slice = createSlice({
         payload: data,
       }),
       reducer: (s, a: PayloadAction<GraphData>) => {
-        const { color, relation, thickness } = a.payload;
+        const { color, relation, show, thickness } = a.payload;
         const id = s.nextGraphId.toString();
         return {
           ...s,
@@ -103,7 +103,7 @@ const slice = createSlice({
                 relationInputByUser: false,
                 relation,
                 relId: null,
-                show: true,
+                show,
                 thickness,
               },
             },
