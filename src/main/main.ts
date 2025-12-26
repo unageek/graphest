@@ -144,6 +144,7 @@ const baseOutDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "graphest-"));
 const composeExec: string = getBundledExecutable("compose");
 const concatenateExec: string = getBundledExecutable("concatenate");
 let currentPath: string | undefined;
+let documentIsOpen = false;
 let exportImageAbortController: AbortController | undefined;
 const graphExec: string = getBundledExecutable("graph");
 let lastSavedDoc: Document = {
@@ -156,7 +157,6 @@ let lastSavedDoc: Document = {
 };
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindowWithTypedWebContents | undefined;
-let maybeUnsaved = false;
 let nextExportImageId = 0;
 let nextRelId = 0;
 let postStartup: (() => void | Promise<void>) | undefined = () =>
@@ -179,7 +179,7 @@ function createMainWindow() {
     width: 1200,
   })
     .on("close", (e) => {
-      if (maybeUnsaved) {
+      if (documentIsOpen) {
         postUnload = () => mainWindow?.close();
         mainWindow?.webContents.send<ipc.InitiateUnload>(ipc.initiateUnload);
         e.preventDefault();
@@ -864,7 +864,7 @@ async function openFile(path: string) {
     return;
   }
 
-  if (maybeUnsaved) {
+  if (documentIsOpen) {
     postUnload = () => openFile(path);
     mainWindow.webContents.send<ipc.InitiateUnload>(ipc.initiateUnload);
     return;
@@ -874,8 +874,8 @@ async function openFile(path: string) {
     const data = await fsPromises.readFile(path, { encoding: "utf8" });
     const doc = deserialize(data);
     currentPath = path;
+    documentIsOpen = true;
     lastSavedDoc = doc;
-    maybeUnsaved = true;
     mainWindow.setRepresentedFilename(path);
     mainWindow.setTitle(getCurrentFilenameForDisplay());
     mainWindow.webContents.send<ipc.Load>(ipc.load, doc);
@@ -900,7 +900,7 @@ function openUrl(url: string) {
     return;
   }
 
-  if (maybeUnsaved) {
+  if (documentIsOpen) {
     postUnload = () => openUrl(url);
     mainWindow.webContents.send<ipc.InitiateUnload>(ipc.initiateUnload);
     return;
@@ -911,8 +911,8 @@ function openUrl(url: string) {
       const data = fromBase64Url(url.substring(URL_PREFIX.length));
       const doc = deserialize(data);
       currentPath = undefined;
+      documentIsOpen = true;
       lastSavedDoc = doc;
-      maybeUnsaved = true;
       mainWindow.setRepresentedFilename("");
       mainWindow.setTitle(getCurrentFilenameForDisplay());
       mainWindow.webContents.send<ipc.Load>(ipc.load, doc);
@@ -963,7 +963,6 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
     }
     currentPath = path;
     lastSavedDoc = doc;
-    maybeUnsaved = false;
     mainWindow.setRepresentedFilename(path);
     mainWindow.setTitle(getCurrentFilenameForDisplay());
     return true;
@@ -983,7 +982,7 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
 
 async function unload(doc: Document) {
   if (_.isEqual(doc, lastSavedDoc)) {
-    maybeUnsaved = false;
+    documentIsOpen = false;
     postUnload?.();
     postUnload = undefined;
     return;
@@ -999,7 +998,7 @@ async function unload(doc: Document) {
     (result.response === 0 && (await save(doc, SaveTo.CurrentFile))) ||
     result.response === 1
   ) {
-    maybeUnsaved = false;
+    documentIsOpen = false;
     postUnload?.();
     postUnload = undefined;
   }
