@@ -1,4 +1,4 @@
-use graphest_arb_sys::*;
+use graphest_flint_sys::*;
 use inari::{interval, Interval};
 use std::{mem::MaybeUninit, ops::Drop};
 
@@ -48,7 +48,7 @@ impl Arf {
 
     /// Rounds `self` to a [`f64`] number using the given rounding mode.
     pub fn to_f64_round(&self, round: ArfRound) -> f64 {
-        unsafe { arf_get_d(self.as_ptr() as arf_ptr, round as i32) }
+        unsafe { arf_get_d(self.as_ptr() as arf_ptr, round as arf_rnd_t) }
     }
 }
 

@@ -187,8 +187,8 @@ dependencies = [
  "bitflags",
  "clap",
  "gmp-mpfr-sys",
- "graphest-arb-sys",
  "graphest-fftw-sys",
+ "graphest-flint-sys",
  "image",
  "inari",
  "itertools 0.11.0",
@@ -199,18 +199,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "graphest-arb-sys"
-version = "0.6.0"
-dependencies = [
- "bindgen",
- "gmp-mpfr-sys",
-]
-
-[[package]]
 name = "graphest-fftw-sys"
 version = "0.1.0"
 dependencies = [
  "bindgen",
+]
+
+[[package]]
+name = "graphest-flint-sys"
+version = "0.1.0"
+dependencies = [
+ "bindgen",
+ "gmp-mpfr-sys",
 ]
 
 [[package]]

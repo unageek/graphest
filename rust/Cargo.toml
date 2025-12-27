@@ -10,7 +10,7 @@ default-run = "graph"
 
 [features]
 default = ["arb"]
-arb = ["graphest-arb-sys"]
+arb = ["graphest-flint-sys"]
 
 [dependencies]
 bitflags = "2.3"
@@ -28,12 +28,12 @@ version = "1.6"
 default-features = false
 features = ["mpfr"]
 
-[dependencies.graphest-arb-sys]
-path = "graphest-arb-sys"
-optional = true
-
 [dependencies.graphest-fftw-sys]
 path = "graphest-fftw-sys"
+
+[dependencies.graphest-flint-sys]
+path = "graphest-flint-sys"
+optional = true
 
 [dependencies.image]
 version = "0.25"

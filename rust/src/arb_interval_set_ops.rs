@@ -1203,7 +1203,7 @@ macro_rules! arb_fn {
             use std::ptr::null_mut as null;
             let $x = $x.as_mut_ptr();
             $(let $y = $y.as_mut_ptr();)*
-            graphest_arb_sys::$arb_f($($args),*);
+            graphest_flint_sys::$arb_f($($args),*);
         }
         $x
     }};
@@ -1240,7 +1240,7 @@ macro_rules! acb_fn_reals {
             use std::ptr::null_mut as null;
             let $x = $x.as_mut_ptr();
             $(let $y = $y.as_mut_ptr();)*
-            graphest_arb_sys::$acb_f($($args),*);
+            graphest_flint_sys::$acb_f($($args),*);
         }
         $x
     }};
@@ -1604,7 +1604,7 @@ macro_rules! re_im_acb_fn {
             let mut x = Acb::from_parts(re_x, im_x);
             let mut y = Acb::new();
             unsafe {
-                graphest_arb_sys::$f_acb(
+                graphest_flint_sys::$f_acb(
                     y.as_mut_ptr(),
                     x.as_mut_ptr(),
                     f64::MANTISSA_DIGITS.into(),
@@ -1620,7 +1620,7 @@ macro_rules! re_im_acb_fn {
             let mut x = Acb::from_parts(re_x, im_x);
             let mut y = Acb::new();
             unsafe {
-                graphest_arb_sys::$f_acb(
+                graphest_flint_sys::$f_acb(
                     y.as_mut_ptr(),
                     x.as_mut_ptr(),
                     f64::MANTISSA_DIGITS.into(),

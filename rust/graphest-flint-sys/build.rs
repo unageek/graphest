@@ -6,11 +6,8 @@ use std::{
 
 // https://gitlab.com/tspiteri/gmp-mpfr-sys/-/blob/master/build.rs
 
-const ARB_GIT_TAG: &str = "2.23.0";
-const ARB_GIT_URL: &str = "https://github.com/fredrik-johansson/arb.git";
-
-const FLINT_GIT_TAG: &str = "v2.9.0";
-const FLINT_GIT_URL: &str = "https://github.com/wbhart/flint2.git";
+const FLINT_GIT_TAG: &str = "v3.4.0";
+const FLINT_GIT_URL: &str = "https://github.com/flintlib/flint.git";
 
 struct Environment {
     build_dir: PathBuf,
@@ -40,9 +37,8 @@ fn main() {
 
     load_cache(&env);
     build_flint(&env);
-    build_arb(&env);
     save_cache(&env);
-    run_bindgen(&env);
+    run_arb_bindgen(&env);
     write_link_info(&env);
 }
 
@@ -80,55 +76,8 @@ fn build_flint(env: &Environment) {
         Command::new("sh")
             .current_dir(&build_dir)
             .arg("-c")
-            .arg(
-                [
-                    "./configure",
-                    "--disable-shared",
-                    "--prefix=../..",     // `env.out_dir`
-                    "--with-gmp=../gmp",  // `gmp_dir`
-                    "--with-mpfr=../gmp", // `gmp_dir`
-                ]
-                .join(" "),
-            )
-            .env("CFLAGS", "-Wno-error"),
+            .arg("./bootstrap.sh"),
     );
-    execute_or_panic(
-        Command::new("make")
-            .current_dir(&build_dir)
-            .env("MAKEFLAGS", &env.makeflags),
-    );
-    execute_or_panic(
-        Command::new("make")
-            .current_dir(&build_dir)
-            .arg("check")
-            .env("MAKEFLAGS", &env.makeflags),
-    );
-    execute_or_panic(Command::new("make").current_dir(&build_dir).arg("install"));
-}
-
-fn build_arb(env: &Environment) {
-    if env.lib_dir.join("libarb.a").exists() {
-        return;
-    }
-
-    let gmp_dir = env.build_dir.join("gmp");
-    if !gmp_dir.exists() {
-        symlink_dir_or_panic(&env.gmp_dir, &gmp_dir);
-    }
-
-    let build_dir = env.build_dir.join("arb-build");
-    if !build_dir.exists() {
-        execute_or_panic(Command::new("git").current_dir(&env.build_dir).args([
-            "clone",
-            "--branch",
-            ARB_GIT_TAG,
-            "--depth",
-            "1",
-            ARB_GIT_URL,
-            build_dir.to_str().unwrap(),
-        ]));
-    }
-
     execute_or_panic(
         Command::new("sh")
             .current_dir(&build_dir)
@@ -136,9 +85,8 @@ fn build_arb(env: &Environment) {
             .arg(
                 [
                     "./configure",
-                    "--disable-shared",
-                    "--prefix=../..",     // `env.out_dir`
-                    "--with-flint=../..", // `env.out_dir`
+                    "--enable-static",
+                    &format!("--prefix={}", env.out_dir.to_str().unwrap()),
                     "--with-gmp=../gmp",  // `gmp_dir`
                     "--with-mpfr=../gmp", // `gmp_dir`
                 ]
@@ -155,13 +103,13 @@ fn build_arb(env: &Environment) {
         Command::new("make")
             .current_dir(&build_dir)
             .arg("check")
-            .env("ARB_TEST_MULTIPLIER", "0.1")
+            .env("FLINT_TEST_MULTIPLIER", "0.1")
             .env("MAKEFLAGS", &env.makeflags),
     );
     execute_or_panic(Command::new("make").current_dir(&build_dir).arg("install"));
 }
 
-fn run_bindgen(env: &Environment) {
+fn run_arb_bindgen(env: &Environment) {
     let binding_file = env.out_dir.join("arb.rs");
     if binding_file.exists() {
         return;
@@ -187,12 +135,48 @@ fn run_bindgen(env: &Environment) {
     }
 
     bindgen::Builder::default()
-        .header(env.include_dir.join("acb.h").to_str().unwrap())
-        .header(env.include_dir.join("acb_elliptic.h").to_str().unwrap())
-        .header(env.include_dir.join("arb.h").to_str().unwrap())
-        .header(env.include_dir.join("arb_hypgeom.h").to_str().unwrap())
-        .header(env.include_dir.join("arf.h").to_str().unwrap())
-        .header(env.include_dir.join("mag.h").to_str().unwrap())
+        .header(
+            env.include_dir
+                .join("flint")
+                .join("acb.h")
+                .to_str()
+                .unwrap(),
+        )
+        .header(
+            env.include_dir
+                .join("flint")
+                .join("acb_elliptic.h")
+                .to_str()
+                .unwrap(),
+        )
+        .header(
+            env.include_dir
+                .join("flint")
+                .join("arb.h")
+                .to_str()
+                .unwrap(),
+        )
+        .header(
+            env.include_dir
+                .join("flint")
+                .join("arb_hypgeom.h")
+                .to_str()
+                .unwrap(),
+        )
+        .header(
+            env.include_dir
+                .join("flint")
+                .join("arf.h")
+                .to_str()
+                .unwrap(),
+        )
+        .header(
+            env.include_dir
+                .join("flint")
+                .join("mag.h")
+                .to_str()
+                .unwrap(),
+        )
         .allowlist_function("(acb|arb|arf|mag)_.*")
         .clang_args(&clang_args)
         .generate()
@@ -225,7 +209,6 @@ fn write_link_info(env: &Environment) {
         env.lib_dir.to_str().unwrap()
     );
     println!("cargo:rustc-link-lib=static=flint");
-    println!("cargo:rustc-link-lib=static=arb");
 }
 
 /// Copies all files and directories in `from` into `to`, preserving the directory structure.

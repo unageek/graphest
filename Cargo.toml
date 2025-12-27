@@ -1,5 +1,5 @@
 [workspace]
-members = ["rust", "rust/graphest-arb-sys", "rust/graphest-fftw-sys"]
+members = ["rust", "rust/graphest-fftw-sys", "rust/graphest-flint-sys"]
 default-members = ["rust"]
 resolver = "2"
 
