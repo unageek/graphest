@@ -227,7 +227,7 @@ pub struct NormalizeNotExprs;
 
 impl VisitMut for NormalizeNotExprs {
     fn visit_expr_mut(&mut self, e: &mut Expr) {
-        use {BinaryOp::*, UnaryOp::*};
+        use {NaryOp::*, UnaryOp::*};
 
         let mut modified = false;
 
@@ -238,14 +238,14 @@ impl VisitMut for NormalizeNotExprs {
                     *e = take(x);
                     modified = true;
                 }
-                binary!(And, x, y) => {
-                    // (Not (And x y)) → (Or (Not x) (Not y))
-                    *e = Expr::binary(Or, Expr::unary(Not, take(x)), Expr::unary(Not, take(y)));
+                nary!(AndN, xs) => {
+                    // (Not (AndN x1 x2 …)) → (OrN (Not x1) (Not x2) …)
+                    *e = Expr::nary(OrN, xs.drain(..).map(|x| Expr::unary(Not, x)).collect());
                     modified = true;
                 }
-                binary!(Or, x, y) => {
-                    // (Not (Or x y)) → (And (Not x) (Not y))
-                    *e = Expr::binary(And, Expr::unary(Not, take(x)), Expr::unary(Not, take(y)));
+                nary!(OrN, xs) => {
+                    // (Not (OrN x1 x2 …)) → (AndN (Not x1) (Not x2) …)
+                    *e = Expr::nary(AndN, xs.drain(..).map(|x| Expr::unary(Not, x)).collect());
                     modified = true;
                 }
                 _ => (),
@@ -266,6 +266,8 @@ impl VisitMut for NormalizeNotExprs {
 /// - Replace arithmetic expressions that contain [`UnaryOp::Neg`], [`UnaryOp::Sqrt`],
 ///   [`BinaryOp::Add`], [`BinaryOp::Div`], [`BinaryOp::Mul`] or [`BinaryOp::Sub`] with their equivalents
 ///   with [`BinaryOp::Pow`], [`NaryOp::Plus`] and [`NaryOp::Times`].
+/// - Replace [`BinaryOp::And`], [`BinaryOp::Max`], [`BinaryOp::Min`], and [`BinaryOp::Or`]
+///   with their n-ary counterparts.
 /// - Do some ad-hoc transformations, mainly for demonstrational purposes.
 pub struct PreTransform;
 
@@ -283,9 +285,18 @@ impl VisitMut for PreTransform {
                 // (Sqrt x) → (Pow x 1/2)
                 *e = Expr::binary(Pow, take(x), Expr::one_half());
             }
-            binary!(Add, x, y) => {
-                // (Add x y) → (Plus x y)
-                *e = Expr::nary(Plus, vec![take(x), take(y)]);
+            binary!(op @ (Add | And | Max | Min | Or | Mul), x, y) => {
+                let nary_op = match op {
+                    Add => Plus,
+                    And => AndN,
+                    Max => MaxN,
+                    Min => MinN,
+                    Or => OrN,
+                    Mul => Times,
+                    _ => unreachable!(),
+                };
+                // (op x y) → (nary-op x y)
+                *e = Expr::nary(nary_op, vec![take(x), take(y)]);
             }
             binary!(Div, unary!(Sin, x), y) if x == y => {
                 // Ad-hoc.
@@ -307,10 +318,6 @@ impl VisitMut for PreTransform {
                     Times,
                     vec![take(x), Expr::binary(Pow, take(y), Expr::minus_one())],
                 );
-            }
-            binary!(Mul, x, y) => {
-                // (Mul x y) → (Times x y)
-                *e = Expr::nary(Times, vec![take(x), take(y)]);
             }
             binary!(Sub, x, y) => {
                 // (Sub x y) → (Plus x (Times -1 y))
@@ -575,20 +582,26 @@ impl VisitMut for ExpandComplexFunctions {
             }
             binary!(Eq, x, y) if x.ty == ComplexT || y.ty == ComplexT => {
                 *e = match (x, y) {
-                    (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::binary(
-                        And,
-                        Expr::binary(Eq, take(a), take(x)),
-                        Expr::binary(Eq, take(b), take(y)),
+                    (binary!(Complex, a, b), binary!(Complex, x, y)) => Expr::nary(
+                        AndN,
+                        vec![
+                            Expr::binary(Eq, take(a), take(x)),
+                            Expr::binary(Eq, take(b), take(y)),
+                        ],
                     ),
-                    (binary!(Complex, a, b), x) => Expr::binary(
-                        And,
-                        Expr::binary(Eq, take(a), take(x)),
-                        Expr::binary(Eq, take(b), Expr::zero()),
+                    (binary!(Complex, a, b), x) => Expr::nary(
+                        AndN,
+                        vec![
+                            Expr::binary(Eq, take(a), take(x)),
+                            Expr::binary(Eq, take(b), Expr::zero()),
+                        ],
                     ),
-                    (a, binary!(Complex, x, y)) => Expr::binary(
-                        And,
-                        Expr::binary(Eq, take(a), take(x)),
-                        Expr::binary(Eq, Expr::zero(), take(y)),
+                    (a, binary!(Complex, x, y)) => Expr::nary(
+                        AndN,
+                        vec![
+                            Expr::binary(Eq, take(a), take(x)),
+                            Expr::binary(Eq, Expr::zero(), take(y)),
+                        ],
                     ),
                     _ => panic!(), // `x.ty` or `y.ty` is wrong.
                 };
@@ -775,22 +788,6 @@ impl VisitMut for ExpandBoole {
                     );
                     modified = true;
                 }
-                binary!(And, x, y) => {
-                    *e = Expr::binary(
-                        Min,
-                        Expr::unary(Boole, take(x)),
-                        Expr::unary(Boole, take(y)),
-                    );
-                    modified = true;
-                }
-                binary!(Or, x, y) => {
-                    *e = Expr::binary(
-                        Max,
-                        Expr::unary(Boole, take(x)),
-                        Expr::unary(Boole, take(y)),
-                    );
-                    modified = true;
-                }
                 binary!(op @ (Eq | Le | Lt), x, y) => {
                     assert!(matches!(y, constant!(a) if a.to_f64() == Some(0.0)));
                     let op = match op {
@@ -800,6 +797,18 @@ impl VisitMut for ExpandBoole {
                         _ => unreachable!(),
                     };
                     *e = Expr::unary(op, take(x));
+                    modified = true;
+                }
+                nary!(op @ (AndN | OrN), xs) => {
+                    let arith_op = match op {
+                        AndN => MinN,
+                        OrN => MaxN,
+                        _ => unreachable!(),
+                    };
+                    *e = Expr::nary(
+                        arith_op,
+                        xs.drain(..).map(|x| Expr::unary(Boole, x)).collect(),
+                    );
                     modified = true;
                 }
                 _ => (),
@@ -883,14 +892,10 @@ impl VisitMut for ModEqTransform {
     }
 }
 
-/// Flattens out nested expressions of kind [`NaryOp::Plus`]/[`NaryOp::Times`].
+/// Flattens associative n-ary operations of the same kind.
 ///
-/// To any expression that contains zero or one term, the following rules are applied:
-///
-/// - `(Plus) → 0`
-/// - `(Plus x) → x`
-/// - `(Times) → 1`
-/// - `(Times x) → x`
+/// If the expression has no arguments, it is replaced by the identity element of the operation.
+/// If it has exactly one argument, it is replaced by that argument.
 #[derive(Default)]
 struct Flatten {
     modified: bool,
@@ -901,12 +906,15 @@ impl VisitMut for Flatten {
         use NaryOp::*;
         traverse_expr_mut(self, e);
 
-        if let nary!(op @ (Plus | Times), xs) = e {
+        if let nary!(op @ (AndN | MaxN | MinN | OrN | Plus | Times), xs) = e {
             match &mut xs[..] {
                 [] => {
                     *e = match op {
+                        AndN => Expr::bool_constant(true),
+                        OrN => Expr::bool_constant(false),
                         Plus => Expr::zero(),
                         Times => Expr::one(),
+                        MaxN | MinN => panic!(),
                         _ => unreachable!(),
                     };
                     self.modified = true;
@@ -932,7 +940,7 @@ impl VisitMut for Flatten {
     }
 }
 
-/// Sorts terms in [`NaryOp::Plus`] and [`NaryOp::Times`] to bring similar ones together.
+/// Sorts terms in commutative n-ary operations by their structure.
 /// Terms of kind [`ExprKind::Constant`](crate::ast::ExprKind::Constant) are moved to the beginning.
 #[derive(Default)]
 struct SortTerms {
@@ -989,7 +997,7 @@ impl VisitMut for SortTerms {
         use NaryOp::*;
         traverse_expr_mut(self, e);
 
-        if let nary!(Plus | Times, xs) = e {
+        if let nary!(AndN | MaxN | MinN | OrN | Plus | Times, xs) = e {
             if xs
                 .windows(2)
                 .any(|xs| cmp_terms(&xs[0], &xs[1]) == Ordering::Greater)
@@ -1124,14 +1132,6 @@ impl VisitMut for Transform {
                     }
                 }
             }
-            binary!(And, x @ bool_constant!(_), y) | binary!(And, y, x @ bool_constant!(_)) => {
-                *e = match x {
-                    bool_constant!(false) => take(x),
-                    bool_constant!(true) => take(y),
-                    _ => unreachable!(),
-                };
-                self.modified = true;
-            }
             binary!(Max, x @ unary!(boole_op!(), _), constant!(y))
             | binary!(Max, constant!(y), x @ unary!(boole_op!(), _))
                 if y.to_f64() == Some(0.0) =>
@@ -1144,14 +1144,6 @@ impl VisitMut for Transform {
                 if y.to_f64() == Some(1.0) =>
             {
                 *e = take(x);
-                self.modified = true;
-            }
-            binary!(Or, x @ bool_constant!(_), y) | binary!(Or, y, x @ bool_constant!(_)) => {
-                *e = match x {
-                    bool_constant!(false) => take(y),
-                    bool_constant!(true) => take(x),
-                    _ => unreachable!(),
-                };
                 self.modified = true;
             }
             binary!(Pow | PowRational, x, constant!(a)) if a.to_f64() == Some(1.0) => {
@@ -1170,6 +1162,30 @@ impl VisitMut for Transform {
             ternary!(IfThenElse, _, x, y) if x == y => {
                 *e = take(x);
                 self.modified = true;
+            }
+            nary!(AndN, xs) => {
+                if xs.iter().any(|x| matches!(x, bool_constant!(false))) {
+                    // (AndN … false …) → false
+                    *e = Expr::bool_constant(false);
+                    self.modified = true;
+                } else {
+                    let len = xs.len();
+                    // Drop `true`s.
+                    xs.retain(|x| !matches!(x, bool_constant!(true)));
+                    self.modified = xs.len() < len;
+                }
+            }
+            nary!(OrN, xs) => {
+                if xs.iter().any(|x| matches!(x, bool_constant!(true))) {
+                    // (OrN … true …) → true
+                    *e = Expr::bool_constant(true);
+                    self.modified = true;
+                } else {
+                    let len = xs.len();
+                    // Drop `false`s.
+                    xs.retain(|x| !matches!(x, bool_constant!(false)));
+                    self.modified = xs.len() < len;
+                }
             }
             nary!(Plus, xs) => {
                 let len = xs.len();
@@ -1347,9 +1363,11 @@ impl VisitMut for FoldConstant {
                     self.modified = true;
                 }
             }
-            nary!(op @ (Plus | Times), xs) => {
+            nary!(op @ (MaxN | MinN | Plus | Times), xs) => {
                 if let [_, constant!(_), ..] = &mut xs[..] {
                     let bin_op = match op {
+                        MaxN => Max,
+                        MinN => Min,
                         Plus => Add,
                         Times => Mul,
                         _ => unreachable!(),
@@ -1450,8 +1468,12 @@ impl VisitMut for SubDivTransform {
     }
 }
 
-/// Replaces arithmetic expressions with more optimal ones suitable for evaluation.
-/// It completely removes [`NaryOp::Plus`] and [`NaryOp::Times`].
+/// Does the following tasks:
+///
+/// - Replace arithmetic expressions with more optimal ones suitable for evaluation.
+///   It completely removes [`NaryOp::Plus`] and [`NaryOp::Times`].
+/// - Replace [`NaryOp::AndN`], [`NaryOp::MaxN`], [`NaryOp::MinN`], and [`NaryOp::OrN`]
+///   with their binary counterparts.
 pub struct PostTransform;
 
 impl VisitMut for PostTransform {
@@ -1492,13 +1514,20 @@ impl VisitMut for PostTransform {
                     }
                 }
             }
-            nary!(Plus, xs) => {
-                let mut it = xs.drain(..);
+            nary!(op @ (AndN | MaxN | MinN | OrN | Plus), xs) => {
                 // Assuming `e` is flattened.
-                let first = it.next().unwrap();
-                let second = it.next().unwrap();
-                let init = Expr::binary(BinaryOp::Add, first, second);
-                *e = it.fold(init, |e, x| Expr::binary(BinaryOp::Add, e, x))
+                let bin_op = match op {
+                    AndN => And,
+                    MaxN => Max,
+                    MinN => Min,
+                    OrN => Or,
+                    Plus => Add,
+                    _ => unreachable!(),
+                };
+                *e = xs
+                    .drain(..)
+                    .reduce(|x, y| Expr::binary(bin_op, x, y))
+                    .unwrap()
             }
             nary!(Times, xs) => {
                 let mut it = xs.drain(..);
@@ -1718,7 +1747,7 @@ impl<'a> CollectStatic<'a> {
         };
         slf.collect_terms();
         slf.collect_atomic_forms();
-        slf.collect_non_atomic_forms();
+        slf.collect_compound_forms();
         slf
     }
 
@@ -1844,7 +1873,7 @@ impl<'a> CollectStatic<'a> {
                         self.store_index(z),
                     )
                 }),
-                nary!(List | Plus | Times, _) => None,
+                nary!(AndN | List | MaxN | MinN | OrN | Plus | Times, _) => None,
                 pown!(x, n) => Some(StaticTermKind::Pown(self.store_index(x), *n)),
                 rootn!(x, n) => Some(StaticTermKind::Rootn(self.store_index(x), *n)),
                 error!() => panic!(),
@@ -1884,7 +1913,7 @@ impl<'a> CollectStatic<'a> {
         }
     }
 
-    fn collect_non_atomic_forms(&mut self) {
+    fn collect_compound_forms(&mut self) {
         use {BinaryOp::*, UnaryOp::*};
         for e in self.bool_exprs.iter().copied() {
             let k = match &*e {
@@ -2002,6 +2031,7 @@ mod tests {
 
         let test = |input, expected| {
             let mut e = parse_expr(input, &[Context::builtin(), &ctx]).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
             NormalizeNotExprs.visit_expr_mut(&mut e);
             assert_eq!(format!("{}", e.dump_short()), expected);
         };
@@ -2009,8 +2039,8 @@ mod tests {
         test("!(x = y)", "(Not (Eq x y))");
         test("!!(x = y)", "(Eq x y)");
         test("!!!(x = y)", "(Not (Eq x y))");
-        test("!(x = y && z = w)", "(Or (Not (Eq x y)) (Not (Eq z w)))");
-        test("!(x = y || z = w)", "(And (Not (Eq x y)) (Not (Eq z w)))");
+        test("!(x = y && z = w)", "(OrN (Not (Eq x y)) (Not (Eq z w)))");
+        test("!(x = y || z = w)", "(AndN (Not (Eq x y)) (Not (Eq z w)))");
     }
 
     #[test]
@@ -2073,9 +2103,9 @@ mod tests {
         test("Im(x)", "0");
         test("Re(x + i y)", "x");
         test("Re(x)", "x");
-        test("a + i b = x + i y", "(And (Eq a x) (Eq b y))");
-        test("a = x + i y", "(And (Eq a x) (Eq 0 y))");
-        test("a + i b = x", "(And (Eq a x) (Eq b 0))");
+        test("a + i b = x + i y", "(AndN (Eq a x) (Eq b y))");
+        test("a = x + i y", "(AndN (Eq a x) (Eq 0 y))");
+        test("a + i b = x", "(AndN (Eq a x) (Eq b 0))");
         test("(a + i b) + (x + i y)", "(Complex (Plus a x) (Plus b y))");
         test("a + (x + i y)", "(Complex (Plus a x) y)");
         test("(a + i b) + x", "(Complex (Plus a x) b)");
@@ -2107,6 +2137,7 @@ mod tests {
     fn expand_boole() {
         fn test(input: &str, expected: &str) {
             let mut e = parse_expr(&format!("if({}, x, y)", input), &[Context::builtin()]).unwrap();
+            PreTransform.visit_expr_mut(&mut e);
             ExpandBoole.visit_expr_mut(&mut e);
             assert_eq!(
                 format!("{}", e.dump_short()),
@@ -2117,8 +2148,8 @@ mod tests {
         test("false", "0");
         test("true", "1");
         test("¬x", "(Plus 1 (Times -1 (Boole x)))");
-        test("x ∧ y", "(Min (Boole x) (Boole y))");
-        test("x ∨ y", "(Max (Boole x) (Boole y))");
+        test("x ∧ y", "(MinN (Boole x) (Boole y))");
+        test("x ∨ y", "(MaxN (Boole x) (Boole y))");
         test("x = 0", "(BooleEqZero x)");
         test("x ≤ 0", "(BooleLeZero x)");
         test("x < 0", "(BooleLtZero x)");

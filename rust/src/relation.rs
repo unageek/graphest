@@ -628,7 +628,7 @@ fn expand_polar_coords(e: &mut Expr) {
         e
     };
 
-    *e = Expr::binary(Or, Expr::binary(Or, e11, e12), Expr::binary(Or, e21, e22));
+    *e = Expr::nary(OrN, vec![e11, e12, e21, e22]);
 }
 
 /// Returns the period of a function of a variable t,
@@ -877,7 +877,7 @@ fn normalize_explicit_relation(
     y_var: VarSet,
     x_var: VarSet,
 ) -> Option<ExplicitRelOp> {
-    use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
+    use {NaryOp::*, TernaryOp::*, UnaryOp::*};
 
     let mut parts = ExplicitRelationParts {
         op: ExplicitRelOp::Eq,
@@ -890,19 +890,11 @@ fn normalize_explicit_relation(
     }
 
     if let Some(y) = &mut parts.y {
-        let mut pt = parts
-            .px
-            .into_iter()
-            .reduce(|acc, e| Expr::binary(And, acc, e));
+        if !parts.px.is_empty() {
+            let cond = Expr::unary(Boole, Expr::nary(AndN, parts.px));
 
-        if let Some(pt) = &mut pt {
             if let binary!(_, _, f) = y {
-                *f = Expr::ternary(
-                    IfThenElse,
-                    Expr::unary(Boole, take(pt)),
-                    take(f),
-                    Expr::undefined(),
-                );
+                *f = Expr::ternary(IfThenElse, cond, take(f), Expr::undefined());
             } else {
                 unreachable!();
             }
@@ -921,7 +913,7 @@ fn normalize_explicit_relation_impl(
     y_var: VarSet,
     x_var: VarSet,
 ) -> bool {
-    use BinaryOp::*;
+    use {BinaryOp::*, NaryOp::*};
 
     macro_rules! explicit_rel_op {
         () => {
@@ -930,10 +922,6 @@ fn normalize_explicit_relation_impl(
     }
 
     match e {
-        binary!(And, e1, e2) => {
-            normalize_explicit_relation_impl(e1, parts, y_var, x_var)
-                && normalize_explicit_relation_impl(e2, parts, y_var, x_var)
-        }
         binary!(op @ explicit_rel_op!(), y @ var!(_), e)
             if y.vars == y_var && x_var.contains(e.vars) =>
         {
@@ -966,6 +954,9 @@ fn normalize_explicit_relation_impl(
                 true
             }
         }
+        nary!(AndN, es) => es
+            .iter_mut()
+            .all(|e| normalize_explicit_relation_impl(e, parts, y_var, x_var)),
         e if x_var.contains(e.vars) => {
             parts.px.push(take(e));
             true
@@ -982,7 +973,7 @@ struct ParametricRelationParts {
 
 /// Tries to identify `e` as a parametric relation.
 fn normalize_parametric_relation(e: &mut Expr, param_ranges: &mut ParamRanges) -> bool {
-    use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
+    use {NaryOp::*, TernaryOp::*, UnaryOp::*};
 
     let mut parts = ParametricRelationParts {
         xt: None,
@@ -999,35 +990,23 @@ fn normalize_parametric_relation(e: &mut Expr, param_ranges: &mut ParamRanges) -
             param_ranges.refine_with(e);
         }
 
-        let mut pt = parts
-            .pt
-            .into_iter()
-            .reduce(|acc, e| Expr::binary(And, acc, e));
+        if !parts.pt.is_empty() {
+            let cond = Expr::unary(Boole, Expr::nary(AndN, parts.pt));
 
-        if let Some(pt) = &mut pt {
             if let binary!(_, _, f) = xt {
-                *f = Expr::ternary(
-                    IfThenElse,
-                    Expr::unary(Boole, pt.clone()),
-                    take(f),
-                    Expr::undefined(),
-                );
+                *f = Expr::ternary(IfThenElse, cond.clone(), take(f), Expr::undefined());
             } else {
                 unreachable!();
             }
+
             if let binary!(_, _, f) = yt {
-                *f = Expr::ternary(
-                    IfThenElse,
-                    Expr::unary(Boole, take(pt)),
-                    take(f),
-                    Expr::undefined(),
-                );
+                *f = Expr::ternary(IfThenElse, cond, take(f), Expr::undefined());
             } else {
                 unreachable!();
             }
         }
 
-        *e = Expr::binary(And, take(xt), take(yt));
+        *e = Expr::nary(AndN, vec![take(xt), take(yt)]);
         true
     } else {
         false
@@ -1035,15 +1014,11 @@ fn normalize_parametric_relation(e: &mut Expr, param_ranges: &mut ParamRanges) -
 }
 
 fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelationParts) -> bool {
-    use BinaryOp::*;
+    use {BinaryOp::*, NaryOp::*};
 
     const PARAMS: VarSet = vars!(VarSet::M | VarSet::N | VarSet::T);
 
     match e {
-        binary!(And, e1, e2) => {
-            normalize_parametric_relation_impl(e1, parts)
-                && normalize_parametric_relation_impl(e2, parts)
-        }
         binary!(Eq, x @ var!(_), e) | binary!(Eq, e, x @ var!(_))
             if x.vars == VarSet::X && PARAMS.contains(e.vars) =>
         {
@@ -1068,6 +1043,9 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
                 true
             }
         }
+        nary!(AndN, es) => es
+            .iter_mut()
+            .all(|e| normalize_parametric_relation_impl(e, parts)),
         e if PARAMS.contains(e.vars) => {
             parts.pt.push(take(e));
             true
@@ -1082,7 +1060,7 @@ struct ImplicitRelationParts {
 }
 
 fn normalize_implicit_relation(e: &mut Expr, param_ranges: &mut ParamRanges) {
-    use {BinaryOp::*, TernaryOp::*, UnaryOp::*};
+    use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
 
     let mut parts = ImplicitRelationParts {
         eq: None,
@@ -1095,24 +1073,19 @@ fn normalize_implicit_relation(e: &mut Expr, param_ranges: &mut ParamRanges) {
         param_ranges.refine_with(e);
     }
 
-    let mut others = parts
-        .others
-        .into_iter()
-        .reduce(|acc, e| Expr::binary(And, acc, e));
-
-    *e = match (&mut parts.eq, &mut others) {
-        (Some(binary!(Eq, x, y)), Some(others)) => Expr::binary(
+    *e = match &mut parts.eq {
+        Some(binary!(Eq, x, y)) if !parts.others.is_empty() => Expr::binary(
             Eq,
             Expr::ternary(
                 IfThenElse,
-                Expr::unary(Boole, take(others)),
+                Expr::unary(Boole, Expr::nary(AndN, parts.others)),
                 Expr::binary(Sub, take(x), take(y)),
                 Expr::undefined(),
             ),
             Expr::zero(),
         ),
-        (Some(eq), None) => take(eq),
-        (None, Some(others)) => take(others),
+        Some(eq) => take(eq),
+        None if !parts.others.is_empty() => Expr::nary(AndN, parts.others),
         _ => unreachable!(),
     };
 }

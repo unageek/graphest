@@ -125,7 +125,11 @@ pub enum TernaryOp {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NaryOp {
+    AndN,
     List,
+    MaxN,
+    MinN,
+    OrN,
     Plus,
     Times,
 }
@@ -540,7 +544,7 @@ impl Expr {
                 Some(cond.eval()?.if_then_else(t.eval()?, f.eval()?))
             }
             ternary!(MulAdd, _, _, _) => None,
-            nary!(List | Plus | Times, _) => None,
+            nary!(AndN | List | MaxN | MinN | OrN | Plus | Times, _) => None,
             pown!(_, _) => None,
             rootn!(_, _) => None,
             error!() => None,
@@ -631,7 +635,7 @@ impl Expr {
             ternary!(MulAdd, x, y, z) => {
                 x.totally_defined && y.totally_defined && z.totally_defined
             }
-            nary!(Plus | Times, xs) => xs.iter().all(|x| x.totally_defined),
+            nary!(MaxN | MinN | Plus | Times, xs) => xs.iter().all(|x| x.totally_defined),
             pown!(x, n) => x.totally_defined && *n >= 0,
             rootn!(x, n) => x.totally_defined && n % 2 == 1,
             uninit!() => panic!(),
@@ -678,6 +682,7 @@ impl Expr {
             binary!(And | Or, x, y) if boolean(x) && boolean(y) => Boolean,
             binary!(Eq, x, y) if real_or_complex(x) && real_or_complex(y) => Boolean,
             binary!(ExplicitRel(_) | Ge | Gt | Le | Lt, x, y) if real(x) && real(y) => Boolean,
+            nary!(AndN | OrN, xs) if xs.iter().all(boolean) => Boolean,
             // Complex
             unary!(
                 Acos | Acosh
@@ -812,7 +817,7 @@ impl Expr {
             binary!(RankedMax | RankedMin, x, y) if real_vector(x) && real(y) => Real,
             ternary!(IfThenElse, cond, t, f) if real(cond) && real(t) && real(f) => Real,
             ternary!(MulAdd, x, y, z) if real(x) && real(y) && real(z) => Real,
-            nary!(Plus | Times, xs) if xs.iter().all(real) => Real,
+            nary!(MaxN | MinN | Plus | Times, xs) if xs.iter().all(real) => Real,
             pown!(x, _) | rootn!(x, _) if real(x) => Real,
             // RealVector
             nary!(List, xs) if xs.iter().all(real) => RealVector,
