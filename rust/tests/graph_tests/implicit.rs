@@ -11,9 +11,15 @@ t!(
 );
 
 t!(
+    t_37b042e4a46346fda37c9af4b71fb404,
+    "⌊16/(2π) ln(r)⌋ = ⌊16/(2π) θ⌋ + n ∧ mod(n, 2) = 0 ∧ 0 ≤ n < 16",
+    @timeout(6000),
+);
+
+t!(
     t_7f564d75d3de45faa732ffdcec3f7ea5,
     "θ = 2π n/12 ∧ 0 ≤ n < 12",
-    @timeout(4000),
+    @timeout(2000),
 );
 
 // Non-square

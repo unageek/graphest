@@ -1091,13 +1091,9 @@ fn normalize_implicit_relation(e: &mut Expr, param_ranges: &mut ParamRanges) {
 }
 
 fn normalize_implicit_relation_impl(e: &mut Expr, parts: &mut ImplicitRelationParts) {
-    use BinaryOp::*;
+    use {BinaryOp::*, NaryOp::*};
 
     match e {
-        binary!(And, e1, e2) => {
-            normalize_implicit_relation_impl(e1, parts);
-            normalize_implicit_relation_impl(e2, parts);
-        }
         binary!(Eq, _, _) => match &mut parts.eq {
             Some(eq) => {
                 parts.others.push(take(eq));
@@ -1106,6 +1102,11 @@ fn normalize_implicit_relation_impl(e: &mut Expr, parts: &mut ImplicitRelationPa
             }
             _ => parts.eq = Some(take(e)),
         },
+        nary!(AndN, xs) => {
+            for x in xs {
+                normalize_implicit_relation_impl(x, parts);
+            }
+        }
         _ => parts.others.push(take(e)),
     }
 }

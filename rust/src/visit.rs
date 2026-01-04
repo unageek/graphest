@@ -221,7 +221,7 @@ where
     }
 }
 
-/// Distributes [`UnaryOp::Not`] over [`BinaryOp::And`] and [`BinaryOp::Or`],
+/// Distributes [`UnaryOp::Not`] over [`NaryOp::AndN`] and [`NaryOp::OrN`],
 /// and then eliminates double negations.
 pub struct NormalizeNotExprs;
 
@@ -1132,20 +1132,6 @@ impl VisitMut for Transform {
                     }
                 }
             }
-            binary!(Max, x @ unary!(boole_op!(), _), constant!(y))
-            | binary!(Max, constant!(y), x @ unary!(boole_op!(), _))
-                if y.to_f64() == Some(0.0) =>
-            {
-                *e = take(x);
-                self.modified = true;
-            }
-            binary!(Min, x @ unary!(boole_op!(), _), constant!(y))
-            | binary!(Min, constant!(y), x @ unary!(boole_op!(), _))
-                if y.to_f64() == Some(1.0) =>
-            {
-                *e = take(x);
-                self.modified = true;
-            }
             binary!(Pow | PowRational, x, constant!(a)) if a.to_f64() == Some(1.0) => {
                 // x^1 → x
                 *e = take(x);
@@ -1173,6 +1159,52 @@ impl VisitMut for Transform {
                     // Drop `true`s.
                     xs.retain(|x| !matches!(x, bool_constant!(true)));
                     self.modified = xs.len() < len;
+                }
+            }
+            nary!(MaxN, xs) => {
+                if xs
+                    .iter()
+                    .all(|x| matches!(x, constant!(_) | unary!(boole_op!(), _)))
+                {
+                    if xs
+                        .iter()
+                        .any(|x| matches!(x, constant!(a) if a.to_f64() == Some(1.0)))
+                    {
+                        // (MaxN … 1 …) → 1
+                        *e = Expr::one();
+                        self.modified = true;
+                    } else {
+                        let len = xs.len();
+                        // Drop zeros.
+                        xs.retain(|x| !matches!(x, constant!(a) if a.to_f64() == Some(0.0)));
+                        self.modified = xs.len() < len;
+                        if xs.is_empty() {
+                            *e = Expr::zero();
+                        }
+                    }
+                }
+            }
+            nary!(MinN, xs) => {
+                if xs
+                    .iter()
+                    .all(|x| matches!(x, constant!(_) | unary!(boole_op!(), _)))
+                {
+                    if xs
+                        .iter()
+                        .any(|x| matches!(x, constant!(a) if a.to_f64() == Some(0.0)))
+                    {
+                        // (MinN … 0 …) → 0
+                        *e = Expr::zero();
+                        self.modified = true;
+                    } else {
+                        let len = xs.len();
+                        // Drop ones.
+                        xs.retain(|x| !matches!(x, constant!(a) if a.to_f64() == Some(1.0)));
+                        self.modified = xs.len() < len;
+                        if xs.is_empty() {
+                            *e = Expr::one();
+                        }
+                    }
                 }
             }
             nary!(OrN, xs) => {
