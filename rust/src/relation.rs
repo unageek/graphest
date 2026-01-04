@@ -1056,56 +1056,39 @@ fn normalize_parametric_relation_impl(e: &mut Expr, parts: &mut ParametricRelati
     }
 }
 
-struct ImplicitRelationParts {
-    eq: Option<Expr>,  // The equality relation if it is unique.
-    others: Vec<Expr>, // Other relations.
-}
-
 fn normalize_implicit_relation(e: &mut Expr) {
-    use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
-
-    let mut parts = ImplicitRelationParts {
-        eq: None,
-        others: vec![],
-    };
-
-    normalize_implicit_relation_impl(&mut e.clone(), &mut parts);
-
-    *e = match &mut parts.eq {
-        Some(binary!(Eq, x, y)) if !parts.others.is_empty() => Expr::binary(
-            Eq,
-            Expr::ternary(
-                IfThenElse,
-                Expr::unary(Boole, Expr::nary(AndN, parts.others)),
-                Expr::binary(Sub, take(x), take(y)),
-                Expr::undefined(),
-            ),
-            Expr::zero(),
-        ),
-        Some(eq) => take(eq),
-        None if !parts.others.is_empty() => Expr::nary(AndN, parts.others),
-        _ => unreachable!(),
-    };
-}
-
-fn normalize_implicit_relation_impl(e: &mut Expr, parts: &mut ImplicitRelationParts) {
-    use {BinaryOp::*, NaryOp::*};
+    use {BinaryOp::*, NaryOp::*, UnaryOp::*};
 
     match e {
-        binary!(Eq, _, _) => match &mut parts.eq {
-            Some(eq) => {
-                parts.others.push(take(eq));
-                parts.others.push(take(e));
-                parts.eq = None;
+        nary!(AndN, es) if es.iter().all(|x| matches!(x, binary!(_, _, _))) => {
+            let mut equations = vec![];
+            let mut non_equations = vec![];
+            for e in es {
+                match e {
+                    binary!(Ge | Gt | Le | Lt, _, _)
+                    | unary!(Not, binary!(Eq | Ge | Gt | Le | Lt, _, _)) => {
+                        non_equations.push(take(e))
+                    }
+                    _ => equations.push(take(e)),
+                }
             }
-            _ => parts.eq = Some(take(e)),
-        },
-        nary!(AndN, xs) => {
-            for x in xs {
-                normalize_implicit_relation_impl(x, parts);
+            match non_equations.len() {
+                0 => (),
+                1 => equations.extend(non_equations),
+                _ => equations.push(Expr::binary(
+                    Eq,
+                    Expr::unary(Boole, Expr::nary(AndN, non_equations)),
+                    Expr::one(),
+                )),
+            }
+            *e = Expr::nary(AndN, equations);
+        }
+        nary!(OrN, es) => {
+            for e in es {
+                normalize_implicit_relation(e);
             }
         }
-        _ => parts.others.push(take(e)),
+        _ => (),
     }
 }
 
