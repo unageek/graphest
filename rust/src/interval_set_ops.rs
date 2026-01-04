@@ -1367,12 +1367,7 @@ macro_rules! impl_rel_op {
                 ss |= bool_to_sign($map_undef);
             }
 
-            let d = match ss {
-                SignSet::ZERO => Decoration::Dac,
-                _ => Decoration::Def,
-            };
-
-            DecSignSet(ss, d)
+            DecSignSet(ss, Decoration::Def)
         }
     };
 }
