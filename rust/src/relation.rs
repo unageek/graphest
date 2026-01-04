@@ -310,7 +310,8 @@ impl FromStr for Relation {
         expand_complex_functions(&mut e);
         simplify(&mut e);
         let mut param_ranges = ParamRanges::new();
-        let relation_type = relation_type(&mut e, &mut param_ranges);
+        param_ranges.refine_with(&e);
+        let relation_type = relation_type(&mut e);
         NormalizeRelationalExprs.visit_expr_mut(&mut e);
         ExpandBoole.visit_expr_mut(&mut e);
         simplify(&mut e);
@@ -805,7 +806,7 @@ impl ParamRanges {
     }
 
     fn refine_with(&mut self, e: &Expr) {
-        use BinaryOp::*;
+        use {BinaryOp::*, NaryOp::*};
 
         match e {
             binary!(Ge | Gt, var!(x), constant!(a)) | binary!(Le | Lt, constant!(a), var!(x)) => {
@@ -834,6 +835,11 @@ impl ParamRanges {
                             .iter()
                             .fold(Interval::EMPTY, |acc, x| acc.convex_hull(x.x)),
                     );
+                }
+            }
+            nary!(AndN, es) => {
+                for e in es {
+                    self.refine_with(e);
                 }
             }
             _ => return,
@@ -972,7 +978,7 @@ struct ParametricRelationParts {
 }
 
 /// Tries to identify `e` as a parametric relation.
-fn normalize_parametric_relation(e: &mut Expr, param_ranges: &mut ParamRanges) -> bool {
+fn normalize_parametric_relation(e: &mut Expr) -> bool {
     use {NaryOp::*, TernaryOp::*, UnaryOp::*};
 
     let mut parts = ParametricRelationParts {
@@ -986,10 +992,6 @@ fn normalize_parametric_relation(e: &mut Expr, param_ranges: &mut ParamRanges) -
     }
 
     if let (Some(xt), Some(yt)) = &mut (parts.xt, parts.yt) {
-        for e in &parts.pt {
-            param_ranges.refine_with(e);
-        }
-
         if !parts.pt.is_empty() {
             let cond = Expr::unary(Boole, Expr::nary(AndN, parts.pt));
 
@@ -1059,7 +1061,7 @@ struct ImplicitRelationParts {
     others: Vec<Expr>, // Other relations.
 }
 
-fn normalize_implicit_relation(e: &mut Expr, param_ranges: &mut ParamRanges) {
+fn normalize_implicit_relation(e: &mut Expr) {
     use {BinaryOp::*, NaryOp::*, TernaryOp::*, UnaryOp::*};
 
     let mut parts = ImplicitRelationParts {
@@ -1068,10 +1070,6 @@ fn normalize_implicit_relation(e: &mut Expr, param_ranges: &mut ParamRanges) {
     };
 
     normalize_implicit_relation_impl(&mut e.clone(), &mut parts);
-
-    for e in &parts.others {
-        param_ranges.refine_with(e);
-    }
 
     *e = match &mut parts.eq {
         Some(binary!(Eq, x, y)) if !parts.others.is_empty() => Expr::binary(
@@ -1115,19 +1113,19 @@ fn normalize_implicit_relation_impl(e: &mut Expr, parts: &mut ImplicitRelationPa
 /// [`RelationType::ExplicitFunctionOfY`], or [`RelationType::Parametric`],
 /// normalizes the explicit part(s) of the relation to the form `(ExplicitRel x f(x))`,
 /// where `x` is a variable and `f(x)` is a function of `x`.
-fn relation_type(e: &mut Expr, param_ranges: &mut ParamRanges) -> RelationType {
+fn relation_type(e: &mut Expr) -> RelationType {
     use RelationType::*;
 
     UpdateMetadata.visit_expr_mut(e);
 
-    if normalize_parametric_relation(e, param_ranges) {
+    if normalize_parametric_relation(e) {
         Parametric
     } else if let Some(op) = normalize_explicit_relation(e, VarSet::Y, VarSet::X) {
         ExplicitFunctionOfX(op)
     } else if let Some(op) = normalize_explicit_relation(e, VarSet::X, VarSet::Y) {
         ExplicitFunctionOfY(op)
     } else {
-        normalize_implicit_relation(e, param_ranges);
+        normalize_implicit_relation(e);
         Implicit
     }
 }
@@ -1230,7 +1228,7 @@ mod tests {
         }
 
         assert_eq!(f("x y r θ = 0"), const_interval!(0.0, 0.0));
-        assert_eq!(f("t = 0"), Interval::ENTIRE);
+        assert_eq!(f("t = 0"), const_interval!(0.0, 0.0));
         assert_eq!(
             f("sin(t) = 0"),
             interval!(0.0, Interval::TAU.sup()).unwrap()
