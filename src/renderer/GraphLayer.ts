@@ -2,7 +2,7 @@ import { Unsubscribe } from "@reduxjs/toolkit";
 import * as L from "leaflet";
 import { EXTENDED_GRAPH_TILE_SIZE, GRAPH_TILE_SIZE } from "../common/constants";
 import * as ipc from "../common/ipc";
-import { Graph, setGraphIsProcessing } from "./models/graph";
+import { Graph } from "./models/graph";
 import { Store } from "./models/store";
 
 declare module "leaflet" {
@@ -15,7 +15,6 @@ declare module "leaflet" {
 export class GraphLayer extends L.GridLayer {
   #dilationElement: SVGFEMorphologyElement;
   #graph?: Graph;
-  #onGraphingStatusChangedBound: ipc.RendererListener<ipc.GraphingStatusChanged>;
   #onTileReadyBound: ipc.RendererListener<ipc.TileReady>;
   #styleElement: HTMLStyleElement;
   #svgElement: SVGSVGElement;
@@ -33,8 +32,6 @@ export class GraphLayer extends L.GridLayer {
       updateWhenZooming: false,
       ...options,
     });
-    this.#onGraphingStatusChangedBound =
-      this.#onGraphingStatusChanged.bind(this);
     this.#onTileReadyBound = this.#onTileReady.bind(this);
 
     const ns = "http://www.w3.org/2000/svg";
@@ -60,10 +57,6 @@ export class GraphLayer extends L.GridLayer {
     super.onAdd(map);
     document.body.appendChild(this.#styleElement);
     document.body.appendChild(this.#svgElement);
-    window.ipcRenderer.on<ipc.GraphingStatusChanged>(
-      ipc.graphingStatusChanged,
-      this.#onGraphingStatusChangedBound,
-    );
     window.ipcRenderer.on<ipc.TileReady>(ipc.tileReady, this.#onTileReadyBound);
     this.#unsubscribeFromStore = this.store.subscribe(
       this.#onAppStateChanged.bind(this),
@@ -79,10 +72,6 @@ export class GraphLayer extends L.GridLayer {
     }
     document.body.removeChild(this.#styleElement);
     document.body.removeChild(this.#svgElement);
-    window.ipcRenderer.off<ipc.GraphingStatusChanged>(
-      ipc.graphingStatusChanged,
-      this.#onGraphingStatusChangedBound,
-    );
     window.ipcRenderer.off<ipc.TileReady>(
       ipc.tileReady,
       this.#onTileReadyBound,
@@ -168,16 +157,6 @@ export class GraphLayer extends L.GridLayer {
       this.redraw();
     }
   }
-
-  #onGraphingStatusChanged: ipc.RendererListener<ipc.GraphingStatusChanged> = (
-    _,
-    relId,
-    processing,
-  ) => {
-    if (relId === this.#graph?.relId) {
-      this.store.dispatch(setGraphIsProcessing(this.graphId, processing));
-    }
-  };
 
   #onTileReady: ipc.RendererListener<ipc.TileReady> = (
     _,

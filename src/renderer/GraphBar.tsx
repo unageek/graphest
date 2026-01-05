@@ -52,6 +52,7 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
   } = props;
   const dispatch = useDispatch();
   const graph = useSelector((s) => s.graphs.byId[props.graphId]);
+  const processingRelIds = useSelector((s) => s.processingRelIds);
   const relationInputActionsRef = useRef<RelationInputActions>(null);
   const dragHandleTabsterAttributes = useTabsterAttributes({
     focusable: {
@@ -115,7 +116,9 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
         grow
         onEnterKeyPressed={focusGraphView}
         onRelationChanged={onRelationChanged}
-        processing={graph.isProcessing}
+        processing={
+          graph.relId !== null && processingRelIds.includes(graph.relId)
+        }
         relation={graph.relation}
         relationInputByUser={graph.relationInputByUser}
         requestRelation={requestRelationInner}

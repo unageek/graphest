@@ -3,7 +3,6 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export interface Graph {
   color: string;
   id: string;
-  isProcessing: boolean;
   relation: string;
   relationInputByUser: boolean;
   relId: string | null;
@@ -14,7 +13,6 @@ export interface Graph {
 const initialState: Graph = {
   color: "",
   id: "",
-  isProcessing: false,
   relation: "",
   relationInputByUser: false,
   relId: null,
@@ -33,18 +31,6 @@ const slice = createSlice({
           ? {
               ...s,
               color: a.payload.color,
-            }
-          : s,
-    },
-    setGraphIsProcessing: {
-      prepare: (id: string, processing: boolean) => ({
-        payload: { id, processing },
-      }),
-      reducer: (s, a: PayloadAction<{ id: string; processing: boolean }>) =>
-        a.payload.id === s.id
-          ? {
-              ...s,
-              isProcessing: a.payload.processing,
             }
           : s,
     },
@@ -102,7 +88,6 @@ const slice = createSlice({
 
 export const {
   setGraphColor,
-  setGraphIsProcessing,
   setGraphRelation,
   setGraphShow,
   setGraphThickness,

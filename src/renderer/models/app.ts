@@ -14,7 +14,6 @@ import {
   Graph,
   graphReducer,
   setGraphColor,
-  setGraphIsProcessing,
   setGraphRelation,
   setGraphShow,
   setGraphThickness,
@@ -32,6 +31,7 @@ export interface AppState {
   highRes: boolean;
   lastExportImageOpts: ExportImageOptions;
   nextGraphId: number;
+  processingRelIds: string[];
   resetView: boolean;
   showAxes: boolean;
   showColorsDialog: boolean;
@@ -69,6 +69,7 @@ const initialState: AppState = {
     yMin: "-10",
   },
   nextGraphId: 0,
+  processingRelIds: [],
   resetView: false,
   showAxes: true,
   showColorsDialog: false,
@@ -113,6 +114,15 @@ const slice = createSlice({
         };
       },
     },
+    addProcessingRelId: {
+      prepare: (relId: string) => ({ payload: { relId } }),
+      reducer: (s, a: PayloadAction<{ relId: string }>) => {
+        return {
+          ...s,
+          processingRelIds: [...s.processingRelIds, a.payload.relId],
+        };
+      },
+    },
     newGraph: (s) => {
       const id = s.nextGraphId.toString();
       return {
@@ -153,6 +163,17 @@ const slice = createSlice({
           allIds: s.graphs.allIds.filter((id) => id !== a.payload.id),
         },
       }),
+    },
+    removeProcessingRelId: {
+      prepare: (relId: string) => ({ payload: { relId } }),
+      reducer: (s, a: PayloadAction<{ relId: string }>) => {
+        return {
+          ...s,
+          processingRelIds: s.processingRelIds.filter(
+            (id) => id !== a.payload.relId,
+          ),
+        };
+      },
     },
     reorderGraph: {
       prepare: (fromIndex: number, toIndex: number) => ({
@@ -306,7 +327,6 @@ const slice = createSlice({
       .addMatcher(
         isAnyOf(
           setGraphColor,
-          setGraphIsProcessing,
           setGraphRelation,
           setGraphShow,
           setGraphThickness,
@@ -337,9 +357,11 @@ function moveElement<T>(array: T[], fromIndex: number, toIndex: number): T[] {
 
 export const {
   addGraph,
+  addProcessingRelId,
   newGraph,
   removeAllGraphs,
   removeGraph,
+  removeProcessingRelId,
   reorderGraph,
   setCenter,
   setExportImageProgress,

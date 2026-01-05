@@ -22,7 +22,9 @@ import { GraphBars } from "./GraphBars";
 import { GraphView } from "./GraphView";
 import {
   addGraph,
+  addProcessingRelId,
   removeAllGraphs,
+  removeProcessingRelId,
   setCenter,
   setExportImageProgress,
   setGraphBackground,
@@ -246,6 +248,17 @@ window.ipcRenderer.on<ipc.ExportImageStatusChanged>(
   ipc.exportImageStatusChanged,
   (_, progress) => {
     store.dispatch(setExportImageProgress(progress));
+  },
+);
+
+window.ipcRenderer.on<ipc.GraphingStatusChanged>(
+  ipc.graphingStatusChanged,
+  (_, relId, processing) => {
+    if (processing) {
+      store.dispatch(addProcessingRelId(relId));
+    } else {
+      store.dispatch(removeProcessingRelId(relId));
+    }
   },
 );
 
