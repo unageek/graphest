@@ -1,4 +1,10 @@
 t!(
+    t_7a39ab5463814093913a2ab0ae8ba0bc,
+    "1 < gcd(x, y) < 2",
+    @timeout(4000),
+);
+
+t!(
     t_84a2738be35745da97a9b120c563b4b3,
     "y = t",
     @timeout(8000),
