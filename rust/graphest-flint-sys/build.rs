@@ -1,7 +1,7 @@
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Output},
 };
 
 // https://gitlab.com/tspiteri/gmp-mpfr-sys/-/blob/master/build.rs
@@ -86,7 +86,7 @@ fn build_flint(env: &Environment) {
                 [
                     "./configure",
                     "--enable-static",
-                    &format!("--prefix={}", env.out_dir.to_str().unwrap()),
+                    &format!("--prefix={}", to_unix_path(&env.out_dir)),
                     "--with-gmp=../gmp",  // `gmp_dir`
                     "--with-mpfr=../gmp", // `gmp_dir`
                 ]
@@ -232,18 +232,20 @@ fn copy_dir_all<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<()
     Ok(())
 }
 
-fn execute_or_panic(cmd: &mut Command) {
-    let status = cmd
-        .status()
+fn execute_or_panic(cmd: &mut Command) -> Output {
+    let output = cmd
+        .output()
         .unwrap_or_else(|_| panic!("failed to execute the command: {:?}", cmd));
 
-    if !status.success() {
-        if let Some(code) = status.code() {
+    if !output.status.success() {
+        if let Some(code) = output.status.code() {
             panic!("the process exited with code {}: {:?}", code, cmd);
         } else {
             panic!("the process is terminated by a signal: {:?}", cmd);
         }
     }
+
+    output
 }
 
 #[cfg(unix)]
@@ -263,6 +265,16 @@ fn symlink_dir_or_panic(original: &Path, link: &Path) {
         original, link
     );
     execute_or_panic(Command::new("cp").arg("-R").arg(original).arg(link));
+}
+
+fn to_unix_path(path: &Path) -> String {
+    let s = path.to_str().unwrap();
+    if cfg!(windows) {
+        let output = execute_or_panic(Command::new("cygpath").arg(s));
+        String::from_utf8_lossy(&output.stdout).trim().to_owned()
+    } else {
+        s.to_owned()
+    }
 }
 
 fn user_cache_dir() -> Option<PathBuf> {
