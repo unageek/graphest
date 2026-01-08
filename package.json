@@ -7,7 +7,7 @@
   "scripts": {
     "build": "npm-run-all build:*",
     "build:app": "webpack && cp src/renderer/index.html dist/",
-    "build:rust": "bash -c \"MSYS2_ENV_CONV_EXCL=* cargo build --release && mkdir -p dist && rm -f dist/{compose,concatenate,graph} && cp target/release/{compose,concatenate,graph} dist/\"",
+    "build:rust": "bash -c \"MSYS2_ENV_CONV_EXCL=ACLOCAL_PATH cargo build --release && mkdir -p dist && rm -f dist/{compose,concatenate,graph} && cp target/release/{compose,concatenate,graph} dist/\"",
     "check-format": "prettier --check .",
     "clean": "npm-run-all clean:*",
     "clean:app": "rm -rf dist release",
@@ -16,8 +16,8 @@
     "guide": "cd docs/guide && asciidoctor --trace -r ./config/remove_mathjax.rb index.adoc && open index.html",
     "lint": "eslint .",
     "release:mac": "yarn clean && NODE_ENV=production yarn build && electron-builder --config electron-builder.config.js --mac --publish always",
-    "release:win": "yarn clean && cross-env-shell NODE_ENV=production yarn build && electron-builder --config electron-builder.config.js --win --publish always",
-    "start": "cross-env-shell NODE_ENV=development yarn build && electron .",
+    "release:win": "yarn clean && cross-env NODE_ENV=production yarn build && electron-builder --config electron-builder.config.js --win --publish always",
+    "start": "cross-env NODE_ENV=development yarn build && electron .",
     "test": "jest"
   },
   "author": "Masashi Mizuno",

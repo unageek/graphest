@@ -54,11 +54,6 @@ fn build_flint(env: &Environment) {
         return;
     }
 
-    let gmp_dir = env.build_dir.join("gmp");
-    if !gmp_dir.exists() {
-        symlink_dir_or_panic(&env.gmp_dir, &gmp_dir);
-    }
-
     let build_dir = env.build_dir.join("flint-build");
     if !build_dir.exists() {
         execute_or_panic(Command::new("git").current_dir(&env.build_dir).args([
@@ -85,10 +80,12 @@ fn build_flint(env: &Environment) {
             .arg(
                 [
                     "./configure",
+                    "--disable-shared",
                     "--enable-static",
                     &format!("--prefix={}", to_unix_path(&env.out_dir)),
-                    "--with-gmp=../gmp",  // `gmp_dir`
-                    "--with-mpfr=../gmp", // `gmp_dir`
+                    &format!("--with-gmp={}", to_unix_path(&env.gmp_dir)),
+                    &format!("--with-mpfr={}", to_unix_path(&env.gmp_dir)),
+                    "ABI=64",
                 ]
                 .join(" "),
             )
@@ -97,6 +94,12 @@ fn build_flint(env: &Environment) {
     execute_or_panic(
         Command::new("make")
             .current_dir(&build_dir)
+            .env("MAKEFLAGS", &env.makeflags),
+    );
+    execute_or_panic(
+        Command::new("make")
+            .current_dir(&build_dir)
+            .arg("tests")
             .env("MAKEFLAGS", &env.makeflags),
     );
     execute_or_panic(
@@ -239,32 +242,19 @@ fn execute_or_panic(cmd: &mut Command) -> Output {
 
     if !output.status.success() {
         if let Some(code) = output.status.code() {
-            panic!("the process exited with code {}: {:?}", code, cmd);
+            panic!(
+                "the process exited with code {}: {:?}\nstdout:\n{}\nstderr:\n{}",
+                code,
+                cmd,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
         } else {
             panic!("the process is terminated by a signal: {:?}", cmd);
         }
     }
 
     output
-}
-
-#[cfg(unix)]
-fn symlink_dir_or_panic(original: &Path, link: &Path) {
-    std::os::unix::fs::symlink(original, link).unwrap_or_else(|_| {
-        panic!("failed to create a symlink to {:?} at {:?}", original, link);
-    });
-}
-
-#[cfg(windows)]
-fn symlink_dir_or_panic(original: &Path, link: &Path) {
-    if std::os::windows::fs::symlink_dir(original, link).is_ok() {
-        return;
-    }
-    eprintln!(
-        "failed to create a symlink to {:?} at {:?}, copying instead",
-        original, link
-    );
-    execute_or_panic(Command::new("cp").arg("-R").arg(original).arg(link));
 }
 
 fn to_unix_path(path: &Path) -> String {
