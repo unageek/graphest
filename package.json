@@ -71,7 +71,7 @@
     "color": "^4.2.0",
     "leaflet": "^1.9.4",
     "leaflet-easybutton": "^2.4.0",
-    "lodash": "^4.17.21",
+    "lodash": "^4.17.23",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-redux": "^9.2.0",
