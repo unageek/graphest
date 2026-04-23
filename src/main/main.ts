@@ -159,10 +159,12 @@ let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindowWithTypedWebContents | undefined;
 let nextExportImageId = 0;
 let nextRelId = 0;
-let postStartup: (() => void | Promise<void>) | undefined = () =>
-  openUrl(
-    "graphest://eyJjZW50ZXIiOlswLDBdLCJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicmVsYXRpb24iOiJ5ID0gc2luKHgpIiwidGhpY2tuZXNzIjoxfV0sInZlcnNpb24iOjEsInpvb21MZXZlbCI6Nn0=",
+let postStartup: (() => void | Promise<void>) | undefined = () => {
+  const args = process.argv.slice(process.defaultApp ? 2 : 1);
+  let _ = args.length > 0 ? openFileOrUrl(args[0]) : openUrl(
+    "graphest://eyJjZW50ZXIiOlswLDBdLCJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicmVsYXRpb24iOiJ5ID0gc2luKHgpIiwidGhpY2tuZXNzIjoxfV0sInZlcnNpb24iOjEsInpvb21MZXZlbCI6Nn0="
   );
+}
 let postUnload: (() => void | Promise<void>) | undefined;
 const relationById = new Map<string, Relation>();
 const relKeyToRelId = new Map<string, string>();
@@ -919,6 +921,14 @@ function openUrl(url: string) {
     } catch (e) {
       console.log("open failed", e);
     }
+  }
+}
+
+function openFileOrUrl(s: string) {
+  if (s.startsWith(URL_PREFIX)) {
+    openUrl(s);
+  } else {
+    openFile(s);
   }
 }
 
