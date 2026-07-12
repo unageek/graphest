@@ -709,7 +709,7 @@ impl TupperIntervalSet {
                     } else {
                         let xs = &TupperIntervalSet::from(*x);
                         let ys = &TupperIntervalSet::from(*y);
-                        rs.extend((xs * ys).abs().div(&xs.gcd(ys, site), None).into_iter());
+                        rs.extend((xs * ys).abs().div(&xs.gcd(ys, site), None));
                     }
                 }
             }

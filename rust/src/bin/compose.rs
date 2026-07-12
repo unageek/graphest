@@ -101,7 +101,9 @@ fn main() {
         .remove_many::<String>("add")
         .unwrap_or_default()
         .collect::<Vec<_>>()
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|e| Entry {
             color: parse_color(&e[1], correct_alpha),
             file: e[0].clone(),
