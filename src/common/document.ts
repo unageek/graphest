@@ -1,7 +1,6 @@
 import Color from "color";
 import { z } from "zod";
 import {
-  BASE_ZOOM_LEVEL,
   DEFAULT_PEN_COLOR,
   INITIAL_ZOOM_LEVEL,
   MAX_PEN_THICKNESS,
@@ -53,10 +52,7 @@ export const documentSchema = z.object({
     .default("#000000"),
   graphs: z.array(graphSchema).default([]),
   version: z.number(),
-  zoomLevel: z
-    .number()
-    .int()
-    .default(INITIAL_ZOOM_LEVEL - BASE_ZOOM_LEVEL),
+  zoomLevel: z.number().int().default(INITIAL_ZOOM_LEVEL),
 });
 
 export type Document = z.infer<typeof documentSchema>;

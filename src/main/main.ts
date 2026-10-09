@@ -28,9 +28,10 @@ import util from "node:util";
 import { bignum } from "../common/BigNumber";
 import { Command } from "../common/command";
 import {
-  BASE_ZOOM_LEVEL,
   GRAPH_TILE_EXTENSION,
   GRAPH_TILE_SIZE,
+  INITIAL_ZOOM_LEVEL,
+  LEAFLET_Z_OFFSET,
   PERTURBATION_X,
   PERTURBATION_Y,
 } from "../common/constants";
@@ -154,7 +155,7 @@ let lastSavedDoc: Document = {
   foreground: "black",
   graphs: [],
   version: 1,
-  zoomLevel: 6,
+  zoomLevel: INITIAL_ZOOM_LEVEL,
 };
 let mainMenu: Menu | undefined;
 let mainWindow: BrowserWindowWithTypedWebContents | undefined;
@@ -655,7 +656,7 @@ ipcMain.handle<ipc.RequestTile>(
         (0.5 + PERTURBATION_Y) / (retinaScale * GRAPH_TILE_SIZE),
       );
       const widthPerTile = bignum(
-        GRAPH_TILE_SIZE * 2 ** (BASE_ZOOM_LEVEL - coords.z),
+        GRAPH_TILE_SIZE * 2 ** (LEAFLET_Z_OFFSET - coords.z),
       );
       const x0 = widthPerTile.times(bignum(coords.x).minus(pixelOffsetX));
       const x1 = widthPerTile.times(bignum(coords.x + 1).minus(pixelOffsetX));

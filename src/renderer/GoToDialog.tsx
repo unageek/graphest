@@ -11,9 +11,24 @@ import {
   Label,
 } from "@fluentui/react-components";
 import { debounce } from "lodash";
-import { ReactNode, SubmitEvent, useCallback, useMemo, useState } from "react";
-import { BASE_ZOOM_LEVEL } from "../common/constants";
-import { tryParseIntegerInRange, tryParseNumber } from "../common/parse";
+import {
+  ReactNode,
+  SubmitEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  MAX_ZOOM_LEVEL,
+  maxCoordinate,
+  MIN_ZOOM_LEVEL,
+} from "../common/constants";
+import {
+  tryParseIntegerInRange,
+  tryParseNumber,
+  tryParseNumberInRange,
+} from "../common/parse";
 
 export interface GoToDialogProps {
   dismiss: () => void;
@@ -22,81 +37,62 @@ export interface GoToDialogProps {
   zoomLevel: number;
 }
 
-const MIN_ZOOM_LEVEL: number = -BASE_ZOOM_LEVEL;
-// Leaflet maps cannot be zoomed in to a level greater than 1023.
-const MAX_ZOOM_LEVEL: number = 1023 - BASE_ZOOM_LEVEL;
+const parseInputs = (x: string, y: string, zoomLevel: string) => {
+  const parsedZoomLevel = tryParseIntegerInRange(
+    zoomLevel,
+    MIN_ZOOM_LEVEL,
+    MAX_ZOOM_LEVEL,
+  );
+  const tryParseCoordinate = (value: string) => {
+    if (parsedZoomLevel.ok === undefined) {
+      return tryParseNumber(value);
+    }
+    const max = maxCoordinate(parsedZoomLevel.ok);
+    return tryParseNumberInRange(value, -max, max);
+  };
+  return {
+    x: tryParseCoordinate(x),
+    y: tryParseCoordinate(y),
+    zoomLevel: parsedZoomLevel,
+  };
+};
 
 export const GoToDialog = (props: GoToDialogProps): ReactNode => {
   const { dismiss, goTo } = props;
-
-  const [errors, setErrors] = useState<Set<string>>(new Set());
 
   const [x, setX] = useState(props.center[0].toString());
   const [y, setY] = useState(props.center[1].toString());
   const [zoomLevel, setZoomLevel] = useState(props.zoomLevel.toString());
 
-  const [xErrorMessage, setXErrorMessage] = useState<string>();
-  const [yErrorMessage, setYErrorMessage] = useState<string>();
-  const [zoomLevelErrorMessage, setZoomLevelErrorMessage] = useState<string>();
+  const [parsed, setParsed] = useState(() => parseInputs(x, y, zoomLevel));
+  const hasErrors = Object.values(parsed).some((r) => r.err !== undefined);
 
-  const addOrRemoveErrors = useCallback(
-    (keys: string[], e?: string): string | undefined => {
-      const newErrors = new Set(errors);
-      for (const key of keys) {
-        if (e !== undefined) {
-          newErrors.add(key);
-        } else {
-          newErrors.delete(key);
-        }
-      }
-      setErrors(newErrors);
-      return e;
-    },
-    [errors],
+  const updateParsed = useMemo(
+    () =>
+      debounce((x: string, y: string, zoomLevel: string) => {
+        setParsed(parseInputs(x, y, zoomLevel));
+      }, 200),
+    [],
   );
+
+  useEffect(() => {
+    updateParsed(x, y, zoomLevel);
+  }, [updateParsed, x, y, zoomLevel]);
 
   const submit = useCallback(
     (e: SubmitEvent) => {
       e.preventDefault();
-      if (errors.size > 0) return;
-      goTo(
-        [Number.parseFloat(x), Number.parseFloat(y)],
-        Number.parseInt(zoomLevel),
-      );
-      dismiss();
+      const p = parseInputs(x, y, zoomLevel);
+      if (
+        p.x.ok !== undefined &&
+        p.y.ok !== undefined &&
+        p.zoomLevel.ok !== undefined
+      ) {
+        goTo([p.x.ok, p.y.ok], p.zoomLevel.ok);
+        dismiss();
+      }
     },
-    [dismiss, errors, goTo, x, y, zoomLevel],
-  );
-
-  const validateX = useMemo(
-    () =>
-      debounce((value: string) => {
-        const result = tryParseNumber(value);
-        setXErrorMessage(addOrRemoveErrors(["x"], result.err));
-      }, 200),
-    [addOrRemoveErrors],
-  );
-
-  const validateY = useMemo(
-    () =>
-      debounce((value: string) => {
-        const result = tryParseNumber(value);
-        setYErrorMessage(addOrRemoveErrors(["y"], result.err));
-      }, 200),
-    [addOrRemoveErrors],
-  );
-
-  const validateZoomLevel = useMemo(
-    () =>
-      debounce((value: string) => {
-        const result = tryParseIntegerInRange(
-          value,
-          MIN_ZOOM_LEVEL,
-          MAX_ZOOM_LEVEL,
-        );
-        setZoomLevelErrorMessage(addOrRemoveErrors(["zoom-level"], result.err));
-      }, 200),
-    [addOrRemoveErrors],
+    [dismiss, goTo, x, y, zoomLevel],
   );
 
   return (
@@ -123,34 +119,25 @@ export const GoToDialog = (props: GoToDialogProps): ReactNode => {
               }}
             >
               <Label style={{ textAlign: "right" }}>x:</Label>
-              <Field validationMessage={xErrorMessage}>
+              <Field validationMessage={parsed.x.err}>
                 <Input
-                  onChange={(_, { value }) => {
-                    setX(value);
-                    validateX(value);
-                  }}
+                  onChange={(_, { value }) => setX(value)}
                   style={{ width: "150px" }}
                   value={x.toString()}
                 />
               </Field>
               <Label style={{ textAlign: "right" }}>y:</Label>
-              <Field validationMessage={yErrorMessage}>
+              <Field validationMessage={parsed.y.err}>
                 <Input
-                  onChange={(_, { value }) => {
-                    setY(value);
-                    validateY(value);
-                  }}
+                  onChange={(_, { value }) => setY(value)}
                   style={{ width: "150px" }}
                   value={y.toString()}
                 />
               </Field>
               <Label style={{ textAlign: "right" }}>Zoom level:</Label>
-              <Field validationMessage={zoomLevelErrorMessage}>
+              <Field validationMessage={parsed.zoomLevel.err}>
                 <Input
-                  onChange={(_, { value }) => {
-                    setZoomLevel(value);
-                    validateZoomLevel(value);
-                  }}
+                  onChange={(_, { value }) => setZoomLevel(value)}
                   style={{ width: "100px" }}
                   value={zoomLevel.toString()}
                 />
@@ -159,11 +146,7 @@ export const GoToDialog = (props: GoToDialogProps): ReactNode => {
 
             <DialogActions>
               <Button onClick={props.dismiss}>Cancel</Button>
-              <Button
-                appearance="primary"
-                disabled={errors.size > 0}
-                type="submit"
-              >
+              <Button appearance="primary" disabled={hasErrors} type="submit">
                 Go
               </Button>
             </DialogActions>

@@ -1,17 +1,45 @@
+// At zoom level 0, 1 pixel corresponds to 1 real coordinate length. The followings hold:
+// 1 coordinate length = 2^(zoom level) pixels; or equivalently,
+// 1 pixel = 2^-(zoom level) coordinate lengths.
+
 /**
- * The zoom level where 1px corresponds to 1 unit length in real coordinates.
+ * The z coordinate of Leaflet maps at zoom level 0 so that `z = zoomLevel + LEAFLET_Z_OFFSET`.
  *
- * In general, `2 ** (zoom - BASE_ZOOM_LEVEL)` pixels = 1 unit length,
- * or 1px = `2 ** (BASE_ZOOM_LEVEL - zoom)` unit lengths.
- *
- * As Leaflet does not handle negative zoom levels, we need some positive offset.
+ * As Leaflet does not handle negative z coordinates, we need some positive offset.
  */
-export const BASE_ZOOM_LEVEL = 512;
+export const LEAFLET_Z_OFFSET = 512;
 
 /**
  * The zoom level in which the graph is initially shown.
  */
-export const INITIAL_ZOOM_LEVEL = BASE_ZOOM_LEVEL + 6;
+export const INITIAL_ZOOM_LEVEL = 6;
+
+/**
+ * The minimum zoom level.
+ */
+export const MIN_ZOOM_LEVEL = -LEAFLET_Z_OFFSET;
+
+/**
+ * The maximum zoom level.
+ *
+ * The z coordinate of Leaflet maps cannot exceed 1023.
+ */
+export const MAX_ZOOM_LEVEL = 1023 - LEAFLET_Z_OFFSET;
+
+/**
+ * The maximum absolute value of pixel coordinates of Leaflet maps.
+ *
+ * Up to this value, integers can be represented exactly.
+ * Leaflet maps can get stuck if pixel coordinates exceed it.
+ */
+export const MAX_PIXEL_COORDINATE = 2 ** 53;
+
+/**
+ * Returns the maximum absolute value of coordinates that can be shown at the given zoom level.
+ */
+export function maxCoordinate(zoomLevel: number): number {
+  return MAX_PIXEL_COORDINATE * 2 ** -zoomLevel;
+}
 
 /**
  * The width/height of graph tiles in pixels.

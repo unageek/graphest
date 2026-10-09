@@ -10,6 +10,7 @@ import { ZoomPanOptions } from "leaflet";
 import "leaflet-easybutton/src/easy-button";
 import "leaflet-easybutton/src/easy-button.css";
 import "leaflet/dist/leaflet.css";
+import { clamp } from "lodash";
 import {
   ComponentProps,
   ReactNode,
@@ -19,7 +20,14 @@ import {
   useState,
 } from "react";
 import { useStore } from "react-redux";
-import { BASE_ZOOM_LEVEL, INITIAL_ZOOM_LEVEL } from "../common/constants";
+import {
+  INITIAL_ZOOM_LEVEL,
+  LEAFLET_Z_OFFSET,
+  MAX_PIXEL_COORDINATE,
+  MAX_ZOOM_LEVEL,
+  maxCoordinate,
+  MIN_ZOOM_LEVEL,
+} from "../common/constants";
 import { GraphTheme } from "../common/graphTheme";
 import { GraphLayer } from "./GraphLayer";
 import { AxesLayer, GridLayer } from "./GridLayer";
@@ -78,50 +86,70 @@ export const GraphView = (
   const [canZoomIn, setCanZoomIn] = useState(false);
   const [canZoomOut, setCanZoomOut] = useState(false);
 
-  const loadViewFromStore = useCallback(() => {
+  const syncViewLimits = useCallback(() => {
     if (map === undefined) return;
-    const state = store.getState();
-    const { center: cc, zoomLevel: zz } = state;
-    const x = cc[0] * 2 ** -BASE_ZOOM_LEVEL;
-    const y = cc[1] * 2 ** -BASE_ZOOM_LEVEL;
-    const z = zz + BASE_ZOOM_LEVEL;
-    // Use `{ reset: true }` to set the view exactly.
-    map
-      .setMaxZoom(Infinity)
-      .setView([y, x], z, { reset: true } as ZoomPanOptions);
-  }, [map, store]);
+    const z = map.getZoom();
 
-  const updateMaxBounds = useCallback(() => {
-    if (map === undefined) return;
-    // To get map coordinates from pixel coordinates, multiply them by `2 ** -zoom`.
-    // If the view goes outside this range, Leaflet maps can get stuck.
-    const max = Number.MAX_SAFE_INTEGER * 2 ** -map.getZoom();
+    // To get map coordinates from real coordinates, multiply them by `2 ** -LEAFLET_Z_OFFSET`.
+    const max = maxCoordinate(z - LEAFLET_Z_OFFSET) * 2 ** -LEAFLET_Z_OFFSET;
     const min = -max;
     map.setMaxBounds([
       [min, min],
       [max, max],
     ]);
 
-    setCanZoomIn(map.getZoom() < map.getMaxZoom());
-    setCanZoomOut(map.getZoom() > map.getMinZoom());
-  }, [map]);
-
-  const updateMaxZoom = useCallback(() => {
-    if (map === undefined) return;
     const b = map.getBounds();
-    // To get pixel coordinates from map coordinates, multiply them by `2 ** zoom`.
+    // To get pixel coordinates from map coordinates, multiply them by `2 ** z`.
     const maxPixelCoord =
-      Math.max(-b.getWest(), b.getEast(), -b.getSouth(), b.getNorth()) *
-      2 ** map.getZoom();
-    // 52 = ⌊lg(Number.MAX_SAFE_INTEGER)⌋.
+      Math.max(-b.getWest(), b.getEast(), -b.getSouth(), b.getNorth()) * 2 ** z;
     const maxZoom =
-      map.getZoom() + Math.max(0, 52 - Math.ceil(Math.log2(maxPixelCoord)));
-    // Leaflet maps cannot be zoomed in to a level greater than 1023.
-    map.setMaxZoom(Math.min(maxZoom, 1023));
+      z +
+      Math.max(
+        0,
+        Math.log2(MAX_PIXEL_COORDINATE) - Math.ceil(Math.log2(maxPixelCoord)),
+      );
+    map.setMaxZoom(Math.min(maxZoom, MAX_ZOOM_LEVEL + LEAFLET_Z_OFFSET));
 
-    setCanZoomIn(map.getZoom() < map.getMaxZoom());
-    setCanZoomOut(map.getZoom() > map.getMinZoom());
+    setCanZoomIn(z < map.getMaxZoom());
+    setCanZoomOut(z > map.getMinZoom());
   }, [map]);
+
+  const saveViewToStore = useCallback(() => {
+    if (map === undefined) return;
+    const center = map.getCenter();
+    const x = center.lng;
+    const y = center.lat;
+    const z = map.getZoom();
+    store.dispatch(
+      setCenter([x * 2 ** LEAFLET_Z_OFFSET, y * 2 ** LEAFLET_Z_OFFSET]),
+    );
+    store.dispatch(setZoomLevel(z - LEAFLET_Z_OFFSET));
+  }, [map, store]);
+
+  const setViewExactly = useCallback(
+    (center: L.LatLngTuple, z: number) => {
+      if (map === undefined) return;
+      // Lift the limits for the current view, which would clamp the new one wrongly.
+      // Use `{ reset: true }` to set the view exactly.
+      map
+        .setMaxBounds()
+        .setMaxZoom(Infinity)
+        .setView(center, z, { reset: true } as ZoomPanOptions);
+      syncViewLimits();
+      saveViewToStore();
+    },
+    [map, saveViewToStore, syncViewLimits],
+  );
+
+  const loadViewFromStore = useCallback(() => {
+    const state = store.getState();
+    const zoomLevel = clamp(state.zoomLevel, MIN_ZOOM_LEVEL, MAX_ZOOM_LEVEL);
+    const max = maxCoordinate(zoomLevel);
+    const x = clamp(state.center[0], -max, max) * 2 ** -LEAFLET_Z_OFFSET;
+    const y = clamp(state.center[1], -max, max) * 2 ** -LEAFLET_Z_OFFSET;
+    const z = zoomLevel + LEAFLET_Z_OFFSET;
+    setViewExactly([y, x], z);
+  }, [setViewExactly, store]);
 
   const zoomIn = useCallback(
     (delta?: number) => {
@@ -140,12 +168,8 @@ export const GraphView = (
   );
 
   const home = useCallback(() => {
-    if (map === undefined) return;
-    // Use `{ reset: true }` to set the view exactly.
-    map
-      .setMaxZoom(Infinity)
-      .setView([0, 0], INITIAL_ZOOM_LEVEL, { reset: true } as ZoomPanOptions);
-  }, [map]);
+    setViewExactly([0, 0], INITIAL_ZOOM_LEVEL + LEAFLET_Z_OFFSET);
+  }, [setViewExactly]);
 
   useEffect(() => {
     if (map === undefined) return;
@@ -219,6 +243,7 @@ export const GraphView = (
       setMap(
         L.map("map", {
           attributionControl: false,
+          bounceAtZoomLimits: false,
           crs: L.CRS.Simple,
           fadeAnimation: false,
           inertia: false,
@@ -236,8 +261,6 @@ export const GraphView = (
 
     // We first need to set the view before calling `map.getCenter()`, `getZoom()`, etc.
     loadViewFromStore();
-    updateMaxBounds();
-    updateMaxZoom();
 
     map
       .on("keydown", (e) => {
@@ -246,10 +269,15 @@ export const GraphView = (
         }
       })
       .on("moveend", () => {
-        updateMaxZoom();
+        syncViewLimits();
         saveViewToStore();
       })
-      .on("zoom", updateMaxBounds)
+      .on("zoom", (e) => {
+        // During a pinch, the zoom is fractional, and the max zoom computed from it would be wrong.
+        if (!("pinch" in e)) {
+          syncViewLimits();
+        }
+      })
       .on("zoomend", saveViewToStore)
       .on("zoomstart", onZoomStart);
 
@@ -272,23 +300,11 @@ export const GraphView = (
       }
     }
 
-    function saveViewToStore() {
-      if (map === undefined) return;
-      const center = map.getCenter();
-      const x = center.lng;
-      const y = center.lat;
-      const z = map.getZoom();
-      store.dispatch(
-        setCenter([x * 2 ** BASE_ZOOM_LEVEL, y * 2 ** BASE_ZOOM_LEVEL]),
-      );
-      store.dispatch(setZoomLevel(z - BASE_ZOOM_LEVEL));
-    }
-
     return function cleanup() {
       resizeObserver.disconnect();
       map.remove();
     };
-  }, [home, loadViewFromStore, map, store, updateMaxBounds, updateMaxZoom]);
+  }, [home, loadViewFromStore, map, saveViewToStore, syncViewLimits]);
 
   return (
     <div

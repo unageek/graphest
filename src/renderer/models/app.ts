@@ -1,10 +1,6 @@
 import { createSlice, isAnyOf, PayloadAction } from "@reduxjs/toolkit";
 import { useSelector as _useSelector, TypedUseSelectorHook } from "react-redux";
-import {
-  BASE_ZOOM_LEVEL,
-  DEFAULT_PEN_COLOR,
-  INITIAL_ZOOM_LEVEL,
-} from "../../common/constants";
+import { DEFAULT_PEN_COLOR, INITIAL_ZOOM_LEVEL } from "../../common/constants";
 import { GraphData } from "../../common/document";
 import {
   ExportImageOptions,
@@ -78,7 +74,7 @@ const initialState: AppState = {
   showMajorGrid: true,
   showMinorGrid: true,
   theme: "light",
-  zoomLevel: INITIAL_ZOOM_LEVEL - BASE_ZOOM_LEVEL,
+  zoomLevel: INITIAL_ZOOM_LEVEL,
 };
 
 const slice = createSlice({

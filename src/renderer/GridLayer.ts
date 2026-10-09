@@ -1,7 +1,7 @@
 import * as L from "leaflet";
 import { BigNumber } from "../common/BigNumber";
 import { bignum } from "../common/BigNumberForGrid";
-import { BASE_ZOOM_LEVEL, GRAPH_TILE_SIZE } from "../common/constants";
+import { GRAPH_TILE_SIZE, LEAFLET_Z_OFFSET } from "../common/constants";
 import { GraphTheme, StubGraphTheme } from "../common/graphTheme";
 import {
   AxesRenderer,
@@ -100,7 +100,7 @@ export class AxesLayer extends L.GridLayer {
   }
 
   #drawTile(tile: HTMLCanvasElement, coords: L.Coords, tileRange: L.Bounds) {
-    const widthPerTilef = GRAPH_TILE_SIZE * 2 ** (BASE_ZOOM_LEVEL - coords.z);
+    const widthPerTilef = GRAPH_TILE_SIZE * 2 ** (LEAFLET_Z_OFFSET - coords.z);
     const [s0, s1] = sourcePoints(coords, widthPerTilef);
     const [d0, d1] = destinationPoints();
     const tx = getTransform([s0.x, s1.x], [d0.x, d1.x]);
@@ -257,7 +257,8 @@ export class GridLayer extends L.GridLayer {
     outer.appendChild(inner);
 
     setTimeout(() => {
-      const widthPerTilef = GRAPH_TILE_SIZE * 2 ** (BASE_ZOOM_LEVEL - coords.z);
+      const widthPerTilef =
+        GRAPH_TILE_SIZE * 2 ** (LEAFLET_Z_OFFSET - coords.z);
       const [s0, s1] = sourcePoints(coords, widthPerTilef);
       const [d0, d1] = destinationPoints();
       const tx = getTransform([s0.x, s1.x], [d0.x, d1.x]);
