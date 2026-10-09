@@ -19,8 +19,8 @@ import {
 import { DismissRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
 import {
-  FormEvent,
   ReactNode,
+  SubmitEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -143,7 +143,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
   );
 
   const submit = useCallback(
-    async (e: FormEvent) => {
+    async (e: SubmitEvent) => {
       e.preventDefault();
       if (errors.size > 0) return;
       setState(State.Processing);
@@ -284,7 +284,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
   }, [opts.antiAliasing]);
 
   const briefPath = useMemo(() => {
-    let pathParts = [];
+    let pathParts: string[];
     let separator = "/";
     if (/^([A-Z]:\\|\\\\)/.test(opts.path)) {
       pathParts = opts.path.split("\\");

@@ -11,7 +11,7 @@ import {
   Label,
 } from "@fluentui/react-components";
 import { debounce } from "lodash";
-import { FormEvent, ReactNode, useCallback, useMemo, useState } from "react";
+import { ReactNode, SubmitEvent, useCallback, useMemo, useState } from "react";
 import { BASE_ZOOM_LEVEL } from "../common/constants";
 import { tryParseIntegerInRange, tryParseNumber } from "../common/parse";
 
@@ -56,7 +56,7 @@ export const GoToDialog = (props: GoToDialogProps): ReactNode => {
   );
 
   const submit = useCallback(
-    (e: FormEvent) => {
+    (e: SubmitEvent) => {
       e.preventDefault();
       if (errors.size > 0) return;
       goTo(

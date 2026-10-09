@@ -42,12 +42,10 @@ const baseConfig = {
         );
     }
   })(),
-  experiments: {
-    outputModule: true,
-  },
   output: {
     path: path.resolve("dist"),
     filename: "[name].js",
+    module: true,
   },
 };
 
@@ -69,9 +67,10 @@ const preloadConfig = {
   module: {
     rules: [tsLoaderRule],
   },
-  // https://www.electronjs.org/docs/latest/tutorial/esm
-  experiments: {
-    outputModule: false,
+  output: {
+    ...baseConfig.output,
+    // https://www.electronjs.org/docs/latest/tutorial/esm
+    module: false,
   },
 };
 

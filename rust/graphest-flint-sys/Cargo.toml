@@ -8,7 +8,7 @@ license = "MIT"
 publish = false
 
 [dependencies.gmp-mpfr-sys]
-version = "1.6"
+version = "1.7"
 default-features = false
 features = ["mpfr"]
 

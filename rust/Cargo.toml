@@ -14,8 +14,8 @@ arb = ["graphest-flint-sys"]
 
 [dependencies]
 bitflags = "2.3"
-inari = "1.0"
-itertools = "0.11"
+inari = "2.0"
+itertools = "0.15"
 nom = "8.0"
 
 [dependencies.clap]
@@ -24,7 +24,7 @@ default-features = false
 features = ["error-context", "help", "std", "usage"]
 
 [dependencies.gmp-mpfr-sys]
-version = "1.6"
+version = "1.7"
 default-features = false
 features = ["mpfr"]
 
@@ -41,7 +41,7 @@ default-features = false
 features = ["png"]
 
 [dependencies.rug]
-version = "1.28"
+version = "1.30"
 default-features = false
 features = ["float", "integer", "rational"]
 

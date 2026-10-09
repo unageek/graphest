@@ -2,7 +2,7 @@ import {
   renderSwatchPickerGrid,
   SwatchPicker,
 } from "@fluentui/react-components";
-import Color from "color";
+import Color, { ColorInstance } from "color";
 import { ReactNode } from "react";
 
 export interface SwatchColorPickerProps {
@@ -36,7 +36,7 @@ export const SwatchColorPicker = (props: SwatchColorPickerProps): ReactNode => {
   );
 };
 
-const swatchColors: Color[] = [
+const swatchColors: ColorInstance[] = [
   "#750b1c",
   "#a4262c",
   "#d13438",

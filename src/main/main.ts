@@ -329,24 +329,22 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
     bignum(opts.yMax),
   ];
 
-  if (
-    !(
-      bounds.every((x) => x.isFinite()) &&
-      bounds[0].lt(bounds[1]) &&
-      bounds[2].lt(bounds[3]) &&
-      ANTI_ALIASING_OPTIONS.includes(opts.antiAliasing) &&
-      Number.isInteger(opts.height) &&
-      opts.height > 0 &&
-      opts.height <= MAX_EXPORT_IMAGE_SIZE &&
-      path &&
-      Number.isInteger(opts.timeout) &&
-      opts.timeout > 0 &&
-      opts.timeout <= MAX_EXPORT_TIMEOUT &&
-      Number.isInteger(opts.width) &&
-      opts.width > 0 &&
-      opts.width <= MAX_EXPORT_IMAGE_SIZE
-    )
-  ) {
+  if (!(
+    bounds.every((x) => x.isFinite()) &&
+    bounds[0].lt(bounds[1]) &&
+    bounds[2].lt(bounds[3]) &&
+    ANTI_ALIASING_OPTIONS.includes(opts.antiAliasing) &&
+    Number.isInteger(opts.height) &&
+    opts.height > 0 &&
+    opts.height <= MAX_EXPORT_IMAGE_SIZE &&
+    path &&
+    Number.isInteger(opts.timeout) &&
+    opts.timeout > 0 &&
+    opts.timeout <= MAX_EXPORT_TIMEOUT &&
+    Number.isInteger(opts.width) &&
+    opts.width > 0 &&
+    opts.width <= MAX_EXPORT_IMAGE_SIZE
+  )) {
     return;
   }
 
@@ -890,8 +888,8 @@ async function openFile(path: string) {
   }
 }
 
-function openFromClipboard() {
-  openUrl(clipboard.readText());
+async function openFromClipboard() {
+  openUrl(await clipboard.readText());
 }
 
 function openUrl(url: string) {
@@ -941,7 +939,7 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
   const data = serialize(doc);
 
   if (to === SaveTo.Clipboard) {
-    clipboard.writeText(URL_PREFIX + toBase64Url(data));
+    await clipboard.writeText(URL_PREFIX + toBase64Url(data));
     return true;
   }
 
