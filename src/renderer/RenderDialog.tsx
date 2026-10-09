@@ -87,8 +87,11 @@ const useStyles = makeStyles({
   },
 });
 
-const validateRange = (min: BigNumber, max: BigNumber): string | undefined => {
-  if (!min.lt(max)) {
+const validateRange = (
+  min: BigNumber | undefined,
+  max: BigNumber | undefined,
+): string | undefined => {
+  if (min === undefined || max === undefined || !min.lt(max)) {
     return "Invalid range.";
   }
 };
@@ -195,7 +198,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
       debounce((value: string) => {
         const result = tryParseBignum(value);
         if (result.ok !== undefined) {
-          const rangeError = validateRange(bignum(xMin), result.ok);
+          const rangeError = validateRange(tryParseBignum(xMin).ok, result.ok);
           if (!rangeError) {
             setOpts({ ...opts, xMax: value, xMin });
           }
@@ -215,7 +218,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
       debounce((value: string) => {
         const result = tryParseBignum(value);
         if (result.ok !== undefined) {
-          const rangeError = validateRange(result.ok, bignum(xMax));
+          const rangeError = validateRange(result.ok, tryParseBignum(xMax).ok);
           if (!rangeError) {
             setOpts({ ...opts, xMax, xMin: value });
           }
@@ -235,7 +238,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
       debounce((value: string) => {
         const result = tryParseBignum(value);
         if (result.ok !== undefined) {
-          const rangeError = validateRange(bignum(yMin), result.ok);
+          const rangeError = validateRange(tryParseBignum(yMin).ok, result.ok);
           if (!rangeError) {
             setOpts({ ...opts, yMax: value, yMin });
           }
@@ -255,7 +258,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
       debounce((value: string) => {
         const result = tryParseBignum(value);
         if (result.ok !== undefined) {
-          const rangeError = validateRange(result.ok, bignum(yMax));
+          const rangeError = validateRange(result.ok, tryParseBignum(yMax).ok);
           if (!rangeError) {
             setOpts({ ...opts, yMax, yMin: value });
           }

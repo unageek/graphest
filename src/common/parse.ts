@@ -1,13 +1,16 @@
 import { bignum, BigNumber } from "./BigNumber";
 import { err, ok, Result } from "./result";
 
+const NUMBER_PATTERN = /^\s*[+-]?(\d+(\.\d*)?|\.\d+)([Ee][+-]?\d+)?\s*$/;
+
 export const tryParseBignum = (value: string): Result<BigNumber, string> => {
-  const val = bignum(value);
-  if (val.isFinite()) {
-    return ok(val);
-  } else {
-    return err("Value must be a number.");
+  if (NUMBER_PATTERN.test(value)) {
+    const val = bignum(value);
+    if (val.isFinite()) {
+      return ok(val);
+    }
   }
+  return err("Value must be a number.");
 };
 
 export const tryParseInteger = (value: string): Result<number, string> => {
@@ -34,10 +37,7 @@ export const tryParseIntegerInRange = (
 
 export const tryParseNumber = (value: string): Result<number, string> => {
   const val = Number(value);
-  if (
-    /^\s*[+-]?(\d+(\.\d*)?|\.\d+)([Ee][+-]?\d+)?\s*$/.test(value) &&
-    Number.isFinite(val)
-  ) {
+  if (NUMBER_PATTERN.test(value) && Number.isFinite(val)) {
     return ok(val);
   } else {
     return err(`Value must be a number.`);

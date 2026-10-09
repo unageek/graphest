@@ -44,6 +44,7 @@ import {
 } from "../common/exportImage";
 import * as ipc from "../common/ipc";
 import { SaveTo } from "../common/ipc";
+import { tryParseBignum } from "../common/parse";
 import { Range } from "../common/range";
 import * as result from "../common/result";
 import { fromBase64Url, toBase64Url } from "./base64Url";
@@ -322,15 +323,12 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
     await fsPromises.mkdir(outDir);
   }
 
-  const bounds = [
-    bignum(opts.xMin),
-    bignum(opts.xMax),
-    bignum(opts.yMin),
-    bignum(opts.yMax),
-  ];
+  const bounds = [opts.xMin, opts.xMax, opts.yMin, opts.yMax].map(
+    (x) => tryParseBignum(x).ok,
+  );
 
   if (!(
-    bounds.every((x) => x.isFinite()) &&
+    bounds.every((x) => x !== undefined) &&
     bounds[0].lt(bounds[1]) &&
     bounds[2].lt(bounds[3]) &&
     ANTI_ALIASING_OPTIONS.includes(opts.antiAliasing) &&
