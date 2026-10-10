@@ -71,7 +71,10 @@ fn build_flint(env: &Environment) {
         Command::new("sh")
             .current_dir(&build_dir)
             .arg("-c")
-            .arg("./bootstrap.sh"),
+            .arg("./bootstrap.sh")
+            // MSYS2 passes the variable to native programs, such as Node.js, as Windows paths,
+            // which aclocal cannot read.
+            .envs(env::var("ACLOCAL_PATH").map(|paths| ("ACLOCAL_PATH", to_unix_paths(&paths)))),
     );
     execute_or_panic(
         Command::new("sh")
@@ -264,6 +267,15 @@ fn to_unix_path(path: &Path) -> String {
         String::from_utf8_lossy(&output.stdout).trim().to_owned()
     } else {
         s.to_owned()
+    }
+}
+
+fn to_unix_paths(paths: &str) -> String {
+    if cfg!(windows) {
+        let output = execute_or_panic(Command::new("cygpath").arg("-p").arg(paths));
+        String::from_utf8_lossy(&output.stdout).trim().to_owned()
+    } else {
+        paths.to_owned()
     }
 }
 

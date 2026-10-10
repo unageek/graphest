@@ -85,7 +85,7 @@ export const GraphBar = (props: GraphBarProps): ReactNode => {
   );
 
   return (
-    <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
+    <Toolbar>
       <ToolbarButton
         {...dragHandleProps}
         {...dragHandleTabsterAttributes}

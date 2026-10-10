@@ -27,3 +27,4 @@ const safeIpcRenderer: ipc.IpcRenderer = {
 };
 
 contextBridge.exposeInMainWorld("ipcRenderer", safeIpcRenderer);
+contextBridge.exposeInMainWorld("platform", process.platform);

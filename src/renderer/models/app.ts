@@ -36,6 +36,7 @@ export interface AppState {
   showMajorGrid: boolean;
   showMinorGrid: boolean;
   theme: ThemeName;
+  title: string;
   zoomLevel: number;
 }
 
@@ -74,6 +75,7 @@ const initialState: AppState = {
   showMajorGrid: true,
   showMinorGrid: true,
   theme: "light",
+  title: "",
   zoomLevel: INITIAL_ZOOM_LEVEL,
 };
 
@@ -308,6 +310,13 @@ const slice = createSlice({
         theme: a.payload.theme,
       }),
     },
+    setTitle: {
+      prepare: (title: string) => ({ payload: { title } }),
+      reducer: (s, a: PayloadAction<{ title: string }>) => ({
+        ...s,
+        title: a.payload.title,
+      }),
+    },
     setZoomLevel: {
       prepare: (zoom: number) => ({ payload: { zoom } }),
       reducer: (s, a: PayloadAction<{ zoom: number }>) => {
@@ -374,6 +383,7 @@ export const {
   setShowMajorGrid,
   setShowMinorGrid,
   setTheme,
+  setTitle,
   setZoomLevel,
 } = slice.actions;
 

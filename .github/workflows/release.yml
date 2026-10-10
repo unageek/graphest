@@ -22,11 +22,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
       - name: Set up MSYS2
         uses: msys2/setup-msys2@v2
         with:
           update: true
           msystem: mingw64
+          path-type: inherit
           install: >-
             diffutils
             git
@@ -35,9 +40,7 @@ jobs:
             mingw-w64-x86_64-autotools
             mingw-w64-x86_64-clang
             mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-nodejs
             mingw-w64-x86_64-rustup
-            mingw-w64-x86_64-yarn
 
       - name: Select Rust toolchain
         run: rustup set default-host x86_64-pc-windows-gnu
@@ -49,4 +52,3 @@ jobs:
         run: yarn release:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MSYS2_ENV_CONV_EXCL: ACLOCAL_PATH
