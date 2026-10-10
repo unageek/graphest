@@ -38,10 +38,7 @@ import {
   setZoomLevel,
   useSelector,
 } from "./models/app";
-
-export interface GraphViewProps {
-  grow?: boolean;
-}
+import { translucentBackground } from "./styles";
 
 // Make sure that when the window size is odd, such as (599, 799),
 // the initial position is exactly (0, 0), and
@@ -61,9 +58,29 @@ L.Map.include({
   },
 });
 
-export const GraphView = (
-  props: GraphViewProps & ComponentProps<"div">,
-): ReactNode => {
+// The map is placed below the bars, so that its center is the center of the interactive area,
+// but it is also visible under the bars.
+
+const { _getTiledPixelBounds } = L.GridLayer.prototype as unknown as {
+  _getTiledPixelBounds(center: L.LatLng): L.Bounds;
+};
+
+L.GridLayer.include({
+  // Also loads the tiles above the map.
+  _getTiledPixelBounds: function (center: L.LatLng) {
+    const bounds = _getTiledPixelBounds.call(this, center);
+    const map: L.Map = this._map;
+    // The size of a pixel of the map in the pixel coordinates of the tiles.
+    const scale = bounds.getSize().x / map.getSize().x;
+    const top = map.getContainer().offsetTop * scale;
+    return new L.Bounds(
+      bounds.getTopLeft().subtract([0, top]),
+      bounds.getBottomRight(),
+    );
+  },
+});
+
+export const GraphView = (props: ComponentProps<"div">): ReactNode => {
   const graphBackground = useSelector((s) => s.graphBackground);
   const graphForeground = useSelector((s) => s.graphForeground);
   const graphs = useSelector((s) => s.graphs);
@@ -93,15 +110,18 @@ export const GraphView = (
     // To get map coordinates from real coordinates, multiply them by `2 ** -LEAFLET_Z_OFFSET`.
     const max = maxCoordinate(z - LEAFLET_Z_OFFSET) * 2 ** -LEAFLET_Z_OFFSET;
     const min = -max;
+    // The height of the area above the map, which is also visible, in map coordinates.
+    const top = map.getContainer().offsetTop * 2 ** -z;
     map.setMaxBounds([
       [min, min],
-      [max, max],
+      [max - top, max],
     ]);
 
     const b = map.getBounds();
     // To get pixel coordinates from map coordinates, multiply them by `2 ** z`.
     const maxPixelCoord =
-      Math.max(-b.getWest(), b.getEast(), -b.getSouth(), b.getNorth()) * 2 ** z;
+      Math.max(-b.getWest(), b.getEast(), -b.getSouth(), b.getNorth() + top) *
+      2 ** z;
     const maxZoom =
       z +
       Math.max(
@@ -309,8 +329,13 @@ export const GraphView = (
   return (
     <div
       style={{
-        display: "flex",
-        flexGrow: props.grow ? 1 : undefined,
+        background: graphBackground,
+        display: "grid",
+        gridColumn: 1,
+        // Spans the rows of the parent, so that the map in the last row is below the bars in the other rows.
+        gridRow: "1 / -1",
+        gridTemplateRows: "subgrid",
+        overflow: "hidden",
         position: "relative",
       }}
     >
@@ -343,7 +368,9 @@ export const GraphView = (
         ref={props.ref}
         style={{
           background: graphBackground,
-          flexGrow: 1,
+          gridColumn: 1,
+          gridRow: -2,
+          overflow: "visible",
         }}
       />
     </div>
@@ -364,28 +391,25 @@ const useStyles = makeStyles({
     },
   },
   bar: {
+    alignSelf: "start",
     display: "flex",
     flexDirection: "column",
     gap: tokens.spacingVerticalM,
-    left: tokens.spacingVerticalM,
-    position: "absolute",
-    top: tokens.spacingVerticalM,
+    gridColumn: 1,
+    gridRow: -2,
+    justifySelf: "start",
+    margin: tokens.spacingVerticalM,
+    position: "relative",
     zIndex: 1000,
   },
   buttonContainer: {
+    ...translucentBackground,
     borderRadius: tokens.borderRadiusMedium,
     boxShadow: tokens.shadow4,
-    opacity: 0.8,
-    "&:hover": {
-      opacity: 1,
-    },
-    "&:focus-within": {
-      opacity: 1,
-    },
   },
   button: {
     alignItems: "center",
-    background: tokens.colorNeutralBackground1,
+    background: "transparent",
     border: "none",
     color: tokens.colorNeutralForeground1,
     cursor: "pointer",
@@ -404,15 +428,14 @@ const useStyles = makeStyles({
       borderBottomRightRadius: tokens.borderRadiusMedium,
     },
     "&:hover:not(:disabled)": {
-      background: tokens.colorNeutralBackground1Hover,
+      background: tokens.colorSubtleBackgroundHover,
       color: tokens.colorNeutralForeground1Hover,
     },
     "&:active:not(:disabled)": {
-      background: tokens.colorNeutralBackground1Pressed,
+      background: tokens.colorSubtleBackgroundPressed,
       color: tokens.colorNeutralForeground1Pressed,
     },
     "&:disabled": {
-      background: tokens.colorNeutralBackgroundDisabled,
       color: tokens.colorNeutralForegroundDisabled,
       cursor: "default",
     },

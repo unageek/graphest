@@ -1,4 +1,4 @@
-import { IpcMainInvokeEvent, IpcRendererEvent } from "electron";
+import { IpcMainInvokeEvent, IpcRendererEvent, MenuItem } from "electron";
 import { Command } from "./command";
 import { Document } from "./document";
 import {
@@ -15,6 +15,17 @@ export interface RelationError {
 }
 
 export type RequestRelationResult = Result<string, RelationError>;
+
+/** A snapshot of an item of the application menu. */
+export interface MenuItemData {
+  accelerator?: string;
+  checked: boolean;
+  enabled: boolean;
+  label: string;
+  submenu?: MenuItemData[];
+  type: MenuItem["type"];
+  visible: boolean;
+}
 
 export enum SaveTo {
   Clipboard = "clipboard",
@@ -42,6 +53,14 @@ export interface AbortGraphing extends MessageToMain {
   result: void;
 }
 
+export const clickMainMenuItem = "click-main-menu-item";
+export interface ClickMainMenuItem extends MessageToMain {
+  channel: typeof clickMainMenuItem;
+  /** The indices of the item and its ancestors in their menus. */
+  args: [path: number[]];
+  result: void;
+}
+
 export const exportImage = "export-image";
 export interface ExportImage extends MessageToMain {
   channel: typeof exportImage;
@@ -54,6 +73,13 @@ export interface GetDefaultExportImagePath extends MessageToMain {
   channel: typeof getDefaultExportImagePath;
   args: [];
   result: string;
+}
+
+export const getMainMenu = "get-main-menu";
+export interface GetMainMenu extends MessageToMain {
+  channel: typeof getMainMenu;
+  args: [];
+  result: MenuItemData[];
 }
 
 export const openUrl = "open-url";
@@ -150,6 +176,12 @@ export const tileReady = "tile-ready";
 export interface TileReady extends MessageToRenderer {
   channel: typeof tileReady;
   args: [relId: string, tileId: string, url: string];
+}
+
+export const titleChanged = "title-changed";
+export interface TitleChanged extends MessageToRenderer {
+  channel: typeof titleChanged;
+  args: [title: string];
 }
 
 export type MainListener<T extends MessageToMain> = (

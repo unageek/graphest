@@ -4,6 +4,8 @@ import {
   clipboard,
   dialog,
   Menu,
+  MenuItem,
+  nativeTheme,
   shell,
   ipcMain as untypedIpcMain,
 } from "electron";
@@ -174,6 +176,11 @@ function createMainWindow() {
     height: 800,
     minHeight: 300,
     minWidth: 300,
+    // `titleBarOverlay` exposes the title bar area to CSS as `env(titlebar-area-*)`,
+    // and on Windows and Linux, makes Electron draw the window buttons with the given colors.
+    titleBarOverlay:
+      process.platform === "darwin" ? true : getTitleBarOverlay(),
+    titleBarStyle: "hidden",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       spellcheck: false,
@@ -189,8 +196,21 @@ function createMainWindow() {
     })
     .on("closed", () => {
       mainWindow = undefined;
+    })
+    .on("enter-full-screen", () => {
+      // macOS can activate another app (e.g., Finder) on entering full screen,
+      // which prevents the menu bar from being revealed by hovering.
+      if (process.platform === "darwin") {
+        app.focus({ steal: true });
+      }
     });
   mainWindow.loadFile(path.join(__dirname, "index.html"));
+
+  if (process.platform !== "darwin") {
+    nativeTheme.on("updated", () => {
+      mainWindow?.setTitleBarOverlay(getTitleBarOverlay());
+    });
+  }
 }
 
 function resetBrowserZoom() {
@@ -216,6 +236,11 @@ if (process.defaultApp) {
   }
 } else {
   app.setAsDefaultProtocolClient("graphest");
+}
+
+if (process.platform === "linux") {
+  // Keep the menu out of the global menu bar of the desktop, as the renderer shows it in the title bar.
+  process.env.ELECTRON_FORCE_WINDOW_MENU_BAR = "1";
 }
 
 app.whenReady().then(async () => {
@@ -311,6 +336,21 @@ ipcMain.handle<ipc.AbortGraphing>(
     abortJobs(
       (j) => j.relId === relId && (tileId === undefined || j.tileId === tileId),
     );
+  },
+);
+
+ipcMain.handle<ipc.ClickMainMenuItem>(
+  ipc.clickMainMenuItem,
+  async (_, path) => {
+    let menu = mainMenu;
+    let item: MenuItem | undefined;
+    for (const index of path) {
+      item = menu?.items[index];
+      menu = item?.submenu;
+    }
+    if (item && mainWindow) {
+      item.click(undefined, mainWindow, mainWindow.webContents);
+    }
   },
 );
 
@@ -565,6 +605,10 @@ ipcMain.handle<ipc.GetDefaultExportImagePath>(
   },
 );
 
+ipcMain.handle<ipc.GetMainMenu>(ipc.getMainMenu, async () => {
+  return mainMenu ? serializeMenu(mainMenu) : [];
+});
+
 ipcMain.handle<ipc.Ready>(ipc.ready, async () => {
   postStartup?.();
   postStartup = undefined;
@@ -799,6 +843,14 @@ function getFilenameForDisplay(thePath?: string): string {
   }
 }
 
+function getTitleBarOverlay(): Electron.TitleBarOverlay {
+  return {
+    color: "#00000000",
+    // Fluent UI's `colorNeutralForeground1`.
+    symbolColor: nativeTheme.shouldUseDarkColors ? "#ffffff" : "#242424",
+  };
+}
+
 function newDocument() {
   openUrl(
     "graphest://eyJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicmVsYXRpb24iOiIiLCJ0aGlja25lc3MiOjF9XSwidmVyc2lvbiI6MX0=",
@@ -874,7 +926,7 @@ async function openFile(path: string) {
     documentIsOpen = true;
     lastSavedDoc = doc;
     mainWindow.setRepresentedFilename(path);
-    mainWindow.setTitle(getCurrentFilenameForDisplay());
+    updateTitle();
     mainWindow.webContents.send<ipc.Load>(ipc.load, doc);
   } catch (e) {
     console.log("open failed", e);
@@ -911,7 +963,7 @@ function openUrl(url: string) {
       documentIsOpen = true;
       lastSavedDoc = doc;
       mainWindow.setRepresentedFilename("");
-      mainWindow.setTitle(getCurrentFilenameForDisplay());
+      updateTitle();
       mainWindow.webContents.send<ipc.Load>(ipc.load, doc);
     } catch (e) {
       console.log("open failed", e);
@@ -961,7 +1013,7 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
     currentPath = path;
     lastSavedDoc = doc;
     mainWindow.setRepresentedFilename(path);
-    mainWindow.setTitle(getCurrentFilenameForDisplay());
+    updateTitle();
     return true;
   } catch (e) {
     console.log("save failed", e);
@@ -975,6 +1027,18 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
     });
     return false;
   }
+}
+
+function serializeMenu(menu: Menu): ipc.MenuItemData[] {
+  return menu.items.map((item) => ({
+    accelerator: item.accelerator ?? undefined,
+    checked: item.checked,
+    enabled: item.enabled,
+    label: item.label,
+    submenu: item.submenu && serializeMenu(item.submenu),
+    type: item.type,
+    visible: item.visible,
+  }));
 }
 
 async function unload(doc: Document) {
@@ -1066,4 +1130,10 @@ function updateQueue() {
       checkAndNotifyGraphingStatusChanged(job.relId);
     }
   }
+}
+
+function updateTitle() {
+  const title = getCurrentFilenameForDisplay();
+  mainWindow?.setTitle(title);
+  mainWindow?.webContents.send<ipc.TitleChanged>(ipc.titleChanged, title);
 }

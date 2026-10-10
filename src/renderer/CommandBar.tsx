@@ -1,4 +1,4 @@
-import { tokens, Toolbar, ToolbarButton } from "@fluentui/react-components";
+import { Toolbar, ToolbarButton } from "@fluentui/react-components";
 import {
   AddRegular,
   ArrowForwardRegular,
@@ -18,7 +18,7 @@ export const CommandBar = (): ReactNode => {
   const dispatch = useDispatch();
 
   return (
-    <Toolbar style={{ background: tokens.colorNeutralBackground1 }}>
+    <Toolbar>
       <ToolbarButton icon={<AddRegular />} onClick={() => dispatch(newGraph())}>
         Add Relation
       </ToolbarButton>

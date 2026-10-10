@@ -39,12 +39,15 @@ import {
   setShowMajorGrid,
   setShowMinorGrid,
   setTheme,
+  setTitle,
   setZoomLevel,
   useSelector,
 } from "./models/app";
 import { setGraphRelation } from "./models/graph";
 import { store } from "./models/store";
 import { RenderDialog } from "./RenderDialog";
+import { translucentBackground } from "./styles";
+import { TitleBar } from "./TitleBar";
 
 const abortExportImage = async () => {
   await window.ipcRenderer.invoke<ipc.AbortExportImage>(ipc.abortExportImage);
@@ -172,20 +175,40 @@ const App = () => {
       style={{ height: "100%" }}
       theme={appTheme === "light" ? webLightTheme : webDarkTheme}
     >
-      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr)",
+          gridTemplateRows: "auto minmax(0, 1fr)",
+          height: "100%",
+        }}
+      >
         <div
           style={{
             boxShadow: tokens.shadow4,
+            gridColumn: 1,
+            gridRow: 1,
+            position: "relative",
             zIndex: 2000, // To show on top of the <GraphView>.
           }}
         >
+          {/* A backdrop filter on the parent would confine the dragged bar's backdrop to it. */}
+          <div
+            style={{
+              ...translucentBackground,
+              inset: 0,
+              position: "absolute",
+              zIndex: -1,
+            }}
+          />
+          <TitleBar />
           <GraphBars
             focusGraphView={focusGraphView}
             requestRelation={requestRelationInner}
           />
           <CommandBar />
         </div>
-        <GraphView grow ref={graphViewRef} />
+        <GraphView ref={graphViewRef} />
       </div>
       {showColorsDialog && (
         <ColorsDialog dismiss={() => dispatch(setShowColorsDialog(false))} />
@@ -287,6 +310,10 @@ window.ipcRenderer.on<ipc.Load>(ipc.load, (_, state) => {
   for (const g of state.graphs) {
     store.dispatch(addGraph(g));
   }
+});
+
+window.ipcRenderer.on<ipc.TitleChanged>(ipc.titleChanged, (_, title) => {
+  store.dispatch(setTitle(title));
 });
 
 window.ipcRenderer.invoke<ipc.Ready>(ipc.ready);
