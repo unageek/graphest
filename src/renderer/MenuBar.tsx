@@ -419,6 +419,8 @@ const Label = ({
 const useStyles = makeStyles({
   root: {
     display: "flex",
+    // Same as the space above the buttons.
+    paddingLeft: "4px",
   },
   button: {
     WebkitAppRegion: "no-drag",

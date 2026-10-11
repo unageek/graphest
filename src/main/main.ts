@@ -846,6 +846,8 @@ function getFilenameForDisplay(thePath?: string): string {
 function getTitleBarOverlay(): Electron.TitleBarOverlay {
   return {
     color: "#00000000",
+    // Same as the title bar on macOS.
+    height: 32,
     // Fluent UI's `colorNeutralForeground1`.
     symbolColor: nativeTheme.shouldUseDarkColors ? "#ffffff" : "#242424",
   };
