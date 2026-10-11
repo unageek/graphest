@@ -1,6 +1,11 @@
-import { Theme, tokens } from "@fluentui/react-components";
+import {
+  Theme,
+  tokens,
+  webDarkTheme,
+  webLightTheme,
+} from "@fluentui/react-components";
 import Color from "color";
-import { CSSProperties } from "react";
+import { CSSProperties, useSyncExternalStore } from "react";
 
 const opacity = 0.9;
 
@@ -42,3 +47,15 @@ const tint = (background: string, color: string) => {
     .alpha(alpha)
     .string();
 };
+
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+const subscribeToDarkQuery = (onChange: () => void) => {
+  darkQuery.addEventListener("change", onChange);
+  return () => darkQuery.removeEventListener("change", onChange);
+};
+
+export const useSystemTheme = (): Theme =>
+  useSyncExternalStore(subscribeToDarkQuery, () => darkQuery.matches)
+    ? webDarkTheme
+    : webLightTheme;

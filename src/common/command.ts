@@ -7,6 +7,7 @@ export enum Command {
   Save = "save",
   SaveAs = "save-as",
   SaveToClipboard = "save-to-clipboard",
+  Settings = "settings",
   ShowAxes = "show-axes",
   ShowMajorGrid = "show-major-grid",
   ShowMinorGrid = "show-minor-grid",

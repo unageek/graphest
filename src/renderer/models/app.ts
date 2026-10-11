@@ -15,8 +15,6 @@ import {
   setGraphThickness,
 } from "./graph";
 
-export type ThemeName = "dark" | "light";
-
 export interface AppState {
   center: [number, number];
   exportImageProgress: ExportImageProgress;
@@ -35,7 +33,6 @@ export interface AppState {
   showGoToDialog: boolean;
   showMajorGrid: boolean;
   showMinorGrid: boolean;
-  theme: ThemeName;
   title: string;
   zoomLevel: number;
 }
@@ -74,7 +71,6 @@ const initialState: AppState = {
   showGoToDialog: false,
   showMajorGrid: true,
   showMinorGrid: true,
-  theme: "light",
   title: "",
   zoomLevel: INITIAL_ZOOM_LEVEL,
 };
@@ -303,13 +299,6 @@ const slice = createSlice({
         showMinorGrid: a.payload.show,
       }),
     },
-    setTheme: {
-      prepare: (theme: ThemeName) => ({ payload: { theme } }),
-      reducer: (s, a: PayloadAction<{ theme: ThemeName }>) => ({
-        ...s,
-        theme: a.payload.theme,
-      }),
-    },
     setTitle: {
       prepare: (title: string) => ({ payload: { title } }),
       reducer: (s, a: PayloadAction<{ title: string }>) => ({
@@ -382,7 +371,6 @@ export const {
   setShowGoToDialog,
   setShowMajorGrid,
   setShowMinorGrid,
-  setTheme,
   setTitle,
   setZoomLevel,
 } = slice.actions;

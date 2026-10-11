@@ -1,9 +1,4 @@
-import {
-  FluentProvider,
-  tokens,
-  webDarkTheme,
-  webLightTheme,
-} from "@fluentui/react-components";
+import { FluentProvider, tokens } from "@fluentui/react-components";
 import "@fontsource/noto-sans/400.css";
 import Color from "color";
 import { StrictMode, useCallback, useEffect, useRef } from "react";
@@ -38,7 +33,6 @@ import {
   setShowGoToDialog,
   setShowMajorGrid,
   setShowMinorGrid,
-  setTheme,
   setTitle,
   setZoomLevel,
   useSelector,
@@ -46,7 +40,11 @@ import {
 import { setGraphRelation } from "./models/graph";
 import { store } from "./models/store";
 import { RenderDialog } from "./RenderDialog";
-import { translucentBackground, translucentSubtleStates } from "./styles";
+import {
+  translucentBackground,
+  translucentSubtleStates,
+  useSystemTheme,
+} from "./styles";
 import { TitleBar } from "./TitleBar";
 
 const abortExportImage = async () => {
@@ -121,7 +119,7 @@ const showSaveDialog = async (path: string): Promise<string | undefined> => {
   );
 };
 
-const App = () => {
+const MainWindow = () => {
   const dispatch = useDispatch();
   const center = useSelector((s) => s.center);
   const exportImageOpts = useSelector((s) => s.lastExportImageOpts);
@@ -130,7 +128,7 @@ const App = () => {
   const showColorsDialog = useSelector((s) => s.showColorsDialog);
   const showExportImageDialog = useSelector((s) => s.showExportImageDialog);
   const showGoToDialog = useSelector((s) => s.showGoToDialog);
-  const appTheme = useSelector((s) => s.theme);
+  const theme = useSystemTheme();
   const zoomLevel = useSelector((s) => s.zoomLevel);
 
   const focusGraphView = useCallback(() => {
@@ -169,8 +167,6 @@ const App = () => {
       }
     })();
   }, [highRes]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const theme = appTheme === "light" ? webLightTheme : webDarkTheme;
 
   return (
     <FluentProvider style={{ height: "100%" }} theme={theme}>
@@ -244,7 +240,7 @@ const App = () => {
 createRoot(document.getElementById("app") as HTMLElement).render(
   <StrictMode>
     <Provider store={store}>
-      <App />
+      <MainWindow />
     </Provider>
   </StrictMode>,
 );
@@ -317,11 +313,3 @@ window.ipcRenderer.on<ipc.TitleChanged>(ipc.titleChanged, (_, title) => {
 });
 
 window.ipcRenderer.invoke<ipc.Ready>(ipc.ready);
-
-const colorThemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-store.dispatch(setTheme(colorThemeQuery.matches ? "dark" : "light"));
-
-colorThemeQuery.addEventListener("change", (e) => {
-  store.dispatch(setTheme(e.matches ? "dark" : "light"));
-});

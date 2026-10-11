@@ -50,6 +50,7 @@ import { SaveTo } from "../common/ipc";
 import { tryParseBignum } from "../common/parse";
 import { Range } from "../common/range";
 import * as result from "../common/result";
+import { Settings, settingsSchema } from "../common/settings";
 import { fromBase64Url, toBase64Url } from "./base64Url";
 import { createMainMenu } from "./mainMenu";
 import { deserialize, serialize } from "./serialize";
@@ -90,12 +91,6 @@ interface BrowserWindowWithTypedWebContents extends Electron.BrowserWindow {
 // *1. graph(1) pauses execution right after initialization and every after it finishes
 //     writing to the output image.
 // *2. graph(1) resumes execution when it receives a newline character from stdin.
-
-/** The maximum number of running (both active and sleeping) jobs. */
-const MAX_JOBS = 32;
-
-/** The maximum number of active jobs. */
-const MAX_ACTIVE_JOBS = 4;
 
 /** The maximum amount of memory in MiB that each running job can use. */
 const JOB_MEM_LIMIT = 64;
@@ -170,6 +165,8 @@ let postStartup: (() => void | Promise<void>) | undefined = () =>
 let postUnload: (() => void | Promise<void>) | undefined;
 const relationById = new Map<string, Relation>();
 const relKeyToRelId = new Map<string, string>();
+let settings: Settings = loadSettings();
+let settingsWindow: BrowserWindow | undefined;
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -196,6 +193,9 @@ function createMainWindow() {
     })
     .on("closed", () => {
       mainWindow = undefined;
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.close();
+      }
     })
     .on("enter-full-screen", () => {
       // macOS can activate another app (e.g., Finder) on entering full screen,
@@ -211,6 +211,33 @@ function createMainWindow() {
       mainWindow?.setTitleBarOverlay(getTitleBarOverlay());
     });
   }
+}
+
+function createSettingsWindow() {
+  settingsWindow = new BrowserWindow({
+    fullscreenable: false,
+    height: 150,
+    maximizable: false,
+    minimizable: false,
+    // On macOS, settings windows are independent of document windows.
+    parent: process.platform === "darwin" ? undefined : mainWindow,
+    resizable: false,
+    show: false,
+    useContentSize: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      spellcheck: false,
+    },
+    width: 320,
+  })
+    .on("closed", () => {
+      settingsWindow = undefined;
+    })
+    .once("ready-to-show", () => {
+      settingsWindow?.show();
+    });
+  settingsWindow.removeMenu();
+  settingsWindow.loadFile(path.join(__dirname, "settings.html"));
 }
 
 function resetBrowserZoom() {
@@ -275,6 +302,7 @@ app.whenReady().then(async () => {
         SaveTo.Clipboard,
       );
     },
+    [Command.Settings]: () => showSettingsWindow(),
     [Command.ShowAxes]: () => {
       mainWindow?.webContents.send<ipc.CommandInvoked>(
         ipc.commandInvoked,
@@ -609,6 +637,14 @@ ipcMain.handle<ipc.GetMainMenu>(ipc.getMainMenu, async () => {
   return mainMenu ? serializeMenu(mainMenu) : [];
 });
 
+ipcMain.handle<ipc.GetSettings>(ipc.getSettings, async () => {
+  return settings;
+});
+
+ipcMain.handle<ipc.GetSystemInformation>(ipc.getSystemInformation, async () => {
+  return getSystemInformation();
+});
+
 ipcMain.handle<ipc.Ready>(ipc.ready, async () => {
   postStartup?.();
   postStartup = undefined;
@@ -759,6 +795,12 @@ ipcMain.handle<ipc.RequestUnload>(ipc.requestUnload, async (_, doc) => {
   unload(doc);
 });
 
+ipcMain.handle<ipc.SetSettings>(ipc.setSettings, async (_, newSettings) => {
+  settings = normalizeSettings(newSettings);
+  saveSettings();
+  updateQueue();
+});
+
 ipcMain.handle<ipc.ShowSaveDialog>(ipc.showSaveDialog, async (_, path) => {
   if (!mainWindow) return undefined;
   const result = await dialog.showSaveDialog(mainWindow, {
@@ -816,7 +858,7 @@ function defaultSavePath(): string {
 }
 
 function deprioritize(job: Job) {
-  if (activeJobs.length <= MAX_ACTIVE_JOBS && sleepingJobs.length === 0) {
+  if (activeJobs.length <= getMaxActiveJobs() && sleepingJobs.length === 0) {
     job.proc?.stdin?.write("\n");
     return;
   }
@@ -843,6 +885,27 @@ function getFilenameForDisplay(thePath?: string): string {
   }
 }
 
+/** Returns the maximum number of active jobs. */
+function getMaxActiveJobs(): number {
+  return settings.cpuLimit;
+}
+
+/** Returns the maximum number of running (both active and sleeping) jobs. */
+function getMaxJobs(): number {
+  return (settings.memoryLimit * 1024) / JOB_MEM_LIMIT;
+}
+
+function getSettingsFile(): string {
+  return path.join(app.getPath("userData"), "settings.json");
+}
+
+function getSystemInformation(): ipc.SystemInformation {
+  return {
+    logicalCores: os.availableParallelism(),
+    memory: Math.floor(os.totalmem() / 2 ** 30),
+  };
+}
+
 function getTitleBarOverlay(): Electron.TitleBarOverlay {
   return {
     color: "#00000000",
@@ -853,10 +916,29 @@ function getTitleBarOverlay(): Electron.TitleBarOverlay {
   };
 }
 
+function loadSettings(): Settings {
+  try {
+    const data = fs.readFileSync(getSettingsFile(), "utf8");
+    return normalizeSettings(JSON.parse(data));
+  } catch {
+    return normalizeSettings({});
+  }
+}
+
 function newDocument() {
   openUrl(
     "graphest://eyJncmFwaHMiOlt7ImNvbG9yIjoicmdiYSgwLCA3OCwgMTQwLCAwLjgpIiwicmVsYXRpb24iOiIiLCJ0aGlja25lc3MiOjF9XSwidmVyc2lvbiI6MX0=",
   );
+}
+
+function normalizeSettings(data: unknown): Settings {
+  const parsed = settingsSchema.parse(data);
+  const { logicalCores, memory } = getSystemInformation();
+  return {
+    ...parsed,
+    cpuLimit: Math.min(parsed.cpuLimit, logicalCores),
+    memoryLimit: Math.min(parsed.memoryLimit, memory),
+  };
 }
 
 function notifyExportImageStatusChanged(progress: ExportImageProgress) {
@@ -1031,6 +1113,14 @@ async function save(doc: Document, to: SaveTo): Promise<boolean> {
   }
 }
 
+function saveSettings() {
+  try {
+    fs.writeFileSync(getSettingsFile(), JSON.stringify(settings, null, 2));
+  } catch (e) {
+    console.log("saving settings failed", e);
+  }
+}
+
 function serializeMenu(menu: Menu): ipc.MenuItemData[] {
   return menu.items.map((item) => ({
     accelerator: item.accelerator ?? undefined,
@@ -1067,8 +1157,16 @@ async function unload(doc: Document) {
   }
 }
 
+function showSettingsWindow() {
+  if (settingsWindow) {
+    settingsWindow.focus();
+  } else {
+    createSettingsWindow();
+  }
+}
+
 function updateQueue() {
-  while (activeJobs.length < MAX_ACTIVE_JOBS && sleepingJobs.length > 0) {
+  while (activeJobs.length < getMaxActiveJobs() && sleepingJobs.length > 0) {
     const job = sleepingJobs.shift();
     if (job !== undefined) {
       activeJobs.push(job);
@@ -1077,7 +1175,7 @@ function updateQueue() {
   }
 
   while (
-    activeJobs.length + sleepingJobs.length < MAX_JOBS &&
+    activeJobs.length + sleepingJobs.length < getMaxJobs() &&
     queuedJobs.length > 0
   ) {
     const job = queuedJobs.shift();
@@ -1120,7 +1218,7 @@ function updateQueue() {
       });
 
       const nBefore = countJobs();
-      if (activeJobs.length < MAX_ACTIVE_JOBS) {
+      if (activeJobs.length < getMaxActiveJobs()) {
         activeJobs.push(job);
         job.proc.stdin?.write("\n");
       } else {

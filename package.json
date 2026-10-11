@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "npm-run-all build:*",
-    "build:app": "webpack && cp src/renderer/index.html dist/",
+    "build:app": "webpack && cp src/renderer/index.html src/renderer/settings.html dist/",
     "build:rust": "bash -c \"cargo build --release && mkdir -p dist && rm -f dist/{compose,concatenate,graph} && cp target/release/{compose,concatenate,graph} dist/\"",
     "check-format": "prettier --check .",
     "clean": "npm-run-all clean:*",

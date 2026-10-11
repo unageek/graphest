@@ -78,7 +78,10 @@ const preloadConfig = {
 const rendererConfig = {
   ...baseConfig,
   target: "electron-renderer",
-  entry: { bundle: path.resolve("src/renderer/App.tsx") },
+  entry: {
+    bundle: path.resolve("src/renderer/MainWindow.tsx"),
+    settings: path.resolve("src/renderer/SettingsWindow.tsx"),
+  },
   module: {
     rules: [
       {

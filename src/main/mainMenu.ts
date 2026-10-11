@@ -10,8 +10,34 @@ export function createMainMenu(actions: MenuActions): Menu {
   // https://github.com/electron/electron/blob/main/lib/browser/api/menu-item-roles.ts
   const isMac = process.platform === "darwin";
   const isRetina = screen.getPrimaryDisplay().scaleFactor === 2;
+  const settings = {
+    id: Command.Settings,
+    label: "Se&ttings…",
+    accelerator: "CmdOrCtrl+,",
+    click: actions[Command.Settings],
+  };
   return Menu.buildFromTemplate([
-    ...(isMac ? [{ role: "appMenu" }] : []),
+    ...(isMac
+      ? [
+          {
+            role: "appMenu",
+            // The default items plus Settings.
+            submenu: [
+              { role: "about" },
+              { type: "separator" },
+              settings,
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ]
+      : []),
     {
       role: "fileMenu",
       label: "&File",
@@ -54,7 +80,7 @@ export function createMainMenu(actions: MenuActions): Menu {
         //   click: actions[Command.SaveToClipboard],
         // },
         { type: "separator" },
-        ...(isMac ? [] : [{ role: "quit" }]),
+        ...(isMac ? [] : [settings, { type: "separator" }, { role: "quit" }]),
       ],
     },
     { role: "editMenu", label: "&Edit" },

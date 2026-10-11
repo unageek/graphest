@@ -8,6 +8,7 @@ import {
 } from "./exportImage";
 import { Range } from "./range";
 import { Result } from "./result";
+import { Settings } from "./settings";
 
 export interface RelationError {
   range: Range;
@@ -25,6 +26,14 @@ export interface MenuItemData {
   submenu?: MenuItemData[];
   type: MenuItem["type"];
   visible: boolean;
+}
+
+/** Information about the computer. */
+export interface SystemInformation {
+  /** The number of logical CPU cores. */
+  logicalCores: number;
+  /** The amount of installed memory in GiB, rounded down. */
+  memory: number;
 }
 
 export enum SaveTo {
@@ -82,6 +91,20 @@ export interface GetMainMenu extends MessageToMain {
   result: MenuItemData[];
 }
 
+export const getSettings = "get-settings";
+export interface GetSettings extends MessageToMain {
+  channel: typeof getSettings;
+  args: [];
+  result: Settings;
+}
+
+export const getSystemInformation = "get-system-information";
+export interface GetSystemInformation extends MessageToMain {
+  channel: typeof getSystemInformation;
+  args: [];
+  result: SystemInformation;
+}
+
 export const openUrl = "open-url";
 export interface OpenUrl extends MessageToMain {
   channel: typeof openUrl;
@@ -121,6 +144,13 @@ export const requestUnload = "request-unload";
 export interface RequestUnload extends MessageToMain {
   channel: typeof requestUnload;
   args: [doc: Document];
+  result: void;
+}
+
+export const setSettings = "set-settings";
+export interface SetSettings extends MessageToMain {
+  channel: typeof setSettings;
+  args: [settings: Settings];
   result: void;
 }
 
