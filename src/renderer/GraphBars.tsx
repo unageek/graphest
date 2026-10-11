@@ -12,7 +12,7 @@ import { useDispatch } from "react-redux";
 import { RequestRelationResult } from "../common/ipc";
 import { GraphBar } from "./GraphBar";
 import { reorderGraph, setGraphTransposition, useSelector } from "./models/app";
-import { translucentBackground } from "./styles";
+import { frostedGlass } from "./styles";
 
 export interface GraphBarsProps {
   focusGraphView: () => void;
@@ -76,7 +76,7 @@ export const GraphBars = (props: GraphBarsProps): ReactNode => {
                     {...provided.draggableProps}
                     style={{
                       ...(snapshot.isDragging && {
-                        ...translucentBackground,
+                        ...frostedGlass,
                         boxShadow: tokens.shadow8,
                       }),
                       ...provided.draggableProps.style,

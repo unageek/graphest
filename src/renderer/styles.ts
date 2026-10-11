@@ -7,30 +7,35 @@ import {
 import Color from "color";
 import { CSSProperties, useSyncExternalStore } from "react";
 
-const opacity = 0.9;
-
-export const translucentBackground = {
+export const frostedGlass = {
   backdropFilter: "blur(30px)",
-  background: `rgb(from ${tokens.colorNeutralBackground2} r g b / ${opacity})`,
+  background: `rgb(from ${tokens.colorNeutralBackground2} r g b / var(--frostedGlassOpacity))`,
 };
 
-// Fluent's subtle buttons layer their state colors on the background. These tints make the buttons
-// on `translucentBackground` look as if the state colors were translucent as well.
-export const translucentSubtleStates = (theme: Theme) =>
-  ({
+// The variables for `frostedGlass` and Fluent's subtle buttons on it.
+export const frostedGlassVariables = (theme: Theme) => {
+  const background = theme.colorNeutralBackground2;
+  const opacity = new Color(background).isDark() ? 0.8 : 0.9;
+  return {
+    "--frostedGlassOpacity": String(opacity),
+    // Fluent's subtle buttons layer their state colors on the background.
+    // These tints make the buttons look as if the state colors were translucent as well.
     "--colorSubtleBackgroundHover": tint(
-      theme.colorNeutralBackground2,
+      background,
       theme.colorSubtleBackgroundHover,
+      opacity,
     ),
     "--colorSubtleBackgroundPressed": tint(
-      theme.colorNeutralBackground2,
+      background,
       theme.colorSubtleBackgroundPressed,
+      opacity,
     ),
-  }) as CSSProperties;
+  } as CSSProperties;
+};
 
 // Returns the color that, layered on `background` with `opacity`, looks like `color` with `opacity`.
 // It has the least alpha possible, so that the backdrop shows through as much as possible.
-const tint = (background: string, color: string) => {
+const tint = (background: string, color: string, opacity: number) => {
   const bg = new Color(background).unitArray();
   const fg = new Color(color).unitArray();
   const alpha = Math.max(

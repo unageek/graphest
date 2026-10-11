@@ -39,7 +39,7 @@ import {
   setZoomLevel,
   useSelector,
 } from "./models/app";
-import { translucentBackground } from "./styles";
+import { frostedGlass } from "./styles";
 
 // Make sure that when the window size is odd, such as (599, 799),
 // the initial position is exactly (0, 0), and
@@ -400,7 +400,7 @@ const useStyles = makeStyles({
     zIndex: 1000,
   },
   buttonContainer: {
-    ...translucentBackground,
+    ...frostedGlass,
     borderRadius: tokens.borderRadiusMedium,
     boxShadow: tokens.shadow4,
     display: "flex",

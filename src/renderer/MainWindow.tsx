@@ -40,11 +40,7 @@ import {
 import { setGraphRelation } from "./models/graph";
 import { store } from "./models/store";
 import { RenderDialog } from "./RenderDialog";
-import {
-  translucentBackground,
-  translucentSubtleStates,
-  useSystemTheme,
-} from "./styles";
+import { frostedGlass, frostedGlassVariables, useSystemTheme } from "./styles";
 import { TitleBar } from "./TitleBar";
 
 const abortExportImage = async () => {
@@ -172,7 +168,7 @@ const MainWindow = () => {
     <FluentProvider style={{ height: "100%" }} theme={theme}>
       <div
         style={{
-          ...translucentSubtleStates(theme),
+          ...frostedGlassVariables(theme),
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr)",
           gridTemplateRows: "auto minmax(0, 1fr)",
@@ -191,7 +187,7 @@ const MainWindow = () => {
           {/* A backdrop filter on the parent would confine the dragged bar's backdrop to it. */}
           <div
             style={{
-              ...translucentBackground,
+              ...frostedGlass,
               inset: 0,
               position: "absolute",
               zIndex: -1,
