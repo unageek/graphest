@@ -50,7 +50,12 @@ import { SaveTo } from "../common/ipc";
 import { tryParseBignum } from "../common/parse";
 import { Range } from "../common/range";
 import * as result from "../common/result";
-import { Settings, settingsSchema } from "../common/settings";
+import {
+  getDefaultRenderingParallelism,
+  getMaxRenderingParallelism,
+  Settings,
+  settingsSchema,
+} from "../common/settings";
 import { fromBase64Url, toBase64Url } from "./base64Url";
 import { createMainMenu } from "./mainMenu";
 import { deserialize, serialize } from "./serialize";
@@ -91,6 +96,9 @@ interface BrowserWindowWithTypedWebContents extends Electron.BrowserWindow {
 // *1. graph(1) pauses execution right after initialization and every after it finishes
 //     writing to the output image.
 // *2. graph(1) resumes execution when it receives a newline character from stdin.
+
+/** The maximum amount of memory in MiB that each graph task for exporting images can use. */
+const GRAPH_TASK_MEM_LIMIT = 1024;
 
 /** The maximum amount of memory in MiB that each running job can use. */
 const JOB_MEM_LIMIT = 64;
@@ -216,7 +224,7 @@ function createMainWindow() {
 function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
     fullscreenable: false,
-    height: 150,
+    height: 236,
     maximizable: false,
     minimizable: false,
     // On macOS, settings windows are independent of document windows.
@@ -438,7 +446,9 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
   function runGraphTasks(tasks: GraphTask[]) {
     return new Promise((resolve, reject) => {
       const messages = new Set<string>();
-      const maxProcesses = os.cpus().length;
+      const maxProcesses =
+        settings.renderingParallelism ??
+        getDefaultRenderingParallelism(getSystemInformation());
       const totalTasks = tasks.length;
       let completedTasks = 0;
 
@@ -532,6 +542,8 @@ ipcMain.handle<ipc.ExportImage>(ipc.exportImage, async (__, data, opts) => {
           "--bounds",
           ...bounds.map((b) => b.toString()),
           "--gray-alpha",
+          "--mem-limit",
+          GRAPH_TASK_MEM_LIMIT.toString(),
           "--output",
           path,
           "--output-once",
@@ -933,11 +945,14 @@ function newDocument() {
 
 function normalizeSettings(data: unknown): Settings {
   const parsed = settingsSchema.parse(data);
-  const { logicalCores, memory } = getSystemInformation();
+  const info = getSystemInformation();
   return {
     ...parsed,
-    cpuLimit: Math.min(parsed.cpuLimit, logicalCores),
-    memoryLimit: Math.min(parsed.memoryLimit, memory),
+    cpuLimit: Math.min(parsed.cpuLimit, info.logicalCores),
+    memoryLimit: Math.min(parsed.memoryLimit, info.memory),
+    renderingParallelism:
+      parsed.renderingParallelism &&
+      Math.min(parsed.renderingParallelism, getMaxRenderingParallelism(info)),
   };
 }
 

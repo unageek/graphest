@@ -11,7 +11,11 @@ import { ReactNode, StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import * as ipc from "../common/ipc";
 import { tryParseInteger } from "../common/parse";
-import { Settings } from "../common/settings";
+import {
+  getDefaultRenderingParallelism,
+  getMaxRenderingParallelism,
+  Settings,
+} from "../common/settings";
 import "./App.css";
 import { useSystemTheme } from "./styles";
 
@@ -54,8 +58,10 @@ interface SettingsWindowProps {
 
 const SettingsWindow = (props: SettingsWindowProps): ReactNode => {
   const cpuLimitId = useId();
-  const memoryLimitId = useId();
   const graphingId = useId();
+  const memoryLimitId = useId();
+  const parallelismId = useId();
+  const renderingId = useId();
   const [settings, setSettings] = useState(props.initialSettings);
   const styles = useStyles();
   const theme = useSystemTheme();
@@ -98,24 +104,51 @@ const SettingsWindow = (props: SettingsWindowProps): ReactNode => {
           value={settings.memoryLimit}
         />
       </div>
+
+      <div aria-labelledby={renderingId} className={styles.group} role="group">
+        <Subtitle2 as="h2" className={styles.heading} id={renderingId}>
+          Rendering
+        </Subtitle2>
+
+        <Label className={styles.label} htmlFor={parallelismId}>
+          Process in parallel:
+        </Label>
+        <IntegerInput
+          id={parallelismId}
+          max={getMaxRenderingParallelism(props.systemInformation)}
+          onChange={(value) => {
+            update({ ...settings, renderingParallelism: value });
+          }}
+          unit="tiles"
+          value={
+            settings.renderingParallelism ??
+            getDefaultRenderingParallelism(props.systemInformation)
+          }
+        />
+      </div>
     </FluentProvider>
   );
 };
 
 const useStyles = makeStyles({
+  // The groups share the columns, so that the inputs line up.
   root: {
     alignContent: "center",
     boxSizing: "border-box",
+    columnGap: "8px",
     display: "grid",
+    gridTemplateColumns: "auto auto",
     height: "100%",
     justifyContent: "center",
     padding: "24px",
+    rowGap: "24px",
   },
   group: {
     alignItems: "center",
     display: "grid",
     gap: "8px",
-    gridTemplateColumns: "auto auto",
+    gridColumn: "1 / -1",
+    gridTemplateColumns: "subgrid",
   },
   heading: {
     gridColumn: "1 / -1",
