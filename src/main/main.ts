@@ -224,19 +224,16 @@ function createMainWindow() {
 function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
     fullscreenable: false,
-    height: 236,
     maximizable: false,
     minimizable: false,
     // On macOS, settings windows are independent of document windows.
     parent: process.platform === "darwin" ? undefined : mainWindow,
     resizable: false,
     show: false,
-    useContentSize: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       spellcheck: false,
     },
-    width: 320,
   })
     .on("closed", () => {
       settingsWindow = undefined;
@@ -245,6 +242,8 @@ function createSettingsWindow() {
       settingsWindow?.show();
     });
   settingsWindow.removeMenu();
+  settingsWindow.setContentSize(320, 240);
+  settingsWindow.center();
   settingsWindow.loadFile(path.join(__dirname, "settings.html"));
 }
 
