@@ -71,6 +71,10 @@ const SettingsWindow = (props: SettingsWindowProps): ReactNode => {
     window.ipcRenderer.invoke<ipc.SetSettings>(ipc.setSettings, newSettings);
   };
 
+  const renderingParallelism =
+    settings.renderingParallelism ??
+    getDefaultRenderingParallelism(props.systemInformation);
+
   return (
     <FluentProvider className={styles.root} theme={theme}>
       <div aria-labelledby={graphingId} className={styles.group} role="group">
@@ -87,7 +91,7 @@ const SettingsWindow = (props: SettingsWindowProps): ReactNode => {
           onChange={(value) => {
             update({ ...settings, cpuLimit: value });
           }}
-          unit="cores"
+          unit={settings.cpuLimit > 1 ? "cores" : "core"}
           value={settings.cpuLimit}
         />
 
@@ -119,11 +123,8 @@ const SettingsWindow = (props: SettingsWindowProps): ReactNode => {
           onChange={(value) => {
             update({ ...settings, renderingParallelism: value });
           }}
-          unit="tiles"
-          value={
-            settings.renderingParallelism ??
-            getDefaultRenderingParallelism(props.systemInformation)
-          }
+          unit={renderingParallelism > 1 ? "tiles" : "tile"}
+          value={renderingParallelism}
         />
       </div>
     </FluentProvider>
