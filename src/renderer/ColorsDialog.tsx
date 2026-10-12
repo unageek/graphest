@@ -7,6 +7,7 @@ import {
   DialogSurface,
   DialogTitle,
   Label,
+  useId,
 } from "@fluentui/react-components";
 import { ReactNode } from "react";
 import { useDispatch } from "react-redux";
@@ -22,9 +23,11 @@ export interface ColorsDialogProps {
 }
 
 export const ColorsDialog = (props: ColorsDialogProps): ReactNode => {
+  const dispatch = useDispatch();
   const background = useSelector((s) => s.graphBackground);
   const foreground = useSelector((s) => s.graphForeground);
-  const dispatch = useDispatch();
+  const backgroundId = useId();
+  const foregroundId = useId();
 
   return (
     <Dialog
@@ -48,14 +51,20 @@ export const ColorsDialog = (props: ColorsDialogProps): ReactNode => {
               margin: "8px auto",
             }}
           >
-            <Label style={{ textAlign: "right" }}>Background:</Label>
+            <Label htmlFor={backgroundId} style={{ textAlign: "right" }}>
+              Background:
+            </Label>
             <ColorButton
               color={background}
+              id={backgroundId}
               onColorChanged={(c) => dispatch(setGraphBackground(c))}
             />
-            <Label style={{ textAlign: "right" }}>Axes and grids:</Label>
+            <Label htmlFor={foregroundId} style={{ textAlign: "right" }}>
+              Axes and grids:
+            </Label>
             <ColorButton
               color={foreground}
+              id={foregroundId}
               onColorChanged={(c) => dispatch(setGraphForeground(c))}
             />
           </DialogContent>

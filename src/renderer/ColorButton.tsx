@@ -10,6 +10,7 @@ import { ColorWell } from "./ColorWell";
 
 export interface ColorButtonProps {
   color: string;
+  id?: string;
   onColorChanged: (color: string) => void;
 }
 
@@ -17,7 +18,11 @@ export const ColorButton = (props: ColorButtonProps): ReactNode => {
   return (
     <Popover positioning="below-start" trapFocus={true}>
       <PopoverTrigger>
-        <Button icon={<ColorWell color={props.color} />} title="Color" />
+        <Button
+          icon={<ColorWell color={props.color} />}
+          id={props.id}
+          title="Color"
+        />
       </PopoverTrigger>
       <PopoverSurface>
         <ColorPicker

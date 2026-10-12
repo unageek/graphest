@@ -15,6 +15,7 @@ import {
   Option,
   ProgressBar,
   Text,
+  useId,
 } from "@fluentui/react-components";
 import { DismissRegular } from "@fluentui/react-icons";
 import { debounce } from "lodash";
@@ -104,7 +105,6 @@ enum State {
 
 export const RenderDialog = (props: RenderDialogProps): ReactNode => {
   const { dismiss, exportImage, saveOpts } = props;
-
   const [errors, setErrors] = useState<Set<string>>(new Set());
   const [opts, setOpts] = useState(props.opts);
   const progress = useSelector((s) => s.exportImageProgress);
@@ -128,6 +128,13 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
   const [xMinErrorMessage, setXMinErrorMessage] = useState<string>();
   const [yMaxErrorMessage, setYMaxErrorMessage] = useState<string>();
   const [yMinErrorMessage, setYMinErrorMessage] = useState<string>();
+
+  const antiAliasingId = useId();
+  const heightId = useId();
+  const timeoutId = useId();
+  const widthId = useId();
+  const xMinId = useId();
+  const yMinId = useId();
 
   const addOrRemoveErrors = useCallback(
     (keys: string[], e?: string): string | undefined => {
@@ -334,7 +341,9 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                         margin: "8px auto",
                       }}
                     >
-                      <Label style={{ textAlign: "right" }}>x:</Label>
+                      <Label htmlFor={xMinId} style={{ textAlign: "right" }}>
+                        x:
+                      </Label>
                       <div
                         style={{
                           alignItems: "center",
@@ -346,6 +355,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                         <Field validationMessage={xMinErrorMessage}>
                           <Input
                             className={styles.input}
+                            id={xMinId}
                             onChange={(_, { value }) => {
                               setXMin(value);
                               validateXMin(value);
@@ -366,7 +376,9 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                         </Field>
                       </div>
 
-                      <Label style={{ textAlign: "right" }}>y:</Label>
+                      <Label htmlFor={yMinId} style={{ textAlign: "right" }}>
+                        y:
+                      </Label>
                       <div
                         style={{
                           alignItems: "center",
@@ -378,6 +390,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                         <Field validationMessage={yMinErrorMessage}>
                           <Input
                             className={styles.input}
+                            id={yMinId}
                             onChange={(_, { value }) => {
                               setYMin(value);
                               validateYMin(value);
@@ -400,11 +413,14 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
 
                       <div style={{ gridColumn: "1 / span 2" }} />
 
-                      <Label style={{ textAlign: "right" }}>Width:</Label>
+                      <Label htmlFor={widthId} style={{ textAlign: "right" }}>
+                        Width:
+                      </Label>
                       <Field validationMessage={widthErrorMessage}>
                         <Input
                           className={styles.input}
                           contentAfter="pixels"
+                          id={widthId}
                           onChange={(_, { value }) => {
                             setWidth(value);
                             validateWidth(value);
@@ -413,11 +429,14 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                         />
                       </Field>
 
-                      <Label style={{ textAlign: "right" }}>Height:</Label>
+                      <Label htmlFor={heightId} style={{ textAlign: "right" }}>
+                        Height:
+                      </Label>
                       <Field validationMessage={heightErrorMessage}>
                         <Input
                           className={styles.input}
                           contentAfter="pixels"
+                          id={heightId}
                           onChange={(_, { value }) => {
                             setHeight(value);
                             validateHeight(value);
@@ -474,7 +493,10 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
 
                       <div style={{ gridColumn: "1 / span 2" }} />
 
-                      <Label style={{ textAlign: "right" }}>
+                      <Label
+                        htmlFor={antiAliasingId}
+                        style={{ textAlign: "right" }}
+                      >
                         Anti-aliasing:
                       </Label>
                       <Dropdown
@@ -483,6 +505,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                         defaultValue={antiAliasingOptionText.get(
                           opts.antiAliasing.toString(),
                         )}
+                        id={antiAliasingId}
                         listbox={{
                           className: styles.antialiasingDropdown,
                         }}
@@ -512,7 +535,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
 
                       <div style={{ gridColumn: "1 / span 2" }} />
 
-                      <Label style={{ textAlign: "right" }}>
+                      <Label htmlFor={timeoutId} style={{ textAlign: "right" }}>
                         Per-tile timeout:
                       </Label>
                       <div
@@ -527,6 +550,7 @@ export const RenderDialog = (props: RenderDialogProps): ReactNode => {
                           <Input
                             className={styles.input}
                             contentAfter="seconds"
+                            id={timeoutId}
                             onChange={(_, { value }) => {
                               setTimeout(value);
                               validateTimeout(value);

@@ -9,6 +9,7 @@ import {
   Field,
   Input,
   Label,
+  useId,
 } from "@fluentui/react-components";
 import { debounce } from "lodash";
 import {
@@ -59,13 +60,14 @@ const parseInputs = (x: string, y: string, zoomLevel: string) => {
 
 export const GoToDialog = (props: GoToDialogProps): ReactNode => {
   const { dismiss, goTo } = props;
-
   const [x, setX] = useState(props.center[0].toString());
   const [y, setY] = useState(props.center[1].toString());
   const [zoomLevel, setZoomLevel] = useState(props.zoomLevel.toString());
-
   const [parsed, setParsed] = useState(() => parseInputs(x, y, zoomLevel));
   const hasErrors = Object.values(parsed).some((r) => r.err !== undefined);
+  const xId = useId();
+  const yId = useId();
+  const zoomLevelId = useId();
 
   const updateParsed = useMemo(
     () =>
@@ -118,25 +120,34 @@ export const GoToDialog = (props: GoToDialogProps): ReactNode => {
                 margin: "8px auto",
               }}
             >
-              <Label style={{ textAlign: "right" }}>x:</Label>
+              <Label htmlFor={xId} style={{ textAlign: "right" }}>
+                x:
+              </Label>
               <Field validationMessage={parsed.x.err}>
                 <Input
+                  id={xId}
                   onChange={(_, { value }) => setX(value)}
                   style={{ width: "150px" }}
                   value={x.toString()}
                 />
               </Field>
-              <Label style={{ textAlign: "right" }}>y:</Label>
+              <Label htmlFor={yId} style={{ textAlign: "right" }}>
+                y:
+              </Label>
               <Field validationMessage={parsed.y.err}>
                 <Input
+                  id={yId}
                   onChange={(_, { value }) => setY(value)}
                   style={{ width: "150px" }}
                   value={y.toString()}
                 />
               </Field>
-              <Label style={{ textAlign: "right" }}>Zoom level:</Label>
+              <Label htmlFor={zoomLevelId} style={{ textAlign: "right" }}>
+                Zoom level:
+              </Label>
               <Field validationMessage={parsed.zoomLevel.err}>
                 <Input
+                  id={zoomLevelId}
                   onChange={(_, { value }) => setZoomLevel(value)}
                   style={{ width: "100px" }}
                   value={zoomLevel.toString()}
