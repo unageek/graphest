@@ -6,6 +6,7 @@ import {
   Menu,
   MenuItem,
   nativeTheme,
+  screen,
   shell,
   ipcMain as untypedIpcMain,
 } from "electron";
@@ -177,8 +178,11 @@ let settings: Settings = loadSettings();
 let settingsWindow: BrowserWindow | undefined;
 
 function createMainWindow() {
+  const width = 1200;
+  const height = 800;
+  const { workArea } = screen.getPrimaryDisplay();
   mainWindow = new BrowserWindow({
-    height: 800,
+    height,
     minHeight: 300,
     minWidth: 300,
     // `titleBarOverlay` exposes the title bar area to CSS as `env(titlebar-area-*)`,
@@ -190,7 +194,10 @@ function createMainWindow() {
       preload: path.join(__dirname, "preload.js"),
       spellcheck: false,
     },
-    width: 1200,
+    width,
+    // Workaround to the issue where the window is not centered on macOS.
+    x: Math.floor(workArea.x + Math.max(0, (workArea.width - width) / 2)),
+    y: Math.floor(workArea.y + Math.max(0, (workArea.height - height) / 2)),
   })
     .on("close", (e) => {
       if (documentIsOpen) {
